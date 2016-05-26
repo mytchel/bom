@@ -1,3 +1,5 @@
+ENTRY(_start)
+
 MEMORY
 {
 	ram : ORIGIN = 0x82000000, LENGTH = 0x10000

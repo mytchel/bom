@@ -3,17 +3,17 @@ CC := $(CROSS_COMPILE)gcc
 LD := $(CROSS_COMPILE)ld
 
 CFLAGS =-Wall -Werror -O2 \
-	-nostdlib -nostartfiles -ffreestanding
+	-nostdlib -nodefaultlibs -ffreestanding \
+	-Iinclude
 
 LDFLAGS = -T linker.ld 
 
 all: out.umg out.list
 
-startup.o: startup.s
-	$(CC) $(CFLAGS) -o startup.o -c startup.s 
+SRC=src/startup.s src/*.c
 
-out.elf: startup.o
-	$(LD) $(LDFLAGS) -o out.elf startup.o
+out.elf: ${SRC}
+	$(CC) ${CFLAGS} -o out.elf ${SRC} $(LDFLAGS) 
 	
 out.bin: out.elf
 	$(CROSS_COMPILE)objcopy -Obinary out.elf out.bin
