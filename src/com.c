@@ -1,6 +1,5 @@
 #include <types.h>
 #include <io.h>
-
 #include <com.h>
 
 #define UART0   0x44E09000
