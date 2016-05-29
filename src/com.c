@@ -48,24 +48,35 @@ uart_puts(const char *str)
 	}
 }
 
+static unsigned int
+div(unsigned int *num, unsigned int den)
+{
+	unsigned int i = 0;
+	while (*num > den) {
+		*num -= den;
+		i++;
+	}
+	return i;
+}
+
 static void
 print_int(unsigned int i, unsigned int base)
 {
-	int m;
+	unsigned int d;
+	unsigned char str[8];
+	int c = 0;
 	
-	while (i >= base) {
-		m = 0;
-		while (i >= (m + 1) * base)
-			m++;
-
-		if (m > 9) uart_putc('a' + m);
-		else uart_putc('0' + m);
-		i -= m * base;
+	while (i > 0) {
+		d = div(&i, base);
+		
+		if (i > 9) str[c++] = 'a' + (i-10);
+		else str[c++] = '0' + i;
+		
+		i = d;
 	}
-	
-	if (i > 0)  {
-		if (i > 9) uart_putc('a' + i);
-		else uart_putc('0' + i);
+
+	while (c > 0) {
+		uart_putc(str[--c]);
 	}
 }
 

@@ -16,7 +16,7 @@ vector_table_init:
 	
 .balign 32
 vector_table:
-	b . @ reset
+	ldr pc, =_start
 	b . @ not assigned
 	ldr pc, =swi_ex
 	ldr pc, =prefetch_abort
@@ -38,24 +38,12 @@ swi_ex:
 	
 	@ reload kernel registers and jump
 	pop {r4 - r12, lr}
-	msr cpsr_c, r12
-
-	push {r0, lr}
-	ldr r0, =sysmsg
-	bl uart_puts
-	pop {r0, lr}
 
 	bx lr
 
 .global activate
 activate:
-	push {r0, lr}
-	ldr r0, =actmsg
-	bl uart_puts
-	pop {r0, lr}
-	
 	@ save kernel registers
-	mrs r12, cpsr
 	push {r4 - r12, lr}
 	
 	@ change to user mode and set stack pointer

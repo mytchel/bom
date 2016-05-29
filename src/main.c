@@ -47,7 +47,9 @@ create_task(uint32_t *stack, void (*func)(void))
 int
 main(void)
 {
-	kprintf("This is '%s' a test i: %i h: %h u: %u\n", "not", -43, 43, 43);
+	kprintf("test 0x%h 0x%h\n", 0xff12, 220);
+	register int pc asm("r13");
+	kprintf("In main. sp = 0x%h\n", pc);
 	
 	uint32_t *user_tasks[TASK_LIMIT];
 	uint32_t user_stacks[TASK_LIMIT][STACK_SIZE];
@@ -59,12 +61,13 @@ main(void)
 	task_count = 2;
 	current_task = 0;
 
-	uart_puts("tasks initiated\n");
+	kprintf("tasks initiated\n");
 
 	while (1) {
-		uart_puts("activate next task\n");
+		kprintf("activate next task: %i\n", current_task);
+		kprintf("start address 0x%h\n", user_tasks[current_task]);
 		user_tasks[current_task] = activate(user_tasks[current_task]);
-		uart_puts("back to kernel\n");
+		kprintf("now points to 0x%h\n", user_tasks[current_task]);
 		
 //		current_task++;
 		if (current_task == task_count)
