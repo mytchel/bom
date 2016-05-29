@@ -1,3 +1,4 @@
+#include <stdarg.h>
 #include <types.h>
 #include <io.h>
 #include <com.h>
@@ -47,10 +48,77 @@ uart_puts(const char *str)
 	}
 }
 
-void 
-kprintf(char *str)
+static void
+print_int(unsigned int i, unsigned int base)
 {
-        uart_puts(str);
+	int m;
+	
+	while (i >= base) {
+		m = 0;
+		while (i >= (m + 1) * base)
+			m++;
+
+		if (m > 9) uart_putc('a' + m);
+		else uart_putc('0' + m);
+		i -= m * base;
+	}
+	
+	if (i > 0)  {
+		if (i > 9) uart_putc('a' + i);
+		else uart_putc('0' + i);
+	}
+}
+
+void 
+kprintf(const char *str, ...)
+{
+	int i;
+	unsigned int u;
+	char *s;
+	
+	va_list ap;
+	
+	va_start(ap, str);
+	while (*str != 0) {
+		if (*str != '%') {
+			uart_putc(*str++);
+			continue;
+		}
+		
+		str++;
+		switch (*str) {
+		case '%':
+			uart_putc('%');
+			break;
+		case 'i':
+			i = va_arg(ap, int);
+			if (i < 0) {
+				uart_putc('-');
+				i = -i;
+			}
+
+			print_int((unsigned int) i, 10);		
+			break;
+		case 'u':
+			u = va_arg(ap, unsigned int);
+			print_int(u, 10);
+			break;
+		case 'h':
+			u = va_arg(ap, unsigned int);
+			print_int(u, 16);
+			break;
+		case 'c':
+			i = va_arg(ap, int);
+			uart_putc(i);
+			break;
+		case 's':
+			s = va_arg(ap, char*);
+			uart_puts(s);
+			break;
+		}
+		str++;
+	}
+	va_end(ap);
 }
 
 char
@@ -59,3 +127,4 @@ uart_getc()
 	while ((readl(&uart->lsr) & (1 << 0)) == 0);
 	return (char) readl(&uart->rbr);
 }
+

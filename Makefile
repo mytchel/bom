@@ -2,24 +2,25 @@ CROSS_COMPILE ?= arm-none-eabi-
 CC := $(CROSS_COMPILE)gcc
 LD := $(CROSS_COMPILE)ld
 
-CFLAGS =-Wall -Werror -O2 \
-	-nostdlib -nodefaultlibs -ffreestanding \
+CFLAGS = -mcpu=cortex-a8 -Wall -Werror -O2 \
+	-nostdlib -nostdinc -nodefaultlibs \
 	-Iinclude
 
-LDFLAGS = -T linker.ld 
+LDFLAGS = -T linker.ld \
+	-nostdlib -nostdinc -nodefaultlibs -ffreestanding \
 
 all: out/out.umg out/out.list
 
-SRC=src/*.s src/*.c
+SRC=	src/*.s src/*.c
 
-out/out.elf: ${SRC}
+out/out.elf: ${SRC} include/*.h
 	$(CC) ${CFLAGS} -o out/out.elf ${SRC} $(LDFLAGS) 
 	
 out/out.bin: out/out.elf
 	$(CROSS_COMPILE)objcopy -Obinary out/out.elf out/out.bin
 
 out/out.list: out/out.elf
-	$(CROSS_COMPILE)objdump -S out/out.elf > out/out.list
+	$(CROSS_COMPILE)objdump -D out/out.elf > out/out.list
 
 
 loadaddr=0x82000000

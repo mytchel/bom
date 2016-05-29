@@ -1,5 +1,2 @@
-*.elf
-*.list
-*.o
-*.umg
+out/*
 mkuboot/mkuboot

@@ -1,3 +1,4 @@
+.arm
 .section .text
 
 .global vector_table_init
@@ -26,35 +27,71 @@ vector_table:
 
 @ Return from excecption offset is given on page
 @ 157 of Cortex A Series Programmer Guide
-
 swi_ex:
-	ldr r0, =swi_msg
-	bl uart_puts
-	movs pc, lr
+	@ store user stack on svc stack
+	stm sp, {sp}^
+	@ get user stack address and store in r0
+	ldm sp, {r0}
 
-prefetch_abort:
-	ldr r0, =prefetch_msg
+	@ push registers to user stack
+	stmfd r0!, {r4 - r12, lr}
+	
+	@ reload kernel registers and jump
+	pop {r4 - r12, lr}
+	msr cpsr_c, r12
+
+	push {r0, lr}
+	ldr r0, =sysmsg
 	bl uart_puts
+	pop {r0, lr}
+
+	bx lr
+
+.global activate
+activate:
+	push {r0, lr}
+	ldr r0, =actmsg
+	bl uart_puts
+	pop {r0, lr}
+	
+	@ save kernel registers
+	mrs r12, cpsr
+	push {r4 - r12, lr}
+	
+	@ change to user mode and set stack pointer
+	cps #16
+	mov sp, r0
+	
+	pop {r4 - r12, lr}
+	bx lr
+	
+prefetch_abort:
+	mov r1, #0
+	bl abort_handler
+
 	b . @ freeze 
 
 data_abort:
-	ldr r0, =data_msg
-	bl uart_puts	
+	mov r1, #1
+	bl abort_handler
+	
 	b . @ freeze 
 
 irq_ex:
+	mov r8, lr
 	ldr r0, =irq_msg
 	bl uart_puts
-	subs pc, lr, #4	
+	subs pc, r8, #4	
 
 fiq_ex:
+	mov r8, lr
 	ldr r0, =fiq_msg
 	bl uart_puts
-	subs pc, lr, #4	
+	subs pc, r8, #4	
 
 .section .rodata
-swi_msg: .asciz "swi intertupt"
-prefetch_msg: .asciz "prefetch abort intertupt"
-data_msg: .asciz "data abort intertupt"
-irq_msg: .asciz "irq intertupt"
-fiq_msg: .asciz "fiq intertupt"
+irq_msg: .asciz "irq intertupt\n"
+fiq_msg: .asciz "fiq intertupt\n"
+
+sysmsg: .asciz "swi\n"
+actmsg: .asciz "activateing\n"

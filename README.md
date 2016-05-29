@@ -12,3 +12,10 @@ https://stackoverflow.com/questions/6870712/beagleboard-bare-metal-programming
 
 http://wiki.osdev.org/Beagleboard
 
+https://github.com/oblique/voron
+
+Cortex A Series Programmer Guide
+
+Arm System Developers Guide
+
+am335x guide
