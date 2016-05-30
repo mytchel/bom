@@ -30,15 +30,27 @@ vector_table:
 @ Return from excecption offset is given on page
 @ 157 of Cortex A Series Programmer Guide
 swi_ex:
+	@ save r0 and r1 registers so we can use them
+	@ but dont update pointer 
+	stmdb sp, {r0, r1}^
+	@ pop r0 which is a pointer to the current processes
+	@ pcb structure
 	pop {r0}
 	
+	@ save spsr, r2 - r12, sp and lr to pcb
 	mrs r1, spsr
 	str r1, [r0]
-	add r0, r0, #4
-	stmia r0, {r0 - r12, sp}^
-	add r0, r0, #(4 * 14)
-	str lr, [r0]
-		
+	add r0, r0, #(4 * 3)
+	stmia r0, {r2 - r12, sp, lr}^
+	
+	@ retrive r0 and r1
+	sub sp, sp, #(4 * 3)
+	pop {r2, r4}
+	add sp, sp, #4
+	@ save r0 and r1 to pcb
+	sub r0, r0, #(4 * 2)
+	stmia r0, {r2, r4}
+	
 	@ reload kernel registers and jump
 	pop {r4 - r12, lr}
 	msr cpsr, r12
