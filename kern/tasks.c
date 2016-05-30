@@ -14,7 +14,6 @@ add_task(void (*func)(void))
 {
 	int i;
 	
-	asm("cpsid if"); /* disable interrupts */
 	kprintf("add task %i\n", task_count);
 
 	tasks[task_count].psr = 16; /* user mode */
@@ -26,8 +25,6 @@ add_task(void (*func)(void))
 	tasks[task_count].regs[14] = (uint32_t) func;
 
 	task_count++;
-	
-	asm("cpsie if"); /* enable interrupts */
 }
 
 void task1_func(void);
@@ -35,20 +32,17 @@ void task1_func(void);
 void
 scheduler(void)
 {
-	current_task = 0;
-	while (task_count > 0) {
-		kprintf("activate next task: %i\n", current_task);
-		activate((uint32_t *) &(tasks[current_task]));
-		
-		current_task++;
-		if (current_task == task_count)
-			current_task = 0;
-
-	}
+	kprintf("activate next task: %i\n", current_task);
+	activate((uint32_t *) &(tasks[current_task]));
+	
+	current_task++;
+	if (current_task == task_count)
+		current_task = 0;
 }
 
 void
 init_scheduler()
 {
 	task_count = 0;
+	current_task = 0;
 }

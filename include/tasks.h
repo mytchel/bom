@@ -3,7 +3,7 @@
 
 struct task {
 	uint32_t psr;
-	uint32_t regs[16];
+	uint32_t regs[15];
 	uint32_t stack[TASK_STACK_SIZE];
 };
 

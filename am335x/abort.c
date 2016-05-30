@@ -5,10 +5,10 @@
 void
 abort_handler(uint32_t ptr, uint32_t code)
 {
-	uart_puts("abort hander: ");
+	kprintf("abort hander: ");
 	if (code) {
-		uart_puts("data\n");
+		kprintf("data\n");
 	} else {
-		uart_puts("prefetch\n");
+		kprintf("prefetch\n");
 	}
 }

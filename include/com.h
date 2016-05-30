@@ -1,7 +1,8 @@
-void uart_putc(char c);
+#ifndef __COM
+#define __COM
 
-void uart_puts(const char *c);
+void kprintf(const char *, ...);
+void putc(char);
+char getc();
 
-char uart_getc();
-
-void kprintf(const char *str, ...);
+#endif

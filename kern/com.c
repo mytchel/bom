@@ -3,55 +3,10 @@
 #include <io.h>
 #include <com.h>
 
-#define UART0   0x44E09000
-
-struct uart {
-	union { 		/* 0x00 */
-		uint32_t rbr;
-		uint32_t thr;
-	};
-	uint32_t ier; 		/* 0x04 */
-	union {			/* 0x08 */
-		uint32_t iir;
-		uint32_t fcr;
-	};
-	uint32_t lcr;		/* 0x0c */
-	uint32_t mcr;		/* 0x10 */
-	uint32_t lsr;		/* 0x14 */
-	uint32_t msr;		/* 0x18 */
-	uint32_t scr;		/* 0x1c */
-	uint32_t dll;		/* 0x20 */
-	uint32_t dlh;		/* 0x24 */
-	uint32_t revid1;	/* 0x28 */
-	uint32_t revid2;	/* 0x2c */
-	uint32_t pwremu_mgmt;	/* 0x30 */
-	uint32_t mdr;		/* 0x34 */
-};
-
-static struct uart *uart = (struct uart *) UART0;
-
-char
-uart_getc()
-{
-	while ((readl(&uart->lsr) & (1 << 0)) == 0);
-	return (char) readl(&uart->rbr);
-}
-
 void
-uart_putc(char c)
-{
-	if (c == '\n')
-		uart_putc('\r');
-	
-	while ((readl(&uart->lsr) & (1 << 5)) == 0);
-	writel(c, &uart->thr);
-}
-
-void
-uart_puts(const char *str)
-{
+puts(char *str) {
 	while (*str) {
-		uart_putc(*str++);
+		putc(*str++);
 	}
 }
 
@@ -73,20 +28,15 @@ print_int(unsigned int i, unsigned int base)
 	unsigned char str[8];
 	int c = 0;
 	
-	if (i == 0) {
-		uart_putc('0');
-		return;
-	}
-	
-	while (i > 0) {
+	do {
 		d = div(&i, base);
 		if (i > 9) str[c++] = 'a' + (i-10);
 		else str[c++] = '0' + i;
 		i = d;
-	}
+	} while (i > 0);
 
 	while (c > 0) {
-		uart_putc(str[--c]);
+		putc(str[--c]);
 	}
 }
 
@@ -102,19 +52,19 @@ kprintf(const char *str, ...)
 	va_start(ap, str);
 	while (*str != 0) {
 		if (*str != '%') {
-			uart_putc(*str++);
+			putc(*str++);
 			continue;
 		}
 		
 		str++;
 		switch (*str) {
 		case '%':
-			uart_putc('%');
+			putc('%');
 			break;
 		case 'i':
 			i = va_arg(ap, int);
 			if (i < 0) {
-				uart_putc('-');
+				putc('-');
 				i = -i;
 			}
 
@@ -130,11 +80,11 @@ kprintf(const char *str, ...)
 			break;
 		case 'c':
 			i = va_arg(ap, int);
-			uart_putc(i);
+			putc(i);
 			break;
 		case 's':
 			s = va_arg(ap, char*);
-			uart_puts(s);
+			puts(s);
 			break;
 		}
 		str++;

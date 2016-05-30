@@ -5,10 +5,11 @@
 #include <syscall.h>
 #include <tasks.h>
 
-void task1_func(void)
+static void
+task1_func(void)
 {
 	int i = 0;
-	uart_puts("task1 return to kernel\n");
+	kprintf("task1 return to kernel\n");
 	syscall();
 	while (1) {
 		kprintf("task 1 i = %i\n", i++);
@@ -16,15 +17,16 @@ void task1_func(void)
 	}
 }
 
-void task2_func(void)
+static void
+task2_func(void)
 {
 	char c;
 	
-	uart_puts("task2 return to kernel\n");
+	kprintf("task2 return to kernel\n");
 	syscall();
 	while (1) {
-		uart_puts("waiting: ");
-		c = uart_getc();	
+		kprintf("waiting: ");
+		c = getc();	
 		kprintf("%c\n", c);
 		syscall();
 	}
@@ -42,7 +44,9 @@ main(void)
 
 	kprintf("tasks initiated\n");
 
-	scheduler();
+	while (1) {
+		scheduler();
+	}
 
 	return 0;
 }

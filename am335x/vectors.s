@@ -18,13 +18,13 @@ vector_table_init:
 .balign 32
 vector_table:
 	ldr pc, =_start
-	b . @ not assigned
+	ldr pc, =undefined_instruction
 	ldr pc, =swi_ex
 	ldr pc, =prefetch_abort
 	ldr pc, =data_abort
 	b . @ not assigned
 	ldr pc, =irq_ex
-	b . @ fiq is not used i think :) ????
+	b . @ fiq is not used i think ????
 
 
 @ Return from excecption offset is given on page
@@ -52,7 +52,7 @@ swi_ex:
 	stmia r0, {r2, r4}
 	
 	@ reload kernel registers and jump
-	pop {r4 - r12, lr}
+	pop {r4 - r12, pc}
 	msr cpsr, r12
 	mov pc, lr
 
@@ -65,13 +65,16 @@ activate:
 	push {r0}
 
 	@ change to user mode and set stack pointer
-	ldr r1, [r0]
+	ldmia r0!, {r1}
 	msr cpsr, r1
-	add r0, r0, #4
-	ldmia r0, {r0 - r12, sp, lr}
+	ldmia r0, {r0 - r12, sp, pc}
+
 	
-	mov pc, lr
-	
+undefined_instruction:
+	ldr r0, =inst_msg
+	bl puts
+	b .
+
 
 prefetch_abort:
 	mov r1, #0
@@ -88,13 +91,11 @@ data_abort:
 irq_ex:
 	push {lr}
 	ldr r0, =irq_msg
-	bl uart_puts
+	bl puts
 	pop {lr}
 	subs pc, lr, #4	
 
 
 .section .rodata
 irq_msg: .asciz "irq intertupt\n"
-
-sysmsg: .asciz "swi\n"
-actmsg: .asciz "activateing\n"
+inst_msg: .asciz "undefined instruction. hanging...\n"

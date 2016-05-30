@@ -6,7 +6,7 @@ _start:
 	
 	@ Print boot message
 	ldr r0, =boot_msg
-	bl uart_puts
+	bl puts
 	
 	bl vector_table_init
 	

@@ -140,8 +140,8 @@ main(int argc, char *argv[])
 	const struct os_map *osmapptr;
 	const struct type_map *typemapptr;
 	const char *iname, *oname;
-	const char *arch = MACHINE_ARCH;
-	const char *os = "OpenBSD";
+	const char *arch = "";
+	const char *os = "";
 	const char *type = "kernel";
 	const char *imgname = "boot";
 	int ifd, ofd;
