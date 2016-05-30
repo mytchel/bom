@@ -1,7 +1,8 @@
 .arm
 .global syscall
 syscall:
-	push {r4 - r12, lr}
-	mov r12, sp
+	push {lr}
 	svc 0
-	
+	pop {lr}
+	mov pc, lr
+

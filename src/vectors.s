@@ -13,6 +13,7 @@ vector_table_init:
 	mcr p15, 0, r0, c12, c0, 0	@ set vector base address, does this work?
 	
 	bx lr
+
 	
 .balign 32
 vector_table:
@@ -23,63 +24,65 @@ vector_table:
 	ldr pc, =data_abort
 	b . @ not assigned
 	ldr pc, =irq_ex
-	ldr pc, =fiq_ex
+	b . @ fiq is not used i think :) ????
+
 
 @ Return from excecption offset is given on page
 @ 157 of Cortex A Series Programmer Guide
 swi_ex:
-	@ store user stack on svc stack
-@	stm sp, {sp}^
-	@ get user stack address and store in r0
-@	ldm sp, {r0}
-
-	@ push registers to user stack
-@	stmfd r0!, {lr}
-
-	mov r0, r12
-
+	pop {r0}
+	
+	mrs r1, spsr
+	str r1, [r0]
+	add r0, r0, #4
+	stmia r0, {r0 - r12, sp}^
+	add r0, r0, #(4 * 14)
+	str lr, [r0]
+		
 	@ reload kernel registers and jump
-	pop {r4 - r12, pc}
+	pop {r4 - r12, lr}
+	msr cpsr, r12
+	mov pc, lr
+
 
 .global activate
 activate:
 	@ save kernel registers
+	mrs r12, cpsr
 	push {r4 - r12, lr}
-	
+	push {r0}
+
 	@ change to user mode and set stack pointer
-	cps #16
-	mov sp, r0
+	ldr r1, [r0]
+	msr cpsr, r1
+	add r0, r0, #4
+	ldmia r0, {r0 - r12, sp, lr}
 	
-	pop {r4 - r12, lr}
-	bx lr
+	mov pc, lr
 	
+
 prefetch_abort:
 	mov r1, #0
 	bl abort_handler
-
 	b . @ freeze 
+
 
 data_abort:
 	mov r1, #1
 	bl abort_handler
-	
 	b . @ freeze 
 
+
 irq_ex:
-	mov r8, lr
+	push {lr}
 	ldr r0, =irq_msg
 	bl uart_puts
-	subs pc, r8, #4	
+	pop {lr}
+	subs pc, lr, #4	
 
-fiq_ex:
-	mov r8, lr
-	ldr r0, =fiq_msg
-	bl uart_puts
-	subs pc, r8, #4	
 
 .section .rodata
 irq_msg: .asciz "irq intertupt\n"
-fiq_msg: .asciz "fiq intertupt\n"
 
 sysmsg: .asciz "swi\n"
 actmsg: .asciz "activateing\n"

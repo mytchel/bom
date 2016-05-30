@@ -12,7 +12,6 @@ SECTIONS
 	
 	.text 0x82000000 :
 	{
-		_kernel_bin_start = .;
 		*(.text)
 		*(.text.*)
 		*(.rodata)
@@ -34,7 +33,8 @@ SECTIONS
 	
 	. = ALIGN(4096);
 	_kernel_bss_end = .;
-	
+
+	. = ORIGIN(ram) + LENGTH(ram);
 	. = . + 0x2000;
 	_svc_stack_top = .;
 	. = . + 0x2000;
@@ -43,6 +43,4 @@ SECTIONS
 	_irq_stack_top = .;
 	. = . + 0x2000;
 	_abort_stack_top = .;
-	
-	_kernel_bin_end = .;
 }
