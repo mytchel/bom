@@ -20,7 +20,7 @@ out/out.bin: out/out.elf
 	$(CROSS_COMPILE)objcopy -Obinary out/out.elf out/out.bin
 
 out/out.list: out/out.elf
-	$(CROSS_COMPILE)objdump -D out/out.elf > out/out.list
+	$(CROSS_COMPILE)objdump -SD out/out.elf > out/out.list
 
 
 loadaddr=0x82000000

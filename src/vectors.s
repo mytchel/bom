@@ -29,17 +29,17 @@ vector_table:
 @ 157 of Cortex A Series Programmer Guide
 swi_ex:
 	@ store user stack on svc stack
-	stm sp, {sp}^
+@	stm sp, {sp}^
 	@ get user stack address and store in r0
-	ldm sp, {r0}
+@	ldm sp, {r0}
 
 	@ push registers to user stack
-	stmfd r0!, {r4 - r12, lr}
-	
-	@ reload kernel registers and jump
-	pop {r4 - r12, lr}
+@	stmfd r0!, {lr}
 
-	bx lr
+	mov r0, r12
+
+	@ reload kernel registers and jump
+	pop {r4 - r12, pc}
 
 .global activate
 activate:

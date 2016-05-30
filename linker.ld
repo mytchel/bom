@@ -1,5 +1,10 @@
-OUTPUT_ARCH(arm)
 ENTRY(_start)
+
+MEMORY
+{
+	ram (rwx) : ORIGIN = 0x82000000, LENGTH = 0x10000
+}
+
 SECTIONS
 {
 	_ram_start = 0x80000000;
@@ -9,23 +14,23 @@ SECTIONS
 	{
 		_kernel_bin_start = .;
 		*(.text)
-	}
+		*(.text.*)
+		*(.rodata)
+		*(.rodata.*)
+	} > ram
 	
-	.data : ALIGN(4096)
+	.data :
 	{
 		*(.data)
-	}
+		*(.data.*)
+	} > ram
 	
-	.rodata : ALIGN(4096)
-	{
-		*(.rodata)
-	}
-	
-	.bss : ALIGN(4096)
+	.bss :
 	{
 		_kernel_bss_start = .;
 		*(.bss)
-	}
+		*(.bss.*)
+	} > ram
 	
 	. = ALIGN(4096);
 	_kernel_bss_end = .;

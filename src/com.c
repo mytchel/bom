@@ -30,6 +30,13 @@ struct uart {
 
 static struct uart *uart = (struct uart *) UART0;
 
+char
+uart_getc()
+{
+	while ((readl(&uart->lsr) & (1 << 0)) == 0);
+	return (char) readl(&uart->rbr);
+}
+
 void
 uart_putc(char c)
 {
@@ -52,7 +59,7 @@ static unsigned int
 div(unsigned int *num, unsigned int den)
 {
 	unsigned int i = 0;
-	while (*num > den) {
+	while (*num >= den) {
 		*num -= den;
 		i++;
 	}
@@ -66,12 +73,15 @@ print_int(unsigned int i, unsigned int base)
 	unsigned char str[8];
 	int c = 0;
 	
+	if (i == 0) {
+		uart_putc('0');
+		return;
+	}
+	
 	while (i > 0) {
 		d = div(&i, base);
-		
 		if (i > 9) str[c++] = 'a' + (i-10);
 		else str[c++] = '0' + i;
-		
 		i = d;
 	}
 
@@ -131,11 +141,3 @@ kprintf(const char *str, ...)
 	}
 	va_end(ap);
 }
-
-char
-uart_getc()
-{
-	while ((readl(&uart->lsr) & (1 << 0)) == 0);
-	return (char) readl(&uart->rbr);
-}
-

@@ -16,17 +16,14 @@ _start:
 	bic r0, r0, #(1 << 2)		@ set C flag to 0
 	mcr p15, 0, r0, c1, c0, 0
 
-@	cps #17
-@	ldr sp, =_fiq_stack_top
-	
-@	cps #18
-@	ldr sp, =_irq_stack_top
-
-@	cps #23
-@	ldr sp, =_abort_stack_top
-	
+	cps #17
+	ldr sp, =_fiq_stack_top
+	cps #18
+	ldr sp, =_irq_stack_top
+	cps #23
+	ldr sp, =_abort_stack_top
 	cps #19
-	cpsie i
+	cpsie if
 		
 	bl main
 	

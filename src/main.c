@@ -4,6 +4,8 @@
 #include <io.h>
 #include <syscall.h>
 
+extern uint32_t _kernel_bss_start, _kernel_bss_end;
+
 uint32_t* activate(uint32_t *);
 
 #define STACK_SIZE 256
@@ -47,10 +49,6 @@ create_task(uint32_t *stack, void (*func)(void))
 int
 main(void)
 {
-	kprintf("test 0x%h 0x%h\n", 0xff12, 220);
-	register int pc asm("r13");
-	kprintf("In main. sp = 0x%h\n", pc);
-	
 	uint32_t *user_tasks[TASK_LIMIT];
 	uint32_t user_stacks[TASK_LIMIT][STACK_SIZE];
 	uint32_t current_task, task_count;
@@ -65,11 +63,11 @@ main(void)
 
 	while (1) {
 		kprintf("activate next task: %i\n", current_task);
-		kprintf("start address 0x%h\n", user_tasks[current_task]);
+		kprintf("start address 0x%h\n", (uint32_t) user_tasks[current_task] & 0xffff);
 		user_tasks[current_task] = activate(user_tasks[current_task]);
-		kprintf("now points to 0x%h\n", user_tasks[current_task]);
+		kprintf("now points to 0x%h\n", (uint32_t) user_tasks[current_task] & 0xffff);
 		
-//		current_task++;
+		current_task++;
 		if (current_task == task_count)
 			current_task = 0;
 
