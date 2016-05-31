@@ -10,10 +10,8 @@ task1_func(void)
 {
 	int i = 0;
 	kprintf("task1 return to kernel\n");
-	syscall();
 	while (1) {
 		kprintf("task 1 i = %i\n", i++);
-		syscall();
 	}
 }
 
@@ -23,18 +21,18 @@ task2_func(void)
 	char c;
 	
 	kprintf("task2 return to kernel\n");
-	syscall();
 	while (1) {
 		kprintf("waiting: ");
-		c = getc();	
+		c = (char) syscall(SYSCALL_getc);
 		kprintf("%c\n", c);
-		syscall();
 	}
 }
 
 int
 main(void)
 {
+	kprintf("in main\n");
+	
 	init_scheduler();
 	
 	kprintf("adding tasks\n");

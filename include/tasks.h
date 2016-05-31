@@ -7,10 +7,9 @@ struct task {
 	uint32_t stack[TASK_STACK_SIZE];
 };
 
-extern struct task tasks[MAX_TASKS];
-extern uint32_t current_task, task_count;
+extern struct task tasks_queue[MAX_TASKS];
+extern uint32_t current_task_pcb;
 
-void activate(uint32_t *task_struct);
 void add_task(void (*func)(void));
 
 void scheduler();

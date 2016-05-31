@@ -30,46 +30,21 @@ vector_table:
 @ Return from excecption offset is given on page
 @ 157 of Cortex A Series Programmer Guide
 swi_ex:
-	@ save r0 and r1 registers so we can use them
-	@ but dont update pointer 
-	stmdb sp, {r0, r1}^
-	@ pop r0 which is a pointer to the current processes
-	@ pcb structure
-	pop {r0}
+	stmdb sp, {r0 - r12, sp, lr}^
+	sub sp, sp, #(4 * 15)
+
+	bl save_task
 	
-	@ save spsr, r2 - r12, sp and lr to pcb
-	mrs r1, spsr
-	str r1, [r0]
-	add r0, r0, #(4 * 3)
-	stmia r0, {r2 - r12, sp, lr}^
-	
-	@ retrive r0 and r1
-	sub sp, sp, #(4 * 3)
-	pop {r2, r4}
-	add sp, sp, #4
-	@ save r0 and r1 to pcb
-	sub r0, r0, #(4 * 2)
-	stmia r0, {r2, r4}
-	
-	@ reload kernel registers and jump
-	pop {r4 - r12, pc}
+	ldr r8, =syscall_table
+	ldr lr, =1f 
+	ldr pc, [r8, r9, lsl #2]
+
+1:
+	pop {r4 - r12, lr}
 	msr cpsr, r12
-	mov pc, lr
-
-
-.global activate
-activate:
-	@ save kernel registers
-	mrs r12, cpsr
-	push {r4 - r12, lr}
-	push {r0}
-
-	@ change to user mode and set stack pointer
-	ldmia r0!, {r1}
-	msr cpsr, r1
-	ldmia r0, {r0 - r12, sp, pc}
-
+	movs pc, lr
 	
+
 undefined_instruction:
 	ldr r0, =inst_msg
 	bl puts
@@ -89,13 +64,13 @@ data_abort:
 
 
 irq_ex:
-	push {lr}
 	ldr r0, =irq_msg
 	bl puts
-	pop {lr}
-	subs pc, lr, #4	
+	b .
+@	subs pc, lr, #4	
 
 
 .section .rodata
 irq_msg: .asciz "irq intertupt\n"
 inst_msg: .asciz "undefined instruction. hanging...\n"
+swi_msg: .asciz "syscall...\n"

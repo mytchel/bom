@@ -1,0 +1,4 @@
+
+mount /dev/sd2i /mnt || exit
+cp out/am335x.umg /mnt/
+umount /mnt
