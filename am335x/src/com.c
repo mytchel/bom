@@ -1,7 +1,7 @@
 #include <stdarg.h>
-#include <types.h>
 #include <io.h>
 #include <com.h>
+#include <machine/types.h>
 
 #define UART0   0x44E09000
 

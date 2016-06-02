@@ -14,9 +14,19 @@ static unsigned int
 div(unsigned int *num, unsigned int den)
 {
 	unsigned int i = 0;
-	while (*num >= den) {
-		*num -= den;
-		i++;
+	if (den == 10) {
+		i = *num / 10;
+		*num = *num % 10;
+		return i;
+	} else if (den == 16) {
+		i = *num / 16;
+		*num = *num % 16;
+		return i;
+	} else {
+		while (*num >= den) {
+			*num -= den;
+			i++;
+		}
 	}
 	return i;
 }

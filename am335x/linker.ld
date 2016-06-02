@@ -1,4 +1,3 @@
-ENTRY(_start)
 
 MEMORY
 {

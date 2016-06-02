@@ -27,28 +27,81 @@ vector_table:
 	b . @ fiq is not used i think ????
 
 
+.global activate_first_task
+activate_first_task:
+	ldr r0, =current_task_ptr
+	ldr r0, [r0]
+	
+	@ change to user mode and set stack pointer
+	ldmia r0!, {r1}
+	msr cpsr, r1
+	ldmia r0, {r0 - r12, sp, lr}
+	
+	@ start task
+	movs pc, lr
+
 @ Return from excecption offset is given on page
 @ 157 of Cortex A Series Programmer Guide
 swi_ex:
-	stmdb sp, {r0 - r12, sp, lr}^
-	sub sp, sp, #(4 * 15)
-
-	bl save_task
+	push {r4 - r12, lr}
+	mrs r12, spsr
+	push {r12}
 	
 	ldr r8, =syscall_table
 	ldr lr, =1f 
-	ldr pc, [r8, r9, lsl #2]
+	ldr pc, [r8, r0, lsl #2]
 
 1:
-	pop {r4 - r12, lr}
+	pop {r12}
 	msr cpsr, r12
+	pop {r4 - r12, lr}
+	movs pc, lr
+
+
+.macro restore_current_task
+	ldr r0, =current_task_ptr
+	ldr r0, [r0]
+	
+	@ change to user mode and set stack pointer
+	ldmia r0!, {r1}
+	msr cpsr, r1
+	ldmia r0, {r0 - r12, sp, lr}
+.endm
+
+
+.macro save_current_task
+	push {r0, r1}
+	
+	ldr r0, =current_task_ptr
+	ldr r0, [r0]
+
+	@ store cpsr
+	mrs r1, spsr
+	stmia r0!, {r1}
+	
+	add r0, r0, #(4 * 2)
+	stmia r0, {r2 - r12, sp}^
+	add r0, r0, #(4 * 12)
+	stmia r0, {lr}
+	sub r0, r0, #(4 * 14)
+	
+	@ store r0, r1, r2
+	pop {r1, r2}
+	stmia r0, {r1, r2}
+.endm
+
+
+irq_ex:
+	save_current_task
+	bl intc_irq_handler
+	restore_current_task
 	movs pc, lr
 	
 
 undefined_instruction:
 	ldr r0, =inst_msg
 	bl puts
-	b .
+	b . @ freeze
 
 
 prefetch_abort:
@@ -63,14 +116,6 @@ data_abort:
 	b . @ freeze 
 
 
-irq_ex:
-	ldr r0, =irq_msg
-	bl puts
-	b .
-@	subs pc, lr, #4	
-
-
 .section .rodata
-irq_msg: .asciz "irq intertupt\n"
 inst_msg: .asciz "undefined instruction. hanging...\n"
-swi_msg: .asciz "syscall...\n"
+act_msg: .asciz "activating\n"

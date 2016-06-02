@@ -8,9 +8,10 @@
 static void
 task1_func(void)
 {
-	int i = 0;
-	kprintf("task1 return to kernel\n");
+	int i = 0, j;
+	kprintf("task1 started\n");
 	while (1) {
+		for (j = 0; j < 1000; j++);
 		kprintf("task 1 i = %i\n", i++);
 	}
 }
@@ -18,22 +19,20 @@ task1_func(void)
 static void
 task2_func(void)
 {
-	char c;
+	int i = 0;
 	
-	kprintf("task2 return to kernel\n");
+	kprintf("task2 started\n");
 	while (1) {
-		kprintf("waiting: ");
-		c = (char) syscall(SYSCALL_getc);
-		kprintf("%c\n", c);
+		kprintf("task2 %i\n", i++);
 	}
 }
 
-int
-main(void)
+void
+main_setup(void)
 {
 	kprintf("in main\n");
 	
-	init_scheduler();
+	tasks_init();
 	
 	kprintf("adding tasks\n");
 	
@@ -41,10 +40,4 @@ main(void)
 	add_task(&task2_func);
 
 	kprintf("tasks initiated\n");
-
-	while (1) {
-		scheduler();
-	}
-
-	return 0;
 }

@@ -8,7 +8,7 @@ _start:
 	ldr r0, =boot_msg
 	bl puts
 	
-@	bl vector_table_init
+	bl vector_table_init
 	
 	@ disable cache 
 	mrc p15, 0, r0, c1, c0, 0
@@ -23,13 +23,17 @@ _start:
 	cps #23
 	ldr sp, =_abort_stack_top
 	cps #19
+	
+	bl intc_init
 
+	bl main_setup
+	
 	cpsie if
 	
-	bl timerInit
-
-	b .		
-	bl main
+	bl timer_init
+	
+	bl activate_first_task
+	
 	
 .section .rodata
 boot_msg:
