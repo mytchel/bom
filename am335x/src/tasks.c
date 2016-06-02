@@ -45,7 +45,7 @@ machine_tasks_add(void (*func)(void), struct task *task)
 
 	mt->regs[13] = (uint32_t)
 		&(mt->stack[TASK_STACK_SIZE - 1]);
-	mt->regs[14] = (uint32_t) func;
+	mt->regs[14] = (uint32_t) func + 4;
 	
 	task_count++;
 }

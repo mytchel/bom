@@ -1,2 +1,6 @@
-out/*
+*.o
 docs
+*.elf
+*.bin
+*.list
+*.umg

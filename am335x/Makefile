@@ -1,5 +1,7 @@
 .PHONY: all
-all: out/am335x.umg out/am335x.list out/uenv.txt
+all: am335x.list am335x.umg
+
+loadaddr=0x82000000
 
 SUBDIRS = mkuboot
 
@@ -38,26 +40,42 @@ SRC := 	\
 	../kern/syscall.c	\
 	../kern/tasks.c
 
-out/am335x.elf: $(SRC) machine/*.h ../include/*.h machine/*.h
-	$(CC) $(CFLAGS) -o out/am335x.elf \
-		$(SRC) \
-		$(LDFLAGS)
 
-out/am335x.bin: out/am335x.elf
-	$(OBJCOPY) -Obinary out/am335x.elf out/am335x.bin
+$(SRC:%.c=%.o): ../include/*.h machine/*.h
+	@echo CC $@
+	@$(CC) $(CFLAGS) -c -o $@ $(@:%.o=%.c) $(INCLUDES)
 
-out/am335x.list: out/am335x.elf
-	$(OBJDUMP) -SD out/am335x.elf > out/am335x.list
 
-loadaddr=0x82000000
-out/am335x.umg: out/am335x.bin
-	./mkuboot/mkuboot -a arm \
+$(SRC:%.s=%.o):
+	@echo CC $@
+	@$(CC) $(CFLAGS) -c -o $@ $(@:%.o=%.s)
+
+
+am335x.elf: $(SRC:%.s=%.o:%.c=%.o) machine/*.h ../include/*.h machine/*.h
+	@echo LD $@
+	@$(LD) $(LDFLAGS) -o $@ \
+		$(SRC:%.s=%.o:%.c=%.o)
+
+
+am335x.bin: am335x.elf
+	@echo OBJCOPY $@
+	@$(OBJCOPY) -Obinary am335x.elf am335x.bin
+
+
+am335x.list: am335x.elf
+	@echo OBJDUMP $@
+	@$(OBJDUMP) -SD am335x.elf > am335x.list
+
+
+am335x.umg: am335x.bin
+	@echo MKUBOOT $@
+	@./mkuboot/mkuboot -a arm \
 		-e ${loadaddr} -l ${loadaddr} -o linux \
-		out/am335x.bin out/am335x.umg
+		am335x.bin am335x.umg
 
-out/uenv.txt: uenv.txt
-	cp uenv.txt out/uenv.txt
 
 .PHONY: clean
 clean:
-	rm -f out/*
+	@echo cleaning
+	@rm -f out/* src/*.o ../kern/*.o \
+		am335x.*

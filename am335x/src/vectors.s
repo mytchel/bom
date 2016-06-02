@@ -38,7 +38,7 @@ activate_first_task:
 	ldmia r0, {r0 - r12, sp, lr}
 	
 	@ start task
-	movs pc, lr
+	subs pc, lr, #4
 
 @ Return from excecption offset is given on page
 @ 157 of Cortex A Series Programmer Guide
@@ -95,7 +95,7 @@ irq_ex:
 	save_current_task
 	bl intc_irq_handler
 	restore_current_task
-	movs pc, lr
+	subs pc, lr, #4
 	
 
 undefined_instruction:
@@ -118,4 +118,3 @@ data_abort:
 
 .section .rodata
 inst_msg: .asciz "undefined instruction. hanging...\n"
-act_msg: .asciz "activating\n"
