@@ -11,6 +11,7 @@ SECTIONS
 	
 	.text 0x82000000 :
 	{
+		src/startup.o (.text)
 		*(.text)
 		*(.text.*)
 		*(.rodata)

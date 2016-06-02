@@ -4,6 +4,7 @@ mkuboot: $(src)
 	@echo CC mkuboot
 	@cc -o mkuboot $(src) -lz
 
-.PHONY: clean
 clean:
-	rm -f mkuboot
+	@rm -f mkuboot
+
+.PHONY: clean

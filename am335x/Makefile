@@ -1,14 +1,8 @@
-.PHONY: all
 all: am335x.list am335x.umg
 
 loadaddr=0x82000000
 
 SUBDIRS = mkuboot
-
-.PHONY: subdirs $(SUBDIRS)
-subdirs: $(SUBDIRS)
-$(SUBDIRS): 
-	@$(MAKE) -C $@
 
 CROSS_COMPILE ?= arm-none-eabi-
 
@@ -20,16 +14,26 @@ OBJDUMP := $(CROSS_COMPILE)objdump
 CFLAGS :=-mcpu=cortex-a8 \
 	-Wall -Werror -O2 \
 	-nostdlib -nostdinc -nodefaultlibs \
-	-ffreestanding \
-	-I../include -I.
+	-ffreestanding
 
 LDFLAGS := -T linker.ld \
 	-nostdlib -nostdinc -nodefaultlibs
 
-SRC := 	\
+INCLUDE_DIRS := ../include .
+INCLUDE_FILES :=
+INCLUDES := 
+
+.for dir in $(INCLUDE_DIRS)
+INCLUDES += -I$(dir)
+INCLUDE_FILES += $(dir)/*
+.endfor
+
+A_SRC := \
 	src/startup.s		\
 	src/vectors.s		\
-	src/syscall.s		\
+	src/syscall.s
+
+C_SRC := \
 	src/abort.c		\
 	src/com.c		\
 	src/intc.c		\
@@ -40,21 +44,19 @@ SRC := 	\
 	../kern/syscall.c	\
 	../kern/tasks.c
 
-
-$(SRC:%.c=%.o): ../include/*.h machine/*.h
+$(C_SRC:%.c=%.o): 
 	@echo CC $@
-	@$(CC) $(CFLAGS) -c -o $@ $(@:%.o=%.c) $(INCLUDES)
+	@$(CC) $(CFLAGS) -c -o $@ $> $(INCLUDES)
 
 
-$(SRC:%.s=%.o):
+$(A_SRC:%.s=%.o):
 	@echo CC $@
-	@$(CC) $(CFLAGS) -c -o $@ $(@:%.o=%.s)
+	@$(CC) $(CFLAGS) -c -o $@ $> $(INCLUDES)
 
 
-am335x.elf: $(SRC:%.s=%.o:%.c=%.o) machine/*.h ../include/*.h machine/*.h
+am335x.elf: $(A_SRC:%.s=%.o) $(C_SRC:%.c=%.o)
 	@echo LD $@
-	@$(LD) $(LDFLAGS) -o $@ \
-		$(SRC:%.s=%.o:%.c=%.o)
+	@$(LD) $(LDFLAGS) -o $@ $>
 
 
 am335x.bin: am335x.elf
@@ -67,15 +69,24 @@ am335x.list: am335x.elf
 	@$(OBJDUMP) -SD am335x.elf > am335x.list
 
 
-am335x.umg: am335x.bin
+mkuboot/mkuboot:
+	@$(MAKE) -C mkuboot
+	
+am335x.umg: am335x.bin mkuboot/mkuboot
 	@echo MKUBOOT $@
 	@./mkuboot/mkuboot -a arm \
 		-e ${loadaddr} -l ${loadaddr} -o linux \
 		am335x.bin am335x.umg
 
 
-.PHONY: clean
-clean:
+clean: subdirs_clean
 	@echo cleaning
 	@rm -f out/* src/*.o ../kern/*.o \
 		am335x.*
+
+subdirs_clean:
+	@for dir in $(SUBDIRS); do \
+		$(MAKE) -C $$dir clean; \
+	done
+
+.PHONY: all clean subdirs_clean
