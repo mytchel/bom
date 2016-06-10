@@ -1,8 +1,7 @@
-#include <io.h>
-#include <com.h>
-#include <machine/types.h>
-#include <machine/intc.h>
-#include <machine/tasks.h>
+#include "io.h"
+#include "intc.h"
+#include "../include/com.h"
+#include "../include/proc.h"
 
 #define TIMER0 0x44E05000
 #define TIMER1 0x44E31000
@@ -31,7 +30,7 @@
 
 static void systick_handler(uint32_t);
 
-void timer_init()
+void systick_init()
 {
 	writel(0, TIMER2 + TIMER_TCLR); /* disable timer */
 	writel(0, TIMER2 + TIMER_TCRR); /* set timer to 0 */
@@ -39,7 +38,7 @@ void timer_init()
 
 	intc_add_handler(TINT2, &systick_handler);
 	
-	writel(5000000, TIMER2 + TIMER_TMAR); /* set compare value */
+	writel(10000000, TIMER2 + TIMER_TMAR); /* set compare value */
 
 	kprintf("start timer\n");	
 	writel((1<<6) |1, TIMER2 + TIMER_TCLR);
@@ -48,11 +47,13 @@ void timer_init()
 void
 systick_handler(uint32_t irqn)
 {
+	kprintf("systick\n");
+
 	writel(0, TIMER2 + TIMER_TCRR); /* set timer to 0 */
-	
-	machine_tasks_next();
-	
 	/* Clear irq status. */
 	writel(readl(TIMER2 + TIMER_IRQSTATUS), 
 		TIMER2 + TIMER_IRQSTATUS);
+
+	kprintf("ready to roll\n");
+	schedule();
 }

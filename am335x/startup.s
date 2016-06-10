@@ -23,16 +23,13 @@ _start:
 	cps #23
 	ldr sp, =_abort_stack_top
 	cps #19
-	
-	bl intc_init
 
-	bl main_setup
+	bl memory_init
+	bl scheduler_init
+	bl intc_init
+	bl systick_init
 	
-	cpsie if
-	
-	bl timer_init
-	
-	bl activate_first_task
+	b schedule
 	
 	
 .section .rodata

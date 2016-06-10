@@ -1,7 +1,6 @@
-#include <stdarg.h>
-#include <types.h>
-#include <io.h>
-#include <com.h>
+#include "types.h"
+#include "../include/com.h"
+#include "../include/stdarg.h"
 
 void
 puts(char *str) {
@@ -14,20 +13,22 @@ static unsigned int
 div(unsigned int *num, unsigned int den)
 {
 	unsigned int i = 0;
+	unsigned int n = *num;
+	
 	if (den == 10) {
-		i = *num / 10;
-		*num = *num % 10;
-		return i;
+		i = n / 10;
+		n = n % 10;
 	} else if (den == 16) {
-		i = *num / 16;
-		*num = *num % 16;
-		return i;
+		i = n / 16;
+		n = n % 16;
 	} else {
-		while (*num >= den) {
-			*num -= den;
+		while (n >= den) {
+			n -= den;
 			i++;
 		}
 	}
+
+	*num = n;
 	return i;
 }
 

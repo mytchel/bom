@@ -1,7 +1,7 @@
-#include <io.h>
-#include <com.h>
-#include <machine/types.h>
-#include <machine/intc.h>
+#include "types.h"
+#include "io.h"
+#include "intc.h"
+#include "../include/com.h"
 
 #define INTC			0x48200000
 
@@ -31,24 +31,22 @@ void
 intc_init(void)
 {
 	int i;
+	
+	kprintf("intc_init\n");
 
 	/* enable interface auto idle */
 	writel(1, INTC + INTC_SYSCONFIG);
 
 	kprintf("mask interrupts\n");
-		
 	/* mask all interrupts. */
 	for (i = 0; i < intc_nirq / 32; i++) {
 		writel(0xffffffff, INTC + INTC_MIRn(i));
 	}
 	
-	/* Enable all interrupts. */
+	/* Set all interrupts to lowest priority. */
 	for (i = 0; i < intc_nirq; i++) {
 		writel(63 << 2, INTC + INTC_ILRn(i));
 	}
-	
-	kprintf("enable interrupts\n");
-	writel(1, INTC + INTC_CONTROL);
 }
 
 void
@@ -56,8 +54,6 @@ intc_irq_handler(void)
 {
 	uint32_t irq = readl(INTC + INTC_SIR_IRQ);
 	
-	kprintf("irq : %i\n", irq);
-
 	if (handlers[irq]) {
 		handlers[irq](irq);
 	}
@@ -67,19 +63,18 @@ intc_irq_handler(void)
 }
 
 void
-intc_add_handler(uint32_t irq, void (*func)(uint32_t))
+intc_add_handler(uint32_t irqn, void (*func)(uint32_t))
 {
-	kprintf("intc add handler\n");
-	
 	uint32_t mask, mfield;
 	
-	handlers[irq] = func;
+	handlers[irqn] = func;
 	
-	kprintf("intc unmask\n");
 	/* Unmask interrupt number. */
-	mfield = irq / 32;
-	mask = 1 << (irq % 32);
+	mfield = irqn / 32;
+	mask = 1 << (irqn % 32);
 	writel(mask, INTC + INTC_CLEARn(mfield));
+
+	writel(1, INTC + INTC_CONTROL);
 	
-	kprintf("intc handler set up\n");
+	kprintf("intc handler set for %i\n", irqn);
 }

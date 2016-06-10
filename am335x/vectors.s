@@ -1,4 +1,3 @@
-.arm
 .section .text
 
 .global vector_table_init
@@ -14,7 +13,6 @@ vector_table_init:
 	
 	bx lr
 
-	
 .balign 32
 vector_table:
 	ldr pc, =_start
@@ -24,77 +22,70 @@ vector_table:
 	ldr pc, =data_abort
 	b . @ not assigned
 	ldr pc, =irq_ex
-	b . @ fiq is not used i think ????
+	b . @ fiq is not used
 
 
-.global activate_first_task
-activate_first_task:
-	ldr r0, =current_task_ptr
-	ldr r0, [r0]
-	
+.macro restore_task
+.endm
+
+.global activate_proc
+activate_proc:
+	ldmia r0!, {r1, sp, lr}
+	movs pc, lr
+
 	@ change to user mode and set stack pointer
-	ldmia r0!, {r1}
-	msr cpsr, r1
-	ldmia r0, {r0 - r12, sp, lr}
+	ldr r0, =machine_current
+	ldr r0, [r0]
+	add r0, r0, #(4 * 2)
+	ldr lr, [r0]
 	
-	@ start task
-	subs pc, lr, #4
+@	ldmia r0!, {r1}
+@	msr cpsr, r1
+@	ldmia r0, {sp, lr}
+@	pop {r0 - r12}
+
+	movs pc, lr
+
+.macro save_current_task
+	@ save user stack point and r0 to stack
+	@ I think.
+	push {r0}
+	push {sp}^ 
+	pop {r0} @ pop user stack pointer
+	stmdb r0!, {r1 - r12}
+	pop {r1} @ retrieve r0
+	stmdb r0!, {r1} @ save r0
+	
+	ldr r1, =machine_current
+	ldr r1, [r1]
+
+	@ store cpsr
+	mrs r2, spsr
+	stmia r1!, {r2}
+	stmia r1!, {r0, lr}
+.endm
 
 @ Return from excecption offset is given on page
 @ 157 of Cortex A Series Programmer Guide
 swi_ex:
 	push {r4 - r12, lr}
-	mrs r12, spsr
-	push {r12}
-	
-	ldr r8, =syscall_table
-	ldr lr, =1f 
-	ldr pc, [r8, r0, lsl #2]
 
-1:
-	pop {r12}
-	msr cpsr, r12
-	pop {r4 - r12, lr}
-	movs pc, lr
+	ldr r0, =swi_msg
+	bl puts
+			
+@	ldr r8, =syscall_table
+@	ldr lr, =1f 
+@	ldr pc, [r8, r0, lsl #2]
 
-
-.macro restore_current_task
-	ldr r0, =current_task_ptr
-	ldr r0, [r0]
-	
-	@ change to user mode and set stack pointer
-	ldmia r0!, {r1}
-	msr cpsr, r1
-	ldmia r0, {r0 - r12, sp, lr}
-.endm
-
-
-.macro save_current_task
-	push {r0, r1}
-	
-	ldr r0, =current_task_ptr
-	ldr r0, [r0]
-
-	@ store cpsr
-	mrs r1, spsr
-	stmia r0!, {r1}
-	
-	add r0, r0, #(4 * 2)
-	stmia r0, {r2 - r12, sp}^
-	add r0, r0, #(4 * 12)
-	stmia r0, {lr}
-	sub r0, r0, #(4 * 14)
-	
-	@ store r0, r1, r2
-	pop {r1, r2}
-	stmia r0, {r1, r2}
-.endm
-
+	pop {r4 - r12, pc}^
 
 irq_ex:
+	push {lr}
+
 	save_current_task
 	bl intc_irq_handler
-	restore_current_task
+
+	pop {lr}
 	subs pc, lr, #4
 	
 
@@ -118,3 +109,4 @@ data_abort:
 
 .section .rodata
 inst_msg: .asciz "undefined instruction. hanging...\n"
+swi_msg: .asciz "syscall, ignoring...\n"
