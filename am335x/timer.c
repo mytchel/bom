@@ -53,7 +53,4 @@ systick_handler(uint32_t irqn)
 	/* Clear irq status. */
 	writel(readl(TIMER2 + TIMER_IRQSTATUS), 
 		TIMER2 + TIMER_IRQSTATUS);
-
-	kprintf("ready to roll\n");
-	schedule();
 }

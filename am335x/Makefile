@@ -16,37 +16,42 @@ CFLAGS :=-mcpu=cortex-a8 \
 	-ffreestanding \
 	-I.
 
+ASFLAGS :=-mcpu=cortex-a8 \
+	-nostdlib -nostdinc -nodefaultlibs \
+	-ffreestanding \
+	-I.
+
 
 LDFLAGS := -T linker.ld \
 	-nostdlib -nostdinc -nodefaultlibs
 
 A_SRC := \
-	startup.s		\
-	vectors.s		\
-	syscall.s
+	startup.S		\
+	vectors.S		\
+	syscall.S
 
 C_SRC := \
 	abort.c			\
 	com.c			\
 	intc.c			\
 	mem.c			\
-	proc.c		\
+	proc.c			\
 	timer.c			\
-	../kern/com.c		\
-	../kern/main.c		\
-	../kern/sched.c
+	../port/com.c		\
+	../port/sched.c		\
+	../port/main.c
 
 $(C_SRC:%.c=%.o):
 	@echo CC $>
 	@$(CC) $(CFLAGS) -c -o $@ $>
 
 
-$(A_SRC:%.s=%.o):
+$(A_SRC:%.S=%.o):
 	@echo CC $>
-	@$(CC) $(CFLAGS) -c -o $@ $>
+	@$(CC) $(ASFLAGS) -c -o $@ $>
 
 
-am335x.elf: $(A_SRC:%.s=%.o) $(C_SRC:%.c=%.o) 
+am335x.elf: $(A_SRC:%.S=%.o) $(C_SRC:%.c=%.o) 
 	@echo LD $@
 	@$(LD) $(LDFLAGS) -o $@ $>
 
@@ -78,7 +83,7 @@ am335x.umg: am335x.bin mkuboot/mkuboot
 
 clean: mkuboot_clean
 	@echo cleaning
-	@rm -f *.o ../kern/*.o \
+	@rm -f *.o ../port/*.o \
 		am335x.*
 
 

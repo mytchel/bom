@@ -20,7 +20,6 @@ task2_func(void *arg)
 	
 	kprintf("task2 started\n");
 	while (1) {
-		kprintf("syscall\n");
 		kprintf("task2 %i\n", i++);
 	}
 }
@@ -50,5 +49,9 @@ kmain(void *arg)
 
 	kprintf("tasks initiated\n");
 	
-	while (1);
+	while (1) {
+		int j;
+		for (j = 0; j < 10000; j++);
+		kprintf("doing nothing\n");
+	}
 }

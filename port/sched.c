@@ -4,6 +4,11 @@
 #include "../include/proc.h"
 #include "../include/com.h"
 
+void start_proc(struct proc_machine *);
+
+struct proc_machine *
+sched(void);
+
 void kmain(void *);
 
 struct proc_link {
@@ -15,72 +20,73 @@ struct proc_link {
 static struct proc_link *proc_list;
 static struct proc_link *current;
 
-struct proc_machine *machine_current;
+static bool enabled;
 
 void
 scheduler_init(void)
 {
 	kprintf("scheduler_init\n");
 	
+	enabled = false;
 	proc_list = kmalloc(sizeof(struct proc_link));
-	
 	proc_list->next = nil;
 
 	proc_create(&kmain, nil);
-
-	current = proc_list;
-	
-	machine_current = &current->machine;
+	current = proc_list->next;
+	enabled = true;
+	kprintf("starting first proc\n");
+	start_proc(&current->machine);
 }
 
-void
+struct proc_machine *
 schedule(void)
 {
 	struct proc_link *p;
+	
+	if (!enabled) 
+		return &current->machine;
 
 	kprintf("schedule\n");
 	p = current;
 	do {
 		kprintf("go to next\n");
 		p = p->next;
-		if (p == nil)
-			p = proc_list->next;
-		if (p == nil)
-			break;
+		if (p == nil) {
+			/* Go to start of list or break if empty. */
+			if ((p = proc_list->next) == nil)
+				break;
+		}
 			
 		kprintf("check state\n");
 
 		if (p->proc.state == PROC_state_running) {
 			break;
-		} else if (p->proc.state == PROC_state_exiting) {
-			continue;
-		} else if (p->proc.state == PROC_state_sleeping) {
-			continue;
 		}
 	} while (p != current);
 
-	kprintf("found\n");	
-	if (p == nil || 
-		(p->proc.state != PROC_state_running &&
-			p == current)) { /* No threads to run. */
+	kprintf("found\n");
+	/* No processes to run. */
+	if (p == nil || p->proc.state != PROC_state_running) {
 		kprintf("but nothing to run\n");
-		current = proc_list;
+		kprintf("do something!!!!\n");
 	}
 	
-	machine_current = &current->machine;
-	kprintf("activate\n");
-	activate_proc(machine_current);
+	current = p;
+	
+	return &current->machine;
 }
 
 struct proc *
 proc_create(void (*func)(void *), void *arg)
 {
 	struct proc_link *p, *pp;
-
-	p = kmalloc(sizeof(struct proc_link));
-	p->next = nil;
+	
+	if (enabled)
+		enabled = false;
 	
 	kprintf("adding task\n");
+
+	p = kmalloc(sizeof(struct proc_link));
 	
 	p->proc.state = PROC_state_running;
 
@@ -89,7 +95,9 @@ proc_create(void (*func)(void *), void *arg)
 	/* Add to list. */
 	for (pp = proc_list; pp->next; pp = pp->next);
 	pp->next = p;
+	p->next = nil;
 	
+	enabled = true;
 	return &p->proc;
 }
 

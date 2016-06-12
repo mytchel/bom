@@ -1,3 +1,5 @@
+#include "p_modes.h"
+
 .section .text
 .global _start
 _start:
@@ -15,21 +17,21 @@ _start:
 	bic r0, r0, #(1 << 12) 		@ set I flag to 0
 	bic r0, r0, #(1 << 2)		@ set C flag to 0
 	mcr p15, 0, r0, c1, c0, 0
-
-	cps #17
+	
+	cps #MODE_FIQ
 	ldr sp, =_fiq_stack_top
-	cps #18
+	cps #MODE_IRQ
 	ldr sp, =_irq_stack_top
-	cps #23
+	cps #MODE_ABORT
 	ldr sp, =_abort_stack_top
-	cps #19
+	cps #MODE_SVC
 
 	bl memory_init
-	bl scheduler_init
 	bl intc_init
 	bl systick_init
 	
-	b schedule
+	cpsie i @ enable interupts
+	bl scheduler_init @ should never return
 	
 	
 .section .rodata

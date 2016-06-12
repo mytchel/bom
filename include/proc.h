@@ -9,9 +9,6 @@ struct proc {
 	uint8_t state;
 };
 
-void
-schedule(void);
-
 struct proc *
 proc_create(void (*func)(void *), void *arg);
 

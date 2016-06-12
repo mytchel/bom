@@ -21,6 +21,9 @@ div(unsigned int *num, unsigned int den)
 	} else if (den == 16) {
 		i = n / 16;
 		n = n % 16;
+	} else if (den == 2) {
+		i = n / 2;
+		n = n % 2;
 	} else {
 		while (n >= den) {
 			n -= den;
@@ -36,7 +39,7 @@ static void
 print_int(unsigned int i, unsigned int base)
 {
 	unsigned int d;
-	unsigned char str[8];
+	unsigned char str[48];
 	int c = 0;
 	
 	do {
@@ -88,6 +91,10 @@ kprintf(const char *str, ...)
 		case 'h':
 			u = va_arg(ap, unsigned int);
 			print_int(u, 16);
+			break;
+		case 'b':
+			u = va_arg(ap, unsigned int);
+			print_int(u, 2);
 			break;
 		case 'c':
 			i = va_arg(ap, int);
