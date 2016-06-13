@@ -39,7 +39,8 @@ task3_func(void *arg)
 static void
 task4_func(void *arg)
 {
-	int i, *addr = 100000;
+	int i;
+	uint32_t *addr = (uint32_t *) 100000;
 	kprintf("task4 started\n");
 	addr = arg;
 	while (true) {
