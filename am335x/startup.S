@@ -30,10 +30,13 @@ _start:
 	bl intc_init
 	bl systick_init
 	
+	bl scheduler_init
+	bl schedule
 	cpsie i @ enable interupts
-	bl scheduler_init @ should never return
 	
-	
+	@ starts the first process that was returned by schedule
+	b start_proc
+	 
 .section .rodata
 boot_msg:
 	.asciz "\nBooting...\n\n"

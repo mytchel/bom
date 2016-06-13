@@ -11,4 +11,4 @@
 #define writew(v, a)	(*(volatile uint16_t*)(a) = (uint16_t)(v))
 #define writeb(v, a)	(*(volatile uint8_t*)(a) = (uint8_t)(v))
 
-#endif	/* __IO_H */
+#endif

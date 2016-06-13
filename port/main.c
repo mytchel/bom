@@ -17,7 +17,6 @@ static void
 task2_func(void *arg)
 {
 	int i = 0;
-	
 	kprintf("task2 started\n");
 	while (1) {
 		kprintf("task2 %i\n", i++);
@@ -28,10 +27,26 @@ static void
 task3_func(void *arg)
 {
 	int i = 0;
-	
 	kprintf("task3 started\n");
 	while (1) {
+		kprintf("swi\n");
+		asm("swi 0");
 		kprintf("task3 %i\n", i++);
+		asm("swi 1");
+	}
+}
+
+static void
+task4_func(void *arg)
+{
+	int i, *addr = 100000;
+	kprintf("task4 started\n");
+	addr = arg;
+	while (true) {
+		kprintf("accessing 0x%h\n", addr);
+		i = (int) (*addr);
+		kprintf("got 0x%h\n", i);
+		addr = addr + 10;
 	}
 }
 
@@ -46,6 +61,7 @@ kmain(void *arg)
 	proc_create(&task1_func, nil);
 	proc_create(&task2_func, nil);
 	proc_create(&task3_func, nil);
+	proc_create(&task4_func, nil);
 
 	kprintf("tasks initiated\n");
 	

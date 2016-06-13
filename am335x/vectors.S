@@ -32,20 +32,9 @@ vector_table:
 	ldr r1, =user_regs
 	str r0, [r1]
 
-	push {r0 - r12, lr}
-	ldr r0, =dbg1_msg
-	bl puts
-	pop {r0 - r12, lr}
-	
 	@ load process psr, sp, pc, lr
 	ldmia r0!, {r1, r2, r3, r4}
 	
-	push {r0 - r12, lr}
-	ldr r0, =dbg2_msg
-	bl puts
-	pop {r0 - r12, lr}
-	
-
 	mov lr, r3
 
 	msr spsr, r1 @ store user cpsr in spsr
@@ -53,14 +42,7 @@ vector_table:
 	cps #MODE_SYS
 	mov sp, r2
 	mov lr, r4
-	msr cpsr_c, r5 @ switch back to previous cpsr
-
-	push {r0 - r12, lr}
-	ldr r0, =dbg3_msg
-	bl puts
-	pop {r0 - r12, lr}
-	
-
+	msr cpsr, r5 @ switch back to previous cpsr
 
 	@ load user regs
 	ldmia r0, {r0 - r12}
@@ -76,6 +58,10 @@ start_proc:
 
 .macro save_proc
 	push {r0 - r12}
+
+	@ get address of current process regs
+	ldr r0, =user_regs
+	ldr r0, [r0]
 	
 	mrs r1, cpsr @ save current cpsr
 	mrs r2, spsr @ save user cpsr
@@ -85,10 +71,6 @@ start_proc:
 	mov r3, sp
 	mov r4, lr
 	msr cpsr, r1 @ switch back to current mode
-
-	@ get address of current process regs
-	ldr r0, =user_regs
-	ldr r0, [r0]
 
 	@ store user cpsr, sp, pc
 	stmia r0!, {r2, r3, lr}
@@ -101,10 +83,12 @@ start_proc:
 .endm
 
 
-@ Return from excecption offset is given on page
+@ Return from exceptions offset is given on page
 @ 157 of Cortex A Series Programmer Guide
+
 swi_ex:
-	push {r4 - r12, lr}
+	add lr, lr, #4
+	save_proc
 
 	ldr r0, =swi_msg
 	bl puts
@@ -113,18 +97,16 @@ swi_ex:
 @	ldr lr, =1f 
 @	ldr pc, [r8, r0, lsl #2]
 
-	pop {r4 - r12, lr}
+	bl schedule
+	restore_proc
+	sub lr, lr, #4
 	movs pc, lr
 
 irq_ex:
 	save_proc
-	
 	bl intc_irq_handler
-	
 	bl schedule	
-
 	restore_proc
-
 	subs pc, lr, #4
 	
 
@@ -135,15 +117,21 @@ undefined_instruction:
 
 
 prefetch_abort:
+	save_proc
 	mov r1, #0
 	bl abort_handler
-	b . @ freeze 
+	bl schedule
+	restore_proc
+	subs pc, lr, #4
 
 
 data_abort:
+	save_proc
 	mov r1, #1
 	bl abort_handler
-	b . @ freeze 
+	bl schedule
+	restore_proc
+	subs pc, lr, #4
 
 
 .section .data
@@ -154,9 +142,3 @@ user_regs:
 .section .rodata
 inst_msg: .asciz "undefined instruction. hanging...\n"
 swi_msg: .asciz "syscall, ignoring...\n"
-
-dbg1_msg: .asciz "debug 1 message\n"
-dbg2_msg: .asciz "debug 2 message\n"
-dbg3_msg: .asciz "debug 3 message\n"
-dbg4_msg: .asciz "debug 4 message\n"
-cpsr_msg: .asciz "cpsr currently 0b%b\n"

@@ -38,7 +38,7 @@ void systick_init()
 
 	intc_add_handler(TINT2, &systick_handler);
 	
-	writel(10000000, TIMER2 + TIMER_TMAR); /* set compare value */
+	writel(500000, TIMER2 + TIMER_TMAR); /* set compare value */
 
 	kprintf("start timer\n");	
 	writel((1<<6) |1, TIMER2 + TIMER_TCLR);
@@ -47,8 +47,6 @@ void systick_init()
 void
 systick_handler(uint32_t irqn)
 {
-	kprintf("systick\n");
-
 	writel(0, TIMER2 + TIMER_TCRR); /* set timer to 0 */
 	/* Clear irq status. */
 	writel(readl(TIMER2 + TIMER_IRQSTATUS), 
