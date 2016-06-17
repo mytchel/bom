@@ -10,7 +10,7 @@ static void __idle__(void *arg)
 	while (true);
 }
 
-static struct proc *procs, *current;
+static struct proc *current, procs[MAX_PROCS];
 
 static bool adding;
 static uint32_t next_pid;
@@ -18,12 +18,17 @@ static uint32_t next_pid;
 void
 scheduler_init(void)
 {
+	int i;
+	
 	kprintf("scheduler_init\n");
 
 	adding = false;
 	next_pid = 0;
+	
+	for (i = 0; i < MAX_PROCS; i++)
+		procs[i].state = PROC_stopped;
 
-	current = procs = kmalloc(sizeof(struct proc));
+	current = procs;
 	procs->next = nil;	
 	procs->state = PROC_running;
 	proc_init_regs(procs, &__idle__, nil);
@@ -65,33 +70,55 @@ schedule(void)
 	return &(current->machine);
 }
 
+static struct proc *
+find_and_add_proc_space()
+{
+	int i;
+	struct proc *p, *pp;
+	
+	p = nil;
+	for (i = 0; i < MAX_PROCS; i++) {
+		if (procs[i].state == PROC_stopped) {
+			p = &procs[i];
+			break;
+		}
+	}
+	
+	if (p == nil)
+		return nil;
+	
+	p->state = PROC_running;
+	p->next = nil;
+	
+	for (pp = procs; pp->next; pp = pp->next);
+	pp->next = p;
+	
+	return p;
+}
+
 struct proc *
 proc_create(void (*func)(void *), void *arg)
 {
-	struct proc *p, *pp;
+	struct proc *p;
 
 	kprintf("proc_create\n");
 	
 	while (adding);
 	adding = true;
 
-	p = kmalloc(sizeof(struct proc));
+	p = find_and_add_proc_space();
 	if (p == nil) {
-		kprintf("Run out of memory\n");
+		kprintf("Max process count reached\n");
 		adding = false;
 		return nil;
 	}
 	
 	kprintf("init regs\n");
 	
-	p->next = nil;
 	p->state = PROC_running;
 	p->pid = next_pid++;
 	proc_init_regs(p, func, arg);
 	
-	for (pp = procs; pp->next; pp = pp->next);
-	pp->next = p;
-
 	kprintf("added\n");
 	
 	adding = false;
