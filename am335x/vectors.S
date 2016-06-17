@@ -87,8 +87,7 @@ start_proc:
 @ 157 of Cortex A Series Programmer Guide
 
 swi_ex:
-	add lr, lr, #4
-	save_proc
+	push {r4 - r12, lr}
 
 	ldr r0, =swi_msg
 	bl puts
@@ -97,9 +96,7 @@ swi_ex:
 @	ldr lr, =1f 
 @	ldr pc, [r8, r0, lsl #2]
 
-	bl schedule
-	restore_proc
-	sub lr, lr, #4
+	pop {r4 - r12, lr}
 	movs pc, lr
 
 irq_ex:

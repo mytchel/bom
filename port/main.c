@@ -8,7 +8,7 @@ task1_func(void *arg)
 	int i = 0, j;
 	kprintf("task1 started\n");
 	while (1) {
-		for (j = 0; j < 100000; j++);
+		for (j = 0; j < 1000000; j++);
 		kprintf("task 1 i = %i\n", i++);
 	}
 }
@@ -16,9 +16,10 @@ task1_func(void *arg)
 static void
 task2_func(void *arg)
 {
-	int i = 0;
+	int i = 0, j;
 	kprintf("task2 started\n");
 	while (1) {
+		for (j = 0; j < 10000; j++);
 		kprintf("task2 %i\n", i++);
 	}
 }
@@ -26,9 +27,10 @@ task2_func(void *arg)
 static void
 task3_func(void *arg)
 {
-	int i = 0;
+	int j, i = 0;
 	kprintf("task3 started\n");
 	while (1) {
+		for (j = 0; j < 10000; j++);
 		kprintf("swi\n");
 		asm("swi 0");
 		kprintf("task3 %i\n", i++);
@@ -39,11 +41,12 @@ task3_func(void *arg)
 static void
 task4_func(void *arg)
 {
-	int i;
+	int i, j;
 	uint32_t *addr = (uint32_t *) 100000;
 	kprintf("task4 started\n");
 	addr = arg;
 	while (true) {
+		for (j = 0; j < 100000000; j++);
 		kprintf("accessing 0x%h\n", addr);
 		i = (int) (*addr);
 		kprintf("got 0x%h\n", i);
@@ -68,7 +71,7 @@ kmain(void *arg)
 	
 	while (1) {
 		int j;
-		for (j = 0; j < 10000; j++);
+		for (j = 0; j < 1000000; j++);
 		kprintf("doing nothing\n");
 	}
 }

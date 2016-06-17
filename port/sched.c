@@ -1,12 +1,7 @@
 #include "types.h"
-#include "proc.h"
+#include "mem.h"
 #include "../include/proc.h"
 #include "../include/com.h"
-
-void start_proc(struct proc_machine *);
-
-struct proc_machine *
-sched(void);
 
 void kmain(void *);
 
@@ -15,35 +10,23 @@ static void __idle__(void *arg)
 	while (true);
 }
 
-struct proc_link {
-	bool used;
-	struct proc proc;
-	struct proc_machine machine;
-	struct proc_link *next;
-};
-
-static struct proc_link procs[MAX_PROCS];
-static struct proc_link *current;
+static struct proc *procs, *current;
 
 static bool adding;
+static uint32_t next_pid;
 
 void
 scheduler_init(void)
 {
-	int i;
 	kprintf("scheduler_init\n");
 
-	for (i = 0; i < MAX_PROCS; i++)	{
-		procs[i].used = false;
-		procs[i].next = nil;
-	}
-
 	adding = false;
-	
-	current = procs;
-	
-	procs[0].used = true;
-	proc_init_regs(&procs[0].machine, &__idle__, nil);
+	next_pid = 0;
+
+	current = procs = kmalloc(sizeof(struct proc));
+	procs->next = nil;	
+	procs->state = PROC_running;
+	proc_init_regs(procs, &__idle__, nil);
 	
 	proc_create(&kmain, nil);
 }
@@ -51,11 +34,10 @@ scheduler_init(void)
 struct proc_machine *
 schedule(void)
 {
-	struct proc_link *p;
+	struct proc *p;
 	
 	if (adding) {
-		kprintf("proccess being added, not rescheduling.\n");
-		return &current->machine;
+		return &(current->machine);
 	}
 	
 	p = current;
@@ -67,55 +49,61 @@ schedule(void)
 				break;
 		}
 
-		if (p->proc.state == PROC_state_running) {
+		if (p->state == PROC_running) {
 			break;
 		}
 	} while (p != current);
 
 	/* No processes to run. */
-	if (p == nil || p->proc.state != PROC_state_running) {
+	if (p == nil || p->state != PROC_running) {
 		kprintf("nothing to run\n");
 		current = procs;
 	} else {
 		current = p;
 	}
 	
-	return &current->machine;
-}
-
-static struct proc_link *
-new_proc()
-{
-	struct proc_link *p, *pp;
-
-	/* Find first unused proc_list struct. */
-	for (p = procs; p->used == true; p++);
-	p->used = true;
-	p->next = nil;
-	
-	for (pp = current; 
-		pp->next != nil; 
-		pp = pp->next);
-	
-	pp->next = p;
-	
-	return p;
+	return &(current->machine);
 }
 
 struct proc *
 proc_create(void (*func)(void *), void *arg)
 {
-	struct proc_link *p;
+	struct proc *p, *pp;
 
+	kprintf("proc_create\n");
+	
 	while (adding);
 	adding = true;
 
-	p = new_proc();
+	p = kmalloc(sizeof(struct proc));
+	if (p == nil) {
+		kprintf("Run out of memory\n");
+		adding = false;
+		return nil;
+	}
 	
-	proc_init_regs(&p->machine, func, arg);		
-	p->proc.state = PROC_state_running;
+	kprintf("init regs\n");
+	
+	p->next = nil;
+	p->state = PROC_running;
+	p->pid = next_pid++;
+	proc_init_regs(p, func, arg);
+	
+	for (pp = procs; pp->next; pp = pp->next);
+	pp->next = p;
 
+	kprintf("added\n");
+	
 	adding = false;
 		
-	return &p->proc;
+	return p;
+}
+
+void
+proc_remove(struct proc *p)
+{
+	struct proc *pp;
+	
+	for (pp = procs; pp->next != p; pp = pp->next);
+	pp->next = p->next;
 }

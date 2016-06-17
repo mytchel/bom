@@ -34,9 +34,9 @@ C_SRC := \
 	abort.c			\
 	com.c			\
 	intc.c			\
-	mem.c			\
 	proc.c			\
 	timer.c			\
+	mem.c			\
 	../port/com.c		\
 	../port/sched.c		\
 	../port/main.c
