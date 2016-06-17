@@ -11,9 +11,5 @@ proc_init_regs(struct proc *p,
 	/* Add 4 to address because irq must exit with subs pc, lr, #4 */
 	p->machine.pc = (uint32_t) func + 4;
 	
-	/* Set lr so when first starting start_proc can access it 
-	 * after dropping to user mode. */
-	p->machine.lr = (uint32_t) func;
-
 	p->machine.regs[0] = (uint32_t) arg; /* Set r0 to arg */
 }

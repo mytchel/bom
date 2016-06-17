@@ -15,6 +15,7 @@ vector_table_init:
 	
 	bx lr
 
+
 .balign 32
 vector_table:
 	ldr pc, =_start
@@ -52,8 +53,9 @@ vector_table:
 .global start_proc
 start_proc:
 	restore_proc
+	sub r2, lr, #4 
 	cps #MODE_USR
-	mov pc, lr
+	mov pc, r2
 	
 
 .macro save_proc
