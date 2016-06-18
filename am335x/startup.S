@@ -19,6 +19,8 @@ _start:
 	bic r0, r0, #(1 << 12)
 	@ set C flag to 0 (disable data cache)
 	bic r0, r0, #(1 << 2)
+	@ set M flag to 0 (disable mmu)
+	bic r0, r0, #(1 << 0)
 	
 	mcr p15, 0, r0, c1, c0, 0
 	
@@ -39,7 +41,6 @@ _start:
 	bl systick_init
 	
 	@ starts the first process 
-	bl schedule
 	b start_proc
 	 
 .section .rodata

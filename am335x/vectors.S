@@ -28,10 +28,9 @@ vector_table:
 	b . @ fiq is not used
 
 
-@ r0 should be the address to a proc_machine structure.
 .macro restore_proc
-	ldr r1, =user_regs
-	str r0, [r1]
+	ldr r0, =user_regs
+	ldr r0, [r0]
 
 	@ load process psr, sp, pc, lr
 	ldmia r0!, {r1, r2, r3, r4}
@@ -53,9 +52,9 @@ vector_table:
 .global start_proc
 start_proc:
 	restore_proc
-	sub r2, lr, #4 
+	sub r1, lr, #4 
 	cps #MODE_USR
-	mov pc, r2
+	mov pc, r1
 	
 
 .macro save_proc
@@ -134,6 +133,7 @@ data_abort:
 
 
 .section .data
+.global user_regs
 user_regs:
 	.word 0
 	

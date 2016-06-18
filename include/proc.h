@@ -28,4 +28,7 @@ void
 proc_init_regs(struct proc *p, 
 	void (*func)(void *), void *arg);
 
+void
+schedule(void);
+
 #endif

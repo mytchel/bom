@@ -10,6 +10,8 @@ static void __idle__(void *arg)
 	while (true);
 }
 
+extern struct proc_machine *user_regs;
+
 static struct proc *current, procs[MAX_PROCS];
 
 static bool adding;
@@ -34,16 +36,17 @@ scheduler_init(void)
 	proc_init_regs(procs, &__idle__, nil);
 	
 	proc_create(&kmain, nil);
+	
+	schedule();
 }
 
-struct proc_machine *
+void
 schedule(void)
 {
 	struct proc *p;
 	
-	if (adding) {
-		return &(current->machine);
-	}
+	if (adding)
+		return;
 	
 	p = current;
 	do {
@@ -67,7 +70,7 @@ schedule(void)
 		current = p;
 	}
 	
-	return &(current->machine);
+	user_regs = &(current->machine);
 }
 
 static struct proc *
@@ -113,13 +116,8 @@ proc_create(void (*func)(void *), void *arg)
 		return nil;
 	}
 	
-	kprintf("init regs\n");
-	
-	p->state = PROC_running;
 	p->pid = next_pid++;
 	proc_init_regs(p, func, arg);
-	
-	kprintf("added\n");
 	
 	adding = false;
 		
