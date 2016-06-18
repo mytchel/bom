@@ -11,7 +11,7 @@ extern void *_kernel_heap_end;
 static uint8_t *next;
 
 static uint32_t mmu_ttb[4096] __attribute__((__aligned__(16* 1024)));
-//static uint32_t l2[4096][256] __attribute__((__aligned__(1024)));
+static uint32_t l2[4096][256] __attribute__((__aligned__(1024)));
 
 void
 memory_init(void)
@@ -38,7 +38,7 @@ memory_init(void)
 
 	/* Direct map memory map, for now. */
 	mmu_map_page((void *) 0x40000000, (void *) 0x40000000,
-		164, MMU_AP_RW_NO);
+		(0x4A400000 - 0x40000000) >> PAGE_SHIFT, MMU_AP_RW_NO);
 
 	/* Map kernel space */
 	mmu_map_page(&_kernel_bin_start, &_kernel_bin_start, 
@@ -95,8 +95,8 @@ mmu_disable(void)
 void
 mmu_map_page(void *phys, void *vert, size_t npages, uint8_t perms)
 {
-	int i, id;
-	uint32_t virt_a, phys_a;
+	int i, j, id;
+	uint32_t *page, virt_a, phys_a;
 	
 	virt_a = (uint32_t) vert;
 	phys_a = (uint32_t) phys;
@@ -106,29 +106,21 @@ mmu_map_page(void *phys, void *vert, size_t npages, uint8_t perms)
 	for (i = 0; i < npages; i++) {
 		id = virt_a >> 20;
 	
-		kprintf("mmu map page id 0x%h ... 0x%h to 0x%h\n", id, virt_a, phys_a);
-			
+		//mmu_ttb[id] = (phys_a) | (3 << 10) | L1_SECTION;
 		/* If L1 for address is not set, point it to the L2 table. */
-
-		mmu_ttb[id] = (phys_a) | (3 << 10) | L1_SECTION;
-		
-		kprintf("mmu_ttb[%i] = 0b%b\n", id, mmu_ttb[id]);
-/*
+		if (mmu_ttb[id] == L2_FAULT) {
 			mmu_ttb[id] = (uint32_t) &(l2[id]) | L1_COARSE;
 			for (j = 0; j < 256; j++)
 				l2[id][j] = L2_FAULT;
-				*/
+		}
 		
 		/* Pointer to coarse page table. */
-		/*
 		page = (uint32_t *) (mmu_ttb[id] & ~((1 << 10) - 1));
 		
-		kprintf("get l2 id\n");
 		id = (virt_a & 0xff000) >> 12;
 		
-		kprintf("set\n");
 		page[id] = (phys_a & 0xfffff000) | L2_SMALL | (0xff<<4);
-*/
+
 		virt_a += PAGE_SIZE;
 		phys_a += PAGE_SIZE;
 	}

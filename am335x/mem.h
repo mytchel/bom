@@ -1,7 +1,7 @@
 #ifndef __MEM
 #define __MEM
 
-#define PAGE_SHIFT 	20
+#define PAGE_SHIFT 	12
 #define PAGE_SIZE	(1UL << PAGE_SHIFT)
 #define PAGE_MASK	(~(PAGE_SIZE - 1))
 #define PAGE_ALIGN(x) 	(((x) + PAGE_SIZE - 1) & PAGE_MASK)
