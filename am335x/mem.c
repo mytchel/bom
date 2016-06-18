@@ -3,6 +3,7 @@
 
 extern void *_kernel_bin_start;
 extern void *_kernel_bin_end;
+
 extern void *_kernel_heap_start;
 extern void *_kernel_heap_end;
 

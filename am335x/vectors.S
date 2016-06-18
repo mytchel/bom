@@ -8,10 +8,10 @@ vector_table_init:
 	@ See page 514 of ARM System Developers Guide
 	mrc p15, 0, r0, c1, c0, 0	@ read CP15s c1 register into r0
 	bic r0, r0, #(1 << 13) 		@ set V flag to 0 (disable high vectors)
-	mcr p15, 0, r0, c1, c0, 0	@ write r0 to CP15s c1
+	mcr p15, 0, r0, c1, c0, 0	@ 
 	
 	ldr r0, =vector_table
-	mcr p15, 0, r0, c12, c0, 0	@ set vector base address, does this work?
+	mcr p15, 0, r0, c12, c0, 0	@ set vector base address
 	
 	bx lr
 
@@ -29,23 +29,23 @@ vector_table:
 
 
 .macro restore_proc
-	ldr r0, =user_regs
-	ldr r0, [r0]
+	ldr r5, =user_regs
+	ldr r5, [r5]
 
 	@ load process psr, sp, pc, lr
-	ldmia r0!, {r1, r2, r3, r4}
+	ldmia r5!, {r1, r2, r3, r4}
 	
 	mov lr, r3
 
 	msr spsr, r1 @ store user cpsr in spsr
-	mrs r5, cpsr
+	mrs r6, cpsr
 	cps #MODE_SYS
 	mov sp, r2
 	mov lr, r4
-	msr cpsr, r5 @ switch back to previous cpsr
+	msr cpsr, r6 @ switch back to previous cpsr
 
 	@ load user regs
-	ldmia r0, {r0 - r12}
+	ldmia r5, {r0 - r12}
 .endm
 
 

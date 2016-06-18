@@ -16,14 +16,8 @@ CFLAGS :=-mcpu=cortex-a8 \
 	-ffreestanding \
 	-I.
 
-ASFLAGS :=-mcpu=cortex-a8 \
-	-nostdlib -nostdinc -nodefaultlibs \
-	-ffreestanding \
-	-I.
-
-
-LDFLAGS := -T linker.ld \
-	-nostdlib -nostdinc -nodefaultlibs
+LDFLAGS := -nostdlib -nostdinc -nodefaultlibs \
+	-e _start
 
 A_SRC := \
 	startup.S		\
@@ -32,28 +26,40 @@ A_SRC := \
 
 C_SRC := \
 	abort.c			\
-	com.c			\
+	uart.c			\
 	intc.c			\
 	proc.c			\
 	timer.c			\
-	mem.c			\
-	../port/com.c		\
-	../port/sched.c		\
+	mem.c
+
+P_SRC := \
+	../port/com.c			\
+	../port/sched.c			\
 	../port/main.c
+	
+OBJECTS := \
+	$(A_SRC:%.S=%.o) \
+	$(C_SRC:%.c=%.o) \
+	$(P_SRC:%.c=%.o)
+
+
+$(A_SRC:%.S=%.o):
+	@echo CC $>
+	@$(CC) $(CFLAGS) -c -o $@ $>
 
 $(C_SRC:%.c=%.o):
 	@echo CC $>
 	@$(CC) $(CFLAGS) -c -o $@ $>
 
-
-$(A_SRC:%.S=%.o):
+$(P_SRC:%.c=%.o):
 	@echo CC $>
-	@$(CC) $(ASFLAGS) -c -o $@ $>
+	@$(CC) $(CFLAGS) -c -o $@ $>
 
 
-am335x.elf: $(A_SRC:%.S=%.o) $(C_SRC:%.c=%.o) 
+am335x.elf: linker.ld $(OBJECTS)
 	@echo LD $@
-	@$(LD) $(LDFLAGS) -o $@ $>
+	@$(LD) $(LDFLAGS) -T linker.ld -o $@ \
+		$(OBJECTS)
 
 
 am335x.bin: am335x.elf
