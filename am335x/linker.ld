@@ -30,7 +30,7 @@ SECTIONS
 	. = ALIGN(4096);
 
 	_kernel_heap_start = .;
-	. = . + 0x100000000;
+	. = . + 0x1000000;
 	_kernel_heap_end = .;
 
 	. = ALIGN(4096);
