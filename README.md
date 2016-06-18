@@ -1,4 +1,8 @@
-# A Minimal Operating System for the BeagleBone Black
+# Bom
+
+### Bunch Of Mess
+
+## A Minimal Operating System for the BeagleBone Black
 
 So far it doesn't do much. It can run multiple threads and memory management
 is in the works. 
