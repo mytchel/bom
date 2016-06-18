@@ -16,8 +16,8 @@ CFLAGS :=-mcpu=cortex-a8 \
 	-ffreestanding \
 	-I.
 
-LDFLAGS := -nostdlib -nostdinc -nodefaultlibs \
-	-e _start
+LDFLAGS := -nostdlib -nostdinc -nodefaultlibs
+
 
 A_SRC := \
 	startup.S		\

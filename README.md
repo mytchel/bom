@@ -2,6 +2,7 @@
 
 ## Helpful Information
 
+- [Arm Reference](http://www.google.co.uk/url?sa=t&source=web&cd=1&ved=0CCAQFjAA&url=http%3A%2F%2Fwww.altera.com%2Fliterature%2Fthird-party%2Farchives%2Fddi0100e_arm_arm.pdf&ei=B1cwTtfHJMWmhAfh8qlI&usg=AFQjCNFqDeTfS2VR6oU93FbwBoE--ggJrA)
 - [slos](https://github.com/amorenoc/slos)
 - [voron](https://github.com/oblique/voron)
 - [mini-arm-os](https://github.com/jserv/mini-arm-os)
@@ -12,3 +13,7 @@
 - Cortex A Series Programmer Guide
 - Arm System Developers Guide
 - am335x guide
+- 9front omap port
+
+Hopefully the license is fine. :(
+

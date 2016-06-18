@@ -1,3 +1,5 @@
+ENTRY(_start)
+
 SECTIONS
 {
 	.text 0x82000000 :
@@ -25,11 +27,14 @@ SECTIONS
 	. = ALIGN(4096);
 	_kernel_bss_end = .;
 
-	_kernel_heap_start = .;
-	. = . + 0x10000000000;
 	. = ALIGN(4096);
+
+	_kernel_heap_start = .;
+	. = . + 0x100000000;
 	_kernel_heap_end = .;
-		
+
+	. = ALIGN(4096);
+	
 	. = . + 0x2000;
 	_svc_stack_top = .;
 	. = . + 0x2000;
