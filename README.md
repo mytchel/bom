@@ -1,5 +1,8 @@
 # A Minimal Operating System for the BeagleBone Black
 
+So far it doesn't do much. It can run multiple threads and memory management
+is in the works. 
+
 ## Helpful Information
 
 - [Arm Reference](http://www.google.co.uk/url?sa=t&source=web&cd=1&ved=0CCAQFjAA&url=http%3A%2F%2Fwww.altera.com%2Fliterature%2Fthird-party%2Farchives%2Fddi0100e_arm_arm.pdf&ei=B1cwTtfHJMWmhAfh8qlI&usg=AFQjCNFqDeTfS2VR6oU93FbwBoE--ggJrA)

@@ -106,7 +106,6 @@ mmu_map_page(void *phys, void *vert, size_t npages, uint8_t perms)
 	for (i = 0; i < npages; i++) {
 		id = virt_a >> 20;
 	
-		//mmu_ttb[id] = (phys_a) | (3 << 10) | L1_SECTION;
 		/* If L1 for address is not set, point it to the L2 table. */
 		if (mmu_ttb[id] == L2_FAULT) {
 			mmu_ttb[id] = (uint32_t) &(l2[id]) | L1_COARSE;
