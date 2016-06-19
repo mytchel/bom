@@ -26,23 +26,18 @@ memory_init(void)
 	
 	next = (uint8_t *) &_kernel_heap_start;
 
-	kprintf("mmu_ttb = 0x%h\n", mmu_ttb);
-		
 	mmu_init();
 
 	/* Map kernel memory */	
 	kbounds = PAGE_ALIGN((uint32_t) &_kernel_bin_start - 0x80000000) >> PAGE_SHIFT;
 	kbounde = PAGE_ALIGN((uint32_t) &_kernel_bin_end -   0x80000000) >> PAGE_SHIFT;
 
-	kprintf("kbounds s: 0x%h e: 0x%h npages: %i \n", kbounds, kbounde, kbounde - kbounds);
-
-	/* Direct map memory map, for now. */
-	mmu_map_page((void *) 0x40000000, (void *) 0x40000000,
-		(0x4A400000 - 0x40000000) >> PAGE_SHIFT, MMU_AP_RW_NO);
-
-	/* Map kernel space */
 	mmu_map_page(&_kernel_bin_start, &_kernel_bin_start, 
 		kbounde - kbounds, MMU_AP_RW_NO);
+
+	/* Direct map io map, for now. */
+	mmu_map_page((void *) 0x40000000, (void *) 0x40000000,
+		(0x4A400000 - 0x40000000) >> PAGE_SHIFT, MMU_AP_RW_NO);
 
 	mmu_enable();
 }

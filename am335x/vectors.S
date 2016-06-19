@@ -88,16 +88,26 @@ start_proc:
 @ 157 of Cortex A Series Programmer Guide
 
 swi_ex:
-	push {r4 - r12, lr}
+	push {r8 - r12, lr}
 
-	ldr r0, =swi_msg
-	bl puts
-			
-@	ldr r8, =syscall_table
-@	ldr lr, =1f 
-@	ldr pc, [r8, r0, lsl #2]
+	cmp r0, #0
+	bgt 1f
+	ldr lr, =3f
+	b 2f
+1:
+	ldr lr, =4f 
+2:
+	ldr r8, =syscall_table
+	ldr pc, [r8, r0, lsl #2]
 
-	pop {r4 - r12, lr}
+3:
+	@ Syscall was exit, requires different handling
+	pop {r8 - r12, lr}
+	restore_proc
+	subs lr, lr, #4
+	movs pc, lr
+4:
+	pop {r8 - r12, lr}
 	movs pc, lr
 
 irq_ex:

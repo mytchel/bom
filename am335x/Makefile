@@ -35,6 +35,7 @@ C_SRC := \
 P_SRC := \
 	../port/com.c			\
 	../port/sched.c			\
+	../port/syscall.c		\
 	../port/main.c
 	
 OBJECTS := \

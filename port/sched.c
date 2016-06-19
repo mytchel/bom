@@ -12,7 +12,7 @@ static void __idle__(void *arg)
 
 extern struct proc_machine *user_regs;
 
-static struct proc *current, procs[MAX_PROCS];
+struct proc *current, procs[MAX_PROCS];
 
 static bool adding;
 static uint32_t next_pid;
@@ -104,8 +104,6 @@ proc_create(void (*func)(void *), void *arg)
 {
 	struct proc *p;
 
-	kprintf("proc_create\n");
-	
 	while (adding);
 	adding = true;
 

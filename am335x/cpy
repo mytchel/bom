@@ -1,6 +1,0 @@
-make
-
-mount /dev/sd2i /mnt || exit
-echo cp am335x.umg /mnt/
-cp am335x.umg /mnt/
-umount /mnt

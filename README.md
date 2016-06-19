@@ -22,5 +22,5 @@ is in the works.
 - am335x guide
 - 9front omap port
 
-Hopefully the license is fine. :(
+Hopefully the license is fine :(
 
