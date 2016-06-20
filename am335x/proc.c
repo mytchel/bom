@@ -1,5 +1,5 @@
-#include "types.h"
-#include "../include/proc.h"
+#include "../port/types.h"
+#include "../port/proc.h"
 
 void
 proc_init_regs(struct proc *p,

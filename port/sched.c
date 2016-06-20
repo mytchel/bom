@@ -1,8 +1,8 @@
-#include "types.h"
+#include "../port/types.h"
 #include "mem.h"
-#include "../include/proc.h"
-#include "../include/com.h"
-#include "../include/intr.h"
+#include "../port/proc.h"
+#include "../port/com.h"
+#include "../port/intr.h"
 
 void start_proc(void);
 
@@ -29,7 +29,7 @@ scheduler_init(void)
 
 	adding = false;
 	next_pid = 0;
-	
+
 	for (i = 0; i < MAX_PROCS; i++)
 		procs[i].state = PROC_stopped;
 
@@ -41,7 +41,9 @@ scheduler_init(void)
 	proc_create(&kmain, nil);
 
 	schedule();
+	
 	enable_interrupts();
+	kprintf("start\n");
 	start_proc();
 }
 
@@ -50,8 +52,9 @@ schedule(void)
 {
 	struct proc *p;
 	
-	if (adding)
+	if (adding) {
 		return;
+	}
 	
 	p = current;
 	do {
@@ -66,7 +69,7 @@ schedule(void)
 			break;
 		}
 	} while (p != current);
-
+	
 	/* No processes to run. */
 	if (p == nil || p->state != PROC_running) {
 		kprintf("nothing to run\n");
@@ -74,7 +77,7 @@ schedule(void)
 	} else {
 		current = p;
 	}
-	
+
 	user_regs = &(current->machine);
 }
 

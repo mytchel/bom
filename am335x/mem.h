@@ -1,4 +1,4 @@
-#include "../include/proc.h"
+#include "../port/proc.h"
 
 #ifndef __MEM
 #define __MEM
@@ -8,10 +8,10 @@
 #define PAGE_MASK	(~(PAGE_SIZE - 1))
 #define PAGE_ALIGN(x) 	(((x) + PAGE_SIZE - 1) & PAGE_MASK)
 
-#define MMU_AP_UP_UP 0
-#define MMU_AP_RW_NO 1
-#define MMU_AP_RW_RO 2
-#define MMU_AP_RW_RW 3
+#define SECTION_SHIFT 		20
+#define SECTION_SIZE		(1UL << SECTION_SHIFT)
+#define SECTION_MASK		(~(SECTION_SIZE - 1))
+#define SECTION_ALIGN(x)	(((x) + SECTION_SIZE - 1) & SECTION_MASK)
 
 #define L1_FAULT	0
 #define L1_COARSE	1
@@ -42,8 +42,7 @@ void
 mmu_switch(struct proc *p);
 
 void
-mmu_map_page(void *phys, void *vert,
-	size_t npages, uint8_t perms);
+mmu_imap_section(uint32_t start, uint32_t end);
 	
 void
 memory_init(void);

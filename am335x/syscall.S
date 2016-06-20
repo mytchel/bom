@@ -1,4 +1,4 @@
-#include "../include/syscall.h"
+#include "../port/syscall.h"
 
 .section .text
 .global exit

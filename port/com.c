@@ -1,6 +1,6 @@
-#include "types.h"
-#include "../include/com.h"
-#include "../include/stdarg.h"
+#include "../port/types.h"
+#include "../port/com.h"
+#include "../port/stdarg.h"
 
 void
 puts(char *str) {

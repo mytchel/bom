@@ -11,11 +11,6 @@
 #define PROC_sleeping		2
 #define PROC_exiting		3
 
-struct page {
-	reg_t pa, va;
-	struct page *next;
-};
-
 struct proc {
 	struct proc_machine machine;
 	

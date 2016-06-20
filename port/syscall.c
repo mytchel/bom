@@ -1,7 +1,7 @@
-#include "types.h"
-#include "../include/com.h"
-#include "../include/proc.h"
-#include "../include/syscall.h"
+#include "../port/types.h"
+#include "../port/com.h"
+#include "../port/proc.h"
+#include "../port/syscall.h"
 
 static void
 sys_exit(int code)

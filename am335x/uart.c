@@ -1,6 +1,6 @@
 #include "io.h"
-#include "types.h"
-#include "../include/com.h"
+#include "../port/types.h"
+#include "../port/com.h"
 
 #define UART0   0x44E09000
 

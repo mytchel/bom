@@ -1,7 +1,7 @@
-#include "types.h"
+#include "../port/types.h"
 #include "io.h"
 #include "intc.h"
-#include "../include/com.h"
+#include "../port/com.h"
 
 #define INTC			0x48200000
 

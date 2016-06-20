@@ -1,7 +1,7 @@
 #include "io.h"
 #include "intc.h"
-#include "../include/com.h"
-#include "../include/proc.h"
+#include "../port/com.h"
+#include "../port/proc.h"
 
 #define TIMER0 0x44E05000
 #define TIMER1 0x44E31000
@@ -38,7 +38,7 @@ void systick_init(void)
 
 	intc_add_handler(TINT2, &systick_handler);
 	
-	writel(10000, TIMER2 + TIMER_TMAR); /* set compare value */
+	writel(100000, TIMER2 + TIMER_TMAR); /* set compare value */
 
 	kprintf("start systick\n");	
 	writel((1<<6) |1, TIMER2 + TIMER_TCLR);
