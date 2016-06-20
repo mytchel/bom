@@ -16,7 +16,8 @@ CFLAGS :=-mcpu=cortex-a8 \
 	-ffreestanding \
 	-I.
 
-LDFLAGS := -nostdlib -nostdinc -nodefaultlibs
+LDFLAGS := -nostdlib -nostdinc -nodefaultlibs \
+	-T linker.ld
 
 
 A_SRC := \
@@ -59,8 +60,9 @@ $(P_SRC:%.c=%.o):
 
 am335x.elf: linker.ld $(OBJECTS)
 	@echo LD $@
-	@$(LD) $(LDFLAGS) -T linker.ld -o $@ \
-		$(OBJECTS)
+	@$(LD) $(LDFLAGS) -o $@ \
+		$(OBJECTS) \
+		-L/usr/local/lib/gcc/arm-none-eabi/4.9.3/ -lgcc
 
 
 am335x.bin: am335x.elf

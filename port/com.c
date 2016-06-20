@@ -9,32 +9,6 @@ puts(char *str) {
 	}
 }
 
-static unsigned int
-div(unsigned int *num, unsigned int den)
-{
-	unsigned int i = 0;
-	unsigned int n = *num;
-	
-	if (den == 10) {
-		i = n / 10;
-		n = n % 10;
-	} else if (den == 16) {
-		i = n / 16;
-		n = n % 16;
-	} else if (den == 2) {
-		i = n / 2;
-		n = n % 2;
-	} else {
-		while (n >= den) {
-			n -= den;
-			i++;
-		}
-	}
-
-	*num = n;
-	return i;
-}
-
 static void
 print_int(unsigned int i, unsigned int base)
 {
@@ -43,7 +17,8 @@ print_int(unsigned int i, unsigned int base)
 	int c = 0;
 	
 	do {
-		d = div(&i, base);
+		d = i / base;
+		i = i % base;
 		if (i > 9) str[c++] = 'a' + (i-10);
 		else str[c++] = '0' + i;
 		i = d;

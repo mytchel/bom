@@ -1,3 +1,5 @@
+#include "../include/proc.h"
+
 #ifndef __MEM
 #define __MEM
 
@@ -28,13 +30,16 @@ void
 kfree(void *ptr);
 
 void
-mmu_init(void);
+mmu_invalidate(void);
 
 void
 mmu_enable(void);
 
 void
 mmu_disable(void);
+
+void
+mmu_switch(void);
 
 void
 mmu_map_page(void *phys, void *vert,

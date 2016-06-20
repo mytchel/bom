@@ -116,7 +116,7 @@ proc_create(void (*func)(void *), void *arg)
 	
 	p->pid = next_pid++;
 	proc_init_regs(p, func, arg);
-	
+		
 	adding = false;
 		
 	return p;
