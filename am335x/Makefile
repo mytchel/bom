@@ -34,9 +34,9 @@ C_SRC := \
 	mem.c
 
 P_SRC := \
-	../port/com.c			\
-	../port/sched.c			\
-	../port/syscall.c		\
+	../port/com.c		\
+	../port/sched.c		\
+	../port/syscall.c	\
 	../port/main.c
 	
 OBJECTS := \
@@ -45,18 +45,9 @@ OBJECTS := \
 	$(P_SRC:%.c=%.o)
 
 
-$(A_SRC:%.S=%.o):
+$(OBJECTS):
 	@echo CC $>
 	@$(CC) $(CFLAGS) -c -o $@ $>
-
-$(C_SRC:%.c=%.o):
-	@echo CC $>
-	@$(CC) $(CFLAGS) -c -o $@ $>
-
-$(P_SRC:%.c=%.o):
-	@echo CC $>
-	@$(CC) $(CFLAGS) -c -o $@ $>
-
 
 am335x.elf: linker.ld $(OBJECTS)
 	@echo LD $@

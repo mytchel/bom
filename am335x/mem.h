@@ -39,7 +39,7 @@ void
 mmu_disable(void);
 
 void
-mmu_switch(void);
+mmu_switch(struct proc *p);
 
 void
 mmu_map_page(void *phys, void *vert,

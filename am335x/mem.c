@@ -14,11 +14,28 @@ static uint8_t *next;
 static uint32_t l1[4096] __attribute__((__aligned__(16*1024)));
 static uint32_t l2[4096][256] __attribute__((__aligned__(1024)));
 
-void
-memory_init(void)
+static void
+mmu_init(void)
 {
 	int i;
 	
+	for (i = 0; i < 4096; i++)
+		l1[i] = L1_FAULT;
+
+	asm(
+		/* Set ttb */
+		"ldr r1, =l1			\n"
+		"mcr p15, 0, r1, c2, c0, 0	\n"
+		/* Disable domains ? */
+		"mov r1, #3			\n"
+		"mcr p15, 0, r1, c3, c0, 0	\n"
+	);
+}
+
+
+void
+memory_init(void)
+{
 	kprintf("bin_start = 0x%h\n", (uint32_t) &_kernel_bin_start);
 	kprintf("bin_end   = 0x%h\n", (uint32_t) &_kernel_bin_end);
 
@@ -31,17 +48,14 @@ memory_init(void)
 	kbounds = PAGE_ALIGN((uint32_t) &_kernel_bin_start - 0x80000000) >> PAGE_SHIFT;
 	kbounde = PAGE_ALIGN((uint32_t) &_kernel_bin_end -   0x80000000) >> PAGE_SHIFT;
 
-	for (i = 0; i < 4096; i++)
-		l1[i] = L1_FAULT;
-
+	mmu_init();
+	
 	mmu_map_page(&_kernel_bin_start, &_kernel_bin_start, 
 		kbounde - kbounds, MMU_AP_RW_NO);
 
 	/* Direct io map, for now. */
 	mmu_map_page((void *) 0x40000000, (void *) 0x40000000,
 		(0x4A400000 - 0x40000000) >> PAGE_SHIFT, MMU_AP_RW_NO);
-
-	mmu_switch();
 
 	mmu_enable();
 }
@@ -53,16 +67,14 @@ mmu_invalidate(void)
 }
 
 void
-mmu_switch()
+mmu_switch(struct proc *p)
 {
-	asm(
-		/* Set ttb */
-		"ldr r1, =l1			\n"
-		"mcr p15, 0, r1, c2, c0, 0	\n"
-		/* Disable domains ? */
-		"mov r1, #3			\n"
-		"mcr p15, 0, r1, c3, c0, 0	\n"
-	);
+	struct page *page;
+	
+	for (page = p->page; page != nil; page = page->next) {
+		kprintf("should map page 0x%h to 0x%h\n", page->va, page->pa);	
+	}
+
 }
 
 void

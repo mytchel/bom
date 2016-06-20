@@ -78,3 +78,15 @@ intc_add_handler(uint32_t irqn, void (*func)(uint32_t))
 	
 	kprintf("intc handler set for %i\n", irqn);
 }
+
+void
+enable_interrupts(void)
+{
+	asm("cpsie if");
+}
+
+void
+disable_interrupts(void)
+{
+	asm("cpsid if");
+}

@@ -2,32 +2,41 @@ ENTRY(_start)
 
 SECTIONS
 {
-	.text 0x82000000 :
+	. = 0x82000000;
+	_kernel_bin_start = .;
+	
+	. = ALIGN(4096);
+
+	.text :
 	{
-		_kernel_bin_start = .;
 		*(.text)
 	}
 	
-	.data : ALIGN(4096)
+	. = ALIGN(4096);
+	
+	.data : 
 	{
 		*(.data)
 	}
+		
+	. = ALIGN(4096);
 	
-	.rodata : ALIGN(4096)
+	.rodata :
 	{
 		*(.rodata)
 	}
 	
-	.bss : ALIGN(4096)
+	. = ALIGN(4096);
+	
+	.bss : 
 	{
 		_kernel_bss_start = .;
 		*(.bss)
 	}
 
 	. = ALIGN(4096);
+	
 	_kernel_bss_end = .;
-
-	. = ALIGN(4096);
 
 	_kernel_heap_start = .;
 	. = . + 0x1000000;

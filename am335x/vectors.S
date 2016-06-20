@@ -142,12 +142,6 @@ data_abort:
 	subs pc, lr, #4
 
 
-.section .data
-.global user_regs
-user_regs:
-	.word 0
-	
-
 .section .rodata
 inst_msg: .asciz "undefined instruction. hanging...\n"
 swi_msg: .asciz "syscall, ignoring...\n"

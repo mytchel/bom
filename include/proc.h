@@ -5,16 +5,15 @@
 
 #define MAX_PROCS		512
 #define STACK_SIZE		1024
-#define MAX_OPEN_FILES		256
 
 #define PROC_stopped		0
 #define PROC_running		1
 #define PROC_sleeping		2
 #define PROC_exiting		3
 
-struct file {
-	struct proc *manager;
-	const char *path;
+struct page {
+	reg_t pa, va;
+	struct page *next;
 };
 
 struct proc {
@@ -23,13 +22,14 @@ struct proc {
 	int state;
 	int pid;
 	reg_t stack[STACK_SIZE];
-
-	struct file files[MAX_OPEN_FILES];
 	
+	struct page *page;
+
 	struct proc *next;
 };
 
 extern struct proc *current;
+extern struct proc_machine *user_regs;
 
 struct proc *
 proc_create(void (*func)(void *), void *arg);

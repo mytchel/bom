@@ -2,17 +2,20 @@
 #include "mem.h"
 #include "../include/proc.h"
 #include "../include/com.h"
+#include "../include/intr.h"
 
-void kmain(void *);
+void start_proc(void);
 
-static void __idle__(void *arg)
-{
-	while (true);
-}
+void 
+kmain(void *);
 
-extern struct proc_machine *user_regs;
+static void 
+__idle__(void *);
 
-struct proc *current, procs[MAX_PROCS];
+struct proc_machine *user_regs;
+struct proc *current;
+
+struct proc procs[MAX_PROCS];
 
 static bool adding;
 static uint32_t next_pid;
@@ -36,8 +39,10 @@ scheduler_init(void)
 	proc_init_regs(procs, &__idle__, nil);
 	
 	proc_create(&kmain, nil);
-	
+
 	schedule();
+	enable_interrupts();
+	start_proc();
 }
 
 void
@@ -130,3 +135,10 @@ proc_remove(struct proc *p)
 	for (pp = procs; pp->next != p; pp = pp->next);
 	pp->next = p->next;
 }
+
+void
+__idle__(void *arg)
+{
+	while (true);
+}
+
