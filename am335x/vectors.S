@@ -25,7 +25,7 @@ vector_table:
 	ldr pc, =data_abort
 	b . @ not assigned
 	ldr pc, =irq_ex
-	b . @ fiq is not used
+	ldr pc, =fiq_ex
 
 
 .macro restore_proc
@@ -118,6 +118,14 @@ irq_ex:
 	subs pc, lr, #4
 	
 
+fiq_ex:
+	save_proc
+	ldr r0, =fiq_msg
+	bl puts
+	restore_proc
+	subs pc, lr, #4
+
+	
 undefined_instruction:
 	ldr r0, =inst_msg
 	bl puts
@@ -145,3 +153,4 @@ data_abort:
 .section .rodata
 inst_msg: .asciz "undefined instruction. hanging...\n"
 swi_msg: .asciz "syscall, ignoring...\n"
+fiq_msg: .asciz "FIQ!!!!!\n"

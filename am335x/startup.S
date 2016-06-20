@@ -6,7 +6,6 @@ _start:
 	cpsid if @ disable interupts
 	ldr sp, =_svc_stack_top
 	
-	@ Print boot message
 	ldr r0, =boot_msg
 	bl puts
 
@@ -32,7 +31,6 @@ _start:
 	mcr p15, 0, r0, c1, c0, 0
 
 	@ Set up stacks
-		
 	cps #MODE_FIQ
 	ldr sp, =_fiq_stack_top
 	cps #MODE_IRQ
@@ -40,15 +38,14 @@ _start:
 	cps #MODE_ABORT
 	ldr sp, =_abort_stack_top
 	cps #MODE_SVC
-
+	
+	bl watchdog_init
 	bl memory_init
 	bl intc_init
 	bl systick_init
-	
+
 	@ never returns
 	bl scheduler_init
-	
+
 .section .rodata
-boot_msg:
-	.asciz "\nBooting...\n\n"
-	
+boot_msg: .asciz "Bom Booting...\n"

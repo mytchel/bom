@@ -12,7 +12,7 @@ kmain(void *);
 static void 
 __idle__(void *);
 
-struct proc_machine *user_regs;
+struct proc_regs *user_regs;
 struct proc *current;
 
 struct proc procs[MAX_PROCS];
@@ -78,7 +78,7 @@ schedule(void)
 		current = p;
 	}
 
-	user_regs = &(current->machine);
+	user_regs = &(current->regs);
 }
 
 static struct proc *
@@ -122,7 +122,10 @@ proc_create(void (*func)(void *), void *arg)
 		return nil;
 	}
 	
+	p->state = PROC_running;
 	p->pid = next_pid++;
+	p->page = nil;
+	
 	proc_init_regs(p, func, arg);
 		
 	adding = false;
@@ -134,9 +137,22 @@ void
 proc_remove(struct proc *p)
 {
 	struct proc *pp;
-	
+	struct page *pgc, *pgn;
+
+	/* Remove proc from list. */
 	for (pp = procs; pp->next != p; pp = pp->next);
 	pp->next = p->next;
+
+	/* Free pages. */	
+	pgc = p->page;
+	while (pgc) {
+		pgn = pgc->next;
+		kfree(pgc);
+		pgc = pgn;
+	}
+
+	/* Make procs place as useable. */	
+	p->state = PROC_stopped;
 }
 
 void

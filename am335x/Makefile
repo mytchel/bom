@@ -20,6 +20,8 @@ LDFLAGS := -nostdlib -nostdinc -nodefaultlibs \
 	-T linker.ld
 
 
+HEADERS := *.h ../port/*.h
+
 A_SRC := \
 	startup.S		\
 	vectors.S		\
@@ -31,6 +33,7 @@ C_SRC := \
 	intc.c			\
 	proc.c			\
 	timer.c			\
+	watchdog.c		\
 	mem.c
 
 P_SRC := \
@@ -45,9 +48,10 @@ OBJECTS := \
 	$(P_SRC:%.c=%.o)
 
 
-$(OBJECTS):
-	@echo CC $>
-	@$(CC) $(CFLAGS) -c -o $@ $>
+$(OBJECTS): $(HEADERS)
+	@echo CC $<
+	@$(CC) $(CFLAGS) -c -o $@ $<
+
 
 am335x.elf: linker.ld $(OBJECTS)
 	@echo LD $@

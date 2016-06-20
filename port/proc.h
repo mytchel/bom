@@ -1,7 +1,7 @@
 #ifndef __PROC
 #define __PROC
 
-#include "proc_machine.h"
+#include "proc_regs.h"
 
 #define MAX_PROCS		512
 #define STACK_SIZE		1024
@@ -9,10 +9,9 @@
 #define PROC_stopped		0
 #define PROC_running		1
 #define PROC_sleeping		2
-#define PROC_exiting		3
 
 struct proc {
-	struct proc_machine machine;
+	struct proc_regs regs;
 	
 	int state;
 	int pid;
@@ -24,7 +23,7 @@ struct proc {
 };
 
 extern struct proc *current;
-extern struct proc_machine *user_regs;
+extern struct proc_regs *user_regs;
 
 struct proc *
 proc_create(void (*func)(void *), void *arg);

@@ -7,7 +7,7 @@ struct page {
 	struct page *next;
 };
 
-struct proc_machine {
+struct proc_regs {
 	uint32_t psr, sp, pc, lr;
 	uint32_t regs[13];
 };
