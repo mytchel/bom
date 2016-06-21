@@ -12,11 +12,10 @@ OBJDUMP := $(CROSS_COMPILE)objdump
 
 CFLAGS :=-mcpu=cortex-a8 \
 	-Wall -Werror -O2 \
-	-nostdlib -nostdinc -nodefaultlibs \
-	-ffreestanding \
+	-nostdinc -ffreestanding \
 	-I.
 
-LDFLAGS := -nostdlib -nostdinc -nodefaultlibs \
+LDFLAGS := -nostdlib -nodefaultlibs \
 	-T linker.ld
 
 

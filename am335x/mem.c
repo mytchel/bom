@@ -11,23 +11,6 @@ static uint8_t *next;
 
 static uint32_t l1[4096] __attribute__((__aligned__(16*1024)));
 
-static void mmu_empty1(void);
-
-static void
-mmu_init(void)
-{
-	mmu_empty1();
-	
-	asm(
-		/* Set ttb */
-		"ldr r1, =l1			\n"
-		"mcr p15, 0, r1, c2, c0, 0	\n"
-		/* Disable domains ? */
-		"mov r1, #3			\n"
-		"mcr p15, 0, r1, c3, c0, 0	\n"
-	);
-}
-
 
 void
 memory_init(void)
@@ -49,13 +32,7 @@ memory_init(void)
 	/* Direct io map, for now. */
 	mmu_imap_section(0x40000000, 0x4A400000);
 
-//	mmu_enable();
-}
-
-void
-mmu_invalidate(void)
-{
-	asm("mcr p15, 0, r1, c8, c7, 0");
+	mmu_enable();
 }
 
 void
@@ -73,47 +50,19 @@ mmu_switch(struct proc *p)
 }
 
 void
-mmu_enable(void)
-{
-	kprintf("mmu_enable\n");
-	mmu_invalidate();
-	asm(
-		/* Enable mmu */
-		"mrc p15, 0, r1, c1, c0, 0	\n"
-		"orr r1, r1, #1			\n"
-		"mcr p15, 0, r1, c1, c0, 0	\n"
-	);
-}
-
-void
-mmu_disable(void)
-{
-	asm(
-		"mrc p15, 0, r1, c1, c0, 0	\n"
-		"bic r1, r1, #1			\n"
-		"mcr p15, 0, r1, c1, c0, 0	\n"
-	);
-}
-
-void
 mmu_imap_section(uint32_t start, uint32_t end)
 {
-	int id;
-	
-	start = SECTION_ALIGN(start);
-	end = SECTION_ALIGN(end);
+	start &= ~((1 << 20) - 1);
 	
 	kprintf("mmu_imap_section from 0x%h through 0x%h\n", 
 		start, end);
 	
-	while (start <= end) {
-		id = start >> SECTION_SHIFT;
-
+	while (start < end) {
 		/* Map section so everybody can see it.
 		 * This wil change. */
-		l1[id] = ((uint32_t) start) | (3 << 10) | L1_SECTION;
+		l1[start >> 20] = ((uint32_t) start) | (3 << 10) | L1_SECTION;
 
-		start += SECTION_SIZE;
+		start += 1 << 20;
 	}
 	
 	mmu_invalidate();	
@@ -147,3 +96,49 @@ mmu_empty1(void)
 	for (i = 0; i < 4096; i++)
 		l1[i] = L1_FAULT;
 }
+
+void
+mmu_invalidate(void)
+{
+	asm("mcr p15, 0, r1, c8, c7, 0");
+}
+
+
+void
+mmu_enable(void)
+{
+	kprintf("mmu_enable\n");
+	mmu_invalidate();
+	asm(
+		/* Enable mmu */
+		"mrc p15, 0, r1, c1, c0, 0	\n"
+		"orr r1, r1, #1			\n"
+		"mcr p15, 0, r1, c1, c0, 0	\n"
+	);
+}
+
+void
+mmu_disable(void)
+{
+	asm(
+		"mrc p15, 0, r1, c1, c0, 0	\n"
+		"bic r1, r1, #1			\n"
+		"mcr p15, 0, r1, c1, c0, 0	\n"
+	);
+}
+
+void
+mmu_init(void)
+{
+	mmu_empty1();
+	
+	asm(
+		/* Set ttb */
+		"ldr r1, =l1			\n"
+		"mcr p15, 0, r1, c2, c0, 0	\n"
+		/* Disable domains ? */
+		"mov r1, #3			\n"
+		"mcr p15, 0, r1, c3, c0, 0	\n"
+	);
+}
+
