@@ -1,5 +1,5 @@
-#include "io.h"
 #include "dat.h"
+#include "io.h"
 #include "intc.h"
 #include "../port/com.h"
 
@@ -77,16 +77,4 @@ intc_add_handler(uint32_t irqn, void (*func)(uint32_t))
 	writel(1, INTC + INTC_CONTROL);
 	
 	kprintf("intc handler set for %i\n", irqn);
-}
-
-void
-enable_interrupts(void)
-{
-	asm("cpsie if");
-}
-
-void
-disable_interrupts(void)
-{
-	asm("cpsid if");
 }

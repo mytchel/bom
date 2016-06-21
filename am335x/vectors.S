@@ -153,6 +153,18 @@ data_abort:
 	subs pc, lr, #4
 
 
+.global enable_interrupts
+enable_interrupts:
+	cpsie if
+	bx lr
+
+
+.global disable_interrupts
+disable_interrupts:
+	cpsid if
+	bx lr
+
+
 .section .rodata
 inst_msg: .asciz "undefined instruction. hanging...\n"
 swi_msg: .asciz "syscall, ignoring...\n"

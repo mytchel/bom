@@ -5,7 +5,5 @@
 
 void kprintf(const char *, ...);
 void puts(const char *);
-void putc(char);
-char getc();
 
 #endif

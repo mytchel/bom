@@ -24,3 +24,10 @@ putc(char c)
 	while ((readl(UART0 + UART_LSR) & (1 << 5)) == 0);
 	writel(c, UART0 + UART_THR);
 }
+
+void
+puts(const char *c)
+{
+	while (*c)
+		putc(*c++);
+}

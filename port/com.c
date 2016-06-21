@@ -2,14 +2,7 @@
 #include "../port/com.h"
 #include "../port/stdarg.h"
 
-void
-puts(const char *str) {
-	while (*str) {
-		putc(*str++);
-	}
-}
-
-static void
+static int
 print_int(char *str, size_t max, unsigned int i, unsigned int base)
 {
 	unsigned int d;
@@ -24,24 +17,23 @@ print_int(char *str, size_t max, unsigned int i, unsigned int base)
 		i = d;
 	} while (i > 0);
 
-	while (c > 0 && max > 0) {
-		*str = s[--c];
-		max--;
-		str++;
+	d = 0;
+	while (c > 0 && d < max) {
+		str[d++] = s[--c];
 	}
+	
+	return d;
 }
 
-void 
-kprintf(const char *fmt, ...)
+int
+vsprintf(char *str, int max, const char *fmt, va_list ap)
 {
 	int i;
 	unsigned int ind, u;
-	char *s, str[MAX_STR_LEN];
-	va_list ap;
+	char *s;
 	
-	va_start(ap, fmt);
 	ind = 0;
-	while (*fmt != 0 && ind < MAX_STR_LEN) {
+	while (*fmt != 0 && ind < max) {
 		if (*fmt != '%') {
 			str[ind++] = *fmt++;
 			continue;
@@ -59,22 +51,26 @@ kprintf(const char *fmt, ...)
 				i = -i;
 			}
 
-			if (ind == MAX_STR_LEN)
+			if (ind == max)
 				break;
 
-			print_int(str + ind, MAX_STR_LEN - ind, (unsigned int) i, 10);		
+			ind += print_int(str + ind, max - ind,
+				(unsigned int) i, 10);		
 			break;
 		case 'u':
 			u = va_arg(ap, unsigned int);
-			print_int(str + ind, MAX_STR_LEN - ind, u, 10);
+			ind += print_int(str + ind, max - ind,
+				 u, 10);
 			break;
 		case 'h':
 			u = va_arg(ap, unsigned int);
-			print_int(str + ind, MAX_STR_LEN - ind, u, 16);
+			ind += print_int(str + ind, max - ind, 
+				u, 16);
 			break;
 		case 'b':
 			u = va_arg(ap, unsigned int);
-			print_int(str + ind, MAX_STR_LEN - ind, u, 2);
+			ind += print_int(str + ind, max - ind, 
+				u, 2);
 			break;
 		case 'c':
 			i = va_arg(ap, int);
@@ -82,14 +78,40 @@ kprintf(const char *fmt, ...)
 			break;
 		case 's':
 			s = va_arg(ap, char*);
-			for (i = 0; ind < MAX_STR_LEN && s[i]; i++)
+			for (i = 0; ind < max && s[i]; i++)
 				str[ind++] = s[i];
 			break;
 		}
 		
 		fmt++;
 	}
+
+	str[ind] = 0;
+	return ind;
+}
+
+int
+sprintf(char *str, int max, const char *fmt, ...)
+{
+	int i;
+	va_list ap;
+	
+	va_start(ap, fmt);
+	i = vsprintf(str, max, fmt, ap);
+	va_end(ap);
+	return i;
+}
+
+void
+kprintf(const char *fmt, ...)
+{
+	char str[512];
+	va_list ap;
+	
+	va_start(ap, fmt);
+	vsprintf(str, 512, fmt, ap);
 	va_end(ap);
 	
+	/* For now */
 	puts(str);
 }

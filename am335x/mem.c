@@ -11,7 +11,6 @@ static uint8_t *next;
 
 static uint32_t l1[4096] __attribute__((__aligned__(16*1024)));
 
-
 void
 memory_init(void)
 {
