@@ -1,11 +1,11 @@
-#include "../port/types.h"
+#include "dat.h"
 #include "../port/com.h"
-#include "../port/proc.h"
 #include "../port/syscall.h"
 
 static void
 sys_exit(int code)
 {
+	kprintf("%i exited with status %i\n", current->pid, code);
 	proc_remove(current);
 	schedule();
 }

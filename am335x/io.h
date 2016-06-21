@@ -1,7 +1,5 @@
-#include "../port/types.h"
-
-#ifndef __IO
-#define __IO
+#ifndef __IO_H
+#define __IO_H
 
 #define readl(a)	(*(volatile uint32_t*)(a))
 #define readw(a)	(*(volatile uint16_t*)(a))

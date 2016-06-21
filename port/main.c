@@ -1,6 +1,5 @@
-#include "../port/types.h"
+#include "dat.h"
 #include "../port/com.h"
-#include "../port/proc.h"
 #include "../port/syscall.h"
 #include "../port/std.h"
 

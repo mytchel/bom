@@ -87,27 +87,30 @@ start_proc:
 @ Return from exceptions offset is given on page
 @ 157 of Cortex A Series Programmer Guide
 
+@ r0 - r7 are arguments, r8 the syscall number.
+@ r9 - r12 are changeable.
 swi_ex:
-	push {r8 - r12, lr}
-
-	cmp r0, #0
+	push {lr}
+	cmp r8, #0
 	bgt 1f
 	ldr lr, =3f
 	b 2f
 1:
 	ldr lr, =4f 
 2:
-	ldr r8, =syscall_table
-	ldr pc, [r8, r0, lsl #2]
+	ldr r9, =syscall_table
+	ldr pc, [r9, r8, lsl #2]
 
 3:
 	@ Syscall was exit, requires different handling
-	pop {r8 - r12, lr}
+	pop {lr} @ return stack to previous state
+	
+	@ restore new current processs
 	restore_proc
 	subs lr, lr, #4
 	movs pc, lr
 4:
-	pop {r8 - r12, lr}
+	pop {lr}
 	movs pc, lr
 
 irq_ex:

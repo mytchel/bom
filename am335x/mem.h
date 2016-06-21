@@ -1,7 +1,5 @@
-#include "../port/proc.h"
-
-#ifndef __MEM
-#define __MEM
+#ifndef __MEM_H
+#define __MEM_H
 
 #define PAGE_SHIFT 	12
 #define PAGE_SIZE	(1UL << PAGE_SHIFT)
@@ -23,12 +21,6 @@
 #define L2_SMALL	2
 #define L2_TINY		3
 
-void *
-kmalloc(size_t size);
-
-void
-kfree(void *ptr);
-
 void
 mmu_invalidate(void);
 
@@ -37,9 +29,6 @@ mmu_enable(void);
 
 void
 mmu_disable(void);
-
-void
-mmu_switch(struct proc *p);
 
 void
 mmu_imap_section(uint32_t start, uint32_t end);

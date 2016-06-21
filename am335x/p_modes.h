@@ -1,5 +1,5 @@
-#ifndef __P_MODES
-#define __P_MODES
+#ifndef __P_MODES_H
+#define __P_MODES_H
 
 #define MODE_SVC	19
 #define MODE_FIQ	17

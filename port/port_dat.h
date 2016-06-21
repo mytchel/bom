@@ -1,7 +1,15 @@
-#ifndef __PROC
-#define __PROC
+typedef uint8_t bool;
 
-#include "proc_regs.h"
+#define true 1
+#define false 0
+
+#define nil 0
+
+void
+enable_interrupts(void);
+
+void
+disable_interrupts(void);
 
 #define MAX_PROCS		512
 #define STACK_SIZE		1024
@@ -22,9 +30,6 @@ struct proc {
 	struct proc *next;
 };
 
-extern struct proc *current;
-extern struct proc_regs *user_regs;
-
 struct proc *
 proc_create(void (*func)(void *), void *arg);
 
@@ -38,4 +43,14 @@ proc_init_regs(struct proc *p,
 void
 schedule(void);
 
-#endif
+void *
+kmalloc(size_t size);
+
+void
+kfree(void *ptr);
+
+void
+mmu_switch(struct proc *p);
+
+extern struct proc *current;
+extern struct proc_regs *user_regs;

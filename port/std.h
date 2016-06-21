@@ -1,5 +1,5 @@
-#ifndef __STD
-#define __STD
+#ifndef __STD_H
+#define __STD_H
 
 void
 exit(int);

@@ -1,5 +1,5 @@
-#ifndef __ARM_INTC
-#define __ARM_INTC
+#ifndef __INTC_H
+#define __INTC_H
 
 void intc_init(void);
 

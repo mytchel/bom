@@ -1,8 +1,5 @@
-#include "../port/types.h"
-#include "mem.h"
-#include "../port/proc.h"
+#include "dat.h"
 #include "../port/com.h"
-#include "../port/intr.h"
 
 void start_proc(void);
 
