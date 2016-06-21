@@ -1,4 +1,5 @@
 #include "p_modes.h"
+#include "abort.h"
 
 .section .text
 
@@ -122,35 +123,34 @@ irq_ex:
 	
 
 fiq_ex:
-	save_proc
+	push {r0 - r12, lr}
 	ldr r0, =fiq_msg
 	bl puts
-	restore_proc
+	pop {r0 - r12, lr}
 	subs pc, lr, #4
 
 	
 undefined_instruction:
-	ldr r0, =inst_msg
-	bl puts
-	b . @ freeze
+	mov r0, #ABORT_INSTRUCTION
+	bl abort_handler
+	restore_proc
+	subs lr, lr, #4
+	movs pc, lr
 
 
 prefetch_abort:
-	save_proc
-	mov r1, #0
+	mov r0, #ABORT_PREFETCH
 	bl abort_handler
-	bl schedule
 	restore_proc
 	subs pc, lr, #4
 
 
 data_abort:
-	save_proc
-	mov r1, #1
+	mov r0, #ABORT_DATA
 	bl abort_handler
-	bl schedule
 	restore_proc
-	subs pc, lr, #4
+	add lr, lr, #4
+	subs pc, lr, #8
 
 
 .global enable_interrupts

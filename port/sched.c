@@ -53,6 +53,8 @@ schedule(void)
 		return;
 	}
 	
+	current->state = PROC_ready;
+	
 	p = current;
 	do {
 		p = p->next;
@@ -62,19 +64,19 @@ schedule(void)
 				break;
 		}
 
-		if (p->state == PROC_running) {
+		if (p->state == PROC_ready) {
 			break;
 		}
 	} while (p != current);
 	
 	/* No processes to run. */
-	if (p == nil || p->state != PROC_running) {
-		kprintf("nothing to run\n");
+	if (p == nil || p->state != PROC_ready) {
 		current = procs;
 	} else {
 		current = p;
 	}
 
+	current->state = PROC_running;
 	user_regs = &(current->regs);
 }
 
@@ -95,7 +97,7 @@ find_and_add_proc_space()
 	if (p == nil)
 		return nil;
 	
-	p->state = PROC_running;
+	p->state = PROC_scheduling;
 	p->next = nil;
 	
 	for (pp = procs; pp->next; pp = pp->next);
@@ -119,7 +121,7 @@ proc_create(void (*func)(void *), void *arg)
 		return nil;
 	}
 	
-	p->state = PROC_running;
+	p->state = PROC_ready;
 	p->pid = next_pid++;
 	p->page = nil;
 	

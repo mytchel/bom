@@ -14,9 +14,7 @@ disable_interrupts(void);
 #define MAX_PROCS		512
 #define STACK_SIZE		1024
 
-#define PROC_stopped		0
-#define PROC_running		1
-#define PROC_sleeping		2
+enum { PROC_stopped, PROC_scheduling, PROC_running, PROC_ready, PROC_sleeping };
 
 struct proc {
 	struct proc_regs regs;

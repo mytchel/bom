@@ -22,12 +22,14 @@ task2_func(void *arg)
 {
 	int i = 0, j, fd = -1;
 	kprintf("task2 started\n");
-	while (1) {
+	while (i < 100) {
 		for (j = 0; j < 1000000; j++);
 		kprintf("task2 %i\n", i++);
-//		fd = open("test", 0);
+		fd = open("test", 0);
 		kprintf("fd = %i\n", fd);
 	}
+	
+	exit(1);
 }
 
 static void
@@ -35,7 +37,7 @@ task3_func(void *arg)
 {
 	int j, i = 0, c = 0;
 	kprintf("task3 started\n");
-	while (1) {
+	while (i < 10) {
 		for (j = 0; j < 100000; j++);
 		kprintf("task3 child %i: %i\n", c, i++);
 			/*
@@ -45,24 +47,26 @@ task3_func(void *arg)
 		}
 		*/
 	}
+	
+	exit(2);
 }
 
 static void
 task4_func(void *arg)
 {
-	int i = 0, j;
-	reg_t *addr = (reg_t *) 100000;
+	int i, j = 0;
+	reg_t *addr = (reg_t *) 1;
 	kprintf("task4 started\n");
-	addr = arg;
-	while (true) {
-		for (j = 0; j < 100000; j++);
-		/*
+	while (j++ < 10) {
 		kprintf("accessing 0x%h\n", addr);
+
 		i = (int) (*addr);
-		*/
 		kprintf("got 0x%h\n", i);
-		addr = addr + 10;
+		
+		addr = addr + 100;
 	}
+	
+	exit(3);
 }
 
 

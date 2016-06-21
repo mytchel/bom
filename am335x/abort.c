@@ -1,13 +1,23 @@
 #include "dat.h"
+#include "abort.h"
 #include "../port/com.h"
 
 void
-abort_handler(uint32_t ptr, uint32_t code)
+abort_handler(uint32_t code)
 {
 	kprintf("abort hander: ");
-	if (code) {
-		kprintf("data\n");
-	} else {
+	switch (code) {
+	case ABORT_INSTRUCTION:
+		kprintf("instruction\n");
+		break;
+	case ABORT_PREFETCH:
 		kprintf("prefetch\n");
+		break;
+	case ABORT_DATA:
+		kprintf("data\n");
+		break;
 	}
+	
+	proc_remove(current);
+	schedule();
 }
