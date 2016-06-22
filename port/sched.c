@@ -78,6 +78,8 @@ schedule(void)
 
 	current->state = PROC_running;
 	user_regs = &(current->regs);
+	
+	mmu_switch(current);
 }
 
 static struct proc *
@@ -121,12 +123,11 @@ proc_create(void (*func)(void *), void *arg)
 		return nil;
 	}
 	
-	p->state = PROC_ready;
-	p->pid = next_pid++;
-	p->page = nil;
-	
 	proc_init_regs(p, func, arg);
 		
+	p->pid = next_pid++;
+	p->state = PROC_ready;
+	
 	adding = false;
 		
 	return p;

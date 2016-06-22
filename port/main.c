@@ -22,7 +22,7 @@ task2_func(void *arg)
 {
 	int i = 0, j, fd = -1;
 	kprintf("task2 started\n");
-	while (i < 100) {
+	while (i < 5) {
 		for (j = 0; j < 1000000; j++);
 		kprintf("task2 %i\n", i++);
 		fd = open("test", 0);

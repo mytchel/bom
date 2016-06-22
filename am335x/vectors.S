@@ -115,11 +115,12 @@ swi_ex:
 	movs pc, lr
 
 irq_ex:
+	subs lr, lr, #4
 	save_proc
 	bl intc_irq_handler
 	bl schedule	
 	restore_proc
-	subs pc, lr, #4
+	movs pc, lr
 	
 
 fiq_ex:

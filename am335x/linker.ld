@@ -39,7 +39,7 @@ SECTIONS
 	_kernel_bss_end = .;
 
 	_kernel_heap_start = .;
-	. = . + 0x1000000;
+	. = . + 0x01000000;
 	_kernel_heap_end = .;
 
 	. = ALIGN(4096);

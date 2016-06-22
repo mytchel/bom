@@ -17,7 +17,8 @@ abort_handler(uint32_t code)
 		kprintf("data\n");
 		break;
 	}
-	
+
+	kprintf("killing %i\n", current->pid);	
 	proc_remove(current);
 	schedule();
 }

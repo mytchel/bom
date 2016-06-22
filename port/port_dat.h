@@ -21,7 +21,6 @@ struct proc {
 	
 	int state;
 	int pid;
-	reg_t stack[STACK_SIZE];
 	
 	struct page *page;
 
@@ -49,6 +48,12 @@ kfree(void *ptr);
 
 void
 mmu_switch(struct proc *p);
+
+struct page *
+make_page(void *va);
+
+void
+free_page(struct page *p);
 
 extern struct proc *current;
 extern struct proc_regs *user_regs;

@@ -38,7 +38,7 @@ void systick_init(void)
 
 	intc_add_handler(TINT2, &systick_handler);
 	
-	writel(100000, TIMER2 + TIMER_TMAR); /* set compare value */
+	writel(1000000, TIMER2 + TIMER_TMAR); /* set compare value */
 
 	kprintf("start systick\n");	
 	writel((1<<6) |1, TIMER2 + TIMER_TCLR);

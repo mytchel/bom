@@ -24,37 +24,68 @@ memory_init(void)
 
 	mmu_init();
 	
-	/* Map kernel memory */	
-	mmu_imap_section((uint32_t) &_kernel_bin_start, 
-		(uint32_t) &_kernel_bin_end);
-
-	/* Direct io map, for now. */
-	mmu_imap_section(0x40000000, 0x4A400000);
-
 	mmu_enable();
+}
+
+struct page *
+make_page(void *va)
+{
+	struct page *p;
+	int i;
+	
+	p = kmalloc(sizeof(struct page));
+	if (p == nil) {
+		return nil;
+	}
+	
+	for (i = 0; i < 256; i++) {
+		p->l2[i] = L2_FAULT;
+	}
+	
+	p->va = va;
+	p->next = nil;
+	
+	return p;
+}
+
+void
+free_page(struct page *p)
+{
+	int i;
+	void *phys;
+	
+	for (i = 0; i < 256; i++) {
+		if (p->l2[i] != L2_FAULT) {
+			phys = (void *) (p->l2[i] & PAGE_MASK);
+			kfree(phys);
+		}
+	}
+	
+	kfree(p);
 }
 
 void
 mmu_switch(struct proc *p)
 {
 	struct page *page;
+	uint32_t i;
 	
+	mmu_disable();	
 	mmu_empty1();
 	
 	for (page = p->page; page != nil; page = page->next) {
-		l1[(int) page->va] = ((uint32_t) page->l2) | L1_COARSE;
+		i = ((uint32_t) page->va) >> 20;
+		l1[i] = ((uint32_t) page->l2) | L1_COARSE;
 	}
 
 	mmu_invalidate();
+	mmu_enable();	
 }
 
 void
 mmu_imap_section(uint32_t start, uint32_t end)
 {
 	start &= ~((1 << 20) - 1);
-	
-	kprintf("mmu_imap_section from 0x%h through 0x%h\n", 
-		start, end);
 	
 	while (start < end) {
 		/* Map section so everybody can see it.
@@ -94,6 +125,13 @@ mmu_empty1(void)
 	int i;
 	for (i = 0; i < 4096; i++)
 		l1[i] = L1_FAULT;
+
+	/* Map kernel memory */	
+	mmu_imap_section((uint32_t) &_kernel_bin_start, 
+		(uint32_t) &_kernel_bin_end);
+
+	/* Direct io map, for now. */
+	mmu_imap_section(0x40000000, 0x4A400000);
 }
 
 void
@@ -102,11 +140,9 @@ mmu_invalidate(void)
 	asm("mcr p15, 0, r1, c8, c7, 0");
 }
 
-
 void
 mmu_enable(void)
 {
-	kprintf("mmu_enable\n");
 	mmu_invalidate();
 	asm(
 		/* Enable mmu */

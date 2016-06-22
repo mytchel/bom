@@ -1,10 +1,7 @@
-src = mkuboot.c copy_elf32.c copy_elf64.c
+mkuboot_src = mkuboot/mkuboot.c mkuboot/copy_elf32.c mkuboot/copy_elf64.c
 
-mkuboot: $(src)
-	@echo CC mkuboot
-	@cc -o mkuboot $(src) -lz
+mkuboot/mkuboot: $(mkuboot_src)
+	@echo HOSTCC $@
+	@$(HOSTCC) $(HOST_CFLAGS) -o $@ $(mkuboot_src) $(HOST_LDFLAGS) -lz
 
-clean:
-	@rm -f mkuboot
-
-.PHONY: clean
+CLEAN += mkuboot/mkuboot
