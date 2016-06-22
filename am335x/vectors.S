@@ -29,34 +29,27 @@ vector_table:
 	ldr pc, =fiq_ex
 
 
-.macro restore_proc
-	ldr r5, =user_regs
-	ldr r5, [r5]
+.global run_proc
+run_proc:
+	ldr r1, =user_regs
+	str r0, [r1]
 
-	@ load process psr, sp, pc, lr
-	ldmia r5!, {r1, r2, r3, r4}
+	@ load process psr, sp, pc
+	ldmia r0!, {r1, r2, r3, r4, r5}
 	
-	mov lr, r3
-
-	msr spsr, r1 @ store user cpsr in spsr
+	mov sp, r3
+	
 	mrs r6, cpsr
 	cps #MODE_SYS
-	mov sp, r2
-	mov lr, r4
-	msr cpsr, r6 @ switch back to previous cpsr
+	mov sp, r5
+	mov lr, r5
+	msr cpsr, r6
 
+	msr spsr, r2
+	msr cpsr, r1
 	@ load user regs
-	ldmia r5, {r0 - r12}
-.endm
+	ldmia r0, {r0 - r12, pc}
 
-
-.global start_proc
-start_proc:
-	restore_proc
-	sub r1, lr, #4 
-	cps #MODE_USR
-	mov pc, r1
-	
 
 .macro save_proc
 	push {r0 - r12}
@@ -67,6 +60,8 @@ start_proc:
 	
 	mrs r1, cpsr @ save current cpsr
 	mrs r2, spsr @ save user cpsr
+	
+	stmia r0!, {r1, r2, sp}
 
 	@ get user sp and lr
 	cps #MODE_SYS
@@ -74,14 +69,16 @@ start_proc:
 	mov r4, lr
 	msr cpsr, r1 @ switch back to current mode
 
-	@ store user cpsr, sp, pc
-	stmia r0!, {r2, r3, lr}
+	@ store spsr, kernel sp, user sp, user lr
+	stmia r0!, {r3, r4}
 
-	@ store user lr and regs
-	pop {r5 - r12}
-	stmia r0!, {r4 - r12}
+	@ store regs and lr
+	pop {r5 - r9}
+	stmia r0!, {r5 - r9}
 	pop {r5 - r9}
 	stmia r0, {r5 - r9}
+	pop {r5 - r7}
+	stmia r0, {r5 - r7, lr}
 .endm
 
 
@@ -92,25 +89,11 @@ start_proc:
 @ r9 - r12 are changeable.
 swi_ex:
 	push {lr}
-	cmp r8, #0
-	bgt 1f
-	ldr lr, =3f
-	b 2f
-1:
-	ldr lr, =4f 
-2:
+	
+	ldr lr, =1f 
 	ldr r9, =syscall_table
 	ldr pc, [r9, r8, lsl #2]
-
-3:
-	@ Syscall was exit, requires different handling
-	pop {lr} @ return stack to previous state
-	
-	@ restore new current processs
-	restore_proc
-	subs lr, lr, #4
-	movs pc, lr
-4:
+1:
 	pop {lr}
 	movs pc, lr
 
@@ -119,54 +102,45 @@ irq_ex:
 	save_proc
 	bl intc_irq_handler
 	bl schedule	
-	restore_proc
-	movs pc, lr
 	
 
 fiq_ex:
+	sub lr, lr, #4
 	push {r0 - r12, lr}
 	ldr r0, =fiq_msg
 	bl puts
-	pop {r0 - r12, lr}
-	subs pc, lr, #4
+	pop {r0 - r12, pc}
 
 	
 undefined_instruction:
 	mov r0, #ABORT_INSTRUCTION
 	bl abort_handler
-	restore_proc
-	subs lr, lr, #4
-	movs pc, lr
 
 
 prefetch_abort:
 	mov r0, #ABORT_PREFETCH
 	bl abort_handler
-	restore_proc
-	subs pc, lr, #4
 
 
 data_abort:
 	mov r0, #ABORT_DATA
 	bl abort_handler
-	restore_proc
-	add lr, lr, #4
-	subs pc, lr, #8
 
 
 .global enable_interrupts
 enable_interrupts:
-	cpsie if
+	cpsie i
 	bx lr
 
 
 .global disable_interrupts
 disable_interrupts:
-	cpsid if
+	cpsid i
 	bx lr
 
 
+.section .data
+user_regs: .word 0
+
 .section .rodata
-inst_msg: .asciz "undefined instruction. hanging...\n"
-swi_msg: .asciz "syscall, ignoring...\n"
-fiq_msg: .asciz "FIQ!!!!!\n"
+fiq_msg: .asciz "FIQ!\n"

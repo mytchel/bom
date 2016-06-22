@@ -2,7 +2,7 @@
 TARGET ?= am335x
 
 $(TARGET):
-	@$(MAKE) -C $(TARGET) all
+	@$(MAKE) -C $(TARGET)
 
 clean:
 	@$(MAKE) -C $(TARGET) clean

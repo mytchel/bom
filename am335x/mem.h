@@ -1,11 +1,6 @@
 #ifndef __MEM_H
 #define __MEM_H
 
-#define PAGE_SHIFT 	12
-#define PAGE_SIZE	(1UL << PAGE_SHIFT)
-#define PAGE_MASK	(~(PAGE_SIZE - 1))
-#define PAGE_ALIGN(x) 	(((x) + PAGE_SIZE - 1) & PAGE_MASK)
-
 #define L1_FAULT	0
 #define L1_COARSE	1
 #define L1_SECTION	2

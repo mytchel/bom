@@ -18,15 +18,17 @@ typedef	long			ssize_t;
 
 typedef unsigned int		reg_t;
 
-struct page {
-	uint32_t l2[256] __attribute__((__aligned__(1024)));
-	void *va;
-	struct page *next;
-};
+#define PAGE_SHIFT 	12
+#define PAGE_SIZE	(1UL << PAGE_SHIFT)
+#define PAGE_MASK	(~(PAGE_SIZE - 1))
+#define PAGE_ALIGN(x) 	(((x) + PAGE_SIZE - 1) & PAGE_MASK)
 
 struct proc_regs {
-	uint32_t psr, sp, pc, lr;
+	uint32_t cpsr, spsr;
+	uint32_t ksp;
+	uint32_t sp, lr;
 	uint32_t regs[13];
+	uint32_t pc;
 };
 
 #include "../port/port_dat.h"

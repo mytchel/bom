@@ -25,7 +25,7 @@ LDFLAGS := -nostdlib -nodefaultlibs \
 HOST_CFLAGS := 
 HOST_LDFLAGS :=
 
-.include <mkuboot/Makefile>
+.include <mkuboot/local.mk>
 
 HEADERS := *.h ../port/*.h
 
@@ -47,7 +47,8 @@ P_SRC := \
 	../port/com.c		\
 	../port/sched.c		\
 	../port/syscall.c	\
-	../port/main.c
+	../port/main.c		\
+	../port/misc.c
 	
 OBJECTS := \
 	$(A_SRC:%.S=%.o) \

@@ -11,21 +11,33 @@ enable_interrupts(void);
 void
 disable_interrupts(void);
 
-#define MAX_PROCS		512
-#define STACK_SIZE		1024
+enum { SEGMENT_STACK, NSEG };
+
+struct segment {
+	int type;
+	void *base, *top; /* Virtual Address */
+	uint32_t size;
+};
+
+#define MAX_PROCS	512
+#define STACK_SIZE	1024
+#define KSTACK_SIZE	256
 
 enum { PROC_stopped, PROC_scheduling, PROC_running, PROC_ready, PROC_sleeping };
 
 struct proc {
 	struct proc_regs regs;
+	reg_t stack[KSTACK_SIZE]; /* Kernel Stack. */
 	
 	int state;
 	int pid;
 	
-	struct page *page;
+	struct segment segs[NSEG];
 
 	struct proc *next;
 };
+
+void panic(const char *);
 
 struct proc *
 proc_create(void (*func)(void *), void *arg);

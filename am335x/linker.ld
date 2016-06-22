@@ -2,6 +2,8 @@ ENTRY(_start)
 
 SECTIONS
 {
+	. = 0x80000000;
+	_ram_start = .;
 	. = 0x82000000;
 	_kernel_bin_start = .;
 	
@@ -54,4 +56,6 @@ SECTIONS
 	_abort_stack_top = .;
 	
 	_kernel_bin_end = .;
+	. = 0xa000000;
+	_ram_end = .;
 }

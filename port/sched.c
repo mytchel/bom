@@ -1,7 +1,7 @@
 #include "dat.h"
 #include "../port/com.h"
 
-void start_proc(void);
+void run_proc(struct proc_regs *);
 
 void 
 kmain(void *);
@@ -36,12 +36,9 @@ scheduler_init(void)
 	proc_init_regs(procs, &__idle__, nil);
 	
 	proc_create(&kmain, nil);
-
-	schedule();
 	
-	enable_interrupts();
 	kprintf("start\n");
-	start_proc();
+	schedule();
 }
 
 void
@@ -77,9 +74,11 @@ schedule(void)
 	}
 
 	current->state = PROC_running;
-	user_regs = &(current->regs);
 	
 	mmu_switch(current);
+	
+	enable_interrupts();
+	run_proc(&current->regs);
 }
 
 static struct proc *
@@ -137,19 +136,21 @@ void
 proc_remove(struct proc *p)
 {
 	struct proc *pp;
-	struct page *pgc, *pgn;
+//	struct page *pgc, *pgn;
 
 	/* Remove proc from list. */
 	for (pp = procs; pp->next != p; pp = pp->next);
 	pp->next = p->next;
 
-	/* Free pages. */	
+	/* Free pages. */
+	/*
 	pgc = p->page;
 	while (pgc) {
 		pgn = pgc->next;
 		kfree(pgc);
 		pgc = pgn;
 	}
+	*/
 
 	/* Make procs place as useable. */	
 	p->state = PROC_stopped;
