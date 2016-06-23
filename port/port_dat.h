@@ -53,8 +53,14 @@ proc_init_regs(struct proc *p,
 void
 run_proc(struct proc *);
 
+/* Finds the next process to run and runs it. */
 void
 schedule(void);
+
+/* Like schedule but saves the current process. 
+ * For use in system calls. */
+void
+reschedule(void);
 
 void *
 kmalloc(size_t size);

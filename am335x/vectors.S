@@ -34,25 +34,48 @@ run_proc:
 	ldr r1, =current
 	str r0, [r1]
 
-	@ load process psr, sp, pc
-	ldmia r0!, {r1, r2, r3, r4}
-	
-@	mov sp, r2
-	
 	mrs r6, cpsr
+	
+	cps #MODE_SVC
+	ldmia r0!, {r1, sp}
+	msr cpsr, r6
+	
 	cps #MODE_SYS
-	mov sp, r3
-	mov lr, r4
+	ldmia r0!, {sp, lr}
 	msr cpsr, r6
 
-	msr cpsr, r1
+	msr spsr, r1
 	@ load user regs
 	ldmia r0, {r0 - r12, lr}
 	movs pc, lr
 
 
+.global reschedule
+reschedule:
+	push {r0, r1}
+	
+	ldr r0, =current
+	ldr r0, [r0]
+	
+	mrs r1, cpsr
+	add sp, sp, #(4 * 2)
+	stmia r0!, {r1, sp}
+	sub sp, sp, #(4 * 2)
+
+	cps #MODE_SYS
+	stmia r0!, {sp, lr}
+	msr cpsr, r1
+	
+	add r1, r0, #(4 * 2)
+	stmia r1, {r2 - r12, lr}
+	pop {r1, r2}
+	stmia r0, {r1, r2}
+	
+	bl schedule
+
+
 .macro save_proc
-	push {r0 - r12}
+	push {r0 - r2}
 
 	@ get address of current process regs
 	ldr r0, =current
@@ -61,20 +84,19 @@ run_proc:
 	mrs r1, cpsr @ save current cpsr
 	mrs r2, spsr @ save user cpsr
 	
-	stmia r0!, {r2, sp}
+	stmia r0!, {r2}
+	
+	add r0, r0, #4 @ skip assigning ksp
 
-	@ get user sp and lr
 	cps #MODE_SYS
 	stmia r0!, {sp, lr}
-	msr cpsr, r1 @ switch back to current mode
+	msr cpsr, r1
 
 	@ store regs and lr
-	pop {r5 - r9}
-	stmia r0!, {r5 - r9}
-	pop {r5 - r9}
-	stmia r0!, {r5 - r9}
-	pop {r5 - r7}
-	stmia r0, {r5 - r7, lr}
+	add r1, r0, #(4 * 3)
+	stmia r1, {r3 - r12, lr}
+	pop {r1 - r3}
+	stmia r0, {r1 - r3}
 .endm
 
 
@@ -84,13 +106,19 @@ run_proc:
 @ r0 - r7 are arguments, r8 the syscall number.
 @ r9 - r12 are changeable.
 swi_ex:
-	push {lr}
+	mrs r9, spsr
+	push {r9, lr}
 	
-	ldr lr, =1f 
+	mov r9, #4
+	mul r8, r9
+	
 	ldr r9, =syscall_table
-	ldr pc, [r9, r8, lsl #2]
+	add r9, r8
+	ldr lr, =1f
+	ldr pc, [r9]
 1:
-	pop {lr}
+	pop {r9, lr}
+	msr spsr, r9
 	movs pc, lr
 
 irq_ex:
@@ -137,3 +165,8 @@ disable_interrupts:
 
 .section .rodata
 fiq_msg: .asciz "FIQ!\n"
+swi_msg: .asciz "swi returning to caller\n"
+.global lr_msg
+lr_msg: .asciz "lr : 0x%h\n"
+.global cpsr_msg
+cpsr_msg: .asciz "cpsr : 0b%b\n"

@@ -20,11 +20,21 @@ task1_func(void *arg)
 static void
 task2_func(void *arg)
 {
+	uint32_t i, n;
+	char buf[6];
 	puts("task2 started\n");
-	uint32_t i;
-	for (i = 0; i < 1000; i++) {
-		puts("fdjkaslfjdskal;\n");
+	for (i = 0; i < 3; i++) {
+		kprintf("call read\n");
+		n = read(0, buf, 4);
+		if (n == -1) {
+			kprintf("read failed\n");
+		} else {
+			buf[n] = 0;
+			kprintf("read %i = '%s'\n", n, buf);
+		}
 	}
+	
+	kprintf("task2 exiting\n");
 	exit(1);
 }
 
@@ -37,7 +47,8 @@ task3_func(void *arg)
 		if (i % 3000 == 0)
 			kprintf("task3 %i\n", i);
 	}
-	
+
+	kprintf("task3 exiting\n");	
 	exit(2);
 }
 
@@ -57,7 +68,8 @@ task4_func(void *arg)
 		
 		addr += 100;
 	}
-	
+
+	kprintf("task4 exiting\n");	
 	exit(3);
 }
 

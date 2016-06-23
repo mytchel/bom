@@ -42,7 +42,12 @@ sys_close(int fd)
 static int
 sys_read(int fd, char *buf, size_t n)
 {
-	kprintf("should read\n");
+	kprintf("should read but instead rescheduling %i\n", current->pid);
+	
+	reschedule();
+	
+	kprintf("and back in kernel for %i\n", current->pid);
+	
 	return -1;
 }
 

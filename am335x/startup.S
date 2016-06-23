@@ -48,4 +48,4 @@ _start:
 	bl schedule
 
 .section .rodata
-boot_msg: .asciz "\n\n  -- Bom Booting -- \n\n"
+boot_msg: .asciz "\n  -- Bom Booting -- \n\n"
