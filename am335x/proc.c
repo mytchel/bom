@@ -1,5 +1,6 @@
 #include "dat.h"
 #include "mem.h"
+#include "p_modes.h"
 
 void
 proc_init_regs(struct proc *p,
@@ -7,8 +8,7 @@ proc_init_regs(struct proc *p,
 {
 	uint32_t *stack;
 	
-	p->regs.cpsr = 16; /* user mode */
-	p->regs.spsr = 0; /* Doesn't matter. */
+	p->regs.psr = MODE_USR;
 	p->regs.pc = (uint32_t) func;
 	p->regs.regs[0] = (uint32_t) arg; /* Set r0 to arg */
 	

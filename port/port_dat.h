@@ -27,6 +27,7 @@ enum { PROC_stopped, PROC_scheduling, PROC_running, PROC_ready, PROC_sleeping };
 
 struct proc {
 	struct proc_regs regs;
+	
 	reg_t stack[KSTACK_SIZE]; /* Kernel Stack. */
 	
 	int state;
@@ -48,6 +49,9 @@ proc_remove(struct proc *);
 void
 proc_init_regs(struct proc *p, 
 	void (*func)(void *), void *arg);
+
+void
+run_proc(struct proc *);
 
 void
 schedule(void);

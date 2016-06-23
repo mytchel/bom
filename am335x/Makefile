@@ -41,7 +41,8 @@ C_SRC := \
 	proc.c			\
 	timer.c			\
 	watchdog.c		\
-	mem.c
+	mem.c			\
+	mmu.c
 
 P_SRC := \
 	../port/com.c		\

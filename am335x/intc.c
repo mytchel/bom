@@ -32,12 +32,9 @@ intc_init(void)
 {
 	int i;
 	
-	kprintf("intc_init\n");
-
 	/* enable interface auto idle */
 	writel(1, INTC + INTC_SYSCONFIG);
 
-	kprintf("mask interrupts\n");
 	/* mask all interrupts. */
 	for (i = 0; i < intc_nirq / 32; i++) {
 		writel(0xffffffff, INTC + INTC_MIRn(i));
@@ -53,7 +50,7 @@ void
 intc_irq_handler(void)
 {
 	uint32_t irq = readl(INTC + INTC_SIR_IRQ);
-	
+		
 	if (handlers[irq]) {
 		handlers[irq](irq);
 	}

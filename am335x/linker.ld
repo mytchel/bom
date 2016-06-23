@@ -56,6 +56,6 @@ SECTIONS
 	_abort_stack_top = .;
 	
 	_kernel_bin_end = .;
-	. = 0xa000000;
+	. = 0xa0000000;
 	_ram_end = .;
 }

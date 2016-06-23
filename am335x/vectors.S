@@ -31,52 +31,48 @@ vector_table:
 
 .global run_proc
 run_proc:
-	ldr r1, =user_regs
+	ldr r1, =current
 	str r0, [r1]
 
 	@ load process psr, sp, pc
-	ldmia r0!, {r1, r2, r3, r4, r5}
+	ldmia r0!, {r1, r2, r3, r4}
 	
-	mov sp, r3
+@	mov sp, r2
 	
 	mrs r6, cpsr
 	cps #MODE_SYS
-	mov sp, r5
-	mov lr, r5
+	mov sp, r3
+	mov lr, r4
 	msr cpsr, r6
 
-	msr spsr, r2
 	msr cpsr, r1
 	@ load user regs
-	ldmia r0, {r0 - r12, pc}
+	ldmia r0, {r0 - r12, lr}
+	movs pc, lr
 
 
 .macro save_proc
 	push {r0 - r12}
 
 	@ get address of current process regs
-	ldr r0, =user_regs
+	ldr r0, =current
 	ldr r0, [r0]
-	
+
 	mrs r1, cpsr @ save current cpsr
 	mrs r2, spsr @ save user cpsr
 	
-	stmia r0!, {r1, r2, sp}
+	stmia r0!, {r2, sp}
 
 	@ get user sp and lr
 	cps #MODE_SYS
-	mov r3, sp
-	mov r4, lr
+	stmia r0!, {sp, lr}
 	msr cpsr, r1 @ switch back to current mode
-
-	@ store spsr, kernel sp, user sp, user lr
-	stmia r0!, {r3, r4}
 
 	@ store regs and lr
 	pop {r5 - r9}
 	stmia r0!, {r5 - r9}
 	pop {r5 - r9}
-	stmia r0, {r5 - r9}
+	stmia r0!, {r5 - r9}
 	pop {r5 - r7}
 	stmia r0, {r5 - r7, lr}
 .endm
@@ -101,7 +97,7 @@ irq_ex:
 	subs lr, lr, #4
 	save_proc
 	bl intc_irq_handler
-	bl schedule	
+	bl schedule
 	
 
 fiq_ex:
@@ -135,12 +131,9 @@ enable_interrupts:
 
 .global disable_interrupts
 disable_interrupts:
-	cpsid i
+	cpsid if
 	bx lr
 
-
-.section .data
-user_regs: .word 0
 
 .section .rodata
 fiq_msg: .asciz "FIQ!\n"

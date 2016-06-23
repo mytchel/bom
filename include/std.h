@@ -1,16 +1,19 @@
 #ifndef __STD_H
 #define __STD_H
 
-void
+int
 exit(int);
 
 int
 fork(void);
 
 int
+getpid(void);
+
+int
 open(const char *path, int mode);
 
-void
+int
 close(int fd);
 
 int

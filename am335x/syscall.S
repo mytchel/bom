@@ -14,7 +14,14 @@ fork:
 	svc 0
 	pop {r8 - r12, pc}
 	
-	
+
+.global getpid
+getpid:
+	push {r8 - r12, lr}
+	mov r8, #SYSCALL_GETPID
+	svc 0
+	pop {r8 - r12, pc}
+		
 
 .global open
 open:

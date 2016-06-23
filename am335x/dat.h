@@ -24,7 +24,7 @@ typedef unsigned int		reg_t;
 #define PAGE_ALIGN(x) 	(((x) + PAGE_SIZE - 1) & PAGE_MASK)
 
 struct proc_regs {
-	uint32_t cpsr, spsr;
+	uint32_t psr;
 	uint32_t ksp;
 	uint32_t sp, lr;
 	uint32_t regs[13];

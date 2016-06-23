@@ -1,8 +1,6 @@
 #include "dat.h"
 #include "../port/com.h"
 
-void run_proc(struct proc_regs *);
-
 void 
 kmain(void *);
 
@@ -11,11 +9,10 @@ __idle__(void *);
 
 struct proc_regs *user_regs;
 struct proc *current;
-
 struct proc procs[MAX_PROCS];
+static uint32_t next_pid;
 
 static bool adding;
-static uint32_t next_pid;
 
 void
 scheduler_init(void)
@@ -24,8 +21,8 @@ scheduler_init(void)
 	
 	kprintf("scheduler_init\n");
 
+	next_pid = 1;
 	adding = false;
-	next_pid = 0;
 
 	for (i = 0; i < MAX_PROCS; i++)
 		procs[i].state = PROC_stopped;
@@ -34,11 +31,8 @@ scheduler_init(void)
 	procs->next = nil;	
 	procs->state = PROC_running;
 	proc_init_regs(procs, &__idle__, nil);
-	
+
 	proc_create(&kmain, nil);
-	
-	kprintf("start\n");
-	schedule();
 }
 
 void
@@ -47,7 +41,8 @@ schedule(void)
 	struct proc *p;
 	
 	if (adding) {
-		return;
+		puts("adding, not resceduling\n");
+		run_proc(current);
 	}
 	
 	current->state = PROC_ready;
@@ -60,7 +55,7 @@ schedule(void)
 			if ((p = procs->next) == nil)
 				break;
 		}
-
+		
 		if (p->state == PROC_ready) {
 			break;
 		}
@@ -68,17 +63,13 @@ schedule(void)
 	
 	/* No processes to run. */
 	if (p == nil || p->state != PROC_ready) {
-		current = procs;
-	} else {
-		current = p;
+		p = procs;
 	}
 
-	current->state = PROC_running;
-	
-	mmu_switch(current);
-	
-	enable_interrupts();
-	run_proc(&current->regs);
+	p->state = PROC_running;
+
+	mmu_switch(p);
+	run_proc(p);
 }
 
 static struct proc *
@@ -118,7 +109,6 @@ proc_create(void (*func)(void *), void *arg)
 	p = find_and_add_proc_space();
 	if (p == nil) {
 		kprintf("Max process count reached\n");
-		adding = false;
 		return nil;
 	}
 	
@@ -126,7 +116,9 @@ proc_create(void (*func)(void *), void *arg)
 		
 	p->pid = next_pid++;
 	p->state = PROC_ready;
-	
+
+	kprintf("new proc created with pid %i\n", p->pid);
+
 	adding = false;
 		
 	return p;

@@ -41,10 +41,11 @@ _start:
 	bl watchdog_init
 	bl memory_init
 	bl intc_init
-	bl systick_init
-
-	@ never returns
 	bl scheduler_init
+	bl systick_init
+	
+@	bl enable_interrupts
+	bl schedule
 
 .section .rodata
-boot_msg: .asciz "Bom Booting...\n"
+boot_msg: .asciz "\n\n  -- Bom Booting -- \n\n"

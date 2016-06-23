@@ -11,6 +11,11 @@
 #define L2_SMALL	2
 #define L2_TINY		3
 
+struct fblock {
+	struct fblock *next;
+	uint32_t size;
+};
+
 void
 mmu_invalidate(void);
 
@@ -31,5 +36,8 @@ mmu_init(void);
 
 void
 mmu_empty1(void);
+
+void
+heap_init(void);
 
 #endif
