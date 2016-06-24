@@ -34,70 +34,60 @@ run_proc:
 	ldr r1, =current
 	str r0, [r1]
 
-	mrs r6, cpsr
+	mrs r1, cpsr
+	@ psr, svc sp, user sp, user lr, pc
+	ldmia r0!, {r2, r3, r4, r5, lr}
 	
 	cps #MODE_SVC
-	ldmia r0!, {r1, sp}
-	msr cpsr, r6
-	
+	mov sp, r3
 	cps #MODE_SYS
-	ldmia r0!, {sp, lr}
-	msr cpsr, r6
+	mov sp, r4
+	mov lr, r5
+	msr cpsr, r1
 
-	msr spsr, r1
-	@ load user regs
-	ldmia r0, {r0 - r12, lr}
+	msr spsr, r2
+	ldmia r0, {r0 - r12}
 	movs pc, lr
 
-
-.global reschedule
-reschedule:
-	push {r0, r1}
-	
-	ldr r0, =current
-	ldr r0, [r0]
-	
-	mrs r1, cpsr
-	add sp, sp, #(4 * 2)
-	stmia r0!, {r1, sp}
-	sub sp, sp, #(4 * 2)
-
-	cps #MODE_SYS
-	stmia r0!, {sp, lr}
-	msr cpsr, r1
-	
-	add r1, r0, #(4 * 2)
-	stmia r1, {r2 - r12, lr}
-	pop {r1, r2}
-	stmia r0, {r1, r2}
-	
-	bl schedule
-
-
 .macro save_proc
-	push {r0 - r2}
+	push {r0, r1, r2, r3, r4, r5}
 
 	@ get address of current process regs
 	ldr r0, =current
 	ldr r0, [r0]
 
+	sub sp, sp, #(4 * 6)
+
 	mrs r1, cpsr @ save current cpsr
 	mrs r2, spsr @ save user cpsr
-	
-	stmia r0!, {r2}
-	
-	add r0, r0, #4 @ skip assigning ksp
-
+		
+	cps #MODE_SVC
+	mov r3, sp
 	cps #MODE_SYS
-	stmia r0!, {sp, lr}
+	mov r4, sp
+	mov r5, lr
 	msr cpsr, r1
-
-	@ store regs and lr
-	add r1, r0, #(4 * 3)
-	stmia r1, {r3 - r12, lr}
-	pop {r1 - r3}
-	stmia r0, {r1 - r3}
+	
+	@ psr, kernel sp, user sp, user lr, pc
+	stmia r0!, {r2, r3, r4, r5, lr}
+	
+	add sp, sp, #(4 * 6)
+	
+	add r1, r0, #(4 * 6)
+	stmia r1, {r6 - r12}
+	pop {r1, r2, r3, r4, r5, r6}
+	stmia r0, {r1 - r6}
 .endm
+
+
+.global reschedule
+reschedule:
+	push {r0}
+	mrs r0, cpsr
+	msr spsr, r0
+	pop {r0}
+	save_proc
+	bl schedule
 
 
 @ Return from exceptions offset is given on page
@@ -106,6 +96,7 @@ reschedule:
 @ r0 - r7 are arguments, r8 the syscall number.
 @ r9 - r12 are changeable.
 swi_ex:
+	@ Get process stack pointer
 	mrs r9, spsr
 	push {r9, lr}
 	

@@ -20,18 +20,10 @@ task1_func(void *arg)
 static void
 task2_func(void *arg)
 {
-	uint32_t i, n;
-	char buf[6];
+	uint32_t i;
 	puts("task2 started\n");
 	for (i = 0; i < 3; i++) {
-		kprintf("call read\n");
-		n = read(0, buf, 4);
-		if (n == -1) {
-			kprintf("read failed\n");
-		} else {
-			buf[n] = 0;
-			kprintf("read %i = '%s'\n", n, buf);
-		}
+		kprintf("dont call read\n");
 	}
 	
 	kprintf("task2 exiting\n");

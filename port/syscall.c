@@ -1,6 +1,9 @@
 #include "dat.h"
 #include "../port/com.h"
 #include "../port/syscall.h"
+#include "../include/std.h"
+
+static struct mount *mount;
 
 static int
 sys_exit(int code)
@@ -58,6 +61,13 @@ sys_write(int fd, char *buf, size_t n)
 	return -1;
 }
 
+static int
+sys_mount(char *path, struct mount *m)
+{
+	mount = m;
+	return 0;
+}
+
 reg_t syscall_table[] = {
 	(reg_t) sys_exit,
 	(reg_t) sys_fork,
@@ -66,5 +76,6 @@ reg_t syscall_table[] = {
 	(reg_t) sys_close,
 	(reg_t) sys_read,
 	(reg_t) sys_write,
+	(reg_t) sys_mount,
 };
 

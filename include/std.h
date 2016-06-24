@@ -11,15 +11,9 @@ int
 getpid(void);
 
 int
-open(const char *path, int mode);
+receive(int pid, char *buf, size_t n);
 
 int
-close(int fd);
-
-int
-read(int fd, char *buf, size_t n);
-
-int
-write(int fd, char *buf, size_t n);
+send(int pid, char *buf, size_t n);
 
 #endif

@@ -25,10 +25,8 @@ typedef unsigned int		reg_t;
 
 struct proc_regs {
 	uint32_t psr;
-	uint32_t ksp;
-	uint32_t sp, lr;
+	uint32_t ksp, sp, lr, pc;
 	uint32_t regs[13];
-	uint32_t pc;
 };
 
 #include "../port/port_dat.h"
