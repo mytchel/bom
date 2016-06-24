@@ -12,8 +12,6 @@ struct proc *current;
 struct proc procs[MAX_PROCS];
 static uint32_t next_pid;
 
-static bool adding;
-
 void
 scheduler_init(void)
 {
@@ -22,14 +20,13 @@ scheduler_init(void)
 	kprintf("scheduler_init\n");
 
 	next_pid = 1;
-	adding = false;
 
 	for (i = 0; i < MAX_PROCS; i++)
 		procs[i].state = PROC_stopped;
 
 	current = procs;
 	procs->next = nil;	
-	procs->state = PROC_running;
+	procs->state = PROC_ready;
 	proc_init_regs(procs, &__idle__, nil);
 
 	proc_create(&kmain, nil);
@@ -39,13 +36,6 @@ void
 schedule(void)
 {
 	struct proc *p;
-	
-	if (adding) {
-		puts("adding, not resceduling\n");
-		run_proc(current);
-	}
-	
-	current->state = PROC_ready;
 	
 	p = current;
 	do {
@@ -65,8 +55,6 @@ schedule(void)
 	if (p == nil || p->state != PROC_ready) {
 		p = procs;
 	}
-
-	p->state = PROC_running;
 
 	mmu_switch(p);
 	run_proc(p);
@@ -103,9 +91,6 @@ proc_create(void (*func)(void *), void *arg)
 {
 	struct proc *p;
 
-	while (adding);
-	adding = true;
-
 	p = find_and_add_proc_space();
 	if (p == nil) {
 		kprintf("Max process count reached\n");
@@ -117,10 +102,6 @@ proc_create(void (*func)(void *), void *arg)
 	p->pid = next_pid++;
 	p->state = PROC_ready;
 
-	kprintf("new proc created with pid %i\n", p->pid);
-
-	adding = false;
-		
 	return p;
 }
 

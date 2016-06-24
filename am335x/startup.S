@@ -3,7 +3,7 @@
 .section .text
 .global _start
 _start:
-	bl disable_interrupts
+	cpsid if
 	
 	ldr r0, =boot_msg
 	bl puts
@@ -41,10 +41,11 @@ _start:
 	bl watchdog_init
 	bl memory_init
 	bl intc_init
+
 	bl scheduler_init
+	bl fs_init
+
 	bl systick_init
-	
-@	bl enable_interrupts
 	bl schedule
 
 .section .rodata

@@ -49,14 +49,13 @@ run_proc:
 	ldmia r0, {r0 - r12}
 	movs pc, lr
 
+
 .macro save_proc
-	push {r0, r1, r2, r3, r4, r5}
+	stmdb sp, {r0 - r5}
 
 	@ get address of current process regs
 	ldr r0, =current
 	ldr r0, [r0]
-
-	sub sp, sp, #(4 * 6)
 
 	mrs r1, cpsr @ save current cpsr
 	mrs r2, spsr @ save user cpsr
@@ -71,11 +70,9 @@ run_proc:
 	@ psr, kernel sp, user sp, user lr, pc
 	stmia r0!, {r2, r3, r4, r5, lr}
 	
-	add sp, sp, #(4 * 6)
-	
 	add r1, r0, #(4 * 6)
 	stmia r1, {r6 - r12}
-	pop {r1, r2, r3, r4, r5, r6}
+	ldmdb sp, {r1 - r6}
 	stmia r0, {r1 - r6}
 .endm
 
@@ -142,22 +139,6 @@ data_abort:
 	bl abort_handler
 
 
-.global enable_interrupts
-enable_interrupts:
-	cpsie i
-	bx lr
-
-
-.global disable_interrupts
-disable_interrupts:
-	cpsid if
-	bx lr
-
-
 .section .rodata
 fiq_msg: .asciz "FIQ!\n"
-swi_msg: .asciz "swi returning to caller\n"
-.global lr_msg
-lr_msg: .asciz "lr : 0x%h\n"
-.global cpsr_msg
-cpsr_msg: .asciz "cpsr : 0b%b\n"
+swi_msg: .asciz "swi exit\n"

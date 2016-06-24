@@ -5,25 +5,30 @@ typedef uint8_t bool;
 
 #define nil 0
 
-void
-enable_interrupts(void);
-
-void
-disable_interrupts(void);
-
-enum { SEGMENT_STACK, NSEG };
-
-struct segment {
-	int type;
-	void *base, *top; /* Virtual Address */
-	uint32_t size;
-};
-
 #define MAX_PROCS	512
 #define STACK_SIZE	1024
 #define KSTACK_SIZE	256
 
-enum { PROC_stopped, PROC_scheduling, PROC_running, PROC_ready, PROC_sleeping };
+enum { 	FS_open, FS_close, FS_stat, FS_read, FS_write };
+
+struct proc_fs {
+	int func;
+	int ret;
+	struct proc *proc;
+	
+	int fd;
+	
+	char *path;
+	int mode;
+	
+	char *buf;
+	size_t size;
+};
+
+enum {	PROC_stopped, PROC_scheduling, 
+	PROC_ready, PROC_sleeping, 
+	PROC_mount, PROC_wait };
+
 
 struct proc {
 	struct proc_regs regs;
@@ -33,12 +38,15 @@ struct proc {
 	int state;
 	int pid;
 	
-	struct segment segs[NSEG];
-
+	struct proc_fs fs;
+	
 	struct proc *next;
 };
 
-void panic(const char *);
+extern struct proc *current;
+
+void
+panic(const char *);
 
 struct proc *
 proc_create(void (*func)(void *), void *arg);
@@ -71,11 +79,17 @@ kfree(void *ptr);
 void
 mmu_switch(struct proc *p);
 
-struct page *
-make_page(void *va);
+void
+fs_mount(struct proc *p, char *path);
+
+struct proc *
+fs_find_mount(struct proc *p, const char *path);
+
+/* Kernel initialisation functions. */
 
 void
-free_page(struct page *p);
+fs_init(void);
 
-extern struct proc *current;
-extern struct proc_regs *user_regs;
+void
+scheduler_init(void);
+
