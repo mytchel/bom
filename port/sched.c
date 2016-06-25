@@ -1,11 +1,11 @@
 #include "dat.h"
 #include "../port/com.h"
 
-void 
-kmain(void *);
+int
+kmain(int, void *);
 
-static void 
-__idle__(void);
+static int
+__idle__(int, void *);
 
 struct proc_regs *user_regs;
 struct proc *current;
@@ -24,12 +24,15 @@ scheduler_init(void)
 	for (i = 0; i < MAX_PROCS; i++)
 		procs[i].state = PROC_stopped;
 
+	kprintf("init __idle__ proc\n");
+	
 	current = procs;
 	procs->next = nil;	
 	procs->state = PROC_ready;
-	proc_init_regs(procs, &__idle__, nil);
+	proc_init_regs(procs, &__idle__, 0, nil);
 
-	proc_create(&kmain, nil);
+	kprintf("init kmain proc\n");
+	proc_create(&kmain, 0, nil);
 }
 
 void
@@ -57,7 +60,7 @@ schedule(void)
 	}
 
 	mmu_switch(p);
-	run_proc(p);
+	resume_proc(p);
 }
 
 static struct proc *
@@ -87,7 +90,7 @@ find_and_add_proc_space()
 }
 
 struct proc *
-proc_create(void (*func)(void *), void *arg)
+proc_create(int (*func)(int, void *), int argc, void *args)
 {
 	struct proc *p;
 
@@ -98,7 +101,7 @@ proc_create(void (*func)(void *), void *arg)
 	}
 	
 	proc_init_stack(p);
-	proc_init_regs(p, (void (*)(void)) func, arg);
+	proc_init_regs(p, func, argc, args);
 		
 	p->pid = next_pid++;
 	p->state = PROC_ready;
@@ -130,9 +133,10 @@ proc_remove(struct proc *p)
 	p->state = PROC_stopped;
 }
 
-void
-__idle__(void)
+int
+__idle__(int argc, void *args)
 {
 	while (true);
+	return -1;
 }
 

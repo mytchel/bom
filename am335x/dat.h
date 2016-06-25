@@ -15,6 +15,6 @@ struct proc_regs {
 	uint32_t regs[13];
 };
 
-#include "../port/port_dat.h"
+#include "../port/portdat.h"
 
 #endif

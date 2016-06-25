@@ -2,7 +2,8 @@
 #include "../port/com.h"
 #include "../include/std.h"
 
-static void fs_proc(void *arg);
+static int
+fs_proc(int argc, void *args);
 
 struct mount {
 	struct proc *proc;
@@ -19,7 +20,7 @@ fs_init(void)
 	
 	root = nil;
 	
-	proc_create(&fs_proc, nil);
+	proc_create(&fs_proc, 0, nil);
 }
 
 void
@@ -104,8 +105,8 @@ fs_proc_read(int fd, char *buf, size_t size)
 	return -1;
 }
 
-static void
-fs_proc(void *arg)
+static int
+fs_proc(int argc, void *args)
 {
 	kprintf("In fs_proc\n");
 
@@ -117,6 +118,8 @@ fs_proc(void *arg)
 		&fs_proc_read,
 	};
 
-	mount(&fs, "/");	
+	mount(&fs, "/");
+	
+	return -1;
 }
 

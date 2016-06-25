@@ -2,8 +2,8 @@
 #include "../include/types.h"
 #include "../include/std.h"
 
-static void
-task1_func(void *arg)
+static int
+task1_func(int argc, void *args)
 {
 	int i = 0, j;
 	for (i = 0; i < 100000; i++) {
@@ -13,11 +13,11 @@ task1_func(void *arg)
 	}
 	
 	kprintf("task1 finished\n");
-	exit(0);
+	return 1;
 }
 
-static void
-task2_func(void *arg)
+static int
+task2_func(int argc, void *args)
 {
 	int i, fd;
 	puts("task2 started\n");
@@ -34,11 +34,11 @@ task2_func(void *arg)
 	}
 	
 	kprintf("task2 exiting\n");
-	exit(1);
+	return 2;
 }
 
-static void
-task3_func(void *arg)
+static int
+task3_func(int argc, void *args)
 {
 	int i;
 	for (i = 0; i < 100000; i++) {
@@ -47,11 +47,11 @@ task3_func(void *arg)
 	}
 
 	kprintf("task3 exiting\n");	
-	exit(2);
+	return 3;
 }
 
-static void
-task4_func(void *arg)
+static int
+task4_func(int argc, void *args)
 {
 	int i, j, w;
 	int *addr = (int *) 1;
@@ -68,23 +68,22 @@ task4_func(void *arg)
 	}
 
 	kprintf("task4 exiting\n");	
-	exit(3);
+	return 4;
 }
 
-
-void
-kmain(void *arg)
+int
+kmain(int argc, void *args)
 {
 	kprintf("in kmain\n");
 	
 	kprintf("adding tasks\n");
 	
-	fork(&task1_func, nil);
-	fork(&task2_func, nil);
-	fork(&task3_func, nil);
-	fork(&task4_func, nil);
+	fork(&task1_func, 0, nil);
+	fork(&task2_func, 0, nil);
+	fork(&task3_func, 0, nil);
+	fork(&task4_func, 0, nil);
 
 	kprintf("tasks initiated\nmain exiting...\n");
 	
-	exit(0);
+	return 0;
 }

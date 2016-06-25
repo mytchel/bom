@@ -4,6 +4,11 @@
 .section .text
 
 .global vector_table_init
+.global resume_proc
+.global reschedule
+.global handle_syscall
+
+
 vector_table_init:
 	@ Shift vector table to 0x00000000
 	@ See page 514 of ARM System Developers Guide
@@ -29,8 +34,7 @@ vector_table:
 	ldr pc, =fiq_ex
 
 
-.global run_proc
-run_proc:
+resume_proc:
 	ldr r1, =current
 	str r0, [r1]
 
@@ -49,14 +53,6 @@ run_proc:
 	ldmia r0, {r0 - r12}
 	movs pc, lr
 
-
-.global run_proc_func
-run_proc_func:
-	mov r1, lr
-	
-	cps #MODE_SYS
-	mov lr, r1
-	movs pc, r0
 
 .macro save_proc
 	stmdb sp, {r0 - r5}
@@ -85,7 +81,6 @@ run_proc_func:
 .endm
 
 
-.global reschedule
 reschedule:
 	push {r0}
 	mrs r0, cpsr
@@ -95,26 +90,37 @@ reschedule:
 	bl schedule
 
 
+@ r0 - r4 are arguments, r8 the syscall number.
+@ r9 - r12 are changeable.
+handle_syscall:
+	push {lr}
+	ldr lr, =1f
+	ldr r9, =syscall_table
+	ldr pc, [r9, r5, lsl #2]
+1:
+	ldr lr, =handle_syscall
+	pop {pc}
+
+
 @ Return from exceptions offset is given on page
 @ 157 of Cortex A Series Programmer Guide
 
-@ r0 - r4 are arguments, r8 the syscall number.
-@ r9 - r12 are changeable.
+@ But r0 - r5 are args/return values.
+@ Anything else is fair game.
 swi_ex:
+	pop {r10}
+	
 	mrs r9, spsr
 	push {r9, lr}
 	
-	mov r9, #4
-	mul r8, r9
-	
-	ldr r9, =syscall_table
-	add r9, r8
 	ldr lr, =1f
-	ldr pc, [r9]
+	mov pc, r10
+	
 1:
-	pop {r9, lr}
+	pop {r9, r10}
 	msr spsr, r9
-	movs pc, lr
+	push {lr}
+	movs pc, r10
 
 
 irq_ex:

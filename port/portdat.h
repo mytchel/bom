@@ -7,7 +7,7 @@ typedef uint8_t bool;
 
 #define MAX_PROCS	512
 #define STACK_SIZE	1024
-#define KSTACK_SIZE	1024 /* bytes */
+#define KSTACK_SIZE	1024 
 
 enum {	PROC_stopped, PROC_scheduling, 
 	PROC_ready, PROC_sleeping, 
@@ -15,7 +15,7 @@ enum {	PROC_stopped, PROC_scheduling,
 
 struct proc {
 	struct proc_regs regs;
-	char stack[KSTACK_SIZE]; /* Kernel Stack. */
+	reg_t stack[KSTACK_SIZE]; /* Kernel Stack. */
 	
 	int state;
 	int pid;
@@ -35,7 +35,7 @@ void
 panic(const char *);
 
 struct proc *
-proc_create(void (*func)(void *), void *arg);
+proc_create(int (*func)(int, void *), int argc, void *args);
 
 void
 proc_remove(struct proc *);
@@ -45,13 +45,15 @@ proc_init_stack(struct proc *p);
 
 void
 proc_init_regs(struct proc *p, 
-	void (*func)(void), ...);
+	int (*func)(int, void *), int argc, void *args);
 
 void
-run_proc(struct proc *);
+resume_proc(struct proc *);
 
+/* Actually takes a variable number of arguments. 
+ * Is machine dependent. */
 void
-run_proc_func(void *func);
+handle_syscall(void);
 
 /* Finds the next process to run and runs it. */
 void

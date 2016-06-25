@@ -1,34 +1,31 @@
 #include "dat.h"
 #include "mem.h"
 #include "p_modes.h"
-#include "../include/stdarg.h"
+#include "../include/std.h"
+#include "../port/com.h"
 
 void
 proc_init_stack(struct proc *p)
 {
-	uint32_t *stack;
+	reg_t *stack;
 	
-	p->regs.ksp = (uint32_t) 
-		(p->stack + KSTACK_SIZE - sizeof(uint32_t));
+	p->stack[KSTACK_SIZE - 1] = (reg_t) &handle_syscall;
+
+	p->regs.ksp = (reg_t) (&p->stack[KSTACK_SIZE - 1]);
 	
 	/* This will suffice for now. */
-	stack = kmalloc(sizeof(uint32_t) * STACK_SIZE);
-	p->regs.sp = (uint32_t) (stack + STACK_SIZE - 1);
+	stack = kmalloc(sizeof(reg_t) * STACK_SIZE);
+	p->regs.sp = (reg_t) (stack + STACK_SIZE - 1);
 }
 
 void
 proc_init_regs(struct proc *p,
-	void (*func)(void), ...)
+	int (*func)(int, void *), int argc, void *arg)
 {
-	int i;
-	va_list ap;
-	
 	p->regs.psr = MODE_USR;
-	p->regs.pc = (uint32_t) func;
+	p->regs.pc = (reg_t) func;
+	p->regs.lr = (reg_t) &exit;
 	
-	va_start(ap, func);
-	for (i = 0; i < 5; i++) {
-		p->regs.regs[i] = va_arg(ap, uint32_t);
-	}
-	va_end(ap);
+	p->regs.regs[0] = (reg_t) argc;
+	p->regs.regs[1] = (reg_t) arg;
 }

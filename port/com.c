@@ -1,6 +1,6 @@
 #include "dat.h"
 #include "../port/com.h"
-#include "../port/stdarg.h"
+#include "../include/stdarg.h"
 
 static int
 print_int(char *str, size_t max, unsigned int i, unsigned int base)

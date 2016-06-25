@@ -16,16 +16,18 @@ sys_exit(int code)
 }
 
 static int
-sys_fork(void (*func)(void *), void *arg)
+sys_fork(int (*func)(int, void *), int argc, void *args)
 {
+	puts("fork\n");
 	struct proc *p;
-	p = proc_create(func, arg);
+	p = proc_create(func, argc, args);
 	return p->pid;
 }
 
 static int
 sys_getpid(void)
 {
+	puts("getpid\n");
 	return current->pid;
 }
 
@@ -41,10 +43,6 @@ sys_mount(struct fs *fs, char *path)
 
 		current->state = PROC_mount;
 		reschedule();
-
-		kprintf("run proc func\n");
-
-		run_proc_func(fs->open);
 
 		kprintf("back in mounted process %i\n", current->pid);
 		
