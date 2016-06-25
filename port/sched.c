@@ -5,7 +5,7 @@ void
 kmain(void *);
 
 static void 
-__idle__(void *);
+__idle__(void);
 
 struct proc_regs *user_regs;
 struct proc *current;
@@ -97,7 +97,8 @@ proc_create(void (*func)(void *), void *arg)
 		return nil;
 	}
 	
-	proc_init_regs(p, func, arg);
+	proc_init_stack(p);
+	proc_init_regs(p, (void (*)(void)) func, arg);
 		
 	p->pid = next_pid++;
 	p->state = PROC_ready;
@@ -130,7 +131,7 @@ proc_remove(struct proc *p)
 }
 
 void
-__idle__(void *arg)
+__idle__(void)
 {
 	while (true);
 }

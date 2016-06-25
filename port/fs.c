@@ -75,6 +75,7 @@ fs_find_mount(struct proc *p, const char *path)
 static int
 fs_proc_open(const char *path, int mode)
 {
+	kprintf("fs_proc_open!!!\n");
 	kprintf("/ open '%s' with mode %i\n", path, mode);
 	return -1;
 }

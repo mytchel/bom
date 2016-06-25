@@ -7,38 +7,24 @@ typedef uint8_t bool;
 
 #define MAX_PROCS	512
 #define STACK_SIZE	1024
-#define KSTACK_SIZE	256
-
-enum { 	FS_open, FS_close, FS_stat, FS_read, FS_write };
-
-struct proc_fs {
-	int func;
-	int ret;
-	struct proc *proc;
-	
-	int fd;
-	
-	char *path;
-	int mode;
-	
-	char *buf;
-	size_t size;
-};
+#define KSTACK_SIZE	1024 /* bytes */
 
 enum {	PROC_stopped, PROC_scheduling, 
 	PROC_ready, PROC_sleeping, 
 	PROC_mount, PROC_wait };
 
-
 struct proc {
 	struct proc_regs regs;
-	
-	reg_t stack[KSTACK_SIZE]; /* Kernel Stack. */
+	char stack[KSTACK_SIZE]; /* Kernel Stack. */
 	
 	int state;
 	int pid;
 	
-	struct proc_fs fs;
+	/* Used by exit to determine if it should exit the
+	 * process or if it should jump to another part. 
+	 * Useful for signals and mount. */
+	void *sysexit;
+	int sysret;
 	
 	struct proc *next;
 };
@@ -55,11 +41,17 @@ void
 proc_remove(struct proc *);
 
 void
+proc_init_stack(struct proc *p);
+
+void
 proc_init_regs(struct proc *p, 
-	void (*func)(void *), void *arg);
+	void (*func)(void), ...);
 
 void
 run_proc(struct proc *);
+
+void
+run_proc_func(void *func);
 
 /* Finds the next process to run and runs it. */
 void

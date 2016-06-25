@@ -32,40 +32,22 @@ sys_getpid(void)
 static int
 sys_mount(struct fs *fs, char *path)
 {
-	int ret;
 	kprintf("mount proc %i at %s\n", current->pid, path);
 	
 	fs_mount(current, path);
 	
 	while (1) {
 		kprintf("wait for next event\n");
+
 		current->state = PROC_mount;
 		reschedule();
-	
+
+		kprintf("run proc func\n");
+
+		run_proc_func(fs->open);
+
 		kprintf("back in mounted process %i\n", current->pid);
 		
-		switch (current->fs.func) {
-		case FS_open:
-			ret = fs->open(current->fs.path, current->fs.mode);
-		case FS_close:
-			ret = fs->close(current->fs.fd);
-		case FS_stat:
-			ret = fs->stat(current->fs.fd);
-		case FS_read:
-			ret = fs->read(current->fs.fd, 
-				current->fs.buf, current->fs.size);
-		case FS_write:
-			ret = fs->write(current->fs.fd,
-				current->fs.buf, current->fs.size);
-		default:
-			ret = -1;
-		}
-		
-		kprintf("done, now notify proccess %i\n", current->fs.proc->pid);
-
-		ret = -1;		
-		current->fs.proc->state = PROC_ready;
-		current->fs.proc->fs.ret = ret;
 	}
 	
 	return 0;
@@ -85,17 +67,14 @@ sys_open(const char *path, int mode)
 		reschedule();
 	}
 
-	m->fs.func = FS_open;
-	m->fs.proc = current;
-	m->fs.path = (char *) path;
-	m->fs.mode = mode;
-
+	kprintf("Set message to mount process\n");
 	m->state = PROC_ready;
-	
 	current->state = PROC_wait;
 	reschedule();
+
+	kprintf("lets just pretend there is inter process communication for now\n");
 	
-	return current->fs.ret;
+	return -1;
 }
 
 static int

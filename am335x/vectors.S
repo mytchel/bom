@@ -50,6 +50,14 @@ run_proc:
 	movs pc, lr
 
 
+.global run_proc_func
+run_proc_func:
+	mov r1, lr
+	
+	cps #MODE_SYS
+	mov lr, r1
+	movs pc, r0
+
 .macro save_proc
 	stmdb sp, {r0 - r5}
 
@@ -90,10 +98,9 @@ reschedule:
 @ Return from exceptions offset is given on page
 @ 157 of Cortex A Series Programmer Guide
 
-@ r0 - r7 are arguments, r8 the syscall number.
+@ r0 - r4 are arguments, r8 the syscall number.
 @ r9 - r12 are changeable.
 swi_ex:
-	@ Get process stack pointer
 	mrs r9, spsr
 	push {r9, lr}
 	
@@ -108,6 +115,7 @@ swi_ex:
 	pop {r9, lr}
 	msr spsr, r9
 	movs pc, lr
+
 
 irq_ex:
 	subs lr, lr, #4

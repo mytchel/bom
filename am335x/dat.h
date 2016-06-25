@@ -10,7 +10,8 @@
 
 struct proc_regs {
 	uint32_t psr;
-	uint32_t ksp, sp, lr, pc;
+	uint32_t ksp;
+	uint32_t sp, lr, pc;
 	uint32_t regs[13];
 };
 
