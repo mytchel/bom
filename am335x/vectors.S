@@ -108,19 +108,16 @@ handle_syscall:
 @ But r0 - r5 are args/return values.
 @ Anything else is fair game.
 swi_ex:
-	pop {r10}
-	
 	mrs r9, spsr
 	push {r9, lr}
 	
 	ldr lr, =1f
-	mov pc, r10
-	
+	ldr r9, =syscall_table
+	ldr pc, [r9, r5, lsl #2]
 1:
-	pop {r9, r10}
+	pop {r9, lr}
 	msr spsr, r9
-	push {lr}
-	movs pc, r10
+	movs pc, lr
 
 
 irq_ex:

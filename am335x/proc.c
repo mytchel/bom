@@ -9,9 +9,7 @@ proc_init_stack(struct proc *p)
 {
 	reg_t *stack;
 	
-	p->stack[KSTACK_SIZE - 1] = (reg_t) &handle_syscall;
-
-	p->regs.ksp = (reg_t) (&p->stack[KSTACK_SIZE - 1]);
+	p->regs.ksp = (reg_t) (&p->stack[KSTACK_SIZE]);
 	
 	/* This will suffice for now. */
 	stack = kmalloc(sizeof(reg_t) * STACK_SIZE);
@@ -19,12 +17,12 @@ proc_init_stack(struct proc *p)
 }
 
 void
-proc_init_regs(struct proc *p,
+proc_init_regs(struct proc *p, int (*exit)(int),
 	int (*func)(int, void *), int argc, void *arg)
 {
 	p->regs.psr = MODE_USR;
 	p->regs.pc = (reg_t) func;
-	p->regs.lr = (reg_t) &exit;
+	p->regs.lr = (reg_t) exit;
 	
 	p->regs.regs[0] = (reg_t) argc;
 	p->regs.regs[1] = (reg_t) arg;

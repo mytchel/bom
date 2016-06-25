@@ -46,6 +46,8 @@ sys_mount(struct fs *fs, char *path)
 
 		kprintf("back in mounted process %i\n", current->pid);
 		
+		proc_init_regs(current, &exit, fs->open, 0, nil);
+		
 	}
 	
 	return 0;

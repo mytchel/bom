@@ -1,5 +1,6 @@
 #include "dat.h"
 #include "../port/com.h"
+#include "../include/std.h"
 
 int
 kmain(int, void *);
@@ -29,7 +30,7 @@ scheduler_init(void)
 	current = procs;
 	procs->next = nil;	
 	procs->state = PROC_ready;
-	proc_init_regs(procs, &__idle__, 0, nil);
+	proc_init_regs(procs, &exit, &__idle__, 0, nil);
 
 	kprintf("init kmain proc\n");
 	proc_create(&kmain, 0, nil);
@@ -101,7 +102,7 @@ proc_create(int (*func)(int, void *), int argc, void *args)
 	}
 	
 	proc_init_stack(p);
-	proc_init_regs(p, func, argc, args);
+	proc_init_regs(p, &exit, func, argc, args);
 		
 	p->pid = next_pid++;
 	p->state = PROC_ready;

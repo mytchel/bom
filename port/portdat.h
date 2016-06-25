@@ -44,7 +44,7 @@ void
 proc_init_stack(struct proc *p);
 
 void
-proc_init_regs(struct proc *p, 
+proc_init_regs(struct proc *p, int (*exit)(int),
 	int (*func)(int, void *), int argc, void *args);
 
 void
