@@ -7,6 +7,7 @@
 .global resume_proc
 .global reschedule
 .global handle_syscall
+.global user_run_function
 
 
 vector_table_init:
@@ -54,6 +55,21 @@ resume_proc:
 	movs pc, lr
 
 
+@ args 0, 1, 2, then func
+user_run_function:
+	push {r4 - r12, lr}
+	
+	mov r9, #MODE_USR
+	msr spsr, r9
+
+	mrs r8, cpsr
+	cps #MODE_SYS
+	ldr lr, =signal_return
+	msr cpsr, r8
+	
+	movs pc, r3
+	
+
 .macro save_proc
 	stmdb sp, {r0 - r5}
 
@@ -90,33 +106,22 @@ reschedule:
 	bl schedule
 
 
-@ r0 - r4 are arguments, r8 the syscall number.
-@ r9 - r12 are changeable.
-handle_syscall:
-	push {lr}
-	ldr lr, =1f
-	ldr r9, =syscall_table
-	ldr pc, [r9, r5, lsl #2]
-1:
-	ldr lr, =handle_syscall
-	pop {pc}
-
-
 @ Return from exceptions offset is given on page
 @ 157 of Cortex A Series Programmer Guide
 
-@ But r0 - r5 are args/return values.
+@ But r0 - r3 are args/return values.
+@ r4 is syscall number.
 @ Anything else is fair game.
 swi_ex:
-	mrs r9, spsr
-	push {r9, lr}
+	mrs r5, spsr
+	push {r5, lr}
 	
 	ldr lr, =1f
-	ldr r9, =syscall_table
-	ldr pc, [r9, r5, lsl #2]
+	ldr r6, =syscall_table
+	ldr pc, [r6, r4, lsl #2]
 1:
-	pop {r9, lr}
-	msr spsr, r9
+	pop {r5, lr}
+	msr spsr, r5
 	movs pc, lr
 
 
@@ -153,3 +158,6 @@ data_abort:
 .section .rodata
 fiq_msg: .asciz "FIQ!\n"
 swi_msg: .asciz "swi exit\n"
+
+.global cpsr_msg
+cpsr_msg: .asciz "cpsr: 0b%b\n"

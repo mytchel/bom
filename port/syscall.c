@@ -3,6 +3,8 @@
 #include "../port/syscall.h"
 #include "../include/std.h"
 
+int sys_return(int ret);
+
 static int
 sys_exit(int code)
 {
@@ -34,6 +36,7 @@ sys_getpid(void)
 static int
 sys_mount(struct fs *fs, char *path)
 {
+	int ret;
 	kprintf("mount proc %i at %s\n", current->pid, path);
 	
 	fs_mount(current, path);
@@ -42,11 +45,14 @@ sys_mount(struct fs *fs, char *path)
 		kprintf("wait for next event\n");
 
 		current->state = PROC_mount;
+		kprintf("reschedule\n");
 		reschedule();
-
+		
 		kprintf("back in mounted process %i\n", current->pid);
 		
-		proc_init_regs(current, &exit, fs->open, 0, nil);
+		ret = user_run_function((reg_t) "test", 0, 0, (int (*)(void)) fs->open);
+
+		kprintf("back to kernel mode returned %i\n", ret);
 		
 	}
 	
@@ -125,6 +131,7 @@ sys_write(int fd, char *buf, size_t n)
 }
 
 reg_t syscall_table[] = {
+	[SYSCALL_RETURN]	= (reg_t) sys_return,
 	[SYSCALL_EXIT] 		= (reg_t) sys_exit,
 	[SYSCALL_FORK] 		= (reg_t) sys_fork,
 	[SYSCALL_GETPID]	= (reg_t) sys_getpid,

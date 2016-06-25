@@ -45,7 +45,12 @@ proc_init_stack(struct proc *p);
 
 void
 proc_init_regs(struct proc *p, int (*exit)(int),
-	int (*func)(int, void *), int argc, void *args);
+	int (*func)(int, void *), 
+	int argc, void *args);
+
+int
+user_run_function(reg_t a1, reg_t a2, reg_t a3, 
+	int (*func)(void));
 
 void
 resume_proc(struct proc *);

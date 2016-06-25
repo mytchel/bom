@@ -27,3 +27,21 @@ proc_init_regs(struct proc *p, int (*exit)(int),
 	p->regs.regs[0] = (reg_t) argc;
 	p->regs.regs[1] = (reg_t) arg;
 }
+
+int
+proc_run_function(struct proc *p, int (*func)(void),
+	reg_t a1, reg_t a2, reg_t a3, reg_t a4)
+{
+	register int lr asm("lr");
+	
+	p->regs.pc = (reg_t) func;
+	p->regs.lr = (reg_t) lr;
+	
+	p->regs.regs[0] = (reg_t) a1;
+	p->regs.regs[1] = (reg_t) a2;
+	p->regs.regs[2] = (reg_t) a3;
+	p->regs.regs[3] = (reg_t) a4;
+	
+	resume_proc(p);
+	return 0; /* Never reached. */
+}

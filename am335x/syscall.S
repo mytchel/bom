@@ -2,6 +2,8 @@
 
 .section .text
 
+.global sys_return
+.global signal_return
 .global exit
 .global fork
 .global getpid
@@ -13,61 +15,71 @@
 .global write
 
 
+sys_return:
+	pop {r5, r6} @ Not needed
+	pop {r4 - r12, lr}
+	movs pc, lr
+
+signal_return:
+	mov r4, #SYSCALL_RETURN
+	svc 0
+	
+
 exit:
-	mov r5, #SYSCALL_EXIT
+	mov r4, #SYSCALL_EXIT
 	svc 0
 
 
 fork:
 	push {r4 - r12, lr}
-	mov r5, #SYSCALL_FORK
+	mov r4, #SYSCALL_FORK
 	svc 0
 	pop {r4 - r12, pc}
 	
 
 getpid:
 	push {r4 - r12, lr}
-	mov r5, #SYSCALL_GETPID
+	mov r4, #SYSCALL_GETPID
 	svc 0
 	pop {r4 - r12, pc}
 		
 
 mount:
-	mov r5, #SYSCALL_MOUNT
+	mov r4, #SYSCALL_MOUNT
 	svc 0
 
 
 open:
 	push {r4 - r12, lr}
-	mov r5, #SYSCALL_OPEN
+	mov r4, #SYSCALL_OPEN
 	svc 0
 	pop {r4 - r12, pc}
 
 
 close:
 	push {r4 - r12, lr}
-	mov r5, #SYSCALL_OPEN
+	mov r4, #SYSCALL_OPEN
 	svc 0
 	pop {r4 - r12, pc}
 
 
 stat:
 	push {r4 - r12, lr}
-	mov r5, #SYSCALL_STAT
+	mov r4, #SYSCALL_STAT
 	svc 0
 	pop {r4 - r12, pc}
 
 
 read:
 	push {r4 - r12, lr}
-	mov r5, #SYSCALL_READ
+	mov r4, #SYSCALL_READ
 	svc 0
 	pop {r4 - r12, pc}
 
 
 write:
 	push {r4 - r12, lr}
-	mov r5, #SYSCALL_WRITE
+	mov r4, #SYSCALL_WRITE
 	svc 0 
 	pop {r4 - r12, lr}
 
