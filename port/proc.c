@@ -2,47 +2,35 @@
 #include "../port/com.h"
 #include "../include/std.h"
 
-int
-main();
-
 struct proc *current;
 
 static struct proc procs[MAX_PROCS];
 static uint32_t nextpid;
 
 void
-schedulerinit(void)
+procsinit(void)
 {
 	int i;
 	
-	kprintf("scheduler init\n");
+	kprintf("procs init\n");
 
 	nextpid = 1;
 
 	for (i = 0; i < MAX_PROCS; i++)
 		procs[i].state = PROC_stopped;
 
-	kprintf("init main proc\n");
-	
 	current = procs;
 	procs->next = nil;
-	
-	main();
-	
-	schedule();
 }
 
 void
 schedule(void)
 {
 	struct proc *p;
-
+	
 	if (setlabel(&current->label)) {
-		kprintf("return from setlabel\n");
 		return;
 	}
-	
-	kprintf("schedule\n");
 	
 	p = current;
 	do {
@@ -52,7 +40,7 @@ schedule(void)
 			if ((p = procs->next) == nil)
 				break;
 		}
-		
+
 		if (p->state == PROC_ready) {
 			break;
 		}
@@ -69,8 +57,8 @@ schedule(void)
 	gotolabel(&current->label);
 }
 
-static struct proc *
-findfreeproc()
+struct proc *
+newproc()
 {
 	int i;
 	struct proc *p, *pp;
@@ -92,23 +80,8 @@ findfreeproc()
 	for (pp = procs; pp->next; pp = pp->next);
 	pp->next = p;
 	
-	return p;
-}
-
-struct proc *
-newproc()
-{
-	struct proc *p;
-
-	p = findfreeproc();
-	if (p == nil) {
-		kprintf("Max process count reached\n");
-		return nil;
-	}
-	
 	p->pid = nextpid++;
-	p->state = PROC_ready;
-
+	
 	return p;
 }
 

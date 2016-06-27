@@ -18,7 +18,6 @@ sysexit(int code)
 static int
 sysyield(void)
 {
-	kprintf("yield\n");
 	schedule();
 	return 0;
 }
@@ -32,11 +31,10 @@ sysfork()
 	p = newproc();
 	kprintf("created new process with pid %i\n", p->pid);
 
-	if (setlabel(&p->label)) {
-		return 0;
-	} else {
-		return p->pid;
-	}
+	forklabel(p, current->ureg);
+	p->state = PROC_ready;
+	
+	return p->pid;
 }
 
 static int

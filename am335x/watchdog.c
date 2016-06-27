@@ -18,6 +18,4 @@ watchdoginit(void)
 	while (readl(WDT_1 + WDT_WWPS) & (1<<4));
 	writel(0x00005555, WDT_1 + WDT_WSPR);
 	while (readl(WDT_1 + WDT_WWPS) & (1<<4));
-	
-	kprintf("Watchdog timer disabled\n");
 }

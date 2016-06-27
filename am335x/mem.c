@@ -2,35 +2,34 @@
 #include "mem.h"
 #include "../port/com.h"
 
-extern uint32_t *_kernel_heap_start;
-extern uint32_t *_kernel_heap_end;
+extern uint32_t *_heap_start;
+extern uint32_t *_heap_end;
 extern uint32_t *_ram_start;
 extern uint32_t *_ram_end;
 extern uint32_t *_kernel_start;
 extern uint32_t *_kernel_end;
 
-struct fblock heap, page;
+static struct fblock heap;
+static struct page *pages;
+static struct page *first;
 
 void
 memoryinit(void)
 {
-	uint32_t ram_size, npages;
+	uint32_t ram_size, heap_size;
 	
 	kprintf("kernel_start  = 0x%h\n", &_kernel_start);
 	kprintf("kernel_end    = 0x%h\n", &_kernel_end);
-	kprintf("heap_start    = 0x%h\n", &_kernel_heap_start);
-	kprintf("heap_end      = 0x%h\n", &_kernel_heap_end);
-	kprintf("ram_start     = 0x%h\n", &_ram_start);
-	kprintf("ram_end       = 0x%h\n", &_ram_end);
 	
 	ram_size = (uint32_t) &_ram_end - (uint32_t) &_ram_start;
-	npages = ram_size / PAGE_SIZE;
+	heap_size = (uint32_t) &_heap_end - (uint32_t) &_heap_start;
+
+	kprintf("ram size      = %i MB\n", ram_size / 1024 / 1024);
+	kprintf("heap size     = %i MB\n", heap_size / 1024 / 1024);
+
+	heapinit((void *) &_heap_start, heap_size);
 	
-	kprintf("ram           = 0x%h (0x%h)\n", ram_size, npages);
-
-	pageinit();
-
-	heapinit();
+	pageinit((void *) &_ram_start, ram_size);
 	
 	mmuinit();
 	
@@ -45,37 +44,48 @@ memoryinit(void)
 }
 
 int
-heapinit(void)
+heapinit(void *heap_start, size_t size)
 {
+	kprintf("heap_start 0x%h\n", (uint32_t) heap_start);
 	heap.size = 0;
-	heap.next = (struct fblock *) &_kernel_heap_start;
-	heap.next->size = (uint32_t) &_kernel_heap_end - (uint32_t) &_kernel_heap_start;
+	heap.next = (struct fblock *) heap_start;
+	heap.next->size = size;
 	heap.next->next = nil;
 	
 	return 0;
 }
 
 int
-pageinit(void)
+pageinit(void *ram_start, size_t ram_size)
 {
-	page.size = 0;
-	page.next = (struct fblock *) &_ram_start;
-	page.next->size = (uint32_t) &_kernel_start - (uint32_t) &_ram_start;
+	uint32_t i, npages;
 	
-	page.next->next = (struct fblock *) &_kernel_end;
-	page.next->next->size = (uint32_t) &_ram_end - (uint32_t) &_kernel_end;
-	page.next->next->next = nil;
-
+	npages = ram_size / PAGE_SIZE;
+	
+	kprintf("npages = %i\n", npages);
+	
+	pages = kmalloc(sizeof(struct page) * npages);
+	first = pages;
+	
+	for (i = 0; i < npages; i++) {
+		pages[i].pa = (void *) ((uint32_t) ram_start + i * PAGE_SIZE);
+		if (i < npages - 1)
+			pages[i].next = &pages[i + 1];
+		else
+			pages[i].next = nil;
+	}
+	
 	return 0;
 }
 
-static void *
-getblock(struct fblock *start, uint32_t size)
+void *
+kmalloc(size_t size)
 {
 	struct fblock *b, *n;
 	void *block;
 	
-	for (b = start; b->next != nil; b = b->next) {
+	for (b = &heap; b->next != nil; b = b->next) {
+		kprintf("b->next size %i\n", b->next->size);
 		if (b->next->size >= size) {
 			break;
 		}
@@ -88,30 +98,27 @@ getblock(struct fblock *start, uint32_t size)
 	
 	block = (void *) b->next;
 	if (b->next->size > size) {
-		kprintf("breaking up free block 0x%h\n", (uint32_t) b->next);
 		n = (struct fblock *) ((uint32_t) b->next + size);
 		n->size = b->next->size - size;
 		n->next = b->next->next;
 		b->next = n;
 	} else {
-		kprintf("removing free block 0x%h\n", (uint32_t) b->next);
 		b->next = b->next->next;
 	}
 	
-	kprintf("allocated 0x%h (0x%h)\n", (uint32_t) block, size);
 	return block;
 	
 }
 
-static void
-freeblock(struct fblock *start, void *ptr, uint32_t size)
+void
+kfree(void *ptr, size_t size)
 {
 	struct fblock *b;
 	uint32_t nsize;
 	
 	kprintf("freeing 0x%h\n", (uint32_t) ptr);
 	
-	for (b = start; b->next != nil; b = b->next) {
+	for (b = &heap; b->next != nil; b = b->next) {
 		if ((void *) b->next->next > ptr) {
 			break;
 		}
@@ -146,26 +153,21 @@ freeblock(struct fblock *start, void *ptr, uint32_t size)
 	}
 }
 
-void *
-kmalloc(size_t size)
+struct page *
+newpage(void *va)
 {
-	return getblock(&heap, size);
+	struct page *p;
+
+	p = first;
+	first = first->next;
+	p->va = va;
+	
+	return p;
 }
 
 void
-kfree(void *ptr)
+freepage(struct page *p)
 {
-	kprintf("Not yet implimented\n");
-}
-
-void *
-getpage(void)
-{
-	return getblock(&page, PAGE_SIZE);
-}
-
-void
-freepage(void *pa)
-{
-	freeblock(&page, pa, PAGE_SIZE);
+	p->next = first;
+	first = p;
 }

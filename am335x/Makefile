@@ -32,22 +32,25 @@ HEADERS := *.h ../port/*.h
 A_SRC := \
 	startup.S		\
 	vectors.S		\
-	syscall.S
+	user_syscalls.S
 
 C_SRC := \
+	main.c			\
 	abort.c			\
 	uart.c			\
 	intc.c			\
 	timer.c			\
 	watchdog.c		\
 	mem.c			\
-	mmu.c			\
-	proc.c
+	syscall.c		\
+	mmu.c
 
 P_SRC := \
+	../port/misc.c		\
 	../port/com.c		\
 	../port/proc.c		\
 	../port/syscall.c	\
+	../port/segment.c	\
 	../port/main.c
 	
 OBJECTS := \

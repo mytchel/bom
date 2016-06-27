@@ -17,7 +17,7 @@ task1_func(int argc, void *args)
 		yield();
 	return 1;
 }
-
+#if 0
 static int
 task2_func(int argc, void *args)
 {
@@ -81,16 +81,24 @@ task4_func(int argc, void *args)
 		yield();
 	return 4;
 }
-
+#endif
 int
-main()
+kmain()
 {
+	uint32_t i, j, k;
 	kprintf("adding tasks\n");
 	
 	if (!fork()) {
 		task1_func(0, nil);
 	}
 
+	for (i = 0; i < 0xffffffff; i++)
+		for (j = 0; j < 0xffffffff; j++)
+			for (k = 0; k < 0xffffffff; k++);
+	kprintf("timed out.\n");
+	return kmain();
+	
+	/*
 	if (!fork()) {
 		task2_func(0, nil);
 	}
@@ -110,4 +118,5 @@ main()
 	}
 
 	return 0;
+	*/
 }

@@ -26,7 +26,7 @@ void
 mmudisable(void);
 
 void
-imap(uint32_t start, uint32_t end);
+imap(uint32_t, uint32_t);
 	
 void
 memoryinit(void);
@@ -35,10 +35,10 @@ void
 mmuempty1(void);
 
 int
-pageinit(void);
+pageinit(void *, size_t);
 
 int
-heapinit(void);
+heapinit(void *, size_t);
 
 int
 mmuinit(void);

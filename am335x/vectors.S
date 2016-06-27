@@ -6,6 +6,7 @@
 .global vectortableinit
 .global setlabel
 .global gotolabel
+.global forkret
 
 vectortableinit:
 	@ Shift vector table to 0x00000000
@@ -39,15 +40,29 @@ vectortable:
 @ r4 is syscall number.
 @ Anything else is fair game.
 swi_ex:
-	mrs r5, spsr
-	push {r5, lr}
+	sub sp, sp, #(4 * 17)
+	stmia sp!, {r0 - r12}
 	
-	ldr lr, =1f
-	ldr r5, =syscalltable
-	ldr pc, [r5, r4, lsl #2]
-1:
-	pop {r5, lr}
-	msr spsr, r5
+	mov r0, sp
+	cps #MODE_SYS
+	stmia r0!, {sp, lr}
+	cps #MODE_SVC
+	
+	mrs r1, spsr
+	stmia r0!, {r1, lr}
+	
+	sub sp, r0, #(4 * 17)
+	mov r0, sp
+	
+	bl syscall
+	
+	add sp, sp, #(4 * 15)
+	ldmia sp!, {r0, lr}
+	msr spsr, r0
+	mov r0, sp
+	cps #MODE_SYS
+	ldmia r0, {r0 - r12, sp, lr}
+	cps #MODE_SVC
 	movs pc, lr
 
 
@@ -85,38 +100,6 @@ fiq_ex:
 	b .
 
 
-switch:
-	mrs r1, spsr
-	mov r2, lr
-	mov r3, sp
-	
-	cps #MODE_SVC
-
-	stmdb sp, {r0 - r5}
-
-	@ get address of current process regs
-	ldr r0, =current
-	ldr r0, [r0]
-
-	mrs r1, cpsr @ save current cpsr
-	mrs r2, spsr @ save user cpsr
-		
-	cps #MODE_SVC
-	mov r3, sp
-	cps #MODE_SYS
-	mov r4, sp
-	mov r5, lr
-	msr cpsr, r1
-	
-	@ psr, kernel sp, user sp, user lr, pc
-	stmia r0!, {r2, r3, r4, r5, lr}
-	
-	add r1, r0, #(4 * 6)
-	stmia r1, {r6 - r12}
-	ldmdb sp, {r1 - r6}
-	stmia r0, {r1 - r6}
-
-
 setlabel:
 	stmia r0, {sp, lr}
 	mov r0, #0
@@ -127,6 +110,19 @@ gotolabel:
 	ldmia r0, {sp, lr}
 	mov r0, #1
 	bx lr
+
+
+forkret:
+	mov r0, sp
+	add sp, sp, #(4 * 15)
+	pop {r0, lr}
+	msr spsr, r0
+	
+	cps #MODE_SYS
+	ldmia r0, {r0 - r12, sp, lr}
+	cps #MODE_SVC
+	mov pc, lr
+
 
 .section .rodata
 irq_msg: .asciz "irq\n"

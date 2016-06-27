@@ -37,11 +37,7 @@ _start:
 	bic r0, r0, #(1 << 0) @ disable mmu
 	mcr p15, 0, r0, c1, c0, 0
 	
-	bl watchdoginit
-	bl memoryinit
-	bl intcinit
-@	bl systickinit
-	bl schedulerinit
+	bl main
 
 .section .rodata
 boot_msg: .asciz "\n  -- Bom Booting --\n\n"

@@ -5,20 +5,16 @@ typedef uint8_t bool;
 
 #define nil 0
 
-#define MAX_PROCS	512
-#define STACK_SIZE	1024
-#define KSTACK_SIZE	1024 
-#define MAX_OPEN_FILES	32
-
 enum { SEG_stack, SEG_text, SEG_data, NSEG };
 
 struct page {
-	void *pa;
+	void *pa, *va;
 	struct page *next;
 };
 
 struct segment {
-	void *top, *bottom;
+	int type;
+	void *base, *top;
 	struct page *pages;
 };
 
@@ -31,12 +27,14 @@ enum {
 
 struct proc {
 	struct label label;
-	reg_t stack[KSTACK_SIZE]; /* Kernel Stack. */
+	char kstack[KSTACK];
+
+	struct ureg *ureg;
 	
 	int state;
 	int pid;
 
-	struct segment segments[NSEG];
+	struct segment *segs[NSEG];
 	
 	struct proc *next;
 };
@@ -46,11 +44,15 @@ extern struct proc *current;
 struct proc *
 newproc();
 
+/* Set up proc->label for return from fork. */
+void
+forklabel(struct proc *, struct ureg *);
+
 void
 procremove(struct proc *);
 
 void
-procinitstack(struct proc *p);
+procinitstack(struct proc *);
 
 int
 setlabel(struct label *);
@@ -62,16 +64,28 @@ void
 schedule(void);
 
 void
-schedulerinit(void);
+procsinit(void);
 
 void *
-kmalloc(size_t size);
+kmalloc(size_t);
 
 void
-kfree(void *ptr);
+kfree(void *, size_t);
 
 void
-mmuswitch(struct proc *p);
+mmuswitch(struct proc *);
 
-void *
-getpage(void);
+struct page *
+newpage(void *);
+
+void
+freepage(struct page *);
+
+struct segment *
+newseg(int, void *, size_t);
+
+
+/* Helper */
+
+void
+memmove(void *n, void *o, size_t);

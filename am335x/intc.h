@@ -5,6 +5,6 @@ void intcinit(void);
 
 void intcirqhandler(void);
 
-void intcaddhandler(uint32_t irqn, void (*func)(uint32_t));
+void intcaddhandler(uint32_t, void (*)(uint32_t));
 
 #endif
