@@ -1,4 +1,4 @@
-#include "../port/syscall.h"
+#include "../include/syscall.h"
 
 .section .text
 
@@ -15,67 +15,76 @@
 
 
 exit:
-	mov r4, #SYSCALL_EXIT
+	push {r0}
+	mov r0, #SYSCALL_EXIT
 	svc 0
 
 
 fork:
-	push {r4 - r12, lr}
-	mov r4, #SYSCALL_FORK
+	push {lr}
+	mov r0, #SYSCALL_FORK
 	svc 0
-	pop {r4 - r12, pc}
+	push {r0 - r12, lr}
+	ldr r0, =fork_msg
+	bl puts
+	pop {r0 - r12, lr}
+	pop {pc}
 
 
 yield:
-	push {r4 - r12, lr}
-	mov r4, #SYSCALL_YIELD
+	push {lr}
+	mov r0, #SYSCALL_YIELD
 	svc 0
-	pop {r4 - r12, pc}
+	pop {pc}
 	
 	
 getpid:
-	push {r4 - r12, lr}
-	mov r4, #SYSCALL_GETPID
+	push {lr}
+	mov r0, #SYSCALL_GETPID
 	svc 0
-	pop {r4 - r12, pc}
+	pop {pc}
 		
 
 mount:
-	mov r4, #SYSCALL_MOUNT
+	push {lr}
+	mov r0, #SYSCALL_MOUNT
 	svc 0
+	pop {lr}
 
 
 open:
-	push {r4 - r12, lr}
-	mov r4, #SYSCALL_OPEN
+	push {lr}
+	mov r0, #SYSCALL_OPEN
 	svc 0
-	pop {r4 - r12, pc}
+	pop {pc}
 
 
 close:
-	push {r4 - r12, lr}
-	mov r4, #SYSCALL_OPEN
+	push {lr}
+	mov r0, #SYSCALL_OPEN
 	svc 0
-	pop {r4 - r12, pc}
+	pop {pc}
 
 
 stat:
-	push {r4 - r12, lr}
-	mov r4, #SYSCALL_STAT
+	push {lr}
+	mov r0, #SYSCALL_STAT
 	svc 0
-	pop {r4 - r12, pc}
+	pop {pc}
 
 
 read:
-	push {r4 - r12, lr}
-	mov r4, #SYSCALL_READ
+	push {lr}
+	mov r0, #SYSCALL_READ
 	svc 0
-	pop {r4 - r12, pc}
+	pop {pc}
 
 
 write:
-	push {r4 - r12, lr}
-	mov r4, #SYSCALL_WRITE
+	push {lr}
+	mov r0, #SYSCALL_WRITE
 	svc 0 
-	pop {r4 - r12, lr}
+	pop {pc}
 
+.section .rodata
+fork_msg: .asciz "fork returned to 'user'\n"

@@ -27,7 +27,7 @@ void
 schedule(void)
 {
 	struct proc *p;
-	
+
 	if (setlabel(&current->label)) {
 		return;
 	}
@@ -48,10 +48,9 @@ schedule(void)
 	
 	/* No processes to run. */
 	if (p == nil || p->state != PROC_ready) {
-		kprintf("gave up\n");
 		schedule();
 	}
-	
+
 	current = p;
 	mmuswitch(current);
 	gotolabel(&current->label);

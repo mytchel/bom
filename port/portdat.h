@@ -1,3 +1,6 @@
+#include "../include/syscall.h"
+#include "../include/stdarg.h"
+
 typedef uint8_t bool;
 
 #define true 1
@@ -40,6 +43,7 @@ struct proc {
 };
 
 extern struct proc *current;
+extern int (*syscalltable[NSYSCALLS])(va_list args);
 
 struct proc *
 newproc();

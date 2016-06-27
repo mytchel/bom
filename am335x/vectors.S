@@ -113,15 +113,14 @@ gotolabel:
 
 
 forkret:
-	mov r0, sp
 	add sp, sp, #(4 * 15)
-	pop {r0, lr}
+	ldmia sp!, {r0, lr}
 	msr spsr, r0
-	
+	mov r0, sp
 	cps #MODE_SYS
 	ldmia r0, {r0 - r12, sp, lr}
 	cps #MODE_SVC
-	mov pc, lr
+	movs pc, lr
 
 
 .section .rodata
@@ -129,3 +128,4 @@ irq_msg: .asciz "irq\n"
 dab_msg: .asciz "data abort\n"
 pab_msg: .asciz "pr abort\n"
 uab_msg: .asciz "undefined abort\n"
+swi_msg: .asciz "swi back lr = 0x%h\n"

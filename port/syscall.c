@@ -1,13 +1,14 @@
 #include "dat.h"
 #include "../port/com.h"
-#include "../port/syscall.h"
 #include "../include/std.h"
 
 static int
-sysexit(int code)
+sysexit(va_list args)
 {
-	kprintf("pid %i exited with status %i\n", current->pid, code);
+	int code = va_arg(args, int);
 	
+	kprintf("pid %i exited with status %i\n", current->pid, code);
+
 	current->state = PROC_exiting;
 	schedule();
 	
@@ -16,72 +17,67 @@ sysexit(int code)
 }
 
 static int
-sysyield(void)
+sysyield(va_list args)
 {
+	kprintf("yield\n");
 	schedule();
 	return 0;
 }
 
 static int
-sysfork()
+sysfork(va_list args)
 {
 	struct proc *p;
-		
+
 	puts("fork\n");
+	
 	p = newproc();
 	kprintf("created new process with pid %i\n", p->pid);
 
 	forklabel(p, current->ureg);
 	p->state = PROC_ready;
 	
+	kprintf("return\n");
 	return p->pid;
 }
 
 static int
-sysgetpid(void)
+sysgetpid(va_list args)
 {
 	return current->pid;
 }
 
 static int
-sysmount(struct fs *fs, char *path)
+sysmount(va_list args)
 {
-	kprintf("mount proc %i at %s\n", current->pid, path);
-
-	while (1) {
-		kprintf("mounted process %i rescheduling\n", current->pid);
-		schedule();
-		kprintf("mounted process %i back\n", current->pid);
-	}
-		
-	return 0;
+	return -1;
 }
 
 static int
-sysopen(const char *path, int mode)
+sysopen(va_list args)
 {
 	kprintf("should open\n");
 	return -1;
 }
 
 static int
-sysclose(int fd)
+sysclose(va_list args)
 {
-	kprintf("should close '%i'\n", fd);
+	kprintf("should close\n");
 	
 	return -1;
 }
 
 static int
-sysstat(int fd)
+sysstat(va_list args)
 {
-	kprintf("should stat '%i'\n", fd);
+	kprintf("should stat\n");
 	
 	return -1;
 }
 
 static int
-sysread(int fd, char *buf, size_t n)
+sysread(va_list args)
 {
 	kprintf("should read\n");
 
@@ -89,22 +85,22 @@ sysread(int fd, char *buf, size_t n)
 }
 
 static int
-syswrite(int fd, char *buf, size_t n)
+syswrite(va_list args)
 {
 	kprintf("should write\n");
 
 	return -1;
 }
 
-reg_t syscalltable[] = {
-	[SYSCALL_EXIT] 		= (reg_t) sysexit,
-	[SYSCALL_FORK] 		= (reg_t) sysfork,
-	[SYSCALL_YIELD]		= (reg_t) sysyield,
-	[SYSCALL_GETPID]	= (reg_t) sysgetpid,
-	[SYSCALL_MOUNT] 	= (reg_t) sysmount,
-	[SYSCALL_OPEN]		= (reg_t) sysopen,
-	[SYSCALL_CLOSE]		= (reg_t) sysclose,
-	[SYSCALL_STAT]		= (reg_t) sysstat,
-	[SYSCALL_READ]		= (reg_t) sysread,
-	[SYSCALL_WRITE]		= (reg_t) syswrite,
+int (*syscalltable[NSYSCALLS])(va_list) = {
+	[SYSCALL_EXIT] 		= sysexit,
+	[SYSCALL_FORK] 		= sysfork,
+	[SYSCALL_YIELD]		= sysyield,
+	[SYSCALL_GETPID]	= sysgetpid,
+	[SYSCALL_MOUNT] 	= sysmount,
+	[SYSCALL_OPEN]		= sysopen,
+	[SYSCALL_CLOSE]		= sysclose,
+	[SYSCALL_STAT]		= sysstat,
+	[SYSCALL_READ]		= sysread,
+	[SYSCALL_WRITE]		= syswrite,
 };

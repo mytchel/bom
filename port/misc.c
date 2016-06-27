@@ -10,5 +10,5 @@ memmove(void *new, void *old, size_t l)
 	o = old;
 	
 	for (i = 0; i < l; i++)
-		n[i] = o[i];
+		*n++ = *o++;
 }

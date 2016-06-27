@@ -6,6 +6,7 @@ static int
 task1_func(int argc, void *args)
 {
 	int i = 0, j;
+	kprintf("task1 started\n");
 	for (i = 0; i < 100000; i++) {
 		for (j = 0; j < 0x1fffffff; j++);
 		if (i % 1000 == 0)
@@ -47,6 +48,7 @@ static int
 task3_func(int argc, void *args)
 {
 	int i;
+	kprintf("task3 started\n");
 	for (i = 0; i < 100000; i++) {
 		if (i % 3000 == 0)
 			kprintf("task3 %i\n", i);
@@ -85,17 +87,16 @@ task4_func(int argc, void *args)
 int
 kmain()
 {
-	uint32_t i, j, k;
 	kprintf("adding tasks\n");
 	
 	if (!fork()) {
-		task1_func(0, nil);
+		return task1_func(0, nil);
 	}
 
-	for (i = 0; i < 0xffffffff; i++)
-		for (j = 0; j < 0xffffffff; j++)
-			for (k = 0; k < 0xffffffff; k++);
-	kprintf("timed out.\n");
+	kprintf("fork returned to parent.\n");
+	while (true)
+		yield();
+	
 	return kmain();
 	
 	/*
