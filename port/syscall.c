@@ -3,14 +3,12 @@
 #include "../port/syscall.h"
 #include "../include/std.h"
 
-int sys_return(int ret);
-
 static int
-sys_exit(int code)
+sysexit(int code)
 {
 	kprintf("pid %i exited with status %i\n", current->pid, code);
 	
-	proc_remove(current);
+	current->state = PROC_exiting;
 	schedule();
 	
 	/* Never reached. */
@@ -18,128 +16,97 @@ sys_exit(int code)
 }
 
 static int
-sys_fork(int (*func)(int, void *), int argc, void *args)
+sysyield(void)
 {
-	puts("fork\n");
-	struct proc *p;
-	p = proc_create(func, argc, args);
-	return p->pid;
-}
-
-static int
-sys_getpid(void)
-{
-	puts("getpid\n");
-	return current->pid;
-}
-
-static int
-sys_mount(struct fs *fs, char *path)
-{
-	int ret;
-	kprintf("mount proc %i at %s\n", current->pid, path);
-	
-	fs_mount(current, path);
-	
-	while (1) {
-		kprintf("wait for next event\n");
-
-		current->state = PROC_mount;
-		kprintf("reschedule\n");
-		reschedule();
-		
-		kprintf("back in mounted process %i\n", current->pid);
-		
-		ret = user_run_function((reg_t) "test", 0, 0, (int (*)(void)) fs->open);
-
-		kprintf("back to kernel mode returned %i\n", ret);
-		
-	}
-	
+	kprintf("yield\n");
+	schedule();
 	return 0;
 }
 
 static int
-sys_open(const char *path, int mode)
+sysfork()
 {
-	struct proc *m;
+	struct proc *p;
+		
+	puts("fork\n");
+	p = newproc();
+	kprintf("created new process with pid %i\n", p->pid);
 
-	m = fs_find_mount(current, path);
-	if (m == nil) {
-		return -1;
+	if (setlabel(&p->label)) {
+		return 0;
+	} else {
+		return p->pid;
 	}
-	
-	while (m->state != PROC_mount) {
-		reschedule();
+}
+
+static int
+sysgetpid(void)
+{
+	return current->pid;
+}
+
+static int
+sysmount(struct fs *fs, char *path)
+{
+	kprintf("mount proc %i at %s\n", current->pid, path);
+
+	while (1) {
+		kprintf("mounted process %i rescheduling\n", current->pid);
+		schedule();
+		kprintf("mounted process %i back\n", current->pid);
 	}
+		
+	return 0;
+}
 
-	kprintf("Set message to mount process\n");
-	m->state = PROC_ready;
-	current->state = PROC_wait;
-	reschedule();
-
-	kprintf("lets just pretend there is inter process communication for now\n");
-	
+static int
+sysopen(const char *path, int mode)
+{
+	kprintf("should open\n");
 	return -1;
 }
 
 static int
-sys_close(int fd)
+sysclose(int fd)
 {
 	kprintf("should close '%i'\n", fd);
 	
-	current->state = PROC_wait;
-	reschedule();
-	
 	return -1;
 }
 
 static int
-sys_stat(int fd)
+sysstat(int fd)
 {
 	kprintf("should stat '%i'\n", fd);
 	
-	current->state = PROC_wait;
-	reschedule();
-	
 	return -1;
 }
 
 static int
-sys_read(int fd, char *buf, size_t n)
+sysread(int fd, char *buf, size_t n)
 {
-	kprintf("should read but instead rescheduling %i\n", current->pid);
-	
-	
-	current->state = PROC_wait;
-	reschedule();
-	
-	kprintf("and back in kernel for %i\n", current->pid);
-	
+	kprintf("should read\n");
+
 	return -1;
 }
 
 static int
-sys_write(int fd, char *buf, size_t n)
+syswrite(int fd, char *buf, size_t n)
 {
 	kprintf("should write\n");
 
-	current->state = PROC_wait;
-	reschedule();
-
 	return -1;
 }
 
-reg_t syscall_table[] = {
-	[SYSCALL_RETURN]	= (reg_t) sys_return,
-	[SYSCALL_EXIT] 		= (reg_t) sys_exit,
-	[SYSCALL_FORK] 		= (reg_t) sys_fork,
-	[SYSCALL_GETPID]	= (reg_t) sys_getpid,
-	[SYSCALL_MOUNT] 	= (reg_t) sys_mount,
-	[SYSCALL_OPEN]		= (reg_t) sys_open,
-	[SYSCALL_CLOSE]		= (reg_t) sys_close,
-	[SYSCALL_STAT]		= (reg_t) sys_stat,
-	[SYSCALL_READ]		= (reg_t) sys_read,
-	[SYSCALL_WRITE]		= (reg_t) sys_write,
+reg_t syscalltable[] = {
+	[SYSCALL_EXIT] 		= (reg_t) sysexit,
+	[SYSCALL_FORK] 		= (reg_t) sysfork,
+	[SYSCALL_YIELD]		= (reg_t) sysyield,
+	[SYSCALL_GETPID]	= (reg_t) sysgetpid,
+	[SYSCALL_MOUNT] 	= (reg_t) sysmount,
+	[SYSCALL_OPEN]		= (reg_t) sysopen,
+	[SYSCALL_CLOSE]		= (reg_t) sysclose,
+	[SYSCALL_STAT]		= (reg_t) sysstat,
+	[SYSCALL_READ]		= (reg_t) sysread,
+	[SYSCALL_WRITE]		= (reg_t) syswrite,
 };
-

@@ -3,7 +3,7 @@
 #include "../port/com.h"
 
 void
-abort_handler(uint32_t code)
+aborthandler(uint32_t code)
 {
 	kprintf("abort hander: ");
 	switch (code) {
@@ -19,6 +19,6 @@ abort_handler(uint32_t code)
 	}
 
 	kprintf("killing %i\n", current->pid);	
-	proc_remove(current);
+	current->state = PROC_exiting;
 	schedule();
 }

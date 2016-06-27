@@ -1,8 +1,6 @@
 #ifndef __SYSCALL_H
 #define __SYSCALL_H
 
-#define SYSCALL_RETURN	0
-
 #define SYSCALL_EXIT	1
 #define SYSCALL_FORK	2
 #define SYSCALL_GETPID	3
@@ -14,5 +12,7 @@
 #define SYSCALL_READ	7
 #define SYSCALL_WRITE	8
 #define SYSCALL_STAT	9
+
+#define SYSCALL_YIELD	10
 
 #endif

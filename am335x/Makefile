@@ -38,19 +38,17 @@ C_SRC := \
 	abort.c			\
 	uart.c			\
 	intc.c			\
-	proc.c			\
 	timer.c			\
 	watchdog.c		\
 	mem.c			\
-	mmu.c
+	mmu.c			\
+	proc.c
 
 P_SRC := \
 	../port/com.c		\
-	../port/sched.c		\
-	../port/fs.c		\
+	../port/proc.c		\
 	../port/syscall.c	\
-	../port/main.c		\
-	../port/misc.c
+	../port/main.c
 	
 OBJECTS := \
 	$(A_SRC:%.S=%.o) \

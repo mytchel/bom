@@ -3,43 +3,46 @@
 #include "../include/std.h"
 
 int
-kmain(int, void *);
+main();
 
-static int
-__idle__(int, void *);
-
-struct proc_regs *user_regs;
 struct proc *current;
-struct proc procs[MAX_PROCS];
-static uint32_t next_pid;
+
+static struct proc procs[MAX_PROCS];
+static uint32_t nextpid;
 
 void
-scheduler_init(void)
+schedulerinit(void)
 {
 	int i;
 	
-	kprintf("scheduler_init\n");
+	kprintf("scheduler init\n");
 
-	next_pid = 1;
+	nextpid = 1;
 
 	for (i = 0; i < MAX_PROCS; i++)
 		procs[i].state = PROC_stopped;
 
-	kprintf("init __idle__ proc\n");
+	kprintf("init main proc\n");
 	
 	current = procs;
-	procs->next = nil;	
-	procs->state = PROC_ready;
-	proc_init_regs(procs, &exit, &__idle__, 0, nil);
-
-	kprintf("init kmain proc\n");
-	proc_create(&kmain, 0, nil);
+	procs->next = nil;
+	
+	main();
+	
+	schedule();
 }
 
 void
 schedule(void)
 {
 	struct proc *p;
+
+	if (setlabel(&current->label)) {
+		kprintf("return from setlabel\n");
+		return;
+	}
+	
+	kprintf("schedule\n");
 	
 	p = current;
 	do {
@@ -57,21 +60,23 @@ schedule(void)
 	
 	/* No processes to run. */
 	if (p == nil || p->state != PROC_ready) {
-		p = procs;
+		kprintf("gave up\n");
+		schedule();
 	}
-
-	mmu_switch(p);
-	resume_proc(p);
+	
+	current = p;
+	mmuswitch(current);
+	gotolabel(&current->label);
 }
 
 static struct proc *
-find_and_add_proc_space()
+findfreeproc()
 {
 	int i;
 	struct proc *p, *pp;
 	
 	p = nil;
-	for (i = 0; i < MAX_PROCS; i++) {
+	for (i = 1; i < MAX_PROCS; i++) {
 		if (procs[i].state == PROC_stopped) {
 			p = &procs[i];
 			break;
@@ -91,53 +96,31 @@ find_and_add_proc_space()
 }
 
 struct proc *
-proc_create(int (*func)(int, void *), int argc, void *args)
+newproc()
 {
 	struct proc *p;
 
-	p = find_and_add_proc_space();
+	p = findfreeproc();
 	if (p == nil) {
 		kprintf("Max process count reached\n");
 		return nil;
 	}
 	
-	proc_init_stack(p);
-	proc_init_regs(p, &exit, func, argc, args);
-		
-	p->pid = next_pid++;
+	p->pid = nextpid++;
 	p->state = PROC_ready;
 
 	return p;
 }
 
 void
-proc_remove(struct proc *p)
+procremove(struct proc *p)
 {
 	struct proc *pp;
-//	struct page *pgc, *pgn;
 
 	/* Remove proc from list. */
 	for (pp = procs; pp->next != p; pp = pp->next);
 	pp->next = p->next;
 
-	/* Free pages. */
-	/*
-	pgc = p->page;
-	while (pgc) {
-		pgn = pgc->next;
-		kfree(pgc);
-		pgc = pgn;
-	}
-	*/
-
 	/* Make procs place as useable. */	
 	p->state = PROC_stopped;
 }
-
-int
-__idle__(int argc, void *args)
-{
-	while (true);
-	return -1;
-}
-

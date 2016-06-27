@@ -3,28 +3,25 @@
 
 .section .text
 
-.global vector_table_init
-.global resume_proc
-.global reschedule
-.global handle_syscall
-.global user_run_function
+.global vectortableinit
+.global setlabel
+.global gotolabel
 
-
-vector_table_init:
+vectortableinit:
 	@ Shift vector table to 0x00000000
 	@ See page 514 of ARM System Developers Guide
 	mrc p15, 0, r0, c1, c0, 0	@ read CP15s c1 register into r0
 	bic r0, r0, #(1 << 13) 		@ set V flag to 0 (disable high vectors)
 	mcr p15, 0, r0, c1, c0, 0	@ 
 	
-	ldr r0, =vector_table
+	ldr r0, =vectortable
 	mcr p15, 0, r0, c12, c0, 0	@ set vector base address
 	
 	bx lr
 
 
 .balign 32
-vector_table:
+vectortable:
 	ldr pc, =_start
 	ldr pc, =undefined_instruction
 	ldr pc, =swi_ex
@@ -35,42 +32,66 @@ vector_table:
 	ldr pc, =fiq_ex
 
 
-resume_proc:
-	ldr r1, =current
-	str r0, [r1]
+@ Return from exceptions offset is given on page
+@ 157 of Cortex A Series Programmer Guide
 
-	mrs r1, cpsr
-	@ psr, svc sp, user sp, user lr, pc
-	ldmia r0!, {r2, r3, r4, r5, lr}
+@ But r0 - r3 are args/return values.
+@ r4 is syscall number.
+@ Anything else is fair game.
+swi_ex:
+	mrs r5, spsr
+	push {r5, lr}
 	
-	cps #MODE_SVC
-	mov sp, r3
-	cps #MODE_SYS
-	mov sp, r4
-	mov lr, r5
-	msr cpsr, r1
-
-	msr spsr, r2
-	ldmia r0, {r0 - r12}
+	ldr lr, =1f
+	ldr r5, =syscalltable
+	ldr pc, [r5, r4, lsl #2]
+1:
+	pop {r5, lr}
+	msr spsr, r5
 	movs pc, lr
 
 
-@ args 0, 1, 2, then func
-user_run_function:
-	push {r4 - r12, lr}
+irq_ex:
+	push {r0 - r12, lr}
+	ldr r0, =irq_msg
+	bl puts
+	pop {r0 - r12, lr}
+	subs pc, lr, #4
 	
-	mov r9, #MODE_USR
-	msr spsr, r9
+undefined_instruction:
+	push {r0 - r12, lr}
+	ldr r0, =uab_msg
+	bl puts
+	b .	
 
-	mrs r8, cpsr
-	cps #MODE_SYS
-	ldr lr, =signal_return
-	msr cpsr, r8
-	
-	movs pc, r3
-	
+prefetch_abort:
+	push {r0 - r12, lr}
+	ldr r0, =pab_msg
+	bl puts
+	pop {r0 - r12, lr}
+	b .
 
-.macro save_proc
+
+data_abort:
+	push {r0 - r12, lr}
+	ldr r0, =dab_msg
+	bl puts
+	pop {r0 - r12, lr}
+	b . 	
+
+
+@ FIQ is not used.
+fiq_ex:
+	b .
+
+
+switch:
+	mrs r1, spsr
+	mov r2, lr
+	mov r3, sp
+	
+	cps #MODE_SVC
+
 	stmdb sp, {r0 - r5}
 
 	@ get address of current process regs
@@ -94,70 +115,21 @@ user_run_function:
 	stmia r1, {r6 - r12}
 	ldmdb sp, {r1 - r6}
 	stmia r0, {r1 - r6}
-.endm
 
 
-reschedule:
-	push {r0}
-	mrs r0, cpsr
-	msr spsr, r0
-	pop {r0}
-	save_proc
-	bl schedule
-
-
-@ Return from exceptions offset is given on page
-@ 157 of Cortex A Series Programmer Guide
-
-@ But r0 - r3 are args/return values.
-@ r4 is syscall number.
-@ Anything else is fair game.
-swi_ex:
-	mrs r5, spsr
-	push {r5, lr}
-	
-	ldr lr, =1f
-	ldr r6, =syscall_table
-	ldr pc, [r6, r4, lsl #2]
-1:
-	pop {r5, lr}
-	msr spsr, r5
-	movs pc, lr
-
-
-irq_ex:
-	subs lr, lr, #4
-	save_proc
-	bl intc_irq_handler
-	bl schedule
+setlabel:
+	stmia r0, {sp, lr}
+	mov r0, #0
+	bx lr
 	
 
-fiq_ex:
-	sub lr, lr, #4
-	push {r0 - r12, lr}
-	ldr r0, =fiq_msg
-	bl puts
-	pop {r0 - r12, pc}
-
-	
-undefined_instruction:
-	mov r0, #ABORT_INSTRUCTION
-	bl abort_handler
-
-
-prefetch_abort:
-	mov r0, #ABORT_PREFETCH
-	bl abort_handler
-
-
-data_abort:
-	mov r0, #ABORT_DATA
-	bl abort_handler
-
+gotolabel:
+	ldmia r0, {sp, lr}
+	mov r0, #1
+	bx lr
 
 .section .rodata
-fiq_msg: .asciz "FIQ!\n"
-swi_msg: .asciz "swi exit\n"
-
-.global cpsr_msg
-cpsr_msg: .asciz "cpsr: 0b%b\n"
+irq_msg: .asciz "irq\n"
+dab_msg: .asciz "data abort\n"
+pab_msg: .asciz "pr abort\n"
+uab_msg: .asciz "undefined abort\n"

@@ -17,27 +17,31 @@ struct fblock {
 };
 
 void
-mmu_invalidate(void);
+mmuinvalidate(void);
 
 void
-mmu_enable(void);
+mmuenable(void);
 
 void
-mmu_disable(void);
+mmudisable(void);
 
 void
-mmu_imap_section(uint32_t start, uint32_t end);
+imap(uint32_t start, uint32_t end);
 	
 void
-memory_init(void);
+memoryinit(void);
 
 void
-mmu_init(void);
+mmuempty1(void);
 
-void
-mmu_empty1(void);
+int
+pageinit(void);
 
-void
-heap_init(void);
+int
+heapinit(void);
+
+int
+mmuinit(void);
+
 
 #endif

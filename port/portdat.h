@@ -8,66 +8,61 @@ typedef uint8_t bool;
 #define MAX_PROCS	512
 #define STACK_SIZE	1024
 #define KSTACK_SIZE	1024 
+#define MAX_OPEN_FILES	32
 
-enum {	PROC_stopped, PROC_scheduling, 
-	PROC_ready, PROC_sleeping, 
-	PROC_mount, PROC_wait };
+enum { SEG_stack, SEG_text, SEG_data, NSEG };
+
+struct page {
+	void *pa;
+	struct page *next;
+};
+
+struct segment {
+	void *top, *bottom;
+	struct page *pages;
+};
+
+enum {
+	PROC_stopped, PROC_scheduling, 
+	PROC_exiting, PROC_ready, 
+	PROC_sleeping, PROC_wait,
+	PROC_mount,
+};
 
 struct proc {
-	struct proc_regs regs;
+	struct label label;
 	reg_t stack[KSTACK_SIZE]; /* Kernel Stack. */
 	
 	int state;
 	int pid;
-	
-	/* Used by exit to determine if it should exit the
-	 * process or if it should jump to another part. 
-	 * Useful for signals and mount. */
-	void *sysexit;
-	int sysret;
+
+	struct segment segments[NSEG];
 	
 	struct proc *next;
 };
 
 extern struct proc *current;
 
-void
-panic(const char *);
-
 struct proc *
-proc_create(int (*func)(int, void *), int argc, void *args);
+newproc();
 
 void
-proc_remove(struct proc *);
+procremove(struct proc *);
 
 void
-proc_init_stack(struct proc *p);
-
-void
-proc_init_regs(struct proc *p, int (*exit)(int),
-	int (*func)(int, void *), 
-	int argc, void *args);
+procinitstack(struct proc *p);
 
 int
-user_run_function(reg_t a1, reg_t a2, reg_t a3, 
-	int (*func)(void));
+setlabel(struct label *);
 
-void
-resume_proc(struct proc *);
+int
+gotolabel(struct label *);
 
-/* Actually takes a variable number of arguments. 
- * Is machine dependent. */
-void
-handle_syscall(void);
-
-/* Finds the next process to run and runs it. */
 void
 schedule(void);
 
-/* Like schedule but saves the current process. 
- * For use in system calls. */
 void
-reschedule(void);
+schedulerinit(void);
 
 void *
 kmalloc(size_t size);
@@ -76,19 +71,7 @@ void
 kfree(void *ptr);
 
 void
-mmu_switch(struct proc *p);
+mmuswitch(struct proc *p);
 
-void
-fs_mount(struct proc *p, char *path);
-
-struct proc *
-fs_find_mount(struct proc *p, const char *path);
-
-/* Kernel initialisation functions. */
-
-void
-fs_init(void);
-
-void
-scheduler_init(void);
-
+void *
+getpage(void);

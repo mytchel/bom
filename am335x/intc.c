@@ -23,12 +23,12 @@
 
 #define INTC_ILRn(i)		0x100+(0x04*i)
 
-static uint32_t intc_nirq = 128;
+#define nirq 128
 
-static void (*handlers[128])(uint32_t);
+static void (*handlers[nirq])(uint32_t);
 
 void
-intc_init(void)
+intcinit(void)
 {
 	int i;
 	
@@ -36,18 +36,18 @@ intc_init(void)
 	writel(1, INTC + INTC_SYSCONFIG);
 
 	/* mask all interrupts. */
-	for (i = 0; i < intc_nirq / 32; i++) {
+	for (i = 0; i < nirq / 32; i++) {
 		writel(0xffffffff, INTC + INTC_MIRn(i));
 	}
 	
 	/* Set all interrupts to lowest priority. */
-	for (i = 0; i < intc_nirq; i++) {
+	for (i = 0; i < nirq; i++) {
 		writel(63 << 2, INTC + INTC_ILRn(i));
 	}
 }
 
 void
-intc_irq_handler(void)
+intcirqhandler(void)
 {
 	uint32_t irq = readl(INTC + INTC_SIR_IRQ);
 		
@@ -60,7 +60,7 @@ intc_irq_handler(void)
 }
 
 void
-intc_add_handler(uint32_t irqn, void (*func)(uint32_t))
+intcaddhandler(uint32_t irqn, void (*func)(uint32_t))
 {
 	uint32_t mask, mfield;
 	

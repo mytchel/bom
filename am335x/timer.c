@@ -28,9 +28,9 @@
 #define TIMER_TCRR		0x3c
 #define TIMER_TMAR		0x4c
 
-static void systick_handler(uint32_t);
+static void systickhandler(uint32_t);
 
-void systick_init(void)
+void systickinit(void)
 {
 	writel(0, TIMER2 + TIMER_TCLR); /* disable timer */
 	writel(0, TIMER2 + TIMER_TCRR); /* set timer to 0 */
@@ -38,14 +38,14 @@ void systick_init(void)
 	
 	writel(1000000, TIMER2 + TIMER_TMAR); /* set compare value */
 
-	intc_add_handler(TINT2, &systick_handler);
+	intcaddhandler(TINT2, &systickhandler);
 
 	/* Start timer */
 	writel((1<<6) |1, TIMER2 + TIMER_TCLR);
 }
 
 void
-systick_handler(uint32_t irqn)
+systickhandler(uint32_t irqn)
 {
 	writel(0, TIMER2 + TIMER_TCRR); /* set timer to 0 */
 	/* Clear irq status. */

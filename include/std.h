@@ -13,7 +13,10 @@ int
 exit(int);
 
 int
-fork(int (*func)(int, void *), int argc, void *args);
+fork(void);
+
+int
+yield(void);
 
 int
 getpid(void);

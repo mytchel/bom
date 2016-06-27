@@ -3,7 +3,7 @@
 #include "../include/stdarg.h"
 
 static int
-print_int(char *str, size_t max, unsigned int i, unsigned int base)
+printint(char *str, size_t max, unsigned int i, unsigned int base)
 {
 	unsigned int d;
 	unsigned char s[32];
@@ -54,22 +54,22 @@ vsprintf(char *str, int max, const char *fmt, va_list ap)
 			if (ind == max)
 				break;
 
-			ind += print_int(str + ind, max - ind,
+			ind += printint(str + ind, max - ind,
 				(unsigned int) i, 10);		
 			break;
 		case 'u':
 			u = va_arg(ap, unsigned int);
-			ind += print_int(str + ind, max - ind,
+			ind += printint(str + ind, max - ind,
 				 u, 10);
 			break;
 		case 'h':
 			u = va_arg(ap, unsigned int);
-			ind += print_int(str + ind, max - ind, 
+			ind += printint(str + ind, max - ind, 
 				u, 16);
 			break;
 		case 'b':
 			u = va_arg(ap, unsigned int);
-			ind += print_int(str + ind, max - ind, 
+			ind += printint(str + ind, max - ind, 
 				u, 2);
 			break;
 		case 'c':

@@ -1,42 +1,16 @@
 #include "dat.h"
 #include "mem.h"
-#include "../port/com.h"
-
-extern void *_ram_start;
-extern void *_ram_end;
-extern void *_kernel_bin_start;
-extern void *_kernel_bin_end;
 
 static uint32_t l1lo, l1hi;
 static uint32_t l1[4096] __attribute__((__aligned__(16*1024)));
 
-#define PAGE_UNUSED	1
-#define PAGE_USED	1
-
-static uint32_t npages;
-static uint32_t *pages;
-
-void
-mmu_init(void)
+int
+mmuinit(void)
 {
-	uint32_t i, ram_size;
-	
 	l1lo = 0;
-	l1hi = 0;
+	l1hi = 4096;
 
-	ram_size = (uint32_t) &_ram_end - (uint32_t) &_ram_start;
-	npages = ram_size / PAGE_SIZE;
-
-	kprintf("ram start = 0x%h\n", &_ram_start);	
-	kprintf("ram end   = 0x%h\n", &_ram_end);
-	
-	kprintf("ram = 0x%h (0x%h)\n", ram_size, npages);
-	
-	pages = kmalloc(sizeof(uint32_t) * npages);
-	for (i = 0; i < npages; i++)
-		pages[i] = PAGE_UNUSED;
-
-	mmu_empty1();
+	mmuempty1();
 	
 	asm(
 		/* Set ttb */
@@ -46,17 +20,14 @@ mmu_init(void)
 		"mov r1, #3			\n"
 		"mcr p15, 0, r1, c3, c0, 0	\n"
 	);
-
-	mmu_imap_section((uint32_t) &_kernel_bin_start,
-		(uint32_t) &_kernel_bin_end);
-		
-	mmu_imap_section(0x40000000, 0x4A400000);
+	
+	return 0;
 }
 
 void
-mmu_switch(struct proc *p)
+mmuswitch(struct proc *p)
 {
-	mmu_empty1();
+	mmuempty1();
 /*	
 	for (page = p->page; page != nil; page = page->next) {
 		i = ((uint32_t) page->va) >> 20;
@@ -66,11 +37,11 @@ mmu_switch(struct proc *p)
 		else if (i > l1hi) l1hi = i;
 	}
 */
-	mmu_invalidate();
+	mmuinvalidate();
 }
 
 void
-mmu_imap_section(uint32_t start, uint32_t end)
+imap(uint32_t start, uint32_t end)
 {
 	start &= ~((1 << 20) - 1);
 	
@@ -81,11 +52,11 @@ mmu_imap_section(uint32_t start, uint32_t end)
 		start += 1 << 20;
 	}
 	
-	mmu_invalidate();	
+	mmuinvalidate();	
 }
 
 void
-mmu_empty1(void)
+mmuempty1(void)
 {
 	int i;
 	for (i = l1lo; i < l1hi; i++)
@@ -96,15 +67,15 @@ mmu_empty1(void)
 }
 
 void
-mmu_invalidate(void)
+mmuinvalidate(void)
 {
 	asm("mcr p15, 0, r1, c8, c7, 0");
 }
 
 void
-mmu_enable(void)
+mmuenable(void)
 {
-	mmu_invalidate();
+	mmuinvalidate();
 	asm(
 		/* Enable mmu */
 		"mrc p15, 0, r1, c1, c0, 0	\n"
@@ -114,7 +85,7 @@ mmu_enable(void)
 }
 
 void
-mmu_disable(void)
+mmudisable(void)
 {
 	asm(
 		"mrc p15, 0, r1, c1, c0, 0	\n"
@@ -122,3 +93,4 @@ mmu_disable(void)
 		"mcr p15, 0, r1, c1, c0, 0	\n"
 	);
 }
+

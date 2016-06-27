@@ -5,6 +5,15 @@
 _start:
 	cpsid if
 	
+	cps #MODE_IRQ
+	ldr sp, =_irq_stack_top
+	cps #MODE_ABORT
+	ldr sp, =_abort_stack_top
+	cps #MODE_UND
+	ldr sp, =_undef_stack_top
+	cps #MODE_SVC
+	ldr sp, =_svc_stack_top
+	
 	ldr r0, =boot_msg
 	bl puts
 
@@ -19,7 +28,7 @@ _start:
 	cmp r0, r1
 	blo 1b
 
-	bl vector_table_init
+	bl vectortableinit
 	
 	@ Disable cache and mmu
 	mrc p15, 0, r0, c1, c0, 0
@@ -27,26 +36,12 @@ _start:
 	bic r0, r0, #(1 << 2) @ disable data cache
 	bic r0, r0, #(1 << 0) @ disable mmu
 	mcr p15, 0, r0, c1, c0, 0
-
-	@ Set up stacks
-	cps #MODE_FIQ
-	ldr sp, =_fiq_stack_top
-	cps #MODE_IRQ
-	ldr sp, =_irq_stack_top
-	cps #MODE_ABORT
-	ldr sp, =_abort_stack_top
-	cps #MODE_SVC
-	ldr sp, =_svc_stack_top
 	
-	bl watchdog_init
-	bl memory_init
-	bl intc_init
-
-	bl scheduler_init
-	bl fs_init
-
-	bl systick_init
-	bl schedule
+	bl watchdoginit
+	bl memoryinit
+	bl intcinit
+@	bl systickinit
+	bl schedulerinit
 
 .section .rodata
-boot_msg: .asciz "\n  -- Bom Booting -- \n\n"
+boot_msg: .asciz "\n  -- Bom Booting --\n\n"

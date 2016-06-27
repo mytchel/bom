@@ -5,7 +5,7 @@ SECTIONS
 	. = 0x80000000;
 	_ram_start = .;
 	. = 0x82000000;
-	_kernel_bin_start = .;
+	_kernel_start = .;
 	
 	. = ALIGN(4096);
 
@@ -49,13 +49,13 @@ SECTIONS
 	. = . + 0x2000;
 	_svc_stack_top = .;
 	. = . + 0x2000;
-	_fiq_stack_top = .;
-	. = . + 0x2000;
 	_irq_stack_top = .;
 	. = . + 0x2000;
 	_abort_stack_top = .;
+	. = . + 0x2000;
+	_undef_stack_top = .;
 	
-	_kernel_bin_end = .;
+	_kernel_end = .;
 	. = 0xa0000000;
 	_ram_end = .;
 }

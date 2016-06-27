@@ -8,7 +8,7 @@
 #define WDT_WWPS	0x34
 
 void
-watchdog_init(void)
+watchdoginit(void)
 {
 	/* Disable watchdog timer for now. */
 	
