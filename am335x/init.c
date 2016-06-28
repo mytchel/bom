@@ -14,10 +14,9 @@ task1_func(void)
 }
 
 int
-_start(void)
+main(void)
 {
-	while (1);
-	puts("in kmain\n");
+	puts("in init main\n");
 	
 	if (!fork()) {
 		return task1_func();

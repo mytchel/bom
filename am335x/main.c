@@ -25,7 +25,7 @@ droptouser(uint32_t sp);
 int
 main(void)
 {
-	kprintf("in main\n");
+	kprintf("  --  Bom Booting  --\n\n");
 	
 	watchdoginit();
 	memoryinit();
@@ -63,6 +63,8 @@ initmainproc()
 	struct page *pg;
 	
 	kprintf("init main proc\n");
+
+	mmudisable();
 	
 	p = newproc();
 	
@@ -78,6 +80,7 @@ initmainproc()
 
 	kprintf("init text segment\n");	
 	s = newseg(SEG_text, (void *) UTEXT, 1);
+	
 	p->segs[SEG_text] = s;
 	pg = newpage((void *) UTEXT);
 	kprintf("text page pa = 0x%h\n", (uint32_t) pg->pa);

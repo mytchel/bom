@@ -13,7 +13,7 @@
 
 #define USTACK_TOP	0x20000000
 #define USTACK_SIZE	PAGE_SIZE
-#define UTEXT		0x00008000
+#define UTEXT		0
 
 struct label {
 	uint32_t sp, pc;

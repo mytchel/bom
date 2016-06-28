@@ -15,8 +15,14 @@ SECTIONS
 	.data : 
 	{
 		*(.data)
+	}
+	
+	.rodata :
+	{
 		*(.rodata)
 	}
+	
+	. = ALIGN(4096);
 		
 	_kernel_bss_start = .;
 	.bss : 
@@ -27,9 +33,8 @@ SECTIONS
 
 	_heap_start = .;
 	. = . + 0x01000000;
-	_heap_end = .;
-
 	. = ALIGN(4096);
+	_heap_end = .;
 	
 	. = . + 0x2000;
 	_svc_stack_top = .;

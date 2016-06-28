@@ -9,6 +9,8 @@ extern uint32_t *_ram_end;
 extern uint32_t *_kernel_start;
 extern uint32_t *_kernel_end;
 
+extern uint32_t *ttb;
+
 static struct fblock heap;
 static struct page *pages;
 static struct page *first;
@@ -16,6 +18,7 @@ static struct page *first;
 void
 memoryinit(void)
 {
+	int i;
 	uint32_t ram_size, heap_size;
 	
 	kprintf("kernel_start  = 0x%h\n", &_kernel_start);
@@ -31,7 +34,8 @@ memoryinit(void)
 	
 	pageinit((void *) &_ram_start, ram_size);
 	
-	mmuinit();
+	for (i = 0; i < 4096; i++)
+		ttb[i] = L1_FAULT;
 	
 	/* Kernel memory */
 	imap((uint32_t) &_kernel_start,
@@ -39,6 +43,8 @@ memoryinit(void)
 	
 	/* IO memory */
 	imap(0x40000000, 0x4A400000);
+	
+	mmuinit();
 }
 
 int

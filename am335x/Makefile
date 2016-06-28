@@ -32,9 +32,8 @@ HOST_LDFLAGS :=
 HEADERS := init.h *.h ../port/*.h ../include/*.h
 
 A_SRC := \
-	startup.S		\
-	vectors.S		\
 	asm.S			\
+	vectors.S		\
 	user_syscalls.S
 
 C_SRC := \
@@ -63,7 +62,7 @@ OBJECTS := \
 CLEAN += $(OBJECTS)
 
 $(OBJECTS): $(HEADERS)
-	@echo CC $@
+	@echo CC $<
 	@$(CC) $(CFLAGS) -c -o $@ $<
 
 
@@ -85,11 +84,12 @@ am335x.elf: linker.ld $(OBJECTS)
 
 
 CLEAN += init.elf init.bin init.list init.h
-init.elf: init.c user_syscalls.S uart.c ../include/*.h
+init.elf: init.ld init.c user_syscalls.S uart.c ../include/*.h
 	@echo CC $@
 	@$(CC) $(CFLAGS) -o $@ init.c user_syscalls.S uart.c \
-		$(LDFLAGS) \
+		$(LDFLAGS) -T init.ld \
 		-L/usr/local/lib/gcc/arm-none-eabi/4.9.3/ -lgcc
+
 
 init.h: init.bin bintoarray/bintoarray
 	@echo "BINTOARRAY initcode init.bin > init.h"

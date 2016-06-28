@@ -2,12 +2,50 @@
 
 .section .text
 
+.global _start
 .global setlabel
 .global gotolabel
 .global uregret
 .global droptouser
 .global fsrstatus
 .global faultaddr
+.global mmuinit
+.global mmuenable
+.global mmudisable
+.global mmuinvalidate
+
+_start:
+	cpsid if
+
+	@ Clear kernel bss segment	
+
+	ldr r0, =_kernel_bss_start
+	ldr r1, =_kernel_bss_end
+	mov r2, #0
+	mov r3, #0
+1:
+	stmia r0!, {r2, r3}
+	cmp r0, r1
+	blo 1b
+
+	@ Disable cache
+	mrc p15, 0, r0, c1, c0, 0
+	bic r0, r0, #(1<<12)
+	bic r0, r0, #(1<<2)
+	mcr p15, 0, r0, c1, c0, 0
+	
+	cps #MODE_IRQ
+	ldr sp, =_irq_stack_top
+	cps #MODE_ABORT
+	ldr sp, =_abort_stack_top
+	cps #MODE_UND
+	ldr sp, =_undef_stack_top
+	cps #MODE_SVC
+	ldr sp, =_svc_stack_top
+	
+	bl vectortableinit
+	
+	b main
 
 
 setlabel:
@@ -24,6 +62,7 @@ gotolabel:
 
 @ user register return. Not you regret.
 uregret:
+	bl mmuenable
 	mov r0, sp
 	add sp, sp, #(4 * 15)
 	@ r1 is type, can be ignored
@@ -37,6 +76,7 @@ uregret:
 
 @ r0 is user stack pointer
 droptouser:
+	bl mmuenable
 	mov r1, #0
 	mov r2, #0
 	mov r3, #0
@@ -53,7 +93,7 @@ droptouser:
 	cps #MODE_USR
 	mov sp, r0
 	mov lr, #0
-	mov pc, #0x8000
+	mov pc, #0
 
 
 fsrstatus:
@@ -64,3 +104,37 @@ fsrstatus:
 faultaddr:
 	mrc p15, 0, r0, c6, c0, 0
 	bx lr
+
+
+mmuinit:
+	push {r1, lr}
+	ldr r1, =ttb
+	mcr p15, 0, r1, c2, c0, 0
+	@ set domain mode to client
+	mov r1, #1
+	mcr p15, 0, r1, c3, c0, 0
+	pop {r1, pc}
+	
+
+mmuinvalidate:
+	push {r1, lr}
+	mcr p15, 0, r1, c8, c7, 0
+	pop {r1, pc}
+	
+
+mmuenable:
+	push {r1, lr}
+	bl mmuinvalidate
+	mrc p15, 0, r1, c1, c0, 0
+	orr r1, r1, #1
+	mcr p15, 0, r1, c1, c0, 0
+	pop {r1, pc}
+	
+
+mmudisable:
+	push {r1, lr}
+	mrc p15, 0, r1, c1, c0, 0
+	bic r1, r1, #1
+	mcr p15, 0, r1, c1, c0, 0
+	pop {r1, pc}
+	

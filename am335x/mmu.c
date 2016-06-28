@@ -5,24 +5,7 @@
 #define L1X(va)		(va >> 20)
 #define L2X(va)		((va >> 12) & ((1 << 8) - 1))
 
-static uint32_t mmul1[4096] __attribute__((__aligned__(16*1024)));
-
-int
-mmuinit(void)
-{
-	mmuempty1();
-	
-	asm(
-		/* Set ttb */
-		"ldr r1, =mmul1			\n"
-		"mcr p15, 0, r1, c2, c0, 0	\n"
-		/* Set domain mode to manager (for now) */
-		"mov r1, #3			\n"
-		"mcr p15, 0, r1, c3, c0, 0	\n"
-	);
-	
-	return 0;
-}
+uint32_t ttb[4096] __attribute__((__aligned__(16*1024)));
 
 void
 mmuswitch(struct proc *p)
@@ -33,11 +16,11 @@ mmuswitch(struct proc *p)
 	mmuempty1();
 
 	for (pg = p->mmu; pg != nil; pg = pg->next) {
-		mmul1[L1X((uint32_t) pg->va)] 
+		ttb[L1X((uint32_t) pg->va)] 
 			= ((uint32_t) pg->pa) | L1_COARSE;
 	}
 
-	kprintf("mmuswitch done\n");	
+	kprintf("mmuswitch done\n");
 }
 
 void
@@ -48,7 +31,7 @@ imap(uint32_t start, uint32_t end)
 	while (start < end) {
 		/* Map section so everybody can see it.
 		 * This wil change. */
-		mmul1[L1X(start)] = ((uint32_t) start) | (3 << 10) | L1_SECTION;
+		ttb[L1X(start)] = ((uint32_t) start) | (3 << 10) | L1_SECTION;
 		start += 1 << 20;
 	}
 	
@@ -60,37 +43,9 @@ mmuempty1(void)
 {
 	int i;
 	for (i = 0; i < 4096; i++) {
-		if ((mmul1[i] & L1_COARSE) == L1_COARSE)
-			mmul1[i] = L1_FAULT;
+		if ((ttb[i] & L1_COARSE) == L1_COARSE)
+			ttb[i] = L1_FAULT;
 	}
-}
-
-void
-mmuinvalidate(void)
-{
-	asm("mcr p15, 0, r1, c8, c7, 0");
-}
-
-void
-mmuenable(void)
-{
-	mmuinvalidate();
-	asm(
-		/* Enable mmu */
-		"mrc p15, 0, r1, c1, c0, 0	\n"
-		"orr r1, r1, #1			\n"
-		"mcr p15, 0, r1, c1, c0, 0	\n"
-	);
-}
-
-void
-mmudisable(void)
-{
-	asm(
-		"mrc p15, 0, r1, c1, c0, 0	\n"
-		"bic r1, r1, #1			\n"
-		"mcr p15, 0, r1, c1, c0, 0	\n"
-	);
 }
 
 void
@@ -106,20 +61,20 @@ mmuputpage(struct page *p)
 
 	kprintf("page va 0x%h\n", x);
 	
-	l1 = &mmul1[L1X(x)];
-
+	kprintf("ttb[%i] = 0x%h\n", L1X(x), ttb[L1X(x)]);
+	
+	l1 = &ttb[L1X(x)];
+	
 	/* Add a l1 page if needed. */
 	if (*l1 == L1_FAULT) {
-		kprintf("need to add l2 page table\n");
+		kprintf("need to add l2 page table at index %i\n", L1X(x));
 		
 		pg = newpage((void *) (x & ~((1 << 20) - 1)));
 
 		kprintf("new page at \npa: 0x%h\nva: 0x%h\n", 
 			(uint32_t) pg->pa, (uint32_t) pg->va);
 		
-		l1[L1X(x)] = ((uint32_t) pg->pa) | L1_COARSE;
-
-		kprintf("clear\n");		
+		kprintf("clear\n");
 		for (i = 0; i < 256; i++)
 			((uint32_t *) pg->pa)[i] = L2_FAULT;
 
@@ -128,16 +83,22 @@ mmuputpage(struct page *p)
 		current->mmu = pg;
 		
 		kprintf("set l1 page table to point to new table.\n");
-		*l1 = (uint32_t) pg->pa;
+		*l1 = ((uint32_t) pg->pa) | L1_COARSE;
 	}
 	
-	kprintf("l2 page table addr = 0x%h\n", (uint32_t) *l1);
+	kprintf("l1 page entry = 0x%h\n", *l1);
+	kprintf("so l1 page a  = 0x%h\n", (*l1 & ~((1 << 10) - 1)));
 	
-	l2 = (uint32_t *) *l1;
+	l2 = (uint32_t *) (*l1 & ~((1 << 10) - 1));
+
+	kprintf("l2 = 0x%h\n", (uint32_t) l2);
 
 	kprintf("put page into table\n");	
 	l2[L2X(x)] = ((uint32_t) p->pa) | 0xff0 | L2_SMALL;
 	kprintf("Should be good\n");
+	
+	kprintf("0x%h should translate to 0x%h\n", p->va, p->pa);
+	kprintf("l2[%i] = 0x%h\n", L2X(x), l2[L2X(x)]);
 	
 	mmuinvalidate();
 }
