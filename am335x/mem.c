@@ -60,7 +60,6 @@ pageinit(void *ram_start, size_t ram_size)
 	npages = ram_size / PAGE_SIZE;
 	
 	pages = kmalloc(sizeof(struct page) * npages);
-	first = pages;
 	
 	for (i = 0; i < npages; i++) {
 		pages[i].pa = (void *) ((uint32_t) ram_start + i * PAGE_SIZE);
@@ -69,6 +68,9 @@ pageinit(void *ram_start, size_t ram_size)
 		else
 			pages[i].next = nil;
 	}
+	
+	/* Don't touch first page, may have vectors. */
+	first = pages->next;
 	
 	return 0;
 }

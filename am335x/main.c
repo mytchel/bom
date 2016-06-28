@@ -34,7 +34,6 @@ main(void)
 	procsinit();
 	initmainproc();
 
-	mmuenable();
 	schedule();
 	
 	/* Should never be reached. */
@@ -47,11 +46,12 @@ mainproc(void)
 	int i;
 	kprintf("in main proc\n");
 	
-	for (i = 0; i < 10; i++) {
+	for (i = 0; i < 2; i++) {
+		kprintf("yield for fun\n");
 		yield();
 	}
 	
-	kprintf("This will die\n");
+	kprintf("drop to user\n");
 	droptouser(USTACK_TOP);
 }
 

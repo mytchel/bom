@@ -3,13 +3,14 @@
 #include "../port/com.h"
 
 void
-dump_regs(struct ureg *r)
+dumpregs(struct ureg *r)
 {
 	int i;
 	for (i = 0; i < 13; i++)
 		kprintf("r%i  = 0x%h\n", i, r->regs[i]);
 	kprintf("sp   = 0x%h\n", r->sp);
 	kprintf("lr   = 0x%h\n", r->lr);
+	kprintf("type = %i\n", r->type);
 	kprintf("pc   = 0x%h\n", r->pc);
 	kprintf("psr  = 0b%b\n", r->psr);
 }
@@ -37,8 +38,6 @@ syscall(struct ureg *ureg)
 	sysnum = (unsigned int) ureg->regs[0];
 	
 	kprintf("syscall %i\n", sysnum);
-	
-	mmudisable(); /* mmuenable called on return in uregret. */
 	
 	current->ureg = ureg;	
 	if (sysnum < NSYSCALLS) {

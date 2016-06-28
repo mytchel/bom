@@ -16,6 +16,7 @@ task1_func(void)
 int
 _start(void)
 {
+	while (1);
 	puts("in kmain\n");
 	
 	if (!fork()) {

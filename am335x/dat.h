@@ -21,13 +21,9 @@ struct label {
 
 struct ureg {
 	uint32_t regs[13];
-	uint32_t sp;
-	uint32_t lr;
+	uint32_t sp, lr;
 	uint32_t type, psr, pc;
 };
-
-void
-dump_regs(struct ureg *);
 
 #include "../port/portdat.h"
 

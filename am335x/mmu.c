@@ -28,7 +28,8 @@ void
 mmuswitch(struct proc *p)
 {
 	struct page *pg;
-	
+
+	kprintf("mmuswitch\n");	
 	mmuempty1();
 
 	for (pg = p->mmu; pg != nil; pg = pg->next) {
@@ -36,7 +37,7 @@ mmuswitch(struct proc *p)
 			= ((uint32_t) pg->pa) | L1_COARSE;
 	}
 
-	mmuinvalidate();
+	kprintf("mmuswitch done\n");	
 }
 
 void
@@ -58,8 +59,10 @@ void
 mmuempty1(void)
 {
 	int i;
-	for (i = 0; i < 4096; i++)
-		mmul1[i] = L1_FAULT;
+	for (i = 0; i < 4096; i++) {
+		if ((mmul1[i] & L1_COARSE) == L1_COARSE)
+			mmul1[i] = L1_FAULT;
+	}
 }
 
 void
