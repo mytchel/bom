@@ -3,13 +3,16 @@
 
 #include "types.h"
 
-#define MAX_PROCS	512
-#define KSTACK		4028
-
 #define PAGE_SHIFT 	12
 #define PAGE_SIZE	(1UL << PAGE_SHIFT)
 #define PAGE_MASK	(~(PAGE_SIZE - 1))
 #define PAGE_ALIGN(x) 	(((x) + PAGE_SIZE - 1) & PAGE_MASK)
+
+#define MAX_PROCS	512
+#define KSTACK		4028
+
+#define USTACK_TOP	0xa0000000
+#define USTACK_SIZE	PAGE_SIZE
 
 struct label {
 	uint32_t sp, pc;
@@ -21,6 +24,9 @@ struct ureg {
 	uint32_t lr;
 	uint32_t psr, pc;
 };
+
+void
+dump_regs(struct ureg *);
 
 #include "../port/portdat.h"
 

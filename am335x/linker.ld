@@ -7,37 +7,22 @@ SECTIONS
 	. = 0x82000000;
 	_kernel_start = .;
 	
-	. = ALIGN(4096);
-
 	.text :
 	{
 		*(.text)
 	}
 	
-	. = ALIGN(4096);
-	
 	.data : 
 	{
 		*(.data)
-	}
-		
-	. = ALIGN(4096);
-	
-	.rodata :
-	{
 		*(.rodata)
 	}
-	
-	. = ALIGN(4096);
-	
+		
+	_kernel_bss_start = .;
 	.bss : 
 	{
-		_kernel_bss_start = .;
 		*(.bss)
 	}
-
-	. = ALIGN(4096);
-	
 	_kernel_bss_end = .;
 
 	_heap_start = .;
@@ -55,7 +40,9 @@ SECTIONS
 	. = . + 0x2000;
 	_undef_stack_top = .;
 	
+	. = ALIGN(4096);
 	_kernel_end = .;
+	
 	. = 0xa0000000;
 	_ram_end = .;
 }

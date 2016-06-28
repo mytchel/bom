@@ -28,7 +28,10 @@ schedule(void)
 {
 	struct proc *p;
 
+	kprintf("schedule\n");
+	
 	if (setlabel(&current->label)) {
+		kprintf("return from label\n");
 		return;
 	}
 	
@@ -51,6 +54,8 @@ schedule(void)
 		schedule();
 	}
 
+	kprintf("switch to %i\n", p->pid);
+	
 	current = p;
 	mmuswitch(current);
 	gotolabel(&current->label);

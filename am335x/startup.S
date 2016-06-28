@@ -29,7 +29,7 @@ _start:
 	blo 1b
 
 	bl vectortableinit
-	
+
 	@ Disable cache and mmu
 	mrc p15, 0, r0, c1, c0, 0
 	bic r0, r0, #(1 << 12) @ disable instruction cache

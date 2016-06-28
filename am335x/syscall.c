@@ -5,6 +5,18 @@ void
 forkret();
 
 void
+dump_regs(struct ureg *r)
+{
+	int i;
+	for (i = 0; i < 13; i++)
+		kprintf("r%i  = 0x%h\n", i, r->regs[i]);
+	kprintf("sp   = 0x%h\n", r->sp);
+	kprintf("lr   = 0x%h\n", r->lr);
+	kprintf("pc   = 0x%h\n", r->pc);
+	kprintf("psr  = 0b%b\n", r->psr);
+}
+
+void
 forklabel(struct proc *p, struct ureg *ureg)
 {
 	struct ureg *nreg;
@@ -26,6 +38,10 @@ syscall(struct ureg *ureg)
 	ret = -1;
 	sysnum = (unsigned int) ureg->regs[0];
 	
+	kprintf("syscall %i\n", sysnum);
+	
+	print_regs(ureg);
+	
 	current->ureg = ureg;	
 	if (sysnum < NSYSCALLS) {
 		va_list args = (va_list) ureg->sp;
@@ -34,3 +50,4 @@ syscall(struct ureg *ureg)
 	
 	ureg->regs[0] = ret;
 }
+

@@ -46,7 +46,6 @@ memoryinit(void)
 int
 heapinit(void *heap_start, size_t size)
 {
-	kprintf("heap_start 0x%h\n", (uint32_t) heap_start);
 	heap.size = 0;
 	heap.next = (struct fblock *) heap_start;
 	heap.next->size = size;
@@ -61,8 +60,6 @@ pageinit(void *ram_start, size_t ram_size)
 	uint32_t i, npages;
 	
 	npages = ram_size / PAGE_SIZE;
-	
-	kprintf("npages = %i\n", npages);
 	
 	pages = kmalloc(sizeof(struct page) * npages);
 	first = pages;
@@ -85,7 +82,6 @@ kmalloc(size_t size)
 	void *block;
 	
 	for (b = &heap; b->next != nil; b = b->next) {
-		kprintf("b->next size %i\n", b->next->size);
 		if (b->next->size >= size) {
 			break;
 		}
@@ -116,8 +112,6 @@ kfree(void *ptr, size_t size)
 	struct fblock *b;
 	uint32_t nsize;
 	
-	kprintf("freeing 0x%h\n", (uint32_t) ptr);
-	
 	for (b = &heap; b->next != nil; b = b->next) {
 		if ((void *) b->next->next > ptr) {
 			break;
@@ -134,19 +128,16 @@ kfree(void *ptr, size_t size)
 		(ptr + size == (void *) ((uint32_t) b->next->next))) {
 		
 		/* Released on boundary of both previous and next. */
-		kprintf("released on both previous and next\n");
 		
 		b->next->size += size + b->next->next->size;
 		b->next->next = b->next->next->next;
 	
 	} else if (ptr == (void *) ((uint32_t) b->next + b->next->size)) {
 		/* Released on boundary of previous. */
-		kprintf("released on previous\n");
 		b->next->size += size;
 		
 	} else if (ptr + size == (void *) ((uint32_t) b->next->next)) {
 		/* Released on boundary of next. */
-		kprintf("released on next\n");
 		nsize = b->next->next->size + size;
 		b->next = (struct fblock *) ((uint32_t) b->next->next - size);
 		b->next->size = nsize;

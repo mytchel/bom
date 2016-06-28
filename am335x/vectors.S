@@ -7,13 +7,14 @@
 .global setlabel
 .global gotolabel
 .global forkret
+.global droptouser
 
 vectortableinit:
 	@ Shift vector table to 0x00000000
 	@ See page 514 of ARM System Developers Guide
-	mrc p15, 0, r0, c1, c0, 0	@ read CP15s c1 register into r0
+	mrc p15, 0, r0, c1, c0, 0
 	bic r0, r0, #(1 << 13) 		@ set V flag to 0 (disable high vectors)
-	mcr p15, 0, r0, c1, c0, 0	@ 
+	mcr p15, 0, r0, c1, c0, 0
 	
 	ldr r0, =vectortable
 	mcr p15, 0, r0, c12, c0, 0	@ set vector base address
@@ -33,33 +34,29 @@ vectortable:
 	ldr pc, =fiq_ex
 
 
-@ Return from exceptions offset is given on page
-@ 157 of Cortex A Series Programmer Guide
-
-@ But r0 - r3 are args/return values.
-@ r4 is syscall number.
-@ Anything else is fair game.
 swi_ex:
 	sub sp, sp, #(4 * 17)
-	stmia sp!, {r0 - r12}
+	stmia sp, {r0 - r12}
 	
-	mov r0, sp
+	add r0, sp, #(4 * 13)
 	cps #MODE_SYS
 	stmia r0!, {sp, lr}
 	cps #MODE_SVC
 	
 	mrs r1, spsr
-	stmia r0!, {r1, lr}
+	stmia r0, {r1, lr}
 	
-	sub sp, r0, #(4 * 17)
 	mov r0, sp
 	
 	bl syscall
-	
-	add sp, sp, #(4 * 15)
-	ldmia sp!, {r0, lr}
-	msr spsr, r0
+
+	@ Goes on to do forkret	
+forkret:
 	mov r0, sp
+	add sp, sp, #(4 * 15)
+	ldmia sp!, {r2, lr}
+	msr spsr, r2
+	movs pc, lr
 	cps #MODE_SYS
 	ldmia r0, {r0 - r12, sp, lr}
 	cps #MODE_SVC
@@ -73,11 +70,13 @@ irq_ex:
 	pop {r0 - r12, lr}
 	subs pc, lr, #4
 	
+
 undefined_instruction:
 	push {r0 - r12, lr}
 	ldr r0, =uab_msg
 	bl puts
 	b .	
+
 
 prefetch_abort:
 	push {r0 - r12, lr}
@@ -95,9 +94,10 @@ data_abort:
 	b . 	
 
 
-@ FIQ is not used.
+@ Not used. Just return if this occurs.
+@ Probably a bad idea to be hones.
 fiq_ex:
-	b .
+	subs, pc, lr, #4
 
 
 setlabel:
@@ -112,20 +112,15 @@ gotolabel:
 	bx lr
 
 
-forkret:
-	add sp, sp, #(4 * 15)
-	ldmia sp!, {r0, lr}
-	msr spsr, r0
-	mov r0, sp
-	cps #MODE_SYS
-	ldmia r0, {r0 - r12, sp, lr}
-	cps #MODE_SVC
-	movs pc, lr
-
+@ r0 is user stack pointer
+droptouser:
+	cpsie i
+	cps #MODE_USR
+	mov sp, r0
+	mov pc, #0
 
 .section .rodata
 irq_msg: .asciz "irq\n"
 dab_msg: .asciz "data abort\n"
 pab_msg: .asciz "pr abort\n"
 uab_msg: .asciz "undefined abort\n"
-swi_msg: .asciz "swi back lr = 0x%h\n"

@@ -24,10 +24,6 @@ fork:
 	push {lr}
 	mov r0, #SYSCALL_FORK
 	svc 0
-	push {r0 - r12, lr}
-	ldr r0, =fork_msg
-	bl puts
-	pop {r0 - r12, lr}
 	pop {pc}
 
 
@@ -86,5 +82,3 @@ write:
 	svc 0 
 	pop {pc}
 
-.section .rodata
-fork_msg: .asciz "fork returned to 'user'\n"

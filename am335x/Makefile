@@ -1,3 +1,5 @@
+.SUFFIXES: .c .S .o .h .elf .bin .list .umg
+
 CLEAN = 
 
 all: am335x.list am335x.umg
@@ -19,15 +21,15 @@ CFLAGS :=-mcpu=cortex-a8 \
 	-nostdinc -ffreestanding \
 	-I.
 
-LDFLAGS := -nostdlib -nodefaultlibs \
-	-T linker.ld
+LDFLAGS := -nostdlib -nodefaultlibs
 
 HOST_CFLAGS := 
 HOST_LDFLAGS :=
 
 .include <mkuboot/local.mk>
+.include <bintoarray/local.mk>
 
-HEADERS := *.h ../port/*.h
+HEADERS := init.h *.h ../port/*.h ../include/*.h
 
 A_SRC := \
 	startup.S		\
@@ -50,8 +52,7 @@ P_SRC := \
 	../port/com.c		\
 	../port/proc.c		\
 	../port/syscall.c	\
-	../port/segment.c	\
-	../port/main.c
+	../port/segment.c
 	
 OBJECTS := \
 	$(A_SRC:%.S=%.o) \
@@ -65,21 +66,33 @@ $(OBJECTS): $(HEADERS)
 	@$(CC) $(CFLAGS) -c -o $@ $<
 
 
+.elf.bin:
+	@echo OBJCOPY $@
+	@$(OBJCOPY) -Obinary $< $@
+
+
+.elf.list:
+	@echo OBJDUMP $@
+	@$(OBJDUMP) -S $< > $@
+
+
 am335x.elf: linker.ld $(OBJECTS)
 	@echo LD $@
-	@$(LD) $(LDFLAGS) -o $@ \
+	@$(LD) $(LDFLAGS) -T linker.ld -o $@ \
 		$(OBJECTS) \
 		-L/usr/local/lib/gcc/arm-none-eabi/4.9.3/ -lgcc
 
 
-am335x.bin: am335x.elf
-	@echo OBJCOPY $@
-	@$(OBJCOPY) -Obinary am335x.elf am335x.bin
+CLEAN += init.elf init.bin init.list init.h
+init.elf: init.c user_syscalls.S uart.c init.ld ../include/*.h
+	@echo CC $@
+	@$(CC) $(CFLAGS) -o $@ init.c user_syscalls.S uart.c \
+		$(LDFLAGS) -T init.ld \
+		-L/usr/local/lib/gcc/arm-none-eabi/4.9.3/ -lgcc
 
-
-am335x.list: am335x.elf
-	@echo OBJDUMP $@
-	@$(OBJDUMP) -S am335x.elf > am335x.list
+init.h: init.bin bintoarray/bintoarray
+	@echo "BINTOARRAY initcode init.bin > init.h"
+	@./bintoarray/bintoarray initcode init.bin > init.h
 
 
 am335x.umg: am335x.bin mkuboot/mkuboot
@@ -87,7 +100,7 @@ am335x.umg: am335x.bin mkuboot/mkuboot
 	@./mkuboot/mkuboot -a arm \
 		-e ${loadaddr} -l ${loadaddr} -o linux \
 		am335x.bin am335x.umg
-
+	
 clean: 
 	@echo cleaning
 	@rm -f $(CLEAN)

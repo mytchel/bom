@@ -12,7 +12,7 @@ newseg(int type, void *base, size_t size)
 	
 	s->type = type;
 	s->base = base;
-	s->top = base + size;
+	s->top = base + size * PAGE_SIZE;
 	
 	return s;
 }
