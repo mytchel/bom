@@ -38,6 +38,7 @@ struct proc {
 	int pid;
 
 	struct segment *segs[NSEG];
+	struct page *mmu;
 	
 	struct proc *next;
 };
@@ -78,6 +79,12 @@ kfree(void *, size_t);
 
 void
 mmuswitch(struct proc *);
+
+void
+mmuenable(void);
+
+void
+mmudisable(void);
 
 struct page *
 newpage(void *);

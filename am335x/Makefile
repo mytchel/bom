@@ -34,11 +34,12 @@ HEADERS := init.h *.h ../port/*.h ../include/*.h
 A_SRC := \
 	startup.S		\
 	vectors.S		\
+	asm.S			\
 	user_syscalls.S
 
 C_SRC := \
 	main.c			\
-	abort.c			\
+	trap.c			\
 	uart.c			\
 	intc.c			\
 	timer.c			\
@@ -84,10 +85,10 @@ am335x.elf: linker.ld $(OBJECTS)
 
 
 CLEAN += init.elf init.bin init.list init.h
-init.elf: init.c user_syscalls.S uart.c init.ld ../include/*.h
+init.elf: init.c user_syscalls.S uart.c ../include/*.h
 	@echo CC $@
 	@$(CC) $(CFLAGS) -o $@ init.c user_syscalls.S uart.c \
-		$(LDFLAGS) -T init.ld \
+		$(LDFLAGS) \
 		-L/usr/local/lib/gcc/arm-none-eabi/4.9.3/ -lgcc
 
 init.h: init.bin bintoarray/bintoarray

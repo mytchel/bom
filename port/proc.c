@@ -79,12 +79,13 @@ newproc()
 		return nil;
 	
 	p->state = PROC_scheduling;
-	p->next = nil;
+	p->mmu = nil;
+	p->ureg = nil;
+	p->pid = nextpid++;
 	
 	for (pp = procs; pp->next; pp = pp->next);
 	pp->next = p;
-	
-	p->pid = nextpid++;
+	p->next = nil;
 	
 	return p;
 }

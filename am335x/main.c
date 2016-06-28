@@ -2,6 +2,7 @@
 #include "mem.h"
 #include "../port/com.h"
 #include "init.h"
+#include "../include/std.h"
 
 int
 kmain(void);
@@ -33,6 +34,7 @@ main(void)
 	procsinit();
 	initmainproc();
 
+	mmuenable();
 	schedule();
 	
 	/* Should never be reached. */
@@ -42,7 +44,13 @@ main(void)
 void
 mainproc(void)
 {
+	int i;
 	kprintf("in main proc\n");
+	
+	for (i = 0; i < 10; i++) {
+		yield();
+	}
+	
 	kprintf("This will die\n");
 	droptouser(USTACK_TOP);
 }
@@ -69,13 +77,16 @@ initmainproc()
 	s->pages = pg;
 
 	kprintf("init text segment\n");	
-	s = newseg(SEG_text, 0, 1);
+	s = newseg(SEG_text, (void *) UTEXT, 1);
 	p->segs[SEG_text] = s;
-	pg = newpage((void *) 0);
+	pg = newpage((void *) UTEXT);
 	kprintf("text page pa = 0x%h\n", (uint32_t) pg->pa);
 	s->pages = pg;
-	
+
+	kprintf("copy initcode\n");
+	kprintf("initcode size = %i\n", sizeof(initcode));
 	memmove(s->pages->pa, initcode, sizeof(initcode));
+	kprintf("done\n");
 	
 	p->state = PROC_ready;
 }

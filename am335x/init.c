@@ -14,7 +14,7 @@ task1_func(void)
 }
 
 int
-main(void)
+_start(void)
 {
 	puts("in kmain\n");
 	

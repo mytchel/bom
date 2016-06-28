@@ -20,12 +20,6 @@ void
 mmuinvalidate(void);
 
 void
-mmuenable(void);
-
-void
-mmudisable(void);
-
-void
 imap(uint32_t, uint32_t);
 	
 void
@@ -33,6 +27,9 @@ memoryinit(void);
 
 void
 mmuempty1(void);
+
+void
+mmuputpage(struct page *);
 
 int
 pageinit(void *, size_t);
@@ -42,6 +39,5 @@ heapinit(void *, size_t);
 
 int
 mmuinit(void);
-
 
 #endif

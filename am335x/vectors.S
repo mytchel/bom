@@ -1,13 +1,9 @@
 #include "p_modes.h"
-#include "abort.h"
+#include "trap.h"
 
 .section .text
 
 .global vectortableinit
-.global setlabel
-.global gotolabel
-.global forkret
-.global droptouser
 
 vectortableinit:
 	@ Shift vector table to 0x00000000
@@ -35,7 +31,7 @@ vectortable:
 
 
 swi_ex:
-	sub sp, sp, #(4 * 17)
+	sub sp, sp, #(4 * 18)
 	stmia sp, {r0 - r12}
 	
 	add r0, sp, #(4 * 13)
@@ -44,83 +40,68 @@ swi_ex:
 	cps #MODE_SVC
 	
 	mrs r1, spsr
-	stmia r0, {r1, lr}
+	@ stored r0 doesnt matter, type is not used in syscalls.
+	stmia r0, {r0, r1, lr}
 	
 	mov r0, sp
 	
 	bl syscall
-
-	@ Goes on to do forkret	
-forkret:
-	mov r0, sp
-	add sp, sp, #(4 * 15)
-	ldmia sp!, {r2, lr}
-	msr spsr, r2
-	movs pc, lr
-	cps #MODE_SYS
-	ldmia r0, {r0 - r12, sp, lr}
-	cps #MODE_SVC
-	movs pc, lr
-
+	b uregret
+	
 
 irq_ex:
-	push {r0 - r12, lr}
-	ldr r0, =irq_msg
-	bl puts
-	pop {r0 - r12, lr}
-	subs pc, lr, #4
+	push {r0 - r4}
+	mov r0, #ABORT_INTERRUPT
+	b switch
 	
 
 undefined_instruction:
-	push {r0 - r12, lr}
-	ldr r0, =uab_msg
-	bl puts
-	b .	
+	push {r0 - r4}
+	mov r0, #ABORT_INSTRUCTION
+	b switch
 
 
 prefetch_abort:
-	push {r0 - r12, lr}
-	ldr r0, =pab_msg
-	bl puts
-	pop {r0 - r12, lr}
-	b .
+	push {r0 - r4}
+	mov r0, #ABORT_PREFETCH
+	b switch
 
 
 data_abort:
-	push {r0 - r12, lr}
-	ldr r0, =dab_msg
-	bl puts
-	pop {r0 - r12, lr}
-	b . 	
+	push {r0 - r4}
+	mov r0, #ABORT_DATA
+	b switch
 
+
+switch:
+	mrs r1, spsr
+	mov r2, sp
+	mov r3, lr
+	
+	cps #MODE_SVC
+	sub sp, sp, #(4 * 3)
+	stmia sp, {r0, r1, r3}
+	sub r0, sp, #(4 * 2)
+	cps #MODE_SYS
+	stmia r0, {sp, lr}
+	cps #MODE_SVC
+	
+	sub r0, r0, #(4 * 8)
+	stmia r0, {r5 - r12}
+	sub r0, r0, #(4 * 5)
+	ldmfd r2, {r1 - r5}
+	stmia r0, {r1 - r5}
+	
+	bl trap
+	b uregret
 
 @ Not used. Just return if this occurs.
 @ Probably a bad idea to be hones.
 fiq_ex:
-	subs, pc, lr, #4
+	ldr r0, =fiq_msg
+	bl puts
+	b .
 
-
-setlabel:
-	stmia r0, {sp, lr}
-	mov r0, #0
-	bx lr
-	
-
-gotolabel:
-	ldmia r0, {sp, lr}
-	mov r0, #1
-	bx lr
-
-
-@ r0 is user stack pointer
-droptouser:
-	cpsie i
-	cps #MODE_USR
-	mov sp, r0
-	mov pc, #0
 
 .section .rodata
-irq_msg: .asciz "irq\n"
-dab_msg: .asciz "data abort\n"
-pab_msg: .asciz "pr abort\n"
-uab_msg: .asciz "undefined abort\n"
+fiq_msg: .asciz "fiq\nHanging\n"

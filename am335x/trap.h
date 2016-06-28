@@ -1,5 +1,5 @@
-#ifndef __ABORT_H
-#define __ABORT_h
+#ifndef __TRAP_H
+#define __TRAP_h
 
 #define ABORT_INTERRUPT		0
 #define ABORT_INSTRUCTION	1

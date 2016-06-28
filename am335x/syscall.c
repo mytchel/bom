@@ -1,8 +1,6 @@
 #include "dat.h"
+#include "fns.h"
 #include "../port/com.h"
-
-void
-forkret();
 
 void
 dump_regs(struct ureg *r)
@@ -22,7 +20,7 @@ forklabel(struct proc *p, struct ureg *ureg)
 	struct ureg *nreg;
 
 	p->label.sp = (uint32_t) ((uint8_t *) p->kstack + KSTACK - sizeof(struct ureg));
-	p->label.pc = (uint32_t) &forkret;
+	p->label.pc = (uint32_t) &uregret;
 	
 	nreg = (struct ureg *) p->label.sp;
 	memmove(nreg, ureg, sizeof(struct ureg));
@@ -40,7 +38,7 @@ syscall(struct ureg *ureg)
 	
 	kprintf("syscall %i\n", sysnum);
 	
-	print_regs(ureg);
+	mmudisable(); /* mmuenable called on return in uregret. */
 	
 	current->ureg = ureg;	
 	if (sysnum < NSYSCALLS) {

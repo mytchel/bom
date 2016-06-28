@@ -39,8 +39,6 @@ memoryinit(void)
 	
 	/* IO memory */
 	imap(0x40000000, 0x4A400000);
-	
-	mmuenable();
 }
 
 int
