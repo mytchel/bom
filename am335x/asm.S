@@ -9,7 +9,7 @@
 .global droptouser
 .global fsrstatus
 .global faultaddr
-.global mmuinit
+.global mmuloadttb
 .global mmuenable
 .global mmudisable
 .global mmuinvalidate
@@ -62,7 +62,6 @@ gotolabel:
 
 @ user register return. Not you regret.
 uregret:
-	bl mmuenable
 	mov r0, sp
 	add sp, sp, #(4 * 15)
 	@ r1 is type, can be ignored
@@ -76,19 +75,18 @@ uregret:
 
 @ r0 is user stack pointer
 droptouser:
-	bl mmuenable
-	mov r1, #0
-	mov r2, #0
-	mov r3, #0
-	mov r4, #0
-	mov r5, #0
-	mov r6, #0
-	mov r7, #0
-	mov r8, #0
-	mov r9, #0
-	mov r10, #0
-	mov r11, #0
-	mov r12, #0
+	mov r1, #1
+	mov r2, #2
+	mov r3, #3
+	mov r4, #4
+	mov r5, #5
+	mov r6, #6
+	mov r7, #7
+	mov r8, #8
+	mov r9, #9
+	mov r10, #10
+	mov r11, #11
+	mov r12, #12
 	cpsie i
 	cps #MODE_USR
 	mov sp, r0
@@ -106,20 +104,18 @@ faultaddr:
 	bx lr
 
 
-mmuinit:
-	push {r1, lr}
-	ldr r1, =ttb
-	mcr p15, 0, r1, c2, c0, 0
+mmuloadttb:
+	push {lr}
+	mcr p15, 0, r0, c2, c0, 0
 	@ set domain mode to client
-	mov r1, #1
-	mcr p15, 0, r1, c3, c0, 0
-	pop {r1, pc}
+	mov r0, #1
+	mcr p15, 0, r0, c3, c0, 0
+	pop {pc}
 	
 
 mmuinvalidate:
-	push {r1, lr}
 	mcr p15, 0, r1, c8, c7, 0
-	pop {r1, pc}
+	bx lr
 	
 
 mmuenable:

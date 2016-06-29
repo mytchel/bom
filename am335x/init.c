@@ -16,7 +16,7 @@ task1_func(void)
 int
 main(void)
 {
-	puts("in init main\n");
+	puts("Hello from true user space!\n");
 	
 	if (!fork()) {
 		return task1_func();

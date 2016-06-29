@@ -40,7 +40,6 @@ C_SRC := \
 	main.c			\
 	trap.c			\
 	uart.c			\
-	intc.c			\
 	timer.c			\
 	watchdog.c		\
 	mem.c			\

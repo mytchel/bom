@@ -9,4 +9,7 @@ kprintf(const char *, ...);
 void
 puts(const char *);
 
+void
+putc(char);
+
 #endif

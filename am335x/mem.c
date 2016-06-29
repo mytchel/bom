@@ -1,5 +1,5 @@
 #include "dat.h"
-#include "mem.h"
+#include "fns.h"
 #include "../port/com.h"
 
 extern uint32_t *_heap_start;
@@ -9,8 +9,6 @@ extern uint32_t *_ram_end;
 extern uint32_t *_kernel_start;
 extern uint32_t *_kernel_end;
 
-extern uint32_t *ttb;
-
 static struct fblock heap;
 static struct page *pages;
 static struct page *first;
@@ -18,7 +16,6 @@ static struct page *first;
 void
 memoryinit(void)
 {
-	int i;
 	uint32_t ram_size, heap_size;
 	
 	kprintf("kernel_start  = 0x%h\n", &_kernel_start);
@@ -33,23 +30,15 @@ memoryinit(void)
 	heapinit((void *) &_heap_start, heap_size);
 	
 	pageinit((void *) &_ram_start, ram_size);
-	
-	for (i = 0; i < 4096; i++)
-		ttb[i] = L1_FAULT;
-	
-	/* Kernel memory */
-	imap((uint32_t) &_kernel_start,
-		(uint32_t) &_kernel_end);
-	
-	/* IO memory */
-	imap(0x40000000, 0x4A400000);
-	
+
+	kprintf("mmuinit\n");	
 	mmuinit();
 }
 
 int
 heapinit(void *heap_start, size_t size)
 {
+	kprintf("init heap\n");
 	heap.size = 0;
 	heap.next = (struct fblock *) heap_start;
 	heap.next->size = size;
@@ -63,21 +52,25 @@ pageinit(void *ram_start, size_t ram_size)
 {
 	uint32_t i, npages;
 	
+	kprintf("init pages\n");
+	
 	npages = ram_size / PAGE_SIZE;
 	
 	pages = kmalloc(sizeof(struct page) * npages);
 	
-	for (i = 0; i < npages; i++) {
+	for (i = 1; i < npages; i++) {
 		pages[i].pa = (void *) ((uint32_t) ram_start + i * PAGE_SIZE);
-		if (i < npages - 1)
-			pages[i].next = &pages[i + 1];
-		else
-			pages[i].next = nil;
+		pages[i].size = PAGE_SIZE;
+		pages[i-1].next = &pages[i];
 	}
 	
+	kprintf("set up most pages\n");
+	pages[npages-1].next = nil;
+	
+	kprintf("set up first\n");
 	/* Don't touch first page, may have vectors. */
 	first = pages->next;
-	
+
 	return 0;
 }
 

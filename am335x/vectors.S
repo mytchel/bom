@@ -92,7 +92,6 @@ switch:
 	ldmfd r2, {r1 - r5}
 	stmia r0, {r1 - r5}
 	
-	bl mmudisable	
 	mov sp, r0
 	bl trap
 	b uregret

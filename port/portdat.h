@@ -12,6 +12,7 @@ enum { SEG_stack, SEG_text, SEG_data, NSEG };
 
 struct page {
 	void *pa, *va;
+	size_t size;
 	struct page *next;
 };
 
@@ -86,6 +87,9 @@ mmuenable(void);
 void
 mmudisable(void);
 
+void
+mmuputpage(struct page *);
+
 struct page *
 newpage(void *);
 
@@ -95,6 +99,11 @@ freepage(struct page *);
 struct segment *
 newseg(int, void *, size_t);
 
+struct segment *
+findseg(struct proc *, void *);
+
+bool
+fixfault(void *);
 
 /* Helper */
 

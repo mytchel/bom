@@ -1,6 +1,5 @@
 #include "dat.h"
-#include "io.h"
-#include "intc.h"
+#include "fns.h"
 #include "../port/com.h"
 
 #define TIMER0 0x44E05000
