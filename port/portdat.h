@@ -8,7 +8,7 @@ typedef uint8_t bool;
 
 #define nil 0
 
-enum { SEG_stack, SEG_text, SEG_data, NSEG };
+enum { SEG_RW, SEG_RO };
 
 struct page {
 	void *pa, *va;
@@ -19,6 +19,7 @@ struct page {
 struct segment {
 	int type;
 	void *base, *top;
+	int size;
 	struct page *pages;
 };
 
@@ -29,6 +30,8 @@ enum {
 	PROC_mount,
 };
 
+enum { Sstack, Stext, Sdata, Smax };
+
 struct proc {
 	struct label label;
 	char kstack[KSTACK];
@@ -38,7 +41,7 @@ struct proc {
 	int state;
 	int pid;
 
-	struct segment *segs[NSEG];
+	struct segment *segs[Smax];
 	struct page *mmu;
 	
 	struct proc *next;
@@ -101,6 +104,9 @@ newseg(int, void *, size_t);
 
 struct segment *
 findseg(struct proc *, void *);
+
+struct segment *
+copyseg(struct segment *, bool);
 
 bool
 fixfault(void *);

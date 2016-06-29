@@ -78,6 +78,9 @@ newproc()
 	p->ureg = nil;
 	p->pid = nextpid++;
 	
+	for (i  = 0; i < Smax; i++)
+		p->segs[i] = nil;
+	
 	for (pp = procs; pp->next; pp = pp->next);
 	pp->next = p;
 	p->next = nil;

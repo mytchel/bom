@@ -13,6 +13,7 @@ newseg(int type, void *base, size_t size)
 	s->type = type;
 	s->base = base;
 	s->top = base + size * PAGE_SIZE;
+	s->size = size;
 	
 	return s;
 }
@@ -23,7 +24,7 @@ findseg(struct proc *p, void *addr)
 	struct segment *s;
 	int i;
 	
-	for (i = 0; i < NSEG; i++) {
+	for (i = 0; i < Smax; i++) {
 		s = p->segs[i];
 		if (s == nil)
 			continue;
@@ -34,6 +35,32 @@ findseg(struct proc *p, void *addr)
 	}
 	
 	return nil;
+}
+
+struct segment *
+copyseg(struct segment *s, bool new)
+{
+	struct segment *n;
+	struct page *sp, *np;
+	
+	n = newseg(s->type, s->base, s->size);
+	if (n == nil)
+		return nil;
+
+	sp = s->pages;
+	n->pages = newpage(sp->va);
+	np = n->pages;
+	while (sp != nil) {
+		memmove(np->pa, sp->pa, sp->size);
+		if (sp->next == nil)
+			break;
+		
+		sp = sp->next;
+		np->next = newpage(sp->va);
+		np = np->next;
+	}
+	
+	return n;
 }
 
 bool

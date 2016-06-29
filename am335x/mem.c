@@ -64,10 +64,8 @@ pageinit(void *ram_start, size_t ram_size)
 		pages[i-1].next = &pages[i];
 	}
 	
-	kprintf("set up most pages\n");
 	pages[npages-1].next = nil;
 	
-	kprintf("set up first\n");
 	/* Don't touch first page, may have vectors. */
 	first = pages->next;
 
@@ -151,6 +149,8 @@ newpage(void *va)
 	p = first;
 	first = first->next;
 	p->va = va;
+	
+	p->next = nil;
 	
 	return p;
 }

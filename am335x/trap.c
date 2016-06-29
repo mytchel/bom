@@ -66,8 +66,6 @@ intcaddhandler(uint32_t irqn, void (*func)(uint32_t))
 {
 	uint32_t mask, mfield;
 	
-	return;
-	
 	handlers[irqn] = func;
 	
 	/* Unmask interrupt number. */
@@ -151,10 +149,12 @@ trap(struct ureg *ureg)
 		break;
 	}
 	
-	kprintf("ureg at end of trap\n");	
 	if (!fixed) {
 		kprintf("abort not fixed. should kill proc\n");
 		dumpregs(ureg);
-		while (1);
+		procremove(current);
+		schedule();
 	}
+	
+	schedule();
 }

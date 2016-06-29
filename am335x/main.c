@@ -47,7 +47,6 @@ void
 mainproc(void)
 {
 	kprintf("in main proc\n");
-	
 	kprintf("drop to user\n");
 	droptouser(USTACK_TOP);
 }
@@ -66,18 +65,16 @@ initmainproc()
 	p->label.sp = (uint32_t) p->kstack + KSTACK;
 	p->label.pc = (uint32_t) &mainproc;
 
-	s = newseg(SEG_stack, (void *) (USTACK_TOP - USTACK_SIZE), USTACK_SIZE/PAGE_SIZE);
-	p->segs[SEG_stack] = s;
+	s = newseg(SEG_RW, (void *) (USTACK_TOP - USTACK_SIZE), USTACK_SIZE/PAGE_SIZE);
+	p->segs[Sstack] = s;
 	pg = newpage((void *) (USTACK_TOP - USTACK_SIZE));
 	s->pages = pg;
 
-	s = newseg(SEG_text, (void *) UTEXT, 1);
-	p->segs[SEG_text] = s;
+	s = newseg(SEG_RO, (void *) UTEXT, 1);
+	p->segs[Stext] = s;
 	pg = newpage((void *) UTEXT);
 	s->pages = pg;
 
-	kprintf("sizeof(initcode) = %i\n", sizeof(initcode));
-	kprintf("page size = %i\n", pg->size);
 	memmove(s->pages->pa, initcode, sizeof(initcode));
 	
 	p->state = PROC_ready;

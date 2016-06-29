@@ -27,12 +27,24 @@ sysyield(va_list args)
 static int
 sysfork(va_list args)
 {
+	int i;
 	struct proc *p;
 
 	puts("fork\n");
 	
 	p = newproc();
+	if (p == nil)
+		return -1;
+		
 	kprintf("created new process with pid %i\n", p->pid);
+
+	for (i = 0; i < Smax; i++) {
+		if (current->segs[i] != nil) {
+			p->segs[i] = copyseg(current->segs[i], true);
+			if (p->segs[i] == nil)
+				return -1;
+		}
+	}
 
 	forklabel(p, current->ureg);
 	p->state = PROC_ready;
