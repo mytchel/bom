@@ -77,7 +77,8 @@ newproc()
 	p->mmu = nil;
 	p->ureg = nil;
 	p->pid = nextpid++;
-	
+	p->faults = 0;
+		
 	for (i  = 0; i < Smax; i++)
 		p->segs[i] = nil;
 	

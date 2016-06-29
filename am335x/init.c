@@ -8,6 +8,7 @@ task1(void)
 	puts("task1 started\n");
 	while (true) {
 		puts("task 1 running\n");
+		sleep(500);
 	}
 	
 	return 1;
@@ -19,6 +20,7 @@ task2(void)
 	puts("task2 started\n");
 	while (true) {
 		puts("task 2 running\n");
+		sleep(100);
 	}
 	
 	return 2;
@@ -40,7 +42,7 @@ main(void)
 	puts("tasks initiated\n");
 
 	while (1) {
-		yield();
+		sleep(0);
 	}
 
 	return 0;

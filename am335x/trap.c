@@ -85,8 +85,6 @@ trap(struct ureg *ureg)
 	void *addr;
 	bool fixed = false;
 	
-	kprintf("trap type %i\n", ureg->type);
-
 	if (ureg->type == ABORT_DATA)
 		ureg->pc -= 8;
 	else
@@ -94,7 +92,6 @@ trap(struct ureg *ureg)
 	
 	switch(ureg->type) {
 	case ABORT_INTERRUPT:
-		kprintf("irq\n");
 		fixed = true;
 		irqhandler();
 		break;
@@ -107,10 +104,6 @@ trap(struct ureg *ureg)
 	case ABORT_DATA:
 		addr = faultaddr();
 		fsr = fsrstatus() & 0xf;
-		
-		kprintf("data abort\n");
-		kprintf("fsr = 0x%h\n", fsr);
-		kprintf("at addr 0x%h\n", (uint32_t) addr);
 		
 		switch (fsr) {
 		case 0x0: /* vector */

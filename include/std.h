@@ -16,7 +16,7 @@ int
 fork(void);
 
 int
-yield(void);
+sleep(int);
 
 int
 getpid(void);

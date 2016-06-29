@@ -4,7 +4,7 @@
 
 .global exit
 .global fork
-.global yield
+.global sleep
 .global getpid
 .global mount
 .global open
@@ -27,11 +27,13 @@ fork:
 	pop {pc}
 
 
-yield:
-	push {lr}
-	mov r0, #SYSCALL_YIELD
+sleep:
+	push {r1, lr}
+	push {r0}
+	mov r0, #SYSCALL_SLEEP
 	svc 0
-	pop {pc}
+	pop {r1}
+	pop {r1, pc}
 	
 	
 getpid:

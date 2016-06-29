@@ -40,6 +40,7 @@ struct proc {
 	
 	int state;
 	int pid;
+	int faults;
 
 	struct segment *segs[Smax];
 	struct page *mmu;

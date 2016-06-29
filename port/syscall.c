@@ -17,10 +17,22 @@ sysexit(va_list args)
 }
 
 static int
-sysyield(va_list args)
+syssleep(va_list args)
 {
-	kprintf("yield\n");
-	schedule();
+	int ms;
+	ms = va_arg(args, int);
+	
+	if (ms <= 0) {
+		schedule();
+		return 0;
+	}
+
+	/* Need to properly impliement. */
+	
+	int i = 0;
+	while (i++ < ms)
+		schedule();
+		
 	return 0;
 }
 
@@ -30,14 +42,10 @@ sysfork(va_list args)
 	int i;
 	struct proc *p;
 
-	puts("fork\n");
-	
 	p = newproc();
 	if (p == nil)
 		return -1;
 		
-	kprintf("created new process with pid %i\n", p->pid);
-
 	for (i = 0; i < Smax; i++) {
 		if (current->segs[i] != nil) {
 			p->segs[i] = copyseg(current->segs[i], true);
@@ -49,7 +57,6 @@ sysfork(va_list args)
 	forklabel(p, current->ureg);
 	p->state = PROC_ready;
 	
-	kprintf("return\n");
 	return p->pid;
 }
 
@@ -107,7 +114,7 @@ syswrite(va_list args)
 int (*syscalltable[NSYSCALLS])(va_list) = {
 	[SYSCALL_EXIT] 		= sysexit,
 	[SYSCALL_FORK] 		= sysfork,
-	[SYSCALL_YIELD]		= sysyield,
+	[SYSCALL_SLEEP]		= syssleep,
 	[SYSCALL_GETPID]	= sysgetpid,
 	[SYSCALL_MOUNT] 	= sysmount,
 	[SYSCALL_OPEN]		= sysopen,

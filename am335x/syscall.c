@@ -37,9 +37,8 @@ syscall(struct ureg *ureg)
 	ret = -1;
 	sysnum = (unsigned int) ureg->regs[0];
 	
-	kprintf("syscall %i\n", sysnum);
+	current->ureg = ureg;
 	
-	current->ureg = ureg;	
 	if (sysnum < NSYSCALLS) {
 		va_list args = (va_list) ureg->sp;
 		ret = syscalltable[sysnum](args);

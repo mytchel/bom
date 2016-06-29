@@ -76,6 +76,7 @@ fixfault(void *addr)
 	for (pg = s->pages; pg != nil; pg = pg->next) {
 		if (pg->va <= addr && pg->va + pg->size  > addr) {
 			mmuputpage(pg);
+			current->faults++;
 			return true;
 		}
 	}

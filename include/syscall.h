@@ -3,7 +3,7 @@
 
 #define SYSCALL_EXIT	1
 #define SYSCALL_FORK	2
-#define SYSCALL_YIELD	3
+#define SYSCALL_SLEEP	3
 #define SYSCALL_GETPID	4
 #define SYSCALL_MOUNT	5
 #define SYSCALL_OPEN	6
