@@ -41,9 +41,5 @@ main(void)
 
 	puts("tasks initiated\n");
 
-	while (1) {
-		sleep(0);
-	}
-
 	return 0;
 }

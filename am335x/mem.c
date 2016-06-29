@@ -2,6 +2,9 @@
 #include "fns.h"
 #include "../port/com.h"
 
+static int
+addpages(void *start, void *end);
+
 extern uint32_t *_heap_start;
 extern uint32_t *_heap_end;
 extern uint32_t *_ram_start;
@@ -9,36 +12,45 @@ extern uint32_t *_ram_end;
 extern uint32_t *_kernel_start;
 extern uint32_t *_kernel_end;
 
+struct fblock {
+	struct fblock *next;
+	uint32_t size;
+};
+
+struct page_ref {
+	void *addr;
+	struct page_ref *next;
+};
+
 static struct fblock heap;
-static struct page *pages;
-static struct page *first;
+static struct page_ref *pages;
 
 void
 memoryinit(void)
 {
 	uint32_t ram_size, heap_size;
-	
-	kprintf("kernel_start  = 0x%h\n", &_kernel_start);
-	kprintf("kernel_end    = 0x%h\n", &_kernel_end);
-	
+
 	ram_size = (uint32_t) &_ram_end - (uint32_t) &_ram_start;
 	heap_size = (uint32_t) &_heap_end - (uint32_t) &_heap_start;
 
 	kprintf("ram size      = %i MB\n", ram_size / 1024 / 1024);
 	kprintf("heap size     = %i MB\n", heap_size / 1024 / 1024);
 
+	kprintf("kernel_start  = 0x%h\n", &_kernel_start);
+	kprintf("kernel_end    = 0x%h\n", &_kernel_end);
+	
 	heapinit((void *) &_heap_start, heap_size);
 	
-	pageinit((void *) &_ram_start, ram_size);
+	pages = nil;
+	addpages((void *) &_ram_start, (void *) &_kernel_start);
+	addpages((void *) &_kernel_end, (void *) &_ram_end);
 
-	kprintf("mmuinit\n");	
 	mmuinit();
 }
 
 int
 heapinit(void *heap_start, size_t size)
 {
-	kprintf("init heap\n");
 	heap.size = 0;
 	heap.next = (struct fblock *) heap_start;
 	heap.next->size = size;
@@ -48,26 +60,25 @@ heapinit(void *heap_start, size_t size)
 }
 
 int
-pageinit(void *ram_start, size_t ram_size)
+addpages(void *start, void *end)
 {
-	uint32_t i, npages;
+	struct page_ref *first, *p;
 	
-	kprintf("init pages\n");
+	start = (void *) ((uint32_t) start & PAGE_MASK);
 	
-	npages = ram_size / PAGE_SIZE;
-	
-	pages = kmalloc(sizeof(struct page) * npages);
-	
-	for (i = 1; i < npages; i++) {
-		pages[i].pa = (void *) ((uint32_t) ram_start + i * PAGE_SIZE);
-		pages[i].size = PAGE_SIZE;
-		pages[i-1].next = &pages[i];
+	first = kmalloc(sizeof(struct page_ref));
+	p = first;
+	while (start < end) {
+		p->next = kmalloc(sizeof(struct page_ref));
+		p = p->next;
+		p->addr = start;
+		start += PAGE_SIZE;
 	}
 	
-	pages[npages-1].next = nil;
+	p->next = pages;
 	
-	/* Don't touch first page, may have vectors. */
-	first = pages->next;
+	pages = first->next;
+	kfree(first, sizeof(struct page_ref));
 
 	return 0;
 }
@@ -110,7 +121,7 @@ kfree(void *ptr, size_t size)
 	uint32_t nsize;
 	
 	for (b = &heap; b->next != nil; b = b->next) {
-		if ((void *) b->next->next > ptr) {
+		if ((void *) b->next > ptr) {
 			break;
 		}
 	}
@@ -145,19 +156,33 @@ struct page *
 newpage(void *va)
 {
 	struct page *p;
+	struct page_ref *r;
 
-	p = first;
-	first = first->next;
-	p->va = va;
+	p = kmalloc(sizeof(struct page));
+	if (p == nil)
+		return nil;
+		
+	r = pages;
+	pages = pages->next;
 	
+	p->pa = r->addr;
+	p->va = va;
 	p->next = nil;
 	
+	kfree(r, sizeof(struct page_ref));
+
 	return p;
 }
 
 void
 freepage(struct page *p)
 {
-	p->next = first;
-	first = p;
+	struct page_ref *r;
+	
+	r = kmalloc(sizeof(struct page_ref));
+	r->addr = p->pa;
+	r->next = pages;
+	pages = r;
+	
+	kfree(p, sizeof(struct page));
 }

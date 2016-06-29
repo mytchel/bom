@@ -51,7 +51,7 @@ copyseg(struct segment *s, bool new)
 	n->pages = newpage(sp->va);
 	np = n->pages;
 	while (sp != nil) {
-		memmove(np->pa, sp->pa, sp->size);
+		memmove(np->pa, sp->pa, PAGE_SIZE);
 		if (sp->next == nil)
 			break;
 		
@@ -74,7 +74,7 @@ fixfault(void *addr)
 		return false;
 	
 	for (pg = s->pages; pg != nil; pg = pg->next) {
-		if (pg->va <= addr && pg->va + pg->size  > addr) {
+		if (pg->va <= addr && pg->va + PAGE_SIZE > addr) {
 			mmuputpage(pg);
 			current->faults++;
 			return true;

@@ -73,7 +73,7 @@ mmuputpage(struct page *p)
 	uint32_t *l1, *l2;
 
 	uint32_t x = (uint32_t) p->va;
-
+	
 	l1 = &ttb[L1X(x)];
 	
 	/* Add a l1 page if needed. */

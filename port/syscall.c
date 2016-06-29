@@ -41,11 +41,12 @@ sysfork(va_list args)
 {
 	int i;
 	struct proc *p;
+	
 
 	p = newproc();
 	if (p == nil)
 		return -1;
-		
+
 	for (i = 0; i < Smax; i++) {
 		if (current->segs[i] != nil) {
 			p->segs[i] = copyseg(current->segs[i], true);

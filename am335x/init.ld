@@ -1,4 +1,4 @@
-ENTRY(main)
+ENTRY(_start)
 
 SECTIONS
 {
@@ -6,25 +6,21 @@ SECTIONS
 
 	.text :
 	{
-		*(.text.startup)
 		*(.text)
 	}
 
 	.data : 
 	{
-		*(.data.*)
 		*(.data)
 	}
 	
 	.rodata :
 	{
-		*(.rodata.*)
 		*(.rodata)
 	}
 	
 	.bss :
 	{
-		*(.bss.*)
 		*(.bss)
 	}
 }

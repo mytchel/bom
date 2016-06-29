@@ -21,6 +21,9 @@ systickinit();
 static void
 initmainproc();
 
+static void
+initnullproc();
+
 void
 droptouser(uint32_t sp);
 
@@ -35,6 +38,7 @@ main(void)
 	systickinit();
 
 	procsinit();
+	initnullproc();
 	initmainproc();
 
 	schedule();
@@ -77,6 +81,26 @@ initmainproc()
 
 	memmove(s->pages->pa, initcode, sizeof(initcode));
 	
+	p->state = PROC_ready;
+}
+
+void
+nullproc()
+{
+	while (true)
+		schedule();
+}
+
+void
+initnullproc()
+{
+	struct proc *p;
+	
+	p = newproc();
+	
+	p->label.sp = (uint32_t) p->kstack + KSTACK;
+	p->label.pc = (uint32_t) &nullproc;
+
 	p->state = PROC_ready;
 }
 

@@ -1,5 +1,5 @@
 #include "dat.h"
-#include "io.h"
+#include "fns.h"
 #include "../port/com.h"
 
 #define WDT_1 0x44E35000

@@ -2,6 +2,7 @@
 
 .section .text
 
+.global _start
 .global exit
 .global fork
 .global sleep
@@ -12,6 +13,10 @@
 .global stat
 .global read
 .global write
+
+_start:
+	ldr lr, =exit
+	bl main
 
 
 exit:

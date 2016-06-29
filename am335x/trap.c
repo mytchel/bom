@@ -146,7 +146,6 @@ trap(struct ureg *ureg)
 		kprintf("abort not fixed. should kill proc\n");
 		dumpregs(ureg);
 		procremove(current);
-		schedule();
 	}
 	
 	schedule();

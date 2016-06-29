@@ -1,6 +1,5 @@
 #include "dat.h"
-#include "io.h"
-#include "../port/com.h"
+#include "fns.h"
 
 #define UART0   0x44E09000
 

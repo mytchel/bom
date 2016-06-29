@@ -12,7 +12,6 @@ enum { SEG_RW, SEG_RO };
 
 struct page {
 	void *pa, *va;
-	size_t size;
 	struct page *next;
 };
 
