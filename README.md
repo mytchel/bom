@@ -16,8 +16,16 @@ for now), fork a few times and the forked processes do something similar.
 
 ## Build
 
-Just run make. There do seem to be some problems with gnu make though.
+Just run make.
 
+This should give you the file am335x/am335x.umg which you can copy onto an sdcard and
+load on your beaglebone black.
+
+U-Boot is a bit (very) finicky with the partitioning of your sdcard. You can look that
+up if you really want to but the easiest way is to just flash a beaglebone black
+linux or openbsd distro onto the sdcard the copy am335x/am335x.umg and am335x/uenv.txt
+onto the U-Boot fat partition. Then when U-Boot loads (if you have it in sdcard mode)
+it should run Bom.
 
 ### Working
 
