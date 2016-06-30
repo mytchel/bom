@@ -1,6 +1,5 @@
 #include "dat.h"
 #include "../port/com.h"
-#include "../include/std.h"
 
 struct proc *current;
 
@@ -8,17 +7,13 @@ static struct proc procs[MAX_PROCS];
 static uint32_t nextpid;
 
 void
-procsinit(void)
+initprocs(void)
 {
 	int i;
-	
-	kprintf("procs init\n");
-
-	nextpid = 1;
-
 	for (i = 0; i < MAX_PROCS; i++)
 		procs[i].state = PROC_stopped;
 
+	nextpid = 1;
 	current = procs;
 	procs->next = nil;
 }

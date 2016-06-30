@@ -4,26 +4,16 @@
 #define L1X(va)		(va >> 20)
 #define L2X(va)		((va >> 12) & ((1 << 8) - 1))
 
-extern uint32_t *_ram_start;
-extern uint32_t *_ram_end;
-
 uint32_t ttb[4096] __attribute__((__aligned__(16*1024)));
 
 void
-mmuinit(void)
+initmmu(void)
 {
 	int i;
-	
 	for (i = 0; i < 4096; i++)
 		ttb[i] = L1_FAULT;
 
-	imap((uint32_t) &_ram_start,
-		(uint32_t) &_ram_end);
-	
-	imap(0x40000000, 0x4A400000);
-	
 	mmuloadttb(ttb);
-	mmuenable();
 }
 
 void
@@ -42,15 +32,15 @@ mmuswitch(struct proc *p)
 }
 
 void
-imap(uint32_t start, uint32_t end)
+imap(void *start, void *end)
 {
-	start &= ~((1 << 20) - 1);
+	uint32_t x = (uint32_t) start & ~((1 << 20) - 1);
 	
-	while (start < end) {
+	while (x < (uint32_t) end) {
 		/* Map section so everybody can see it.
 		 * This wil change. */
-		ttb[L1X(start)] = ((uint32_t) start) | (1 << 10) | L1_SECTION;
-		start += 1 << 20;
+		ttb[L1X(x)] = x | (1 << 10) | L1_SECTION;
+		x += 1 << 20;
 	}
 }
 

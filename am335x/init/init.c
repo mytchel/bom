@@ -30,14 +30,15 @@ int
 main(void)
 {
 	puts("Hello from true user space!\n");
-	puts("Fork once\n");
 	
+	sleep(1000);
+	
+	puts("Fork once\n");
 	if (!fork()) {
 		return task1();
 	}
 	
 	puts("Fork twice\n");
-
 	if (!fork()) {
 		return task2();
 	}

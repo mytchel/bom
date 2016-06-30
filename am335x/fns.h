@@ -19,6 +19,11 @@
 #define L2_SMALL	2
 #define L2_TINY		3
 
+#define PAGE_SHIFT 	12
+#define PAGE_SIZE	(1UL << PAGE_SHIFT)
+#define PAGE_MASK	(~(PAGE_SIZE - 1))
+#define PAGE_ALIGN(x) 	(((x) + PAGE_SIZE - 1) & PAGE_MASK)
+
 void
 dumpregs(struct ureg *);
 
@@ -35,33 +40,35 @@ void *
 faultaddr(void);
 
 void
-intcinit(void);
-
-void
 intcaddhandler(uint32_t, void (*)(uint32_t));
 
 void
 mmuinvalidate(void);
 
 void
-imap(uint32_t, uint32_t);
+imap(void *, void *);
 	
 void
-memoryinit(void);
-
-void
 mmuempty1(void);
-
-int
-pageinit(void *, size_t);
-
-int
-heapinit(void *, size_t);
 
 void
 mmuloadttb(uint32_t *);
 
+/* Initialisation functions */
+
 void
-mmuinit(void);
+initintc(void);
+
+void
+initmemory(void);
+
+void
+initmmu(void);
+
+void
+initwatchdog(void);
+
+void
+inittimers(void);
 
 #endif

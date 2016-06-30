@@ -26,6 +26,10 @@
 #define TIMER_TCLR		0x38
 #define TIMER_TCRR		0x3c
 #define TIMER_TMAR		0x4c
+#define TIMER_TWPS		0x48
+
+#define CM_DPLL	0x44E00500
+#define CLK_SEL2 0x08
 
 #define WDT_1 0x44E35000
 
@@ -35,14 +39,13 @@
 static void systickhandler(uint32_t);
 static uint32_t mstoticks(uint32_t);
 
+/* In KHz */
 static uint32_t freq;
 
 void
-watchdoginit(void)
+initwatchdog(void)
 {
-	/* Disable watchdog timer for now. */
-	
-	kprintf("Disabling watchdog timer\n");
+	/* Disable watchdog timer. */
 	
 	writel(0x0000AAAA, WDT_1 + WDT_WSPR);
 	while (readl(WDT_1 + WDT_WWPS) & (1<<4));
@@ -50,13 +53,16 @@ watchdoginit(void)
 	while (readl(WDT_1 + WDT_WWPS) & (1<<4));
 }
 
-void systickinit()
+void inittimers()
 {
-	/* Probably wrong, need to figure out how to get/set this. */
- 	freq = 25 * 1000 * 1000;
+	/* Select 32KHz clock for timers */
+ 	writel(2, CM_DPLL + CLK_SEL2);
+ 	freq = 32;
 	
 	writel(0, TIMER2 + TIMER_TCLR); /* disable timer */
 	writel(1, TIMER2 + TIMER_IRQENABLE_SET); /* set irq */
+
+ 	while (readl(TIMER2 + TIMER_TWPS)); /* Wait for writes to commit. */
 
 	intcaddhandler(TINT2, &systickhandler);
 }
@@ -68,6 +74,7 @@ systickhandler(uint32_t irqn)
 	/* Clear irq status. */
 	writel(readl(TIMER2 + TIMER_IRQSTATUS), 
 		TIMER2 + TIMER_IRQSTATUS);
+ 	while (readl(TIMER2 + TIMER_TWPS)); /* Wait for writes to commit. */
 }
 
 void
@@ -75,6 +82,9 @@ setsystick(uint32_t ms)
 {
 	writel(0, TIMER2 + TIMER_TCRR); /* set timer to 0 */
 	writel(mstoticks(ms), TIMER2 + TIMER_TMAR); /* set compare value */
+ 	
+ 	while (readl(TIMER2 + TIMER_TWPS)); /* Wait for writes to commit. */
+	
 	writel((1<<6) |1, TIMER2 + TIMER_TCLR); /* start timer */
 }
 

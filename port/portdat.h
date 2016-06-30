@@ -12,6 +12,7 @@ enum { SEG_RW, SEG_RO };
 
 struct page {
 	void *pa, *va;
+	size_t size;
 	struct page *next;
 };
 
@@ -24,7 +25,8 @@ struct segment {
 
 enum {
 	PROC_stopped, 
-	PROC_ready, PROC_sleeping
+	PROC_ready,
+	PROC_sleeping
 };
 
 enum { Sstack, Stext, Sdata, Smax };
@@ -75,9 +77,6 @@ void
 schedule(void);
 
 void
-procsinit(void);
-
-void
 setsystick(uint32_t);
 
 /* Set up proc->label for return from fork. */
@@ -126,3 +125,8 @@ fixfault(void *);
 
 void
 memmove(void *n, void *o, size_t);
+
+/* Initialisation */
+
+void
+initprocs(void);

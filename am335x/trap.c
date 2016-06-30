@@ -28,11 +28,9 @@
 static void (*handlers[nirq])(uint32_t);
 
 void
-intcinit(void)
+initintc(void)
 {
 	int i;
-	
-	kprintf("intc init\n");
 	
 	/* enable interface auto idle */
 	writel(1, INTC + INTC_SYSCONFIG);

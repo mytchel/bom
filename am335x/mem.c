@@ -2,15 +2,11 @@
 #include "fns.h"
 #include "../port/com.h"
 
-static int
-addpages(void *start, void *end);
+static void
+initheap(void *, size_t);
 
-extern uint32_t *_heap_start;
-extern uint32_t *_heap_end;
-extern uint32_t *_ram_start;
-extern uint32_t *_ram_end;
-extern uint32_t *_kernel_start;
-extern uint32_t *_kernel_end;
+static void
+addpages(void *, void *);
 
 struct fblock {
 	struct fblock *next;
@@ -22,11 +18,18 @@ struct page_ref {
 	struct page_ref *next;
 };
 
+extern uint32_t *_heap_start;
+extern uint32_t *_heap_end;
+extern uint32_t *_ram_start;
+extern uint32_t *_ram_end;
+extern uint32_t *_kernel_start;
+extern uint32_t *_kernel_end;
+
 static struct fblock heap;
 static struct page_ref *pages;
 
 void
-memoryinit(void)
+initmemory(void)
 {
 	uint32_t ram_size, heap_size;
 
@@ -36,30 +39,30 @@ memoryinit(void)
 	kprintf("ram size      = %i MB\n", ram_size / 1024 / 1024);
 	kprintf("heap size     = %i MB\n", heap_size / 1024 / 1024);
 
-	kprintf("kernel_start  = 0x%h\n", &_kernel_start);
-	kprintf("kernel_end    = 0x%h\n", &_kernel_end);
-	
-	heapinit((void *) &_heap_start, heap_size);
+	initheap(&_heap_start, heap_size);
 	
 	pages = nil;
 	addpages((void *) &_ram_start, (void *) &_kernel_start);
 	addpages((void *) &_kernel_end, (void *) &_ram_end);
-
-	mmuinit();
+	
+	initmmu();
+	
+	imap(&_ram_start, &_ram_end);
+	imap((void *) 0x40000000, (void *) 0x4A400000);
+	
+	mmuenable();
 }
 
-int
-heapinit(void *heap_start, size_t size)
+void
+initheap(void *heap_start, size_t size)
 {
 	heap.size = 0;
 	heap.next = (struct fblock *) heap_start;
 	heap.next->size = size;
 	heap.next->next = nil;
-	
-	return 0;
 }
 
-int
+void
 addpages(void *start, void *end)
 {
 	struct page_ref *first, *p;
@@ -79,8 +82,6 @@ addpages(void *start, void *end)
 	
 	pages = first->next;
 	kfree(first, sizeof(struct page_ref));
-
-	return 0;
 }
 
 void *
@@ -167,6 +168,7 @@ newpage(void *va)
 	
 	p->pa = r->addr;
 	p->va = va;
+	p->size = PAGE_SIZE;
 	p->next = nil;
 	
 	kfree(r, sizeof(struct page_ref));

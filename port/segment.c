@@ -12,7 +12,7 @@ newseg(int type, void *base, size_t size)
 	
 	s->type = type;
 	s->base = base;
-	s->top = base + size * PAGE_SIZE;
+	s->top = (void *) ((uint32_t) base + size);
 	s->size = size;
 	
 	return s;
@@ -51,7 +51,7 @@ copyseg(struct segment *s, bool new)
 	n->pages = newpage(sp->va);
 	np = n->pages;
 	while (sp != nil) {
-		memmove(np->pa, sp->pa, PAGE_SIZE);
+		memmove(np->pa, sp->pa, sp->size);
 		if (sp->next == nil)
 			break;
 		
@@ -74,7 +74,7 @@ fixfault(void *addr)
 		return false;
 	
 	for (pg = s->pages; pg != nil; pg = pg->next) {
-		if (pg->va <= addr && pg->va + PAGE_SIZE > addr) {
+		if (pg->va <= addr && pg->va + pg->size > addr) {
 			mmuputpage(pg);
 			current->faults++;
 			return true;
