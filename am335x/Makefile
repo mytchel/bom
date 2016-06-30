@@ -28,9 +28,9 @@ LGCC := -L/usr/local/lib/gcc/arm-none-eabi/4.9.3/ -lgcc
 HOST_CFLAGS := 
 HOST_LDFLAGS :=
 
-.include <mkuboot/local.mk>
-.include <bintoarray/local.mk>
-.include <init/local.mk>
+include mkuboot/local.mk
+include bintoarray/local.mk
+include init/local.mk
 
 HEADERS := *.h ../port/*.h ../include/*.h
 
@@ -62,7 +62,11 @@ OBJECTS := \
 
 CLEAN += $(OBJECTS)
 
-$(OBJECTS): $(HEADERS)
+.c.o:
+	@echo CC $<
+	@$(CC) $(CFLAGS) -c -o $@ $<
+
+.S.o:
 	@echo CC $<
 	@$(CC) $(CFLAGS) -c -o $@ $<
 

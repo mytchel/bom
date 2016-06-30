@@ -23,7 +23,7 @@ enum {
 	PROC_sleep,
 };
 
-enum { Sstack, Stext, Sdata, Smax };
+enum { Sstack, Stext, Sdata, Sbss, Smax };
 
 struct proc {
 	struct label label;
@@ -61,14 +61,51 @@ procsleep(struct proc *, uint32_t);
 void
 procsuspend(struct proc *);
 
-int
-setlabel(struct label *);
-
-int
-gotolabel(struct label *);
+void
+initprocs(void);
 
 void
 schedule(void);
+
+struct segment *
+newseg(int, void *, size_t);
+
+struct segment *
+findseg(struct proc *, void *);
+
+struct segment *
+copyseg(struct segment *, bool);
+
+bool
+fixfault(void *);
+
+void
+memmove(void *n, void *o, size_t);
+
+void
+kprintf(const char *, ...);
+
+/****** Machine implimented ******/
+
+void
+puts(const char *);
+
+char
+getc(void);
+
+/* Number of ticks since last call. */
+uint32_t
+ticks(void);
+
+uint32_t
+tickstoms(uint32_t);
+
+uint32_t
+mstoticks(uint32_t);
+
+/* Set systick interrupt to occur in .. ms */
+void
+setsystick(uint32_t);
 
 void
 forkfunc(struct proc *, int (*func)(void));
@@ -100,46 +137,14 @@ newpage(void *);
 void
 freepage(struct page *);
 
-struct segment *
-newseg(int, void *, size_t);
+int
+setlabel(struct label *);
 
-struct segment *
-findseg(struct proc *, void *);
+int
+gotolabel(struct label *);
 
-struct segment *
-copyseg(struct segment *, bool);
 
-bool
-fixfault(void *);
-
-void
-memmove(void *n, void *o, size_t);
-
-/* Number of ticks since last call. */
-uint32_t
-ticks(void);
-
-uint32_t
-tickstoms(uint32_t);
-
-uint32_t
-mstoticks(uint32_t);
-
-/* Set systick interrupt to occur in .. ms */
-void
-setsystick(uint32_t);
-
-void
-initprocs(void);
-
-void
-kprintf(const char *, ...);
-
-void
-puts(const char *);
-
-char
-getc(void);
+/* Global Variables */
 
 extern struct proc *current;
 extern int (*syscalltable[NSYSCALLS])(va_list args);

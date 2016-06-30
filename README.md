@@ -14,6 +14,11 @@ and it get run as in user mode with its on virtual address space.
 All this program does is print a little (it has direct access to the io address space,
 for now), fork a few times and the forked processes do something similar.
 
+## Build
+
+Just run make. There do seem to be some problems with gnu make though.
+
+
 ### Working
 
 - Virtual memory

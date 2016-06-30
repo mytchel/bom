@@ -17,17 +17,6 @@
 _start:
 	cpsid if
 
-	@ Clear kernel bss segment	
-
-	ldr r0, =_kernel_bss_start
-	ldr r1, =_kernel_bss_end
-	mov r2, #0
-	mov r3, #0
-1:
-	stmia r0!, {r2, r3}
-	cmp r0, r1
-	blo 1b
-
 	@ Disable cache
 	mrc p15, 0, r0, c1, c0, 0
 	bic r0, r0, #(1<<12)
@@ -45,7 +34,7 @@ _start:
 	
 	bl vectortableinit
 	
-	b main
+	b kmain
 
 
 setlabel:

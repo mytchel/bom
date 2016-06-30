@@ -11,7 +11,7 @@ static void
 initnullproc();
 
 int
-main(void)
+kmain(void)
 {
 	puts("  --  Bom Booting  --\n\n");
 	

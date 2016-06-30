@@ -1,3 +1,6 @@
+#ifndef __DAT_H
+#define __DAT_H
+
 #include "../include/types.h"
 
 #define MAX_PROCS	512
@@ -18,3 +21,5 @@ struct ureg {
 };
 
 #include "../port/portdat.h"
+
+#endif
