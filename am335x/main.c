@@ -16,10 +16,10 @@ main(void)
 {
 	puts("  --  Bom Booting  --\n\n");
 	
+	initwatchdog();
 	initmemory();
 	initintc();
 	inittimers();
-	initwatchdog();
 
 	initprocs();
 	initnullproc();
@@ -31,22 +31,23 @@ main(void)
 	return 0;
 }
 
-void
+int
 mainproc(void)
 {
+	kprintf("droptouser\n");
 	droptouser((void *) USTACK_TOP);
+	return 0; /* Never reached. */
 }
 
 void
-initmainproc()
+initmainproc(void)
 {
 	struct proc *p;
 	struct segment *s;
 	
 	p = newproc();
 	
-	p->label.sp = (uint32_t) p->kstack + KSTACK;
-	p->label.pc = (uint32_t) &mainproc;
+	forkfunc(p, &mainproc);
 
 	s = newseg(SEG_RW, (void *) (USTACK_TOP - USTACK_SIZE), USTACK_SIZE);
 	p->segs[Sstack] = s;
@@ -61,22 +62,22 @@ initmainproc()
 	procready(p);
 }
 
-void
-nullproc()
+int
+nullproc(void)
 {
 	while (true)
 		schedule();
+	return 0;
 }
 
 void
-initnullproc()
+initnullproc(void)
 {
 	struct proc *p;
 	
 	p = newproc();
-	
-	p->label.sp = (uint32_t) p->kstack + KSTACK;
-	p->label.pc = (uint32_t) &nullproc;
+
+	forkfunc(p, &nullproc);	
 
 	procready(p);
 }

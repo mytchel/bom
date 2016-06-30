@@ -16,7 +16,14 @@ dumpregs(struct ureg *r)
 }
 
 void
-forklabel(struct proc *p, struct ureg *ureg)
+forkfunc(struct proc *p, int (*func)(void))
+{
+	p->label.sp = (uint32_t) p->kstack + KSTACK;
+	p->label.pc = (uint32_t) func;
+}
+
+void
+forkchild(struct proc *p, struct ureg *ureg)
 {
 	struct ureg *nreg;
 
@@ -36,7 +43,7 @@ syscall(struct ureg *ureg)
 
 	ret = -1;
 	sysnum = (unsigned int) ureg->regs[0];
-	
+
 	current->ureg = ureg;
 	
 	if (sysnum < NSYSCALLS) {

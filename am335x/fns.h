@@ -1,6 +1,8 @@
 #ifndef __FNS_H
 #define __FNS_H
 
+#include "p_modes.h"
+
 #define readl(a)	(*(volatile uint32_t*)(a))
 #define readw(a)	(*(volatile uint16_t*)(a))
 #define readb(a)	(*(volatile uint8_t*)(a))
@@ -18,6 +20,10 @@
 #define L2_LARGE	1
 #define L2_SMALL	2
 #define L2_TINY		3
+
+#define AP_RW_NO	1
+#define AP_RW_RO	2
+#define AP_RW_RW	3
 
 #define PAGE_SHIFT 	12
 #define PAGE_SIZE	(1UL << PAGE_SHIFT)
@@ -46,7 +52,7 @@ void
 mmuinvalidate(void);
 
 void
-imap(void *, void *);
+imap(void *, void *, int);
 	
 void
 mmuempty1(void);

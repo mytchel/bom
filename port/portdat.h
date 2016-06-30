@@ -24,9 +24,10 @@ struct segment {
 };
 
 enum {
-	PROC_stopped, 
+	PROC_unused, /* Not really a state */
+	PROC_suspend,
 	PROC_ready,
-	PROC_sleeping
+	PROC_sleep,
 };
 
 enum { Sstack, Stext, Sdata, Smax };
@@ -42,6 +43,8 @@ struct proc {
 	int faults;
 	uint32_t quanta;
 	
+	int sleep;
+	
 	struct proc *parent;
 
 	struct segment *segs[Smax];
@@ -50,10 +53,7 @@ struct proc {
 	struct proc *next;
 };
 
-extern struct proc *current;
-extern int (*syscalltable[NSYSCALLS])(va_list args);
-
-/* Process */
+/*	---------	Process */
 
 struct proc *
 newproc();
@@ -65,7 +65,10 @@ void
 procready(struct proc *);
 
 void
-procinitstack(struct proc *);
+procsleep(struct proc *, uint32_t);
+
+void
+procsuspend(struct proc *);
 
 int
 setlabel(struct label *);
@@ -77,13 +80,12 @@ void
 schedule(void);
 
 void
-setsystick(uint32_t);
+forkfunc(struct proc *, int (*func)(void));
 
-/* Set up proc->label for return from fork. */
 void
-forklabel(struct proc *, struct ureg *);
+forkchild(struct proc *, struct ureg *);
 
-/* Memory */
+/*	---------	Memory */
 
 void *
 kmalloc(size_t);
@@ -121,12 +123,33 @@ copyseg(struct segment *, bool);
 bool
 fixfault(void *);
 
-/* Helper */
+/*	---------	Helper */
 
 void
 memmove(void *n, void *o, size_t);
 
-/* Initialisation */
+/*	---------	Timer functions */
+
+/* Number of ticks since last call. */
+uint32_t
+ticks(void);
+
+uint32_t
+tickstoms(uint32_t);
+
+uint32_t
+mstoticks(uint32_t);
+
+/* Set systick interrupt to occur in .. */
+void
+setsystick(uint32_t);
+
+/*	---------	Initialisation */
 
 void
 initprocs(void);
+
+/*	---------	Global Variables */
+
+extern struct proc *current;
+extern int (*syscalltable[NSYSCALLS])(va_list args);

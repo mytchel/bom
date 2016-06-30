@@ -32,14 +32,14 @@ mmuswitch(struct proc *p)
 }
 
 void
-imap(void *start, void *end)
+imap(void *start, void *end, int ap)
 {
 	uint32_t x = (uint32_t) start & ~((1 << 20) - 1);
 	
 	while (x < (uint32_t) end) {
 		/* Map section so everybody can see it.
 		 * This wil change. */
-		ttb[L1X(x)] = x | (1 << 10) | L1_SECTION;
+		ttb[L1X(x)] = x | (ap << 10) | L1_SECTION;
 		x += 1 << 20;
 	}
 }

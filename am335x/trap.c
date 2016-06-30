@@ -82,7 +82,7 @@ trap(struct ureg *ureg)
 	uint32_t fsr;
 	void *addr;
 	bool fixed = false;
-	
+
 	if (ureg->type == ABORT_DATA)
 		ureg->pc -= 8;
 	else
@@ -144,7 +144,7 @@ trap(struct ureg *ureg)
 	}
 	
 	if (!fixed) {
-		kprintf("abort not fixed. should kill proc\n");
+		kprintf("kill proc for doing something bad\n");
 		dumpregs(ureg);
 		procremove(current);
 	}

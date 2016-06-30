@@ -75,6 +75,8 @@ uregret:
 
 @ r0 is user stack pointer
 droptouser:
+	mov r1, #MODE_USR
+	msr spsr, r1
 	mov r1, #0
 	mov r2, #0
 	mov r3, #0
@@ -90,7 +92,7 @@ droptouser:
 	cps #MODE_SYS
 	mov sp, r0
 	mov lr, #0
-	cpsie i
+	cps #MODE_SVC
 	movs pc, #0
 
 

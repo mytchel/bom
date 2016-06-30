@@ -5,10 +5,10 @@
 static int
 task1(void)
 {
-	puts("task1 started\n");
+	puts("task 1 started\n");
 	while (true) {
 		puts("task 1 running\n");
-		sleep(500);
+		sleep(5000);
 	}
 	
 	return 1;
@@ -17,13 +17,21 @@ task1(void)
 static int
 task2(void)
 {
-	puts("task2 started\n");
+	puts("task 2 started\n");
 	while (true) {
 		puts("task 2 running\n");
-		sleep(100);
+		sleep(1000);
 	}
 	
 	return 2;
+}
+
+static int
+task3(void)
+{
+	puts("task 3 started\n");
+	while (true);
+	return 3;
 }
 
 int
@@ -41,6 +49,11 @@ main(void)
 	puts("Fork twice\n");
 	if (!fork()) {
 		return task2();
+	}
+	
+	puts("Fork thrice\n");
+	if (!fork()) {
+		return task3();
 	}
 
 	puts("tasks initiated\n");

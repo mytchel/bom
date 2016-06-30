@@ -47,8 +47,8 @@ initmemory(void)
 	
 	initmmu();
 	
-	imap(&_ram_start, &_ram_end);
-	imap((void *) 0x40000000, (void *) 0x4A400000);
+	imap(&_ram_start, &_ram_end, AP_RW_NO);
+	imap((void *) 0x40000000, (void *) 0x4A400000, AP_RW_RW);
 	
 	mmuenable();
 }

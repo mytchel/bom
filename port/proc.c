@@ -1,5 +1,7 @@
 #include "dat.h"
-#include "../port/com.h"
+
+static struct proc *
+nextproc(void);
 
 struct proc *current;
 
@@ -11,7 +13,7 @@ initprocs(void)
 {
 	int i;
 	for (i = 0; i < MAX_PROCS; i++)
-		procs[i].state = PROC_stopped;
+		procs[i].state = PROC_unused;
 
 	nextpid = 1;
 	current = procs;
@@ -26,14 +28,35 @@ schedule(void)
 	if (setlabel(&current->label)) {
 		return;
 	}
+
+	p = nextproc();
+	current = p;
+	mmuswitch(current);
+	setsystick(current->quanta);
+	gotolabel(&current->label);
+}
+
+struct proc *
+nextproc(void)
+{
+	struct proc *p;
+	uint32_t ms;
+
+	ms = tickstoms(ticks());
+
+	for (p = procs->next; p != nil; p = p->next) {
+		if (p->state == PROC_sleep) {
+			p->sleep -= ms;
+			if (p->sleep <= 0)
+				p->state = PROC_ready;
+		}
+	}
 	
 	p = current;
 	do {
 		p = p->next;
 		if (p == nil) {
-			/* Go to start of list or break if empty. */
-			if ((p = procs->next) == nil)
-				break;
+			p = procs->next;
 		}
 
 		if (p->state == PROC_ready) {
@@ -41,17 +64,9 @@ schedule(void)
 		}
 	} while (p != current);
 	
-	/* No processes to run. */
-	if (p == nil || p->state != PROC_ready) {
-		schedule();
-	}
-
-	current = p;
-	mmuswitch(current);
-	setsystick(current->quanta);
-	gotolabel(&current->label);
+	return p;
 }
-
+	
 struct proc *
 newproc()
 {
@@ -60,7 +75,7 @@ newproc()
 	
 	p = nil;
 	for (i = 1; i < MAX_PROCS; i++) {
-		if (procs[i].state == PROC_stopped) {
+		if (procs[i].state == PROC_unused) {
 			p = &procs[i];
 			break;
 		}
@@ -69,13 +84,13 @@ newproc()
 	if (p == nil)
 		return nil;
 	
-	p->state = PROC_sleeping;
+	p->state = PROC_suspend;
 	p->ureg = nil;
 	p->pid = nextpid++;
 	p->faults = 0;
 	p->quanta = 10;
 	p->parent = nil;
-			
+	
 	p->mmu = nil;
 	for (i  = 0; i < Smax; i++)
 		p->segs[i] = nil;
@@ -96,12 +111,27 @@ procremove(struct proc *p)
 	for (pp = procs; pp->next != p; pp = pp->next);
 	pp->next = p->next;
 
-	/* Make procs place as useable. */	
-	p->state = PROC_stopped;
+	p->state = PROC_unused;
 }
 
 void
 procready(struct proc *p)
 {
 	p->state = PROC_ready;
+}
+
+void
+procsleep(struct proc *p, uint32_t ms)
+{
+	p->state = PROC_sleep;
+	p->sleep = ms;
+	
+	if (p == current)
+		schedule();
+}
+
+void
+procsuspend(struct proc *p)
+{
+	p->state = PROC_suspend;
 }

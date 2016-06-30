@@ -6,7 +6,8 @@ sysexit(va_list args)
 {
 	int code = va_arg(args, int);
 	
-	kprintf("pid %i exited with status %i\n", current->pid, code);
+	kprintf("pid %i exited with status %i\n", 
+		current->pid, code);
 
 	procremove(current);
 	schedule();
@@ -20,17 +21,13 @@ syssleep(va_list args)
 {
 	int ms;
 	ms = va_arg(args, int);
-	
+
 	if (ms <= 0) {
 		schedule();
 		return 0;
 	}
 
-	/* Need to properly impliement. */
-	
-	int i = 0;
-	while (i++ < ms)
-		schedule();
+	procsleep(current, ms);
 		
 	return 0;
 }
@@ -54,7 +51,7 @@ sysfork(va_list args)
 		}
 	}
 
-	forklabel(p, current->ureg);
+	forkchild(p, current->ureg);
 	
 	p->parent = current;
 	p->quanta = current->quanta;
