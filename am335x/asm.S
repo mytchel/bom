@@ -75,23 +75,23 @@ uregret:
 
 @ r0 is user stack pointer
 droptouser:
-	mov r1, #1
-	mov r2, #2
-	mov r3, #3
-	mov r4, #4
-	mov r5, #5
-	mov r6, #6
-	mov r7, #7
-	mov r8, #8
-	mov r9, #9
-	mov r10, #10
-	mov r11, #11
-	mov r12, #12
-	cpsie i
-	cps #MODE_USR
+	mov r1, #0
+	mov r2, #0
+	mov r3, #0
+	mov r4, #0
+	mov r5, #0
+	mov r6, #0
+	mov r7, #0
+	mov r8, #0
+	mov r9, #0
+	mov r10, #0
+	mov r11, #0
+	mov r12, #0
+	cps #MODE_SYS
 	mov sp, r0
 	mov lr, #0
-	mov pc, #0
+	cpsie i
+	movs pc, #0
 
 
 fsrstatus:

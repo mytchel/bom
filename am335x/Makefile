@@ -1,4 +1,4 @@
-.SUFFIXES: .c .S .o .h .elf .bin .list .umg
+.SUFFIXES: .S .c .h .o .elf .bin .list .umg
 
 CLEAN = 
 

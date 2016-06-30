@@ -62,7 +62,6 @@ initmainproc()
 {
 	struct proc *p;
 	struct segment *s;
-	struct page *pg;
 	
 	kprintf("init main proc\n");
 
@@ -73,15 +72,13 @@ initmainproc()
 
 	s = newseg(SEG_RW, (void *) (USTACK_TOP - USTACK_SIZE), USTACK_SIZE/PAGE_SIZE);
 	p->segs[Sstack] = s;
-	pg = newpage((void *) (USTACK_TOP - USTACK_SIZE));
-	s->pages = pg;
+	s->pages = newpage((void *) (USTACK_TOP - USTACK_SIZE));
 
 	s = newseg(SEG_RO, (void *) UTEXT, 1);
 	p->segs[Stext] = s;
-	pg = newpage((void *) UTEXT);
-	s->pages = pg;
+	s->pages = newpage((void *) UTEXT);
 
-	memmove(s->pages->pa, initcode, initcodelen);
+	memmove(s->pages->pa, &initcode, initcodelen);
 	
 	procready(p);
 }

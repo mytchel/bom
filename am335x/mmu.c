@@ -49,7 +49,7 @@ imap(uint32_t start, uint32_t end)
 	while (start < end) {
 		/* Map section so everybody can see it.
 		 * This wil change. */
-		ttb[L1X(start)] = ((uint32_t) start) | (3 << 10) | L1_SECTION;
+		ttb[L1X(start)] = ((uint32_t) start) | (1 << 10) | L1_SECTION;
 		start += 1 << 20;
 	}
 }
