@@ -23,10 +23,8 @@ struct segment {
 };
 
 enum {
-	PROC_stopped, PROC_scheduling, 
-	PROC_exiting, PROC_ready, 
-	PROC_sleeping, PROC_wait,
-	PROC_mount,
+	PROC_stopped, 
+	PROC_ready, PROC_sleeping
 };
 
 enum { Sstack, Stext, Sdata, Smax };
@@ -40,6 +38,9 @@ struct proc {
 	int state;
 	int pid;
 	int faults;
+	uint32_t quanta;
+	
+	struct proc *parent;
 
 	struct segment *segs[Smax];
 	struct page *mmu;
@@ -50,15 +51,16 @@ struct proc {
 extern struct proc *current;
 extern int (*syscalltable[NSYSCALLS])(va_list args);
 
+/* Process */
+
 struct proc *
 newproc();
 
-/* Set up proc->label for return from fork. */
-void
-forklabel(struct proc *, struct ureg *);
-
 void
 procremove(struct proc *);
+
+void
+procready(struct proc *);
 
 void
 procinitstack(struct proc *);
@@ -74,6 +76,15 @@ schedule(void);
 
 void
 procsinit(void);
+
+void
+setsystick(uint32_t);
+
+/* Set up proc->label for return from fork. */
+void
+forklabel(struct proc *, struct ureg *);
+
+/* Memory */
 
 void *
 kmalloc(size_t);

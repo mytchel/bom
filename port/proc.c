@@ -53,6 +53,7 @@ schedule(void)
 
 	current = p;
 	mmuswitch(current);
+	setsystick(current->quanta);
 	gotolabel(&current->label);
 }
 
@@ -73,12 +74,14 @@ newproc()
 	if (p == nil)
 		return nil;
 	
-	p->state = PROC_scheduling;
-	p->mmu = nil;
+	p->state = PROC_sleeping;
 	p->ureg = nil;
 	p->pid = nextpid++;
 	p->faults = 0;
-		
+	p->quanta = 10;
+	p->parent = nil;
+			
+	p->mmu = nil;
 	for (i  = 0; i < Smax; i++)
 		p->segs[i] = nil;
 	
@@ -100,4 +103,10 @@ procremove(struct proc *p)
 
 	/* Make procs place as useable. */	
 	p->state = PROC_stopped;
+}
+
+void
+procready(struct proc *p)
+{
+	p->state = PROC_ready;
 }

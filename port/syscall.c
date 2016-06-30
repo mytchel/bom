@@ -9,7 +9,7 @@ sysexit(va_list args)
 	
 	kprintf("pid %i exited with status %i\n", current->pid, code);
 
-	current->state = PROC_exiting;
+	procremove(current);
 	schedule();
 	
 	/* Never reached. */
@@ -56,8 +56,11 @@ sysfork(va_list args)
 	}
 
 	forklabel(p, current->ureg);
-	p->state = PROC_ready;
 	
+	p->parent = current;
+	p->quanta = current->quanta;
+
+	procready(p);
 	return p->pid;
 }
 
@@ -70,6 +73,7 @@ sysgetpid(va_list args)
 static int
 sysmount(va_list args)
 {
+	kprintf("shoudl mount\n");
 	return -1;
 }
 
@@ -84,7 +88,6 @@ static int
 sysclose(va_list args)
 {
 	kprintf("should close\n");
-	
 	return -1;
 }
 
@@ -92,7 +95,6 @@ static int
 sysstat(va_list args)
 {
 	kprintf("should stat\n");
-	
 	return -1;
 }
 
@@ -100,7 +102,6 @@ static int
 sysread(va_list args)
 {
 	kprintf("should read\n");
-
 	return -1;
 }
 
@@ -108,7 +109,6 @@ static int
 syswrite(va_list args)
 {
 	kprintf("should write\n");
-
 	return -1;
 }
 

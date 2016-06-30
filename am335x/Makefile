@@ -22,25 +22,27 @@ CFLAGS :=-mcpu=cortex-a8 \
 	-I.
 
 LDFLAGS := -nostdlib -nodefaultlibs
+LGCC := -L/usr/local/lib/gcc/arm-none-eabi/4.9.3/ -lgcc
 
 HOST_CFLAGS := 
 HOST_LDFLAGS :=
 
 .include <mkuboot/local.mk>
 .include <bintoarray/local.mk>
+.include <init/local.mk>
 
-HEADERS := init.h *.h ../port/*.h ../include/*.h
+HEADERS := *.h ../port/*.h ../include/*.h
 
 A_SRC := \
 	asm.S			\
 	vectors.S
 
 C_SRC := \
+	init/initcode.c		\
 	main.c			\
 	trap.c			\
 	uart.c			\
 	timer.c			\
-	watchdog.c		\
 	mem.c			\
 	syscall.c		\
 	mmu.c
@@ -78,21 +80,7 @@ am335x.elf: linker.ld $(OBJECTS)
 	@echo LD $@
 	@$(LD) $(LDFLAGS) -T linker.ld -o $@ \
 		$(OBJECTS) \
-		-L/usr/local/lib/gcc/arm-none-eabi/4.9.3/ -lgcc
-
-
-CLEAN += init.elf init.bin init.list init.h
-init.elf: init.ld init.c user_syscalls.S uart.c ../port/com.c ../include/*.h
-	@echo CC $@
-	@$(CC) $(CFLAGS) -o $@ user_syscalls.S init.c uart.c ../port/com.c \
-		$(LDFLAGS) -T init.ld \
-		-L/usr/local/lib/gcc/arm-none-eabi/4.9.3/ -lgcc
-
-
-init.h: init.bin bintoarray/bintoarray
-	@echo "BINTOARRAY initcode init.bin > init.h"
-	@./bintoarray/bintoarray initcode init.bin > init.h
-
+		$(LGCC)
 
 am335x.umg: am335x.bin mkuboot/mkuboot
 	@echo MKUBOOT $@

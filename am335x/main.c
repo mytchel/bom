@@ -1,7 +1,9 @@
 #include "dat.h"
 #include "../port/com.h"
-#include "init.h"
 #include "../include/std.h"
+
+extern char *initcode;
+extern int initcodelen;
 
 int
 kmain(void);
@@ -79,9 +81,9 @@ initmainproc()
 	pg = newpage((void *) UTEXT);
 	s->pages = pg;
 
-	memmove(s->pages->pa, initcode, sizeof(initcode));
+	memmove(s->pages->pa, initcode, initcodelen);
 	
-	p->state = PROC_ready;
+	procready(p);
 }
 
 void
@@ -101,6 +103,6 @@ initnullproc()
 	p->label.sp = (uint32_t) p->kstack + KSTACK;
 	p->label.pc = (uint32_t) &nullproc;
 
-	p->state = PROC_ready;
+	procready(p);
 }
 
