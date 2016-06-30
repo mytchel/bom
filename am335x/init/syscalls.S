@@ -1,4 +1,4 @@
-#include "../include/syscall.h"
+#include "../include/syscalls.h"
 
 .section .text
 

@@ -1,4 +1,4 @@
-#include "p_modes.h"
+#include "trap.h"
 
 .section .text
 

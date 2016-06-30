@@ -1,4 +1,3 @@
-
 TARGET ?= am335x
 
 $(TARGET):

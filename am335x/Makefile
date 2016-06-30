@@ -19,6 +19,7 @@ CLEAN += am335x.*
 CFLAGS :=-mcpu=cortex-a8 \
 	-Wall -Werror -O2 \
 	-nostdinc -ffreestanding \
+	-Dam335x \
 	-I.
 
 LDFLAGS := -nostdlib -nodefaultlibs

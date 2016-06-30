@@ -1,6 +1,8 @@
 #include "../include/types.h"
 #include "../include/std.h"
-#include "../port/com.h"
+
+void
+puts(const char *);
 
 static int
 task1(void)

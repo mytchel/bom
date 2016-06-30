@@ -1,6 +1,5 @@
 #include "dat.h"
 #include "fns.h"
-#include "../port/com.h"
 
 extern char *initcode;
 extern int initcodelen;

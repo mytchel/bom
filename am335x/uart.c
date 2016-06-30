@@ -1,7 +1,7 @@
 #include "dat.h"
 #include "fns.h"
 
-#define UART0   0x44E09000
+#define UART0   	0x44E09000
 
 #define UART_LSR	0x14
 #define UART_RBR	0x00

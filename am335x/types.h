@@ -14,10 +14,3 @@ typedef	unsigned long		size_t;
 typedef	long			ssize_t;
 
 typedef unsigned int		reg_t;
-
-#define nil 0
-
-typedef uint8_t			bool;
-
-#define false 0
-#define true 1

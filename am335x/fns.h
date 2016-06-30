@@ -1,7 +1,7 @@
 #ifndef __FNS_H
 #define __FNS_H
 
-#include "p_modes.h"
+#include "trap.h"
 
 #define readl(a)	(*(volatile uint32_t*)(a))
 #define readw(a)	(*(volatile uint16_t*)(a))

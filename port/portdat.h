@@ -1,12 +1,5 @@
-#include "../include/syscall.h"
+#include "../include/syscalls.h"
 #include "../include/stdarg.h"
-
-typedef uint8_t bool;
-
-#define true 1
-#define false 0
-
-#define nil 0
 
 enum { SEG_RW, SEG_RO };
 
@@ -53,8 +46,6 @@ struct proc {
 	struct proc *next;
 };
 
-/*	---------	Process */
-
 struct proc *
 newproc();
 
@@ -84,8 +75,6 @@ forkfunc(struct proc *, int (*func)(void));
 
 void
 forkchild(struct proc *, struct ureg *);
-
-/*	---------	Memory */
 
 void *
 kmalloc(size_t);
@@ -123,12 +112,8 @@ copyseg(struct segment *, bool);
 bool
 fixfault(void *);
 
-/*	---------	Helper */
-
 void
 memmove(void *n, void *o, size_t);
-
-/*	---------	Timer functions */
 
 /* Number of ticks since last call. */
 uint32_t
@@ -140,16 +125,21 @@ tickstoms(uint32_t);
 uint32_t
 mstoticks(uint32_t);
 
-/* Set systick interrupt to occur in .. */
+/* Set systick interrupt to occur in .. ms */
 void
 setsystick(uint32_t);
-
-/*	---------	Initialisation */
 
 void
 initprocs(void);
 
-/*	---------	Global Variables */
+void
+kprintf(const char *, ...);
+
+void
+puts(const char *);
+
+char
+getc(void);
 
 extern struct proc *current;
 extern int (*syscalltable[NSYSCALLS])(va_list args);

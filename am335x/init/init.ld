@@ -12,15 +12,6 @@ SECTIONS
 	.data : 
 	{
 		*(.data)
-	}
-	
-	.rodata :
-	{
 		*(.rodata)
-	}
-	
-	.bss :
-	{
-		*(.bss)
 	}
 }

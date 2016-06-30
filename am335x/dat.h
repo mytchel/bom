@@ -1,7 +1,4 @@
-#ifndef __DAT_H
-#define __DAT_H
-
-#include "types.h"
+#include "../include/types.h"
 
 #define MAX_PROCS	512
 #define KSTACK		4028
@@ -21,5 +18,3 @@ struct ureg {
 };
 
 #include "../port/portdat.h"
-
-#endif

@@ -1,5 +1,4 @@
 #include "dat.h"
-#include "../port/com.h"
 
 static int
 sysexit(va_list args)

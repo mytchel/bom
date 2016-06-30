@@ -1,4 +1,3 @@
-#include "p_modes.h"
 #include "trap.h"
 
 .section .text
@@ -96,8 +95,8 @@ switch:
 	bl trap
 	b uregret
 
-@ Not used. Just return if this occurs.
-@ Probably a bad idea to be hones.
+
+@ Not used. But just incase kick and scream.
 fiq_ex:
 	ldr r0, =fiq_msg
 	bl puts
@@ -105,4 +104,4 @@ fiq_ex:
 
 
 .section .rodata
-fiq_msg: .asciz "fiq\nHanging\n"
+fiq_msg: .asciz "fiq!\nHanging\n"

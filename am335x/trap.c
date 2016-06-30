@@ -1,7 +1,6 @@
 #include "dat.h"
 #include "trap.h"
 #include "fns.h"
-#include "../port/com.h"
 
 #define INTC			0x48200000
 
