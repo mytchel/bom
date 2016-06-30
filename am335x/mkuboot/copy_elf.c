@@ -52,7 +52,7 @@ ELFNAME(copy_elf)(int ifd, const char *iname, int ofd, const char *oname,
 	ssize_t nbytes;
 	Elf_Ehdr ehdr, elf;
 	Elf_Phdr phdr;
-	Elf_Addr vaddr, ovaddr, svaddr, off, ssym;
+	Elf_Addr vaddr, ovaddr, off, ssym;
 	Elf_Shdr *shp, *wshp;
 	Elf_Addr esym = 0, esymval;
 	int i, sz, havesyms;
@@ -284,7 +284,8 @@ ELFNAME(copy_elf)(int ifd, const char *iname, int ofd, const char *oname,
 	}
 
 	if (vaddr != esymval)
-		warnx("esymval and vaddr mismatch %lx %lx\n", esymval, vaddr);
+		warnx("esymval and vaddr mismatch %lx %lx\n", 
+			(long unsigned int) esymval, (long unsigned int) vaddr);
 
 	return crc;
 }

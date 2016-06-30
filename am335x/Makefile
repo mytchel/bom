@@ -19,13 +19,14 @@ CLEAN += am335x.*
 CFLAGS :=-mcpu=cortex-a8 \
 	-Wall -Werror -O2 \
 	-nostdinc -ffreestanding \
+	-std=c89 \
 	-Dam335x \
 	-I.
 
 LDFLAGS := -nostdlib -nodefaultlibs
 LGCC := -L/usr/local/lib/gcc/arm-none-eabi/4.9.3/ -lgcc
 
-HOST_CFLAGS := 
+HOST_CFLAGS := -Wall -Werror -std=c89
 HOST_LDFLAGS :=
 
 include mkuboot/local.mk
