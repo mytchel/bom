@@ -30,7 +30,6 @@ static int
 task3(void)
 {
 	puts("task 3 started\n");
-	while (true);
 	return 3;
 }
 
