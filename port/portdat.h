@@ -122,6 +122,9 @@ newfgroup(void);
 void
 freefgroup(struct fgroup *);
 
+struct fgroup *
+copyfgroup(struct fgroup *);
+
 void
 kprintf(const char *, ...);
 

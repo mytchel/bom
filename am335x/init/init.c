@@ -73,19 +73,24 @@ main(void)
 	sleep(1000);
 	
 	puts("Fork once\n");
-	f = fork(0);
-	if (!f)
+	f = fork(FORK_FC);
+	if (!f) {
+		close(fds[0]);
 		return task1(fds[1]);
+	}
 	
 	puts("Fork twice\n");
-	f = fork(0);
-	if (!f)
+	f = fork(FORK_FC);
+	if (!f) {
+		close(fds[1]);
 		return task2(fds[0]);
+	}
 	
 	puts("Fork thrice\n");
 	f = fork(0);
-	if (!f)
+	if (!f) {
 		return task3();
+	}
 
 	puts("tasks initiated\n");
 

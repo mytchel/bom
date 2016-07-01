@@ -16,4 +16,8 @@
 #define SYS_ERR		-1
 #define SYS_ERRPC	-2
 
+/* Fgroup copy, share, else new */
+#define FORK_FC		(1<<0)
+#define FORK_FS		(1<<1)
+
 #endif

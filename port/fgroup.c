@@ -33,3 +33,33 @@ freefgroup(struct fgroup *f)
 	kfree(f->files);
 	kfree(f);
 }
+
+struct fgroup *
+copyfgroup(struct fgroup *fo)
+{
+	int i;
+	struct fgroup *f;
+	
+	f = kmalloc(sizeof(struct fgroup));
+	if (f == nil) {
+		return nil;
+	}
+
+	f->files = kmalloc(sizeof(struct pipe*) * fo->nfiles);
+	if (f->files == nil) {
+		kfree(f);
+		return nil;
+	}
+	
+	f->nfiles = fo->nfiles;
+	for (i = 0; i < f->nfiles; i++) {
+		f->files[i] = fo->files[i];
+		if (f->files[i] != nil)
+			f->files[i]->refs++;
+	}
+	
+	f->refs = 1;
+	
+	return f;
+
+}

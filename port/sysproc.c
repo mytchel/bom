@@ -47,11 +47,10 @@ sysfork(va_list args)
 {
 	int i;
 	struct proc *p;
-	/*
 	int flags;
 	
 	flags = va_arg(args, int);
-	*/
+
 	p = newproc();
 	if (p == nil)
 		return -1;
@@ -63,15 +62,20 @@ sysfork(va_list args)
 				return -1;
 		}
 	}
-
-	forkchild(p, current->ureg);
 	
 	p->parent = current;
 	p->quanta = current->quanta;
 	
-	p->fgroup = current->fgroup;
-	p->fgroup->refs++;
+	if (flags & FORK_FC) {
+		p->fgroup = copyfgroup(current->fgroup);
+	} else if (flags & FORK_FS) {
+		p->fgroup = current->fgroup;
+		p->fgroup->refs++;
+	} else {
+		p->fgroup = newfgroup();
+	}
 
+	forkchild(p, current->ureg);
 	procready(p);
 
 	return p->pid;
