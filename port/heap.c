@@ -1,8 +1,7 @@
 #include "dat.h"
-#include "fns.h"
 
 struct block {
-	uint32_t size;
+	size_t size;
 	struct block *next;
 };
 
@@ -12,7 +11,7 @@ void
 initheap(void *heap_start, size_t size)
 {
 	heap = (struct block *) heap_start;
-	heap->size = size - sizeof(uint32_t);
+	heap->size = size - sizeof(size_t);
 	heap->next = nil;
 }
 
@@ -34,11 +33,11 @@ kmalloc(size_t size)
 		return (void *) nil;
 	}
 
-	block = (void *) ((uint32_t) b + sizeof(uint32_t));
+	block = (void *) ((reg_t) b + sizeof(size_t));
 	
 	if (b->size > size) {
-		n = (struct block *) ((uint32_t) block + size);
-		n->size = b->size - size - sizeof(uint32_t);
+		n = (struct block *) ((reg_t) block + size);
+		n->size = b->size - size - sizeof(size_t);
 		n->next = b->next;
 	} else {
 		n = b->next;
@@ -61,12 +60,12 @@ kfree(void *ptr)
 {
 	struct block *b, *p;
 
-	b = (struct block *) ((uint32_t) ptr - sizeof(uint32_t));
+	b = (struct block *) ((reg_t) ptr - sizeof(size_t));
 
 	if (b < heap) {
-		if ((uint32_t) b + sizeof(uint32_t) + b->size == (uint32_t) heap) {
+		if ((reg_t) b + sizeof(size_t) + b->size == (reg_t) heap) {
 			/* block lines up with start of heap. */
-			b->size += sizeof(uint32_t) + heap->size;
+			b->size += sizeof(size_t) + heap->size;
 			b->next = heap->next;
 		} else {
 			b->next = heap;
@@ -83,7 +82,7 @@ kfree(void *ptr)
 	}
 	
 	if (p == nil) {
-		kprintf("Are you sure 0x%h is from the heap?\n", (uint32_t) ptr);
+		kprintf("Are you sure 0x%h is from the heap?\n", ptr);
 		return;
 	}
 	
@@ -93,24 +92,24 @@ kfree(void *ptr)
 		b->next = nil;
 		p->next = b;
 
-	} else if (((uint32_t) b + sizeof(uint32_t) + b->size == (uint32_t) p->next)
-		&& ((uint32_t) p + p->size == (uint32_t) b)) {
+	} else if (((reg_t) b + sizeof(size_t) + b->size == (reg_t) p->next)
+		&& ((reg_t) p + p->size == (reg_t) b)) {
 		/* b lines up with p and p->next, join them all. */
 		
-		p->size += sizeof(uint32_t) * 2 + b->size + p->next->size;
+		p->size += sizeof(size_t) * 2 + b->size + p->next->size;
 		p->next = p->next->next;
 		
-	} else if ((uint32_t) b + sizeof(uint32_t) + b->size == (uint32_t) p->next) {
+	} else if ((reg_t) b + sizeof(size_t) + b->size == (reg_t) p->next) {
 		/* b lines up with p->next, join them. */
 		
-		b->size += sizeof(uint32_t) + p->next->size;
+		b->size += sizeof(size_t) + p->next->size;
 		b->next = p->next->next;
 		p->next = b;
 
-	} else if ((uint32_t) p + p->size == (uint32_t) b) {
+	} else if ((reg_t) p + p->size == (reg_t) b) {
 		/* b lines up with end of p, join them. */
 
-		p->size += sizeof(uint32_t) + b->size;
+		p->size += sizeof(size_t) + b->size;
 
 	} else {
 		/* b is somewhere between p and p->next. */
