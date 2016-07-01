@@ -31,10 +31,13 @@ it should run Bom.
 
 - Virtual memory
 - Multitple processes (preemptive)
-- Working system calls
-	- Fork
-	- Sleep
-	- Exit
+- Working system calls so far
+	- fork
+	- sleep
+	- exit
+	- pipe
+	- read
+	- write
 
 ### Very Helpful Information
 

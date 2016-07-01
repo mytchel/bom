@@ -39,8 +39,7 @@ task2(int fd)
 		}
 		
 		i++;
-
-		sleep(500);
+		sleep(10);
 	}
 	
 	return 2;
