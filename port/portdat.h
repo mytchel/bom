@@ -115,6 +115,12 @@ kfree(void *);
 void
 memmove(void *n, void *o, size_t);
 
+struct fgroup *
+newfgroup(void);
+
+void
+freefgroup(struct fgroup *);
+
 void
 kprintf(const char *, ...);
 

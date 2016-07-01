@@ -50,10 +50,10 @@ C_SRC := \
 	mmu.c
 
 P_SRC := \
-	../port/misc.c		\
 	../port/com.c		\
 	../port/proc.c		\
 	../port/segment.c	\
+	../port/fgroup.c	\
 	../port/heap.c		\
 	../port/sysproc.c	\
 	../port/sysfile.c	\

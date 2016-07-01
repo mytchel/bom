@@ -118,3 +118,18 @@ kfree(void *ptr)
 		p->next = b;
 	}
 }
+
+/* This can go here for now. */
+
+void
+memmove(void *new, void *old, size_t l)
+{
+	char *n, *o;
+	size_t i;
+	
+	n = new;
+	o = old;
+	
+	for (i = 0; i < l; i++)
+		n[i] = o[i];
+}

@@ -17,11 +17,7 @@ sysexit(va_list args)
 			freeseg(s);
 	}
 	
-	current->fgroup->refs--;
-	if (current->fgroup->refs == 0) {
-		kfree(current->fgroup->files);
-		kfree(current->fgroup);
-	}
+	freefgroup(current->fgroup);
 	
 	procremove(current);
 	schedule();
@@ -77,6 +73,7 @@ sysfork(va_list args)
 	p->fgroup->refs++;
 
 	procready(p);
+
 	return p->pid;
 }
 

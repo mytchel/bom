@@ -64,10 +64,7 @@ initmainproc(void)
 	 * initialised by a function */
 	memmove(p->segs[Stext]->pages->pa, &initcode, initcodelen);
 	
-	p->fgroup = kmalloc(sizeof(struct fgroup));
-	p->fgroup->files = kmalloc(sizeof(struct pipe*));
-	p->fgroup->files[0] = nil;
-	p->fgroup->nfiles = 1;
+	p->fgroup = newfgroup();
 	
 	procready(p);
 }
