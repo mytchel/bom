@@ -1,13 +1,13 @@
 #include "../include/syscalls.h"
 #include "../include/stdarg.h"
 
-enum { SEG_RW, SEG_RO };
-
 struct page {
 	void *pa, *va;
 	size_t size;
 	struct page *next;
 };
+
+enum { SEG_RW, SEG_RO };
 
 struct segment {
 	int type;
@@ -141,7 +141,7 @@ void
 mmudisable(void);
 
 void
-mmuputpage(struct page *);
+mmuputpage(struct page *, bool);
 
 /* Find a unused page. */
 struct page *

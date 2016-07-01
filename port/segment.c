@@ -54,7 +54,6 @@ copyseg(struct segment *s, bool new)
 		n->pages = kmalloc(sizeof(struct page));
 		np = n->pages;
 		while (sp != nil) {
-			kprintf("make new page point to old 0x%h -> 0x%h\n", sp->va, sp->pa);
 			np->pa = sp->pa;
 			np->va = sp->va;
 			np->size = sp->size;
@@ -122,7 +121,7 @@ fixfault(void *addr)
 	
 	for (pg = s->pages; pg != nil; pg = pg->next) {
 		if (pg->va <= addr && pg->va + pg->size > addr) {
-			mmuputpage(pg);
+			mmuputpage(pg, s->type == SEG_RW);
 			current->faults++;
 			return true;
 		}

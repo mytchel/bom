@@ -56,10 +56,10 @@ mmuempty1(void)
 }
 
 void
-mmuputpage(struct page *p)
+mmuputpage(struct page *p, bool rw)
 {
-	int i;
 	struct page *pg;
+	uint32_t i, ap;
 	uint32_t *l1, *l2;
 
 	uint32_t x = (uint32_t) p->va;
@@ -81,7 +81,12 @@ mmuputpage(struct page *p)
 	
 	l2 = (uint32_t *) (*l1 & ~((1 << 10) - 1));
 
-	l2[L2X(x)] = ((uint32_t) p->pa) | (3<<4) | L2_SMALL;
+	if (rw)
+		ap = AP_RW_RW;
+	else
+		ap = AP_RW_RO;
+
+	l2[L2X(x)] = ((uint32_t) p->pa) | (ap << 4) | L2_SMALL;
 	
 	mmuinvalidate();
 }
