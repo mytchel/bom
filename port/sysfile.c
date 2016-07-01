@@ -40,10 +40,10 @@ addfd(struct fgroup *f, struct pipe *pipe)
 int
 syspipe(va_list args)
 {
-	int **fds, *kfds;
+	int *fds, *kfds;
 	struct pipe *p1, *p2;
 	
-	fds = va_arg(args, int**);
+	fds = va_arg(args, int*);
 	kfds = (int *) kaddr(current, (void *) fds);
 
 	p1 = kmalloc(sizeof(struct pipe));
@@ -60,6 +60,8 @@ syspipe(va_list args)
 	p1->user = p2->user = nil;
 	p1->buf = p2->buf = nil;
 	p1->n = p2->n = 0;
+	
+	p1->name = p2->name = nil;
 	
 	p1->link = p2;
 	p2->link = p1;
@@ -129,6 +131,11 @@ sysread(va_list args)
 	pipe->user = current;	
 	pipe->buf = kbuf;
 	pipe->n = n;
+	
+	if (pipe->link->user != nil) {
+		procready(pipe->link->user);
+		schedule();
+	}
 
 	procwait(current);
 	schedule();
@@ -165,8 +172,10 @@ syswrite(va_list args)
 	pipe->buf = kbuf;
 	pipe->n = n;
 
-	while (pipe->link->user == nil)
+	if (pipe->link->user == nil) {
+		procwait(current);
 		schedule();
+	}
 
 	in = (char *) pipe->buf;
 	out = (char *) pipe->link->buf;	

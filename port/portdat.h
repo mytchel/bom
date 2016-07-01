@@ -3,6 +3,7 @@
 
 struct pipe {
 	int refs;
+	char *name;
 	struct proc *user;
 	struct pipe *link;
 	void *buf;
