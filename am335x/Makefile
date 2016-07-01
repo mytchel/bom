@@ -80,7 +80,7 @@ CLEAN += $(OBJECTS)
 
 .elf.list:
 	@echo OBJDUMP $@
-	@$(OBJDUMP) -S $< > $@
+	@$(OBJDUMP) -sS $< > $@
 
 
 am335x.elf: linker.ld $(OBJECTS)

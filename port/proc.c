@@ -58,7 +58,7 @@ nextproc(void)
 		if (p == nil) {
 			p = procs->next;
 		}
-
+		
 		if (p->state == PROC_ready) {
 			break;
 		}

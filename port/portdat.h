@@ -97,7 +97,7 @@ memmove(void *n, void *o, size_t);
 void
 kprintf(const char *, ...);
 
-/****** Machine implimented ******/
+/****** Machine Implimented ******/
 
 void
 puts(const char *);
@@ -155,7 +155,7 @@ untagpage(void *);
 void
 tagpage(void *);
 
-/* Global Variables */
+/****** Global Variables ******/
 
 extern struct proc *current;
-extern int (*syscalltable[NSYSCALLS])(va_list args);
+extern int (*syscalltable[NSYSCALLS])(va_list);

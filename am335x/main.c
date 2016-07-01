@@ -55,8 +55,15 @@ initmainproc(void)
 	s = newseg(SEG_RO, (void *) UTEXT, PAGE_SIZE);
 	p->segs[Stext] = s;
 	s->pages = newpage((void *) UTEXT);
+	
+	s = newseg(SEG_RW, (void *) UTEXT + PAGE_SIZE, PAGE_SIZE);
+	p->segs[Sdata] = s;
+	s->pages = newpage((void *) UTEXT + PAGE_SIZE);
 
-	memmove(s->pages->pa, &initcode, initcodelen);
+	kprintf("copy initcode of len %i\n", initcodelen);
+	/* Copies text segment, hopefully data segment has nothing that doesnt get
+	 * initialised by a function */
+	memmove(p->segs[Stext]->pages->pa, &initcode, initcodelen);
 	
 	procready(p);
 }

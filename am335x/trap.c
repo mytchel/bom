@@ -143,7 +143,7 @@ trap(struct ureg *ureg)
 	}
 	
 	if (!fixed) {
-		kprintf("kill proc for doing something bad\n");
+		kprintf("kill proc %i for doing something bad\n", current->pid);
 		dumpregs(ureg);
 		procremove(current);
 	}

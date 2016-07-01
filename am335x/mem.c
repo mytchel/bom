@@ -59,7 +59,6 @@ initpages(void *start, void *end,
 	ramsize = (uint32_t) end - (uint32_t) start;
 	npages = ramsize / PAGE_SIZE;
 	
-	kprintf("page number = %i\n", npages);
 	kprintf("page table size = %i KB\n", 
 		sizeof(struct page_ref) * npages / 1024);
 	
@@ -139,6 +138,6 @@ void
 tagpage(void *addr)
 {
 	uint32_t i;
-	i = (uint32_t) addr >> 12;
+	i = (uint32_t) (addr - pages->addr) >> 12;
 	pages[i].users++;
 }

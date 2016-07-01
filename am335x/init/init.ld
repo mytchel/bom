@@ -7,11 +7,20 @@ SECTIONS
 	.text :
 	{
 		*(.text)
+		*(.text.*)
 	}
 
-	.data : 
+	.rodata :
+	{
+		*(.rodata)
+		*(.rodata.*)
+	}
+	
+	. = ALIGN(4096);
+	
+	.data :
 	{
 		*(.data)
-		*(.rodata)
+		*(.data.*)
 	}
 }
