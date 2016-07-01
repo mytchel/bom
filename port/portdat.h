@@ -70,6 +70,9 @@ schedule(void);
 struct segment *
 newseg(int, void *, size_t);
 
+void
+freeseg(struct segment *);
+
 struct segment *
 findseg(struct proc *, void *);
 
@@ -78,6 +81,15 @@ copyseg(struct segment *, bool);
 
 bool
 fixfault(void *);
+
+void
+initheap(void *, size_t);
+
+void *
+kmalloc(size_t);
+
+void
+kfree(void *);
 
 void
 memmove(void *n, void *o, size_t);
@@ -107,17 +119,17 @@ mstoticks(uint32_t);
 void
 setsystick(uint32_t);
 
+int
+setlabel(struct label *);
+
+int
+gotolabel(struct label *);
+
 void
 forkfunc(struct proc *, int (*func)(void));
 
 void
 forkchild(struct proc *, struct ureg *);
-
-void *
-kmalloc(size_t);
-
-void
-kfree(void *, size_t);
 
 void
 mmuswitch(struct proc *);
@@ -131,18 +143,17 @@ mmudisable(void);
 void
 mmuputpage(struct page *);
 
+/* Find a unused page. */
 struct page *
 newpage(void *);
 
+/* Decrememt page uses for page containing this address. */
 void
-freepage(struct page *);
+untagpage(void *);
 
-int
-setlabel(struct label *);
-
-int
-gotolabel(struct label *);
-
+/* Increment page uses for page containing this address. */
+void
+tagpage(void *);
 
 /* Global Variables */
 

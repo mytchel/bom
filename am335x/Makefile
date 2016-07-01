@@ -53,8 +53,9 @@ P_SRC := \
 	../port/misc.c		\
 	../port/com.c		\
 	../port/proc.c		\
-	../port/syscall.c	\
-	../port/segment.c
+	../port/segment.c	\
+	../port/heap.c		\
+	../port/syscall.c
 	
 OBJECTS := \
 	$(A_SRC:%.S=%.o) \

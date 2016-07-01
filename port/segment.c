@@ -18,6 +18,22 @@ newseg(int type, void *base, size_t size)
 	return s;
 }
 
+void
+freeseg(struct segment *s)
+{
+	struct page *p, *pp;
+	
+	p = s->pages;
+	while (p != nil) {
+		pp = p;
+		p = p->next;
+		untagpage(pp->pa);
+		kfree(pp);
+	}
+	
+	kfree(s);
+}
+
 struct segment *
 findseg(struct proc *p, void *addr)
 {

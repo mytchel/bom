@@ -3,10 +3,19 @@
 static int
 sysexit(va_list args)
 {
+	int i;
+	struct segment *s;
+	
 	int code = va_arg(args, int);
 	
 	kprintf("pid %i exited with status %i\n", 
 		current->pid, code);
+
+	for (i = 0; i < Smax; i++) {
+		s = current->segs[i];
+		if (s != nil)
+			freeseg(s);
+	}
 
 	procremove(current);
 	schedule();
