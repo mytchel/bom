@@ -15,9 +15,8 @@ int
 task1(int fd)
 {
 	int i;
-	kprintf("task 1 started with fd %i\n", fd);
+	kprintf("task 1 started with fd %i and pid %i\n", fd, getpid());
 	while (true) {
-		puts("task 1 read an int\n");
 		if (read(fd, (void *) &i, sizeof(int)) == -1) {
 			puts("task 1 read failed\n");
 		} else {
@@ -32,19 +31,16 @@ int
 task2(int fd)
 {
 	int i = 0;
-	kprintf("task 2 started with fd %i\n", fd);
+	kprintf("task 2 started with fd %i and pid %i\n", fd, getpid());
 	while (true) {
 		kprintf("task 2 writing %i\n", i);
 		if (write(fd, (void *) &i, sizeof(int)) == -1) {
 			puts("task 2 write failed\n");
-		} else {
-			puts("task 2 wrote\n");
 		}
 		
 		i++;
 
-		puts("task 2 sleeping\n");		
-		sleep(5000);
+		sleep(500);
 	}
 	
 	return 2;

@@ -162,11 +162,9 @@ static int
 sysread(va_list args)
 {
 	int fd;
-	size_t n, i;
+	size_t n;
 	void *buf, *kbuf;
-	char *in, *out;
 	struct pipe *pipe;
-	struct proc *p;
 
 	fd = va_arg(args, int);
 	buf = va_arg(args, void *);
@@ -183,31 +181,11 @@ sysread(va_list args)
 	pipe->user = current;	
 	pipe->buf = kbuf;
 	pipe->n = n;
-	
-	if (pipe->link->user != nil) {
-		out = (char *) pipe->buf;
-		in = (char *) pipe->link->buf;
-		for (i = 0; i < pipe->n && i < pipe->link->n; i++) {
-			out[i] = in[i];
-		}
-		
-		pipe->n = i;
-		pipe->link->n = i;
 
-		p = pipe->link->user;
-		pipe->user = nil;
-		pipe->link->user = nil;
-		
-		procready(p);
-		schedule();
-		
-		return pipe->n;
-	} else {
-		procwait(current);
-		schedule();
-		pipe->user = nil;
-		return pipe->n;
-	}
+	procwait(current);
+	schedule();
+	
+	return pipe->n;
 }
 
 static int
@@ -218,7 +196,6 @@ syswrite(va_list args)
 	void *buf, *kbuf;
 	char *in, *out;
 	struct pipe *pipe;
-	struct proc *p;
 
 	fd = va_arg(args, int);
 	buf = va_arg(args, void *);
@@ -236,30 +213,24 @@ syswrite(va_list args)
 	pipe->user = current;	
 	pipe->buf = kbuf;
 	pipe->n = n;
-	
-	if (pipe->link->user != nil) {	
-		in = (char *) pipe->buf;
-		out = (char *) pipe->link->buf;	
-		for (i = 0; i < pipe->n && i < pipe->link->n; i++) {
-			out[i] = in[i];
-		}
 
-		pipe->n = i;
-		pipe->link->n = i;
+	while (pipe->link->user == nil)
+		schedule();
 
-		p = pipe->link->user;
-		pipe->user = nil;
-		pipe->link->user = nil;
-		
-		procready(p);
-		schedule();
-		
-		return pipe->n;
-	} else {
-		procwait(current);
-		schedule();
-		return pipe->n;
+	in = (char *) pipe->buf;
+	out = (char *) pipe->link->buf;	
+	for (i = 0; i < pipe->n && i < pipe->link->n; i++) {
+		out[i] = in[i];
 	}
+
+	pipe->link->n = i;
+
+	procready(pipe->link->user);
+
+	pipe->user = nil;
+	pipe->link->user = nil;
+
+	return i;
 }
 
 int (*syscalltable[NSYSCALLS])(va_list) = {
