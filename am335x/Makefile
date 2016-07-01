@@ -55,6 +55,8 @@ P_SRC := \
 	../port/proc.c		\
 	../port/segment.c	\
 	../port/heap.c		\
+	../port/sysproc.c	\
+	../port/sysfile.c	\
 	../port/syscall.c
 	
 OBJECTS := \

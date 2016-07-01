@@ -118,7 +118,22 @@ memmove(void *n, void *o, size_t);
 void
 kprintf(const char *, ...);
 
+
+/****** Syscalls ******/
+
+
+int sysexit(va_list);
+int sysfork(va_list);
+int syssleep(va_list);
+int sysgetpid(va_list);
+int syspipe(va_list);
+int sysclose(va_list);
+int sysread(va_list);
+int syswrite(va_list);
+
+
 /****** Machine Implimented ******/
+
 
 void
 puts(const char *);
@@ -171,7 +186,9 @@ newpage(void *);
 void
 freepage(struct page *);
 
+
 /****** Global Variables ******/
+
 
 extern struct proc *current;
 extern int (*syscalltable[NSYSCALLS])(va_list);

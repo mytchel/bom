@@ -13,4 +13,7 @@
 
 #define NSYSCALLS	9
 
+#define SYS_ERR		-1
+#define SYS_ERRPC	-2
+
 #endif

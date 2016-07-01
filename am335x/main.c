@@ -60,8 +60,7 @@ initmainproc(void)
 	p->segs[Sdata] = s;
 	s->pages = newpage((void *) UTEXT + PAGE_SIZE);
 
-	kprintf("copy initcode of len %i\n", initcodelen);
-	/* Copies text segment, hopefully data segment has nothing that doesnt get
+	/* Copies text segment (and rodata?), hopefully data segment has nothing that doesnt get
 	 * initialised by a function */
 	memmove(p->segs[Stext]->pages->pa, &initcode, initcodelen);
 	
