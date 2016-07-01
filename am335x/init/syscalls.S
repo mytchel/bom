@@ -7,10 +7,8 @@
 .global fork
 .global sleep
 .global getpid
-.global mount
-.global open
+.global pipe
 .global close
-.global stat
 .global read
 .global write
 
@@ -27,18 +25,20 @@ exit:
 
 fork:
 	push {lr}
+	push {r0}
 	mov r0, #SYSCALL_FORK
 	svc 0
+	add sp, sp, #4
 	pop {pc}
 
 
 sleep:
-	push {r1, lr}
+	push {lr}
 	push {r0}
 	mov r0, #SYSCALL_SLEEP
 	svc 0
-	pop {r1}
-	pop {r1, pc}
+	add sp, sp, #4
+	pop {pc}
 	
 	
 getpid:
@@ -48,44 +48,38 @@ getpid:
 	pop {pc}
 		
 
-mount:
+pipe:
 	push {lr}
-	mov r0, #SYSCALL_MOUNT
+	push {r0}
+	mov r0, #SYSCALL_PIPE
 	svc 0
-	pop {lr}
-
-
-open:
-	push {lr}
-	mov r0, #SYSCALL_OPEN
-	svc 0
+	add sp, sp, #4
 	pop {pc}
 
 
 close:
 	push {lr}
-	mov r0, #SYSCALL_OPEN
+	push {r0}
+	mov r0, #SYSCALL_CLOSE
 	svc 0
-	pop {pc}
-
-
-stat:
-	push {lr}
-	mov r0, #SYSCALL_STAT
-	svc 0
+	add sp, sp, #4
 	pop {pc}
 
 
 read:
 	push {lr}
+	push {r0, r1, r2}
 	mov r0, #SYSCALL_READ
 	svc 0
+	add sp, sp, #(4 * 3)
 	pop {pc}
 
 
 write:
 	push {lr}
+	push {r0, r1, r2}
 	mov r0, #SYSCALL_WRITE
 	svc 0 
+	add sp, sp, #(4 * 3)
 	pop {pc}
 

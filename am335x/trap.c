@@ -93,17 +93,13 @@ trap(struct ureg *ureg)
 		irqhandler();
 		break;
 	case ABORT_INSTRUCTION:
-		kprintf("undefined instruction\n");
 		break;
 	case ABORT_PREFETCH:
-		kprintf("prefetch abort: 0x%h\n", ureg->pc);
 		fixed = fixfault((void *) ureg->pc);
 		break;
 	case ABORT_DATA:
 		addr = faultaddr();
 		fsr = fsrstatus() & 0xf;
-		
-		kprintf("data abort: 0x%h accessing 0x%h\n", fsr, addr);
 		
 		switch (fsr) {
 		case 0x0: /* vector */

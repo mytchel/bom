@@ -45,7 +45,7 @@ nextproc(void)
 	ms = tickstoms(ticks());
 
 	for (p = procs->next; p != nil; p = p->next) {
-		if (p->state == PROC_sleep) {
+		if (p->state == PROC_sleeping) {
 			p->sleep -= ms;
 			if (p->sleep <= 0)
 				p->state = PROC_ready;
@@ -84,12 +84,14 @@ newproc()
 	if (p == nil)
 		return nil;
 	
+	p->parent = nil;
 	p->state = PROC_suspend;
-	p->ureg = nil;
 	p->pid = nextpid++;
+	
 	p->faults = 0;
 	p->quanta = 10;
-	p->parent = nil;
+	
+	p->ureg = nil;
 	
 	p->mmu = nil;
 	for (i  = 0; i < Smax; i++)
@@ -123,7 +125,7 @@ procready(struct proc *p)
 void
 procsleep(struct proc *p, uint32_t ms)
 {
-	p->state = PROC_sleep;
+	p->state = PROC_sleeping;
 	p->sleep = ms;
 	
 	if (p == current)
@@ -134,4 +136,10 @@ void
 procsuspend(struct proc *p)
 {
 	p->state = PROC_suspend;
+}
+
+void
+procwait(struct proc *p)
+{
+	p->state = PROC_waiting;
 }

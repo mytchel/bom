@@ -1,15 +1,31 @@
 #include "../include/syscalls.h"
 #include "../include/stdarg.h"
 
+struct pipe {
+	int refs;
+	struct proc *user;
+	struct pipe *link;
+	void *buf;
+	size_t n;
+};
+
+struct fgroup {
+	int refs;
+	struct pipe **files;
+	int nfiles;
+};
+
 struct page {
 	void *pa, *va;
 	size_t size;
 	struct page *next;
 };
 
+
 enum { SEG_RW, SEG_RO };
 
 struct segment {
+	int refs;
 	int type;
 	void *base, *top;
 	int size;
@@ -20,7 +36,8 @@ enum {
 	PROC_unused, /* Not really a state */
 	PROC_suspend,
 	PROC_ready,
-	PROC_sleep,
+	PROC_sleeping,
+	PROC_waiting,
 };
 
 enum { Sstack, Stext, Sdata, Sbss, Smax };
@@ -33,12 +50,13 @@ struct proc {
 	
 	int state;
 	int pid;
+	struct proc *parent;
+	
 	int faults;
 	uint32_t quanta;
-	
 	int sleep;
-	
-	struct proc *parent;
+
+	struct fgroup *fgroup;
 
 	struct segment *segs[Smax];
 	struct page *mmu;
@@ -62,6 +80,9 @@ void
 procsuspend(struct proc *);
 
 void
+procwait(struct proc *);
+
+void
 initprocs(void);
 
 void
@@ -74,13 +95,13 @@ void
 freeseg(struct segment *);
 
 struct segment *
-findseg(struct proc *, void *);
-
-struct segment *
 copyseg(struct segment *, bool);
 
 bool
 fixfault(void *);
+
+void *
+kaddr(struct proc *, void *);
 
 void
 initheap(void *, size_t);
@@ -147,13 +168,8 @@ mmuputpage(struct page *, bool);
 struct page *
 newpage(void *);
 
-/* Decrememt page uses for page containing this address. */
 void
-untagpage(void *);
-
-/* Increment page uses for page containing this address. */
-void
-tagpage(void *);
+freepage(struct page *);
 
 /****** Global Variables ******/
 

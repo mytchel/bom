@@ -8,10 +8,6 @@ SECTIONS
 	{
 		*(.text)
 		*(.text.*)
-	}
-
-	.rodata :
-	{
 		*(.rodata)
 		*(.rodata.*)
 	}
@@ -22,5 +18,7 @@ SECTIONS
 	{
 		*(.data)
 		*(.data.*)
+		*(.bss)
+		*(.bss.*)
 	}
 }

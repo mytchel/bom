@@ -3,11 +3,13 @@
 
 #include "syscalls.h"
 
+/* Process Control */
+
 int
 exit(int);
 
 int
-fork(void);
+fork(int);
 
 int
 sleep(int);
@@ -15,19 +17,18 @@ sleep(int);
 int
 getpid(void);
 
-int
-open(char *path, int mode);
+/* File System */
 
 int
-stat(int fd);
+pipe(int *);
 
 int
-close(int fd);
+close(int);
 
-int
-read(int fd, char *buf, size_t n);
+size_t
+read(int, void *, size_t);
 
-int
-write(int fd, char *buf, size_t n);
+size_t
+write(int, void *, size_t);
 
 #endif
