@@ -2,8 +2,8 @@
 #include "../include/std.h"
 #include "../include/stdarg.h"
 
-/* Make sure that the compiled length does 
- * not excede one page (4096) */
+/* Must not excede one page in size and all changabel variables 
+ * must be on the stack. */
 
 char
 getc(void);
@@ -73,21 +73,21 @@ main(void)
 	sleep(1000);
 	
 	puts("Fork once\n");
-	f = fork(FORK_FC);
+	f = fork(FORK_cfgroup | FORK_cmem);
 	if (!f) {
 		close(fds[0]);
 		return task1(fds[1]);
 	}
 	
 	puts("Fork twice\n");
-	f = fork(FORK_FC);
+	f = fork(FORK_cfgroup | FORK_cmem);
 	if (!f) {
 		close(fds[1]);
 		return task2(fds[0]);
 	}
 	
 	puts("Fork thrice\n");
-	f = fork(0);
+	f = fork(FORK_cfgroup | FORK_cmem);
 	if (!f) {
 		return task3();
 	}

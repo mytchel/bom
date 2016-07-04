@@ -24,7 +24,7 @@
 
 #define nirq 128
 
-static void (*handlers[nirq])(uint32_t);
+static void (*handlers[nirq])(uint32_t) = {0};
 
 void
 initintc(void)

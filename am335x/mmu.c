@@ -4,7 +4,7 @@
 #define L1X(va)		(va >> 20)
 #define L2X(va)		((va >> 12) & ((1 << 8) - 1))
 
-uint32_t ttb[4096] __attribute__((__aligned__(16*1024)));
+uint32_t ttb[4096] __attribute__((__aligned__(16*1024))) = { L1_FAULT };
 
 void
 initmmu(void)

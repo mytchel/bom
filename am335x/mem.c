@@ -11,7 +11,7 @@ extern uint32_t *_ram_end;
 extern uint32_t *_kernel_start;
 extern uint32_t *_kernel_end;
 
-static struct page *pages;
+static struct page *pages = nil;
 
 void
 initmemory(void)
@@ -26,7 +26,6 @@ initmemory(void)
 
 	initheap(&_heap_start, heap_size);
 
-	pages = nil;	
 	addpages((void *) &_ram_start, (void *) PAGE_ALIGN((uint32_t) &_kernel_start));
 	addpages((void *) PAGE_ALIGN((uint32_t) &_kernel_end), (void *) &_ram_end);
 		
@@ -57,7 +56,6 @@ addpages(void *start, void *end)
 	
 	for (i = 1; i < npages; i++) {
 		p[i].pa = (void *) ((uint32_t) start + i * PAGE_SIZE);
-		p[i].va = 0;
 		p[i].size = PAGE_SIZE;
 		p[i-1].next = &p[i];
 	}

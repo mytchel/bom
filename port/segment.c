@@ -39,20 +39,16 @@ freeseg(struct segment *s)
 }
 
 struct segment *
-copyseg(struct segment *s, bool new)
+copyseg(struct segment *s, bool copy)
 {
 	struct segment *n;
 	struct page *sp, *np;
 
-	switch (s->type) {
-	default:
-		n = nil;
-		break;
-	case SEG_RO:
+	if (s->type == SEG_ro || !copy) {
+		/* No need to actually copy. */
 		s->refs++;
 		n = s;
-		break;
-	case SEG_RW:
+	} else {
 		/* Gets new pages and copies the data from old. */
 		n = newseg(s->type, s->base, s->size);
 		if (n == nil)
@@ -70,8 +66,6 @@ copyseg(struct segment *s, bool new)
 			np->next = newpage(sp->va);
 			np = np->next;
 		}
-
-		break;
 	}
 	
 	return n;
@@ -122,7 +116,7 @@ fixfault(void *addr)
 	pg = findpage(s, addr);
 	if (pg == nil) return false;
 	
-	mmuputpage(pg, s->type == SEG_RW);
+	mmuputpage(pg, s->type == SEG_rw);
 	current->faults++;
 	return true;
 }

@@ -7,7 +7,10 @@ int (*syscalltable[NSYSCALLS])(va_list) = {
 	[SYSCALL_GETPID]	= sysgetpid,
 	
 	[SYSCALL_PIPE]		= syspipe,
-	[SYSCALL_CLOSE]		= sysclose,
 	[SYSCALL_READ]		= sysread,
 	[SYSCALL_WRITE]		= syswrite,
+	[SYSCALL_CLOSE]		= sysclose,
+	
+	[SYSCALL_BIND]		= sysbind,
+	[SYSCALL_OPEN]		= sysopen,
 };

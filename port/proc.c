@@ -3,10 +3,10 @@
 static struct proc *
 nextproc(void);
 
-struct proc *current;
-
+static uint32_t nextpid = 1;
 static struct proc procs[MAX_PROCS];
-static uint32_t nextpid;
+
+struct proc *current = procs;
 
 void
 initprocs(void)
@@ -14,10 +14,7 @@ initprocs(void)
 	int i;
 	for (i = 0; i < MAX_PROCS; i++)
 		procs[i].state = PROC_unused;
-
-	nextpid = 1;
-	current = procs;
-	procs->next = nil;
+	procs[0].next = nil;
 }
 
 void
@@ -68,7 +65,7 @@ nextproc(void)
 }
 	
 struct proc *
-newproc()
+newproc(void)
 {
 	int i;
 	struct proc *p, *pp;

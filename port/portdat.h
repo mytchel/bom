@@ -1,29 +1,13 @@
 #include "../include/syscalls.h"
 #include "../include/stdarg.h"
 
-struct pipe {
-	int refs;
-	char *name;
-	struct proc *user;
-	struct pipe *link;
-	void *buf;
-	size_t n;
-};
-
-struct fgroup {
-	int refs;
-	struct pipe **files;
-	int nfiles;
-};
-
 struct page {
 	void *pa, *va;
 	size_t size;
 	struct page *next;
 };
 
-
-enum { SEG_RW, SEG_RO };
+enum { SEG_rw, SEG_ro };
 
 struct segment {
 	int refs;
@@ -31,6 +15,35 @@ struct segment {
 	void *base, *top;
 	int size;
 	struct page *pages;
+};
+
+enum { PIPE_none, PIPE_writing, PIPE_reading };
+
+struct pipe {
+	int refs;
+	struct path *path;
+	struct pipe *link;
+	
+	uint8_t action;
+	struct proc *user;
+	void *buf;
+	size_t n;
+};
+
+struct path {
+	char *s;
+	struct path *next;
+};
+
+struct fgroup {
+	int refs;
+	struct pipe **pipes;
+	int npipes;
+};
+
+struct ngroup {
+	int refs;
+	struct pipe *root;
 };
 
 enum {
@@ -58,6 +71,7 @@ struct proc {
 	int sleep;
 
 	struct fgroup *fgroup;
+	struct ngroup *ngroup;
 
 	struct segment *segs[Smax];
 	struct page *mmu;
@@ -65,8 +79,11 @@ struct proc {
 	struct proc *next;
 };
 
+void
+initprocs(void);
+
 struct proc *
-newproc();
+newproc(void);
 
 void
 procremove(struct proc *);
@@ -82,9 +99,6 @@ procsuspend(struct proc *);
 
 void
 procwait(struct proc *);
-
-void
-initprocs(void);
 
 void
 schedule(void);
@@ -114,7 +128,19 @@ void
 kfree(void *);
 
 void
-memmove(void *n, void *o, size_t);
+memmove(void *, const void *, size_t);
+
+struct pipe *
+newpipe(void);
+
+void
+freepipe(struct pipe *);
+
+struct path *
+strtopath(const char *);
+
+void
+freepath(struct path *);
 
 struct fgroup *
 newfgroup(void);
@@ -124,6 +150,21 @@ freefgroup(struct fgroup *);
 
 struct fgroup *
 copyfgroup(struct fgroup *);
+
+int
+addpipe(struct fgroup *, struct pipe *);
+
+struct pipe *
+fdtopipe(struct fgroup *, int);
+
+struct ngroup *
+newngroup(void);
+
+struct ngroup *
+copyngroup(struct ngroup *);
+
+void
+freengroup(struct ngroup *);
 
 void
 kprintf(const char *, ...);
@@ -137,9 +178,11 @@ int sysfork(va_list);
 int syssleep(va_list);
 int sysgetpid(va_list);
 int syspipe(va_list);
-int sysclose(va_list);
 int sysread(va_list);
 int syswrite(va_list);
+int sysclose(va_list);
+int sysbind(va_list);
+int sysopen(va_list);
 
 
 /****** Machine Implimented ******/
@@ -201,4 +244,5 @@ freepage(struct page *);
 
 
 extern struct proc *current;
+
 extern int (*syscalltable[NSYSCALLS])(va_list);

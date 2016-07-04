@@ -33,8 +33,6 @@ include mkuboot/local.mk
 include bintoarray/local.mk
 include init/local.mk
 
-HEADERS := *.h ../port/*.h ../include/*.h
-
 A_SRC := \
 	asm.S			\
 	vectors.S
@@ -54,6 +52,8 @@ P_SRC := \
 	../port/proc.c		\
 	../port/segment.c	\
 	../port/fgroup.c	\
+	../port/ngroup.c	\
+	../port/pipe.c		\
 	../port/heap.c		\
 	../port/sysproc.c	\
 	../port/sysfile.c	\
@@ -66,11 +66,7 @@ OBJECTS := \
 
 CLEAN += $(OBJECTS)
 
-.c.o:
-	@echo CC $<
-	@$(CC) $(CFLAGS) -c -o $@ $<
-
-.S.o:
+.c.o .S.o:
 	@echo CC $<
 	@$(CC) $(CFLAGS) -c -o $@ $<
 

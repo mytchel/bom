@@ -122,10 +122,11 @@ kfree(void *ptr)
 /* This can go here for now. */
 
 void
-memmove(void *new, void *old, size_t l)
+memmove(void *new, const void *old, size_t l)
 {
-	char *n, *o;
 	size_t i;
+	char *n;
+	const char *o;
 	
 	n = new;
 	o = old;

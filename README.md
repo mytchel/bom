@@ -6,13 +6,15 @@
 
 So far it doesn't do much.
 
-It currently has one program that (called init, not that it initialised anything)
+It currently has one program that (called init, not that it initialized anything)
 that is compiled then converted into an array of bytes, which is then compiled and
 linked into the kernel. The kernel copies this into the pages for the first process
 and it get run as in user mode with its on virtual address space.
 
 All this program does is print a little (it has direct access to the io address space,
 for now), fork a few times and the forked processes do something similar.
+
+Ports, feature additions and criticisms all welcome.
 
 ## Build
 
@@ -27,10 +29,13 @@ linux or openbsd distro onto the sdcard the copy am335x/am335x.umg and am335x/ue
 onto the U-Boot fat partition. Then when U-Boot loads (if you have it in sdcard mode)
 it should run Bom.
 
+I should probably figure out how to load the kernel over uart. Because the sdcard slot
+is falling apart.
+
 ### Working
 
 - Virtual memory
-- Multitple processes (preemptive)
+- Multiple processes (preemptive)
 - Working system calls so far
 	- fork
 	- sleep
@@ -38,6 +43,7 @@ it should run Bom.
 	- pipe
 	- read
 	- write
+	- close
 
 ### Very Helpful Information
 

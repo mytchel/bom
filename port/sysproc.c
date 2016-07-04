@@ -18,12 +18,13 @@ sysexit(va_list args)
 	}
 	
 	freefgroup(current->fgroup);
+	freengroup(current->ngroup);
 	
 	procremove(current);
 	schedule();
 	
 	/* Never reached. */
-	return SYS_ERR;
+	return ERR;
 }
 
 int
@@ -48,33 +49,42 @@ sysfork(va_list args)
 	int i;
 	struct proc *p;
 	int flags;
+	bool copy;
 	
 	flags = va_arg(args, int);
 
 	p = newproc();
 	if (p == nil)
-		return -1;
+		return ERR;
 
+	p->parent = current;
+	p->quanta = current->quanta;
+
+	copy = flags & FORK_cmem;
 	for (i = 0; i < Smax; i++) {
 		if (current->segs[i] != nil) {
-			p->segs[i] = copyseg(current->segs[i], true);
+			p->segs[i] = copyseg(current->segs[i], copy || (i == Sstack));
 			if (p->segs[i] == nil)
-				return -1;
+				return ERR;
+		} else {
+			p->segs[i] = nil;
 		}
 	}
 	
-	p->parent = current;
-	p->quanta = current->quanta;
-	
-	if (flags & FORK_FC) {
+	if (flags & FORK_cfgroup) {
 		p->fgroup = copyfgroup(current->fgroup);
-	} else if (flags & FORK_FS) {
+	} else {
 		p->fgroup = current->fgroup;
 		p->fgroup->refs++;
-	} else {
-		p->fgroup = newfgroup();
 	}
-
+	
+	if (flags & FORK_cngroup) {
+		p->ngroup = copyngroup(current->ngroup);
+	} else {
+		p->ngroup = current->ngroup;
+		p->ngroup->refs++;
+	}
+	
 	forkchild(p, current->ureg);
 	procready(p);
 

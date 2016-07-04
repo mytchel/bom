@@ -1,42 +1,5 @@
 #include "dat.h"
 
-static int
-addfd(struct fgroup *f, struct pipe *pipe)
-{
-	int i, fd;
-	
-	for (i = 0; i < f->nfiles; i++)
-		if (f->files[i] == nil)
-			break;
-	
-	if (f->files[i] == nil) {
-		fd = i;
-	} else {
-		/* Need to grow file table. */
-		struct pipe **files;
-		
-		files = kmalloc(sizeof(struct file **) * f->nfiles * 2);
-		if (files == nil)
-			return -1;
-		
-		for (i = 0; i < f->nfiles; i++)
-			files[i] = f->files[i];
-
-		fd = i++;
-
-		while (i < f->nfiles * 2)
-			files[i++] = nil;
-
-		kfree(f->files);
-				
-		f->files = files;
-		f->nfiles *= 2;
-	}
-	
-	f->files[fd] = pipe;
-	return fd;
-}
-
 int
 syspipe(va_list args)
 {
@@ -46,60 +9,24 @@ syspipe(va_list args)
 	fds = va_arg(args, int*);
 	kfds = (int *) kaddr(current, (void *) fds);
 
-	p1 = kmalloc(sizeof(struct pipe));
-	if (p1 == nil)
-		return SYS_ERR;
-
-	p2 = kmalloc(sizeof(struct pipe));
-	if (p2 == nil) {
-		kfree(p1);
-		return SYS_ERR;
+	p1 = newpipe();
+	if (p1 == nil) {
+		return ERR;
 	}
 	
-	p1->refs = p2->refs = 1;
-	p1->user = p2->user = nil;
-	p1->buf = p2->buf = nil;
-	p1->n = p2->n = 0;
+	p2 = newpipe();
+	if (p2 == nil) {
+		kfree(p1);
+		return ERR;
+	}
 	
-	p1->name = p2->name = nil;
+	p1->path = p2->path = nil;
 	
 	p1->link = p2;
 	p2->link = p1;
 	
-	kfds[0] = addfd(current->fgroup, p1);
-	kfds[1] = addfd(current->fgroup, p2);
-	
-	return 0;
-}
-
-int
-sysclose(va_list args)
-{
-	int fd;
-	struct pipe *pipe;
-	
-	fd = va_arg(args, int);
-	
-	kprintf("should close %i\n", fd);
-	
-	if (fd >= current->fgroup->nfiles)
-		return SYS_ERR;
-	
-	pipe = current->fgroup->files[fd];
-	if (pipe == nil)
-		return SYS_ERR;
-	
-	/* Remove fd. */
-	current->fgroup->files[fd] = nil;
-	
-	pipe->refs--;
-	if (pipe->refs == 0) {
-		if (pipe->link) {
-			pipe->link->link = nil;
-		}
-		
-		kfree(pipe);
-	}
+	kfds[0] = addpipe(current->fgroup, p1);
+	kfds[1] = addpipe(current->fgroup, p2);
 	
 	return 0;
 }
@@ -109,27 +36,25 @@ sysread(va_list args)
 {
 	int fd;
 	size_t n;
-	void *buf, *kbuf;
+	void *buf;
 	struct pipe *pipe;
 
 	fd = va_arg(args, int);
 	buf = va_arg(args, void *);
 	n = va_arg(args, size_t);
 	
-	if (fd >= current->fgroup->nfiles)
-		return SYS_ERR;
+	pipe = fdtopipe(current->fgroup, fd);
+	if (pipe == nil) {
+		return ERR;
+	} else if (pipe->link == nil) {
+		return ELINK;
+	} else if (pipe->link->action == PIPE_reading) {
+		return ELINKSTATE;
+	}
 
-	pipe = current->fgroup->files[fd];
-	if (pipe == nil)
-		return SYS_ERR;
-
-	if (pipe->link == nil)
-		return SYS_ERRPC;
-	
-	kbuf = kaddr(current, buf);
-
+	pipe->action = PIPE_reading;	
 	pipe->user = current;	
-	pipe->buf = kbuf;
+	pipe->buf = kaddr(current, buf);
 	pipe->n = n;
 	
 	if (pipe->link->user != nil) {
@@ -148,28 +73,26 @@ syswrite(va_list args)
 {
 	int fd;
 	size_t n, i;
-	void *buf, *kbuf;
-	char *in, *out;
+	void *buf;
 	struct pipe *pipe;
+	char *in, *out;
 
 	fd = va_arg(args, int);
 	buf = va_arg(args, void *);
 	n = va_arg(args, size_t);
 	
-	if (fd >= current->fgroup->nfiles)
-		return SYS_ERR;
+	pipe = fdtopipe(current->fgroup, fd);
+	if (pipe == nil) {
+		return ERR;
+	} else if (pipe->link == nil) {
+		return ELINK;
+	} else if (pipe->action == PIPE_writing) {
+		return ELINKSTATE;
+	}
 
-	pipe = current->fgroup->files[fd];
-	if (pipe == nil)
-		return SYS_ERR;
-	
-	if (pipe->link == nil)
-		return SYS_ERRPC;
-	
-	kbuf = kaddr(current, buf);
-
+	pipe->action = PIPE_writing;		
 	pipe->user = current;	
-	pipe->buf = kbuf;
+	pipe->buf = kaddr(current, buf);
 	pipe->n = n;
 
 	if (pipe->link->user == nil) {
@@ -187,8 +110,81 @@ syswrite(va_list args)
 
 	procready(pipe->link->user);
 
+	pipe->action = PIPE_none;
+	pipe->link->action = PIPE_none;
 	pipe->user = nil;
 	pipe->link->user = nil;
 
 	return i;
+}
+
+int
+sysclose(va_list args)
+{
+	int fd;
+	struct pipe *pipe;
+	
+	fd = va_arg(args, int);
+	
+	pipe = fdtopipe(current->fgroup, fd);
+	if (pipe == nil) {
+		return ERR;
+	}
+	
+	/* Remove fd. */
+	current->fgroup->pipes[fd] = nil;
+	freepipe(pipe);	
+
+	return 0;
+}
+
+int
+sysbind(va_list args)
+{
+	int fd, flags;
+	const char *upath;
+	
+	fd = va_arg(args, int);
+	upath = va_arg(args, const char *);
+	flags = va_arg(args, int);
+	
+	kprintf("bind %i to '%s' with flags 0b%h\n", fd, upath, flags);
+
+	return ERR;
+}
+
+int
+sysopen(va_list args)
+{
+	int flags, mode;
+	const char *upath;
+	struct path *path;
+	
+	upath = va_arg(args, const char *);
+	flags = va_arg(args, int);
+	
+	kprintf("open '%s' with flags 0b%b\n", upath, flags);
+	
+	if (flags & OPEN_CREATE) {
+		mode = va_arg(args, int);
+		kprintf("and mode = 0b%b\n", mode);
+	} else {
+		mode = 0;
+	}
+	
+	path = strtopath(upath);
+	if (path == nil) {
+		return ERR;
+	}
+	
+	struct path *pp;
+	kprintf("path = ");
+	for (pp = path; pp; pp = pp->next)
+		kprintf("/%s", pp->s);
+	kprintf("\n");
+
+	return ERR;
+	/*
+	return addpipe(current->fgroup, pipe);
+	*/
 }

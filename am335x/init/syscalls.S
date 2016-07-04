@@ -8,9 +8,11 @@
 .global sleep
 .global getpid
 .global pipe
-.global close
 .global read
 .global write
+.global close
+.global bind
+.global open
 
 _start:
 	ldr lr, =exit
@@ -57,15 +59,6 @@ pipe:
 	pop {pc}
 
 
-close:
-	push {lr}
-	push {r0}
-	mov r0, #SYSCALL_CLOSE
-	svc 0
-	add sp, sp, #4
-	pop {pc}
-
-
 read:
 	push {lr}
 	push {r0, r1, r2}
@@ -81,5 +74,31 @@ write:
 	mov r0, #SYSCALL_WRITE
 	svc 0 
 	add sp, sp, #(4 * 3)
+	pop {pc}
+
+
+close:
+	push {lr}
+	push {r0}
+	mov r0, #SYSCALL_CLOSE
+	svc 0
+	add sp, sp, #4
+	pop {pc}
+
+
+bind:
+	push {lr}
+	push {r0, r1,  r2}
+	mov r0, #SYSCALL_BIND
+	svc 0
+	add sp, sp, #(4 *3)
+	pop {pc}
+
+open:
+	push {lr}
+	push {r0, r1}
+	mov r0, #SYSCALL_OPEN
+	svc 0
+	add sp, sp, #(4 * 2)
 	pop {pc}
 

@@ -11,14 +11,4 @@ SECTIONS
 		*(.rodata)
 		*(.rodata.*)
 	}
-	
-	. = ALIGN(4096);
-	
-	.data :
-	{
-		*(.data)
-		*(.data.*)
-		*(.bss)
-		*(.bss.*)
-	}
 }
