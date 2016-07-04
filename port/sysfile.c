@@ -86,7 +86,7 @@ syswrite(va_list args)
 		return ERR;
 	} else if (pipe->link == nil) {
 		return ELINK;
-	} else if (pipe->action == PIPE_writing) {
+	} else if (pipe->link->action == PIPE_writing) {
 		return ELINKSTATE;
 	}
 
