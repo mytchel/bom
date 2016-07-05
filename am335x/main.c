@@ -20,12 +20,10 @@ kmain(void)
 	initintc();
 	inittimers();
 
-	kprintf("set up procs\n");
 	initprocs();
 	initnullproc();
 	initmainproc();
 	
-	kprintf("schedule!\n");
 	schedule();
 	
 	/* Should never be reached. */

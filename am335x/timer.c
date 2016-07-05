@@ -79,7 +79,11 @@ setsystick(uint32_t ms)
 	writel(0, TIMER2 + TIMER_TCLR); /* disable timer */
 	writel(0, TIMER2 + TIMER_TCRR); /* set timer to 0 */
 	writel(t, TIMER2 + TIMER_TMAR); /* set compare value */
- 	
+
+	/* Clear irq status if it is set. */
+	writel(readl(TIMER2 + TIMER_IRQSTATUS), 
+		TIMER2 + TIMER_IRQSTATUS);
+
  	while (readl(TIMER2 + TIMER_TWPS)); /* Wait for writes to commit. */
 	
 	writel((1<<6) | 1, TIMER2 + TIMER_TCLR); /* start timer */

@@ -17,18 +17,27 @@ printf(const char *, ...);
 int
 task1(int fd)
 {
-	char c;
+	int i, r;
 	int pid = getpid();
 	
 	printf("%i: started with fd %i\n", pid, fd);
 	while (true) {
+		sleep(1000);
 		printf("%i: read from pipe\n", pid);
-		if (read(fd, (void *) &c, sizeof(char)) <= 0) {
+		r = read(fd, (void *) &i, sizeof(int));
+		if (r <= 0) {
 			printf("%i: failed to read\n", pid);
 			break;
 		}
 		
-		printf("%i: read %i\n", pid, c);
+		printf("%i: read %i\n", pid, i);
+		i *= 2;
+		printf("%i: write %i\n", pid, i);
+		r = write(fd, (void *) &i, sizeof(int));
+		if (r <= 0) {
+			printf("%i: failed to write\n", pid);
+			break;
+		}
 	}
 	
 	printf("%i: exiting\n", pid);
@@ -39,21 +48,25 @@ task1(int fd)
 int
 task2(int fd)
 {
-	char c;
+	int i, j;
 	int pid = getpid();
 	printf("%i: started with fd %i\n", pid, fd);
 	
-	while (true) {
-		printf("%i: Press a key\n", pid);
-		c = getc();
-		printf("%i: %c\n", pid, c);
+	for (i = 0; i < 10; i++) {
+		printf("%i: writing %i\n", pid, i);
 
-		if (write(fd, (void *) &c, sizeof(char)) <= 0) {
+		if (write(fd, (void *) &i, sizeof(int)) <= 0) {
 			printf("%i: write failed\n", pid);
 			break;
 		}
 		
-		sleep(1000);
+		printf("%i: now read\n", pid);
+		if (read(fd, (void *) &j, sizeof(int)) <= 0) {
+			printf("%i: read failed\n", pid);
+			break;
+		}
+		
+		printf("%i: read %i\n", pid, j);
 	}
 	
 	printf("%i: exiting\n", pid);

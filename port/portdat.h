@@ -21,12 +21,11 @@ enum { PIPE_none, PIPE_writing, PIPE_reading };
 
 struct pipe {
 	int refs;
-	struct path *path;
 	struct pipe *link;
 	
 	uint8_t action;
 	struct proc *user;
-	void *buf;
+	uint8_t *buf;
 	size_t n;
 };
 

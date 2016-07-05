@@ -3,30 +3,27 @@
 int
 syspipe(va_list args)
 {
-	int *fds, *kfds;
-	struct pipe *p1, *p2;
+	int *fds;
+	struct pipe *p0, *p1;
 	
 	fds = va_arg(args, int*);
-	kfds = (int *) kaddr(current, (void *) fds);
 
+	p0 = newpipe();
+	if (p0 == nil) {
+		return ERR;
+	}
+	
 	p1 = newpipe();
 	if (p1 == nil) {
+		kfree(p0);
 		return ERR;
 	}
 	
-	p2 = newpipe();
-	if (p2 == nil) {
-		kfree(p1);
-		return ERR;
-	}
+	p0->link = p1;
+	p1->link = p0;
 	
-	p1->path = p2->path = nil;
-	
-	p1->link = p2;
-	p2->link = p1;
-	
-	kfds[0] = addpipe(current->fgroup, p1);
-	kfds[1] = addpipe(current->fgroup, p2);
+	fds[0] = addpipe(current->fgroup, p0);
+	fds[1] = addpipe(current->fgroup, p1);
 	
 	return 0;
 }
@@ -46,20 +43,41 @@ sysread(va_list args)
 	pipe = fdtopipe(current->fgroup, fd);
 	if (pipe == nil) {
 		return ERR;
+	} else if (pipe->link == nil) {
+		return ELINK;
+	} else if (pipe->link->action == PIPE_reading) {
+		/* Can not read from both ends. */
+		
+		return ELINK;
 	}
 	
-	kprintf("should read %i bytes from %i into 0x%h\n", 
-		n, fd, buf);
+	while (pipe->action != PIPE_none)
+		schedule();
 	
-	return ERR;
+	pipe->action = PIPE_reading;
+	pipe->user = current;
+	pipe->buf = (uint8_t *) kaddr(current, buf);
+	pipe->n = n;
+	
+	while (pipe->n > 0) {
+		if (pipe->link->action == PIPE_writing) {
+			procready(pipe->link->user);
+		}
+		
+		procwait(current);
+		schedule();
+	}
+	
+	return n;
 }
 
 int
 syswrite(va_list args)
 {
 	int fd;
-	size_t n;
+	size_t n, i, tot;
 	void *buf;
+	uint8_t *in;
 	struct pipe *pipe;
 
 	fd = va_arg(args, int);
@@ -69,12 +87,44 @@ syswrite(va_list args)
 	pipe = fdtopipe(current->fgroup, fd);
 	if (pipe == nil) {
 		return ERR;
+	} else if (pipe->link == nil) {
+		return ELINK;
+	} else if (pipe->link->action == PIPE_writing) {
+		/* Can not write from both ends. */
+		return ELINK;
 	}
 
-	kprintf("should write %i bytes from 0x%h into %i\n", 
-		n, buf, fd);
+	while (pipe->action != PIPE_none)
+		schedule();
+
+	pipe->action = PIPE_writing;
+	pipe->user = current;
 	
-	return ERR;
+	tot = 0;
+	in = (uint8_t *) buf;
+	while (tot < n) {
+		if (pipe->link->action != PIPE_reading) {
+			procwait(current);
+			schedule();
+		}
+		
+		for (i = 0; tot + i < n && i < pipe->link->n; i++) {
+			pipe->link->buf[i] = in[i];
+		}
+		
+		tot += i;
+		in += i;
+		pipe->link->buf += i;
+		pipe->link->n -= i;
+		
+		if (pipe->link->n == 0)
+			pipe->link->action = PIPE_none;
+		procready(pipe->link->user);
+	}
+	
+	pipe->action = PIPE_none;
+	
+	return n;
 }
 
 int
