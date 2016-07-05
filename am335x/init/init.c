@@ -12,21 +12,27 @@ void
 puts(const char *);
 
 void
-kprintf(const char *, ...);
+printf(const char *, ...);
 
 int
 task1(int fd)
 {
 	char c;
-	kprintf("task 1 started with fd %i and pid %i\n", fd, getpid());
+	int pid = getpid();
+	
+	printf("%i: started with fd %i\n", pid, fd);
 	while (true) {
-		if (read(fd, (void *) &c, sizeof(char)) == -1) {
-			puts("task 1 read failed\n");
-		} else {
-			kprintf("task 1 read %i\n", c);
+		printf("%i: read from pipe\n", pid);
+		if (read(fd, (void *) &c, sizeof(char)) <= 0) {
+			printf("%i: failed to read\n", pid);
+			break;
 		}
+		
+		printf("%i: read %i\n", pid, c);
 	}
 	
+	printf("%i: exiting\n", pid);
+
 	return 1;
 }
 
@@ -34,27 +40,53 @@ int
 task2(int fd)
 {
 	char c;
-	kprintf("task 2 started with fd %i and pid %i\n", fd, getpid());
+	int pid = getpid();
+	printf("%i: started with fd %i\n", pid, fd);
+	
 	while (true) {
-		puts("Press a key: ");
+		printf("%i: Press a key\n", pid);
 		c = getc();
-		kprintf("%c\n", c);
-		if (write(fd, (void *) &c, sizeof(char)) == -1) {
-			puts("task 2 write failed\n");
+		printf("%i: %c\n", pid, c);
+
+		if (write(fd, (void *) &c, sizeof(char)) <= 0) {
+			printf("%i: write failed\n", pid);
+			break;
 		}
 		
-		sleep(0); /* yield so task 1 can process input */;
+		sleep(1000);
 	}
 	
+	printf("%i: exiting\n", pid);
+
 	return 2;
 }
 
 int
 task3(void)
 {
-	puts("task 3 started\n");
-	char msg[] = "Hello there, this is a test.";
-	kprintf("msg: '%s'\n", msg);
+	char data[10];
+	int fd;
+	int pid = getpid();
+	
+	printf("%i: started\n", pid);
+	
+	fd = open("test", O_RDONLY);
+	if (fd == -1) {
+		printf("open failed\n");
+		return 3;
+	}
+	
+	printf("%i: fd = %i\n", pid, fd);
+	
+	if (read(fd, data, sizeof(data)) > 0) {
+		data[9] = 0; /* to be sure. */
+		printf("%i: read: '%s'\n", pid, data);
+	} else {
+		printf("%i: read failed.\n", pid);
+	}
+	
+	close(fd);
+	
 	return 3;
 }
 
@@ -63,36 +95,46 @@ main(void)
 {
 	int f, fds[2];
 
-	puts("Hello from true user space!\n");
+	printf("Hello from true user space!\n");
 	
 	if (pipe(fds) == -1) {
-		puts("pipe failed\n");
-		exit(-1);
+		printf("pipe failed\n");
+		return ERR;
 	}
 	
 	sleep(1000);
 	
-	puts("Fork once\n");
+	printf("Fork once\n");
 	f = fork(FORK_cfgroup | FORK_cmem);
 	if (!f) {
 		close(fds[0]);
 		return task1(fds[1]);
 	}
 	
-	puts("Fork twice\n");
+	sleep(1000);
+	
+	printf("Fork twice\n");
 	f = fork(FORK_cfgroup | FORK_cmem);
 	if (!f) {
 		close(fds[1]);
 		return task2(fds[0]);
 	}
 	
-	puts("Fork thrice\n");
+	sleep(1000);
+	
+	printf("Fork thrice\n");
 	f = fork(FORK_cfgroup | FORK_cmem);
 	if (!f) {
+		close(fds[0]);
+		close(fds[1]);
 		return task3();
 	}
+	
+	printf("tasks initiated\n");
 
-	puts("tasks initiated\n");
+	sleep(1000);
 
+	printf("main task exiting\n");
+	
 	return 0;
 }

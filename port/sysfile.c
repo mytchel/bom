@@ -46,36 +46,21 @@ sysread(va_list args)
 	pipe = fdtopipe(current->fgroup, fd);
 	if (pipe == nil) {
 		return ERR;
-	} else if (pipe->link == nil) {
-		return ELINK;
-	} else if (pipe->link->action == PIPE_reading) {
-		return ELINKSTATE;
 	}
-
-	pipe->action = PIPE_reading;	
-	pipe->user = current;	
-	pipe->buf = kaddr(current, buf);
-	pipe->n = n;
 	
-	if (pipe->link->user != nil) {
-		procready(pipe->link->user);
-		schedule();
-	}
-
-	procwait(current);
-	schedule();
+	kprintf("should read %i bytes from %i into 0x%h\n", 
+		n, fd, buf);
 	
-	return pipe->n;
+	return ERR;
 }
 
 int
 syswrite(va_list args)
 {
 	int fd;
-	size_t n, i;
+	size_t n;
 	void *buf;
 	struct pipe *pipe;
-	char *in, *out;
 
 	fd = va_arg(args, int);
 	buf = va_arg(args, void *);
@@ -84,38 +69,12 @@ syswrite(va_list args)
 	pipe = fdtopipe(current->fgroup, fd);
 	if (pipe == nil) {
 		return ERR;
-	} else if (pipe->link == nil) {
-		return ELINK;
-	} else if (pipe->link->action == PIPE_writing) {
-		return ELINKSTATE;
 	}
 
-	pipe->action = PIPE_writing;		
-	pipe->user = current;	
-	pipe->buf = kaddr(current, buf);
-	pipe->n = n;
-
-	if (pipe->link->user == nil) {
-		procwait(current);
-		schedule();
-	}
-
-	in = (char *) pipe->buf;
-	out = (char *) pipe->link->buf;	
-	for (i = 0; i < pipe->n && i < pipe->link->n; i++) {
-		out[i] = in[i];
-	}
-
-	pipe->link->n = i;
-
-	procready(pipe->link->user);
-
-	pipe->action = PIPE_none;
-	pipe->link->action = PIPE_none;
-	pipe->user = nil;
-	pipe->link->user = nil;
-
-	return i;
+	kprintf("should write %i bytes from 0x%h into %i\n", 
+		n, buf, fd);
+	
+	return ERR;
 }
 
 int
@@ -165,7 +124,7 @@ sysopen(va_list args)
 	
 	kprintf("open '%s' with flags 0b%b\n", upath, flags);
 	
-	if (flags & OPEN_CREATE) {
+	if (flags & O_CREATE) {
 		mode = va_arg(args, int);
 		kprintf("and mode = 0b%b\n", mode);
 	} else {

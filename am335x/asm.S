@@ -47,15 +47,15 @@ _start:
 
 
 setlabel:
-	stmia r0, {sp, lr}
+	stmia r0, {r1 - r12, sp, lr}
 	mov r0, #0
-	bx lr
+	mov pc, lr
 	
 
 gotolabel:
-	ldmia r0, {sp, lr}
+	ldmia r0, {r1 - r12, sp, lr}
 	mov r0, #1
-	bx lr
+	mov pc, lr
 
 
 @ user register return. Not you regret.

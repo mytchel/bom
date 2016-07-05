@@ -19,10 +19,9 @@
 /* General error, either args or memory alloc failed. */
 #define ERR		-1
 
-/* Pipe connection closed. */
+/* Pipe connection closed or in incompatable state.
+ * eg: pipe link is reading when attempting to read. */
 #define ELINK		-2
-/* Pipe connection action is bad for action. */
-#define ELINKSTATE	-3
 
 /* Should processor aspects be copyied to child
  * rather than shared with child. */
@@ -32,8 +31,9 @@
 
 /* Opening file in read or write mode. */
 /* You can not open it in RW (for now?). */
-#define OPEN_READ	(1<<0)
-#define OPEN_WRITE	(1<<1)
-#define OPEN_CREATE	(1<<2)
+#define O_RDONLY	(1<<0)
+#define O_WRONLY	(1<<1)
+#define O_RDWR		(1<<2)
+#define O_CREATE	(1<<2)
 
 #endif

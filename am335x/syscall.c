@@ -17,6 +17,9 @@ dumpregs(struct ureg *r)
 void
 forkfunc(struct proc *p, int (*func)(void))
 {
+	int i;
+	for (i = 0; i < 12; i++)
+		p->label.regs[i] = 0;
 	p->label.sp = (uint32_t) p->kstack + KSTACK;
 	p->label.pc = (uint32_t) func;
 }
@@ -26,7 +29,7 @@ forkchild(struct proc *p, struct ureg *ureg)
 {
 	struct ureg *nreg;
 
-	p->label.sp = (uint32_t) ((uint8_t *) p->kstack + KSTACK - sizeof(struct ureg));
+	p->label.sp = (uint32_t) p->kstack + KSTACK - sizeof(struct ureg);
 	p->label.pc = (uint32_t) &uregret;
 	
 	nreg = (struct ureg *) p->label.sp;

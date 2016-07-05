@@ -3,10 +3,10 @@
 static struct proc *
 nextproc(void);
 
-static uint32_t nextpid = 1;
+static uint32_t nextpid;
 static struct proc procs[MAX_PROCS];
 
-struct proc *current = procs;
+struct proc *current;
 
 void
 initprocs(void)
@@ -15,6 +15,9 @@ initprocs(void)
 	for (i = 0; i < MAX_PROCS; i++)
 		procs[i].state = PROC_unused;
 	procs[0].next = nil;
+	
+	nextpid = 1;
+	current = procs;
 }
 
 void
@@ -86,7 +89,7 @@ newproc(void)
 	p->pid = nextpid++;
 	
 	p->faults = 0;
-	p->quanta = 10;
+	p->quanta = 40;
 	
 	p->ureg = nil;
 	
