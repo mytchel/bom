@@ -43,26 +43,35 @@ initmainproc(void)
 {
 	struct proc *p;
 	struct segment *s;
+	struct page *pg;
 	
 	p = newproc();
 	
 	forkfunc(p, &mainproc);
 
-	s = newseg(SEG_ro, (void *) UTEXT, PAGE_SIZE);
-	p->segs[Stext] = s;
-	s->pages = newpage((void *) UTEXT);
-
-	s = newseg(SEG_rw, (void *) UTEXT + PAGE_SIZE, PAGE_SIZE);
-	p->segs[Sdata] = s;
-	s->pages = newpage((void *) UTEXT + PAGE_SIZE);
-
 	s = newseg(SEG_rw, (void *) (USTACK_TOP - USTACK_SIZE), USTACK_SIZE);
 	p->segs[Sstack] = s;
 	s->pages = newpage((void *) (USTACK_TOP - USTACK_SIZE));
 
-	/* Copies text segment (and rodata?), hopefully data segment has nothing that doesnt get
-	 * initialised by a function */
-	memmove(p->segs[Stext]->pages->pa, &initcode, initcodelen);
+	s = newseg(SEG_ro, (void *) UTEXT, PAGE_SIZE);
+	p->segs[Stext] = s;
+	s->pages = newpage((void *) UTEXT);
+	
+	pg = s->pages;
+	while (true) {
+		memmove(pg->pa, &initcode,
+			initcodelen > PAGE_SIZE ? PAGE_SIZE : initcodelen);
+			
+		initcodelen -= PAGE_SIZE;
+		initcode += PAGE_SIZE;
+		
+		if (initcodelen > 0) {
+			pg->next = newpage(pg->va + PAGE_SIZE);
+			pg = pg->next;
+		} else {
+			break;
+		}
+	}
 	
 	p->fgroup = newfgroup();
 	p->ngroup = newngroup();

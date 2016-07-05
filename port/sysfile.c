@@ -152,12 +152,25 @@ sysbind(va_list args)
 {
 	int fd, flags;
 	const char *upath;
+	struct path *path;
 	
 	fd = va_arg(args, int);
 	upath = va_arg(args, const char *);
 	flags = va_arg(args, int);
 	
 	kprintf("bind %i to '%s' with flags 0b%h\n", fd, upath, flags);
+
+	path = strtopath(upath);
+	if (path == nil) {
+		return ERR;
+	}
+
+	struct path *pp;
+	kprintf("path = ");
+	for (pp = path; pp; pp = pp->next)
+		kprintf("/%s", pp->s);
+	kprintf("\n");
+
 
 	return ERR;
 }
