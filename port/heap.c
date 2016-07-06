@@ -118,19 +118,3 @@ kfree(void *ptr)
 		p->next = b;
 	}
 }
-
-/* This can go here for now. */
-
-void
-memmove(void *new, const void *old, size_t l)
-{
-	size_t i;
-	char *n;
-	const char *o;
-	
-	n = new;
-	o = old;
-	
-	for (i = 0; i < l; i++)
-		n[i] = o[i];
-}

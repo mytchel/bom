@@ -21,6 +21,7 @@ enum { PIPE_none, PIPE_writing, PIPE_reading };
 
 struct pipe {
 	int refs;
+	struct path *path;
 	struct pipe *link;
 	
 	uint8_t action;
@@ -30,6 +31,7 @@ struct pipe {
 };
 
 struct path {
+	int refs;
 	char *s;
 	struct path *next;
 };
@@ -37,12 +39,18 @@ struct path {
 struct fgroup {
 	int refs;
 	struct pipe **pipes;
-	int npipes;
+	size_t npipes;
+};
+
+struct binding {
+	struct path *path;
+	struct pipe *pipe;
+	struct binding *next;
 };
 
 struct ngroup {
 	int refs;
-	struct pipe *root;
+	struct binding *bindings;
 };
 
 enum {
@@ -126,9 +134,6 @@ kmalloc(size_t);
 void
 kfree(void *);
 
-void
-memmove(void *, const void *, size_t);
-
 struct pipe *
 newpipe(void);
 
@@ -140,6 +145,12 @@ strtopath(const char *);
 
 void
 freepath(struct path *);
+
+size_t
+pathmatches(struct path *, struct path *);
+
+size_t
+pathelements(struct path *);
 
 struct fgroup *
 newfgroup(void);
@@ -164,6 +175,12 @@ copyngroup(struct ngroup *);
 
 void
 freengroup(struct ngroup *);
+
+void
+memmove(void *, const void *, size_t);
+
+bool
+strcmp(const char *, const char *);
 
 void
 kprintf(const char *, ...);

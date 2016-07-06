@@ -22,6 +22,8 @@ syspipe(va_list args)
 	p0->link = p1;
 	p1->link = p0;
 	
+	p0->path = p1->path = nil;
+	
 	fds[0] = addpipe(current->fgroup, p0);
 	fds[1] = addpipe(current->fgroup, p1);
 	
@@ -151,28 +153,52 @@ int
 sysbind(va_list args)
 {
 	int fd, flags;
+	size_t elements;
 	const char *upath;
 	struct path *path;
+	struct pipe *pipe;
+	struct binding *b;
 	
 	fd = va_arg(args, int);
 	upath = va_arg(args, const char *);
 	flags = va_arg(args, int);
 	
-	kprintf("bind %i to '%s' with flags 0b%h\n", fd, upath, flags);
+	pipe = fdtopipe(current->fgroup, fd);
+	if (pipe == nil) {
+		return ERR;
+	}
 
 	path = strtopath(upath);
 	if (path == nil) {
 		return ERR;
 	}
 
-	struct path *pp;
-	kprintf("path = ");
-	for (pp = path; pp; pp = pp->next)
-		kprintf("/%s", pp->s);
-	kprintf("\n");
+	/* Try match binding with an old binding. */
+	elements = pathelements(path);
+	for (b = current->ngroup->bindings; b != nil; b = b->next) {
+		if (pathmatches(path, b->path) == elements) {
+			freepath(path);
+			path = b->path;
+			break;	
+		}
+	}
 
+	if (b == nil) {	
+		b = kmalloc(sizeof(struct binding));
+		if (b == nil) {
+			freepath(path);
+			return ERR;
+		}
+		b->path = path;
+		b->next = current->ngroup->bindings;
+		current->ngroup->bindings = b;
+	} else {
+		freepipe(b->pipe);
+	}
 
-	return ERR;
+	b->pipe = pipe;
+
+	return 0;
 }
 
 int
@@ -180,7 +206,9 @@ sysopen(va_list args)
 {
 	int flags, mode;
 	const char *upath;
-	struct path *path;
+	struct path *path, *mpath, *pp;
+	struct binding *b, *best;
+	size_t matches, bestmatches;
 	
 	upath = va_arg(args, const char *);
 	flags = va_arg(args, int);
@@ -199,11 +227,44 @@ sysopen(va_list args)
 		return ERR;
 	}
 	
-	struct path *pp;
 	kprintf("path = ");
 	for (pp = path; pp; pp = pp->next)
 		kprintf("/%s", pp->s);
 	kprintf("\n");
+
+	bestmatches = 0;
+	best = nil;
+	for (b = current->ngroup->bindings; b != nil; b = b->next) {
+		matches = pathmatches(b->path, path);
+		if (matches >= bestmatches) {
+			bestmatches = matches;
+			best = b;
+		}
+	}
+	
+	kprintf("found mount binding at: ");
+	for (pp = best->path; pp; pp = pp->next)
+		kprintf("/%s", pp->s);
+	kprintf("\n");
+
+	pp = nil;
+	mpath = path;
+	while (mpath != nil && bestmatches > 0) {
+		pp = mpath;
+		mpath = mpath->next;
+	}
+	
+	if (pp != nil) {
+		pp->next = nil;
+		freepath(path);
+	}
+	
+	kprintf("so path from mount is: ");
+	for (pp = mpath; pp; pp = pp->next)
+		kprintf("/%s", pp->s);
+	kprintf("\n");
+
+
 
 	return ERR;
 	/*

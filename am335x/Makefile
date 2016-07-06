@@ -54,7 +54,9 @@ P_SRC := \
 	../port/fgroup.c	\
 	../port/ngroup.c	\
 	../port/pipe.c		\
+	../port/path.c		\
 	../port/heap.c		\
+	../port/misc.c		\
 	../port/sysproc.c	\
 	../port/sysfile.c	\
 	../port/syscall.c
