@@ -29,11 +29,9 @@
 #define FORK_cfgroup	(1<<1)
 #define FORK_cngroup	(1<<2)
 
-/* Opening file in read or write mode. */
-/* You can not open it in RW (for now?). */
 #define O_RDONLY	(1<<0)
 #define O_WRONLY	(1<<1)
-#define O_RDWR		(1<<2)
+#define O_RDWR		(O_RDONLY|O_WRONLY)
 #define O_CREATE	(1<<2)
 
 #endif

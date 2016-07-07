@@ -22,6 +22,9 @@ syspipe(va_list args)
 	p0->link = p1;
 	p1->link = p0;
 	
+	p0->flags = O_RDWR;
+	p1->flags = O_RDWR;
+	
 	p0->path = p1->path = nil;
 	
 	fds[0] = addpipe(current->fgroup, p0);
@@ -49,7 +52,8 @@ sysread(va_list args)
 		return ELINK;
 	} else if (pipe->link->action == PIPE_reading) {
 		/* Can not read from both ends. */
-		
+		return ELINK;
+	} else if ((pipe->flags & O_RDONLY) == 0) {
 		return ELINK;
 	}
 	
@@ -93,6 +97,8 @@ syswrite(va_list args)
 		return ELINK;
 	} else if (pipe->link->action == PIPE_writing) {
 		/* Can not write from both ends. */
+		return ELINK;
+	} else if ((pipe->flags & O_WRONLY) == 0) {
 		return ELINK;
 	}
 
@@ -152,16 +158,16 @@ sysclose(va_list args)
 int
 sysbind(va_list args)
 {
-	int fd, flags;
+	int fd;
 	size_t elements;
 	const char *upath;
+	char *strpath;
 	struct path *path;
 	struct pipe *pipe;
 	struct binding *b;
 	
 	fd = va_arg(args, int);
 	upath = va_arg(args, const char *);
-	flags = va_arg(args, int);
 	
 	pipe = fdtopipe(current->fgroup, fd);
 	if (pipe == nil) {
@@ -178,12 +184,12 @@ sysbind(va_list args)
 	for (b = current->ngroup->bindings; b != nil; b = b->next) {
 		if (pathmatches(path, b->path) == elements) {
 			freepath(path);
-			path = b->path;
 			break;	
 		}
 	}
 
 	if (b == nil) {	
+		/* Add binding. */
 		b = kmalloc(sizeof(struct binding));
 		if (b == nil) {
 			freepath(path);
@@ -193,10 +199,15 @@ sysbind(va_list args)
 		b->next = current->ngroup->bindings;
 		current->ngroup->bindings = b;
 	} else {
+		/* Just need to replace pipe for existing binding. */
 		freepipe(b->pipe);
 	}
 
 	b->pipe = pipe;
+	
+	strpath = pathtostr(b->path);
+	kprintf("bound %i to '%s'\n", fd, strpath);
+	kfree(strpath);
 
 	return 0;
 }
@@ -206,6 +217,7 @@ sysopen(va_list args)
 {
 	int flags, mode;
 	const char *upath;
+	char *strpath;
 	struct path *path, *mpath, *pp;
 	struct binding *b, *best;
 	size_t matches, bestmatches;
@@ -226,11 +238,10 @@ sysopen(va_list args)
 	if (path == nil) {
 		return ERR;
 	}
-	
-	kprintf("path = ");
-	for (pp = path; pp; pp = pp->next)
-		kprintf("/%s", pp->s);
-	kprintf("\n");
+
+	strpath = pathtostr(path);	
+	kprintf("path = '%s'\n", strpath);
+	kfree(strpath);
 
 	bestmatches = 0;
 	best = nil;
@@ -242,10 +253,9 @@ sysopen(va_list args)
 		}
 	}
 	
-	kprintf("found mount binding at: ");
-	for (pp = best->path; pp; pp = pp->next)
-		kprintf("/%s", pp->s);
-	kprintf("\n");
+	strpath = pathtostr(best->path);	
+	kprintf("found mount binding at: '%s'\n", strpath);
+	kfree(strpath);
 
 	pp = nil;
 	mpath = path;
@@ -259,15 +269,10 @@ sysopen(va_list args)
 		freepath(path);
 	}
 	
-	kprintf("so path from mount is: ");
-	for (pp = mpath; pp; pp = pp->next)
-		kprintf("/%s", pp->s);
-	kprintf("\n");
-
-
-
-	return ERR;
-	/*
-	return addpipe(current->fgroup, pipe);
-	*/
+	strpath = pathtostr(mpath);
+	kprintf("so path from mount is: '%s'\n", strpath);
+	kfree(strpath);
+	
+	/* For now. */
+	return addpipe(current->fgroup, best->pipe);
 }

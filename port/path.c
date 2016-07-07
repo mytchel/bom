@@ -29,6 +29,34 @@ strtopath(const char *str)
 	return p;
 }
 
+char *
+pathtostr(struct path *p)
+{
+	char *str;
+	size_t len, i;
+	struct path *pp;
+	
+	len = 0;
+	for (pp = p; pp != nil; pp = pp->next)
+		len += strlen(pp->s) + 1;
+
+	str = kmalloc(sizeof(char) * (len + 1));
+	if (str == nil)
+		return nil;
+	
+	i = 0;
+	for (pp = p; pp != nil; pp = pp->next) {
+		len = strlen(pp->s);
+		str[i++] = '/';
+		memmove(&str[i], pp->s, len);
+		i += len;
+	}
+	
+	str[i] = 0;
+	
+	return str;
+}
+
 void
 freepath(struct path *p)
 {

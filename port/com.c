@@ -76,6 +76,10 @@ vsprintf(char *str, int max, const char *fmt, va_list ap)
 			break;
 		case 's':
 			s = va_arg(ap, char*);
+			if (s == nil) {
+				s = "(null)";
+			}
+			
 			for (i = 0; ind < max && s[i]; i++)
 				str[ind++] = s[i];
 			break;

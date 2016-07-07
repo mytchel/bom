@@ -21,6 +21,7 @@ enum { PIPE_none, PIPE_writing, PIPE_reading };
 
 struct pipe {
 	int refs;
+	int flags;
 	struct path *path;
 	struct pipe *link;
 	
@@ -143,6 +144,9 @@ freepipe(struct pipe *);
 struct path *
 strtopath(const char *);
 
+char *
+pathtostr(struct path *);
+
 void
 freepath(struct path *);
 
@@ -176,11 +180,17 @@ copyngroup(struct ngroup *);
 void
 freengroup(struct ngroup *);
 
-void
+void *
 memmove(void *, const void *, size_t);
+
+void *
+memset(void *, int, size_t);
 
 bool
 strcmp(const char *, const char *);
+
+size_t
+strlen(const char *);
 
 void
 kprintf(const char *, ...);

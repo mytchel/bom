@@ -105,6 +105,7 @@ addpipe(struct fgroup *f, struct pipe *pipe)
 		f->npipes *= 2;
 	}
 	
+	pipe->refs++;
 	f->pipes[fd] = pipe;
 	return fd;
 }

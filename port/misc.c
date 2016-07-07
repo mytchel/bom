@@ -1,17 +1,29 @@
 #include "dat.h"
 
-void
-memmove(void *new, const void *old, size_t l)
+void *
+memmove(void *dest, const void *src, size_t len)
 {
-	size_t i;
-	char *n;
-	const char *o;
+	char *d;
+	const char *s;
 	
-	n = new;
-	o = old;
+	d = dest;
+	s = src;
 	
-	for (i = 0; i < l; i++)
-		n[i] = o[i];
+	while (len-- > 0)
+		*d++ = *s++;
+		
+	return dest;
+}
+
+void *
+memset(void *b, int c, size_t len)
+{
+	char *bb = b;
+	
+	while (len-- > 0)
+		*bb++ = c;
+		
+	return b;
 }
 
 bool
@@ -25,4 +37,15 @@ strcmp(const char *s1, const char *s2)
 		return true;
 	else
 		return false;
+}
+
+size_t
+strlen(const char *s)
+{
+	size_t len = 0;
+	
+	while (*s++)
+		len++;
+	
+	return len;
 }

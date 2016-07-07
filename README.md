@@ -40,10 +40,12 @@ is falling apart.
 	- fork
 	- sleep
 	- exit
+	- getpid
 	- pipe
 	- read
 	- write
 	- close
+	- bind
 
 ### Very Helpful Information
 

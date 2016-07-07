@@ -23,7 +23,6 @@ task1(int fd)
 	printf("%i: task 1 started with fd %i\n", pid, fd);
 	while (true) {
 		sleep(1000);
-		printf("%i: read from pipe\n", pid);
 		r = read(fd, (void *) &i, sizeof(int));
 		if (r <= 0) {
 			printf("%i: failed to read\n", pid);
@@ -31,7 +30,7 @@ task1(int fd)
 		}
 		
 		printf("%i: read %i\n", pid, i);
-		i *= 2;
+		i *= 10;
 		printf("%i: write %i\n", pid, i);
 		r = write(fd, (void *) &i, sizeof(int));
 		if (r <= 0) {
@@ -52,7 +51,9 @@ task2(int fd)
 	int pid = getpid();
 	printf("%i: task 2 started with fd %i\n", pid, fd);
 	
-	for (i = 0; i < 10; i++) {
+	for (i = 0; i < 2; i++) {
+		sleep(2000);
+		
 		printf("%i: writing %i\n", pid, i);
 
 		if (write(fd, (void *) &i, sizeof(int)) <= 0) {
@@ -60,7 +61,6 @@ task2(int fd)
 			break;
 		}
 		
-		printf("%i: now read\n", pid);
 		if (read(fd, (void *) &j, sizeof(int)) <= 0) {
 			printf("%i: read failed\n", pid);
 			break;
@@ -91,7 +91,8 @@ task3(void)
 	bind(fds[0], "/com", 0);
 	
 	while (true) {
-		r = read(fds[1], (void *) buf, sizeof(char) * 32);
+		printf("%i: try read\n", pid);
+		r = read(fds[1], (void *) buf, sizeof(buf));
 		if (r <= 0) {
 			printf("%i: read failed\n", pid);
 			break;
@@ -110,7 +111,7 @@ task4(void)
 {
 	int fd;
 	int pid = getpid();
-	char data[] = "hello.";
+	char data[32] = "hello.";
 	
 	printf("%i: task 4 started\n", pid);
 	

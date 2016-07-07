@@ -25,8 +25,9 @@ freepipe(struct pipe *p)
 	if (p->refs > 0)
 		return;
 	
-	if (p->link != nil)
+	if (p->link != nil) {
 		p->link->link = nil;
+	}
 	
 	kfree(p);
 }

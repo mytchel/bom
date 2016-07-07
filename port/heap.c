@@ -20,6 +20,10 @@ kmalloc(size_t size)
 {
 	struct block *b, *n, *p;
 	void *block;
+	
+	if (size < sizeof(struct block)) {
+		size = sizeof(struct block);
+	}
 
 	p = nil;
 	for (b = heap; b != nil; p = b, b = b->next) {

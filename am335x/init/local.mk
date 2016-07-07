@@ -1,4 +1,4 @@
-init_src = init/syscalls.S init/init.c uart.c init/com.c
+init_src = init/syscalls.S init/init.c uart.c init/com.c ../port/misc.c
 
 init/initcode.elf: $(init_src) init/linker.ld
 	@echo CC $@

@@ -72,7 +72,7 @@ intcaddhandler(uint32_t irqn, void (*func)(uint32_t))
 
 	writel(1, INTC + INTC_CONTROL);
 	
-	kprintf("intc handler set for %i\n", irqn);
+	kprintf("interrupt %i handler set\n", irqn);
 }
 
 void
