@@ -11,6 +11,7 @@ newngroup(void)
 	}
 
 	n->refs = 1;
+	n->lock = 0;
 	n->bindings = nil;
 	
 	return n;
@@ -21,16 +22,20 @@ freengroup(struct ngroup *n)
 {
 	struct binding *b, *bb;
 	
+	lock(&n->lock);
+	
 	n->refs--;
-	if (n->refs > 0)
+	if (n->refs > 0) {
+		unlock(&n->lock);
 		return;
+	}
 		
 	b = n->bindings;
 	while (b != nil) {
 		bb = b;
 		b = b->next;
 		freepath(bb->path);
-		freepipe(bb->pipe);
+		freechan(bb->chan);
 		kfree(bb);
 	}
 
@@ -43,8 +48,11 @@ copyngroup(struct ngroup *o)
 	struct ngroup *n;
 	struct binding *bo, *bn;
 	
+	lock(&o->lock);
+	
 	n = kmalloc(sizeof(struct ngroup));
 	if (n == nil) {
+		unlock(&o->lock);
 		return nil;
 	}
 	
@@ -59,8 +67,8 @@ copyngroup(struct ngroup *o)
 	while (bo != nil) {
 		bn->path = bo->path;
 		bn->path->refs++;
-		bn->pipe = bo->pipe;
-		bn->pipe->refs++;
+		bn->chan = bo->chan;
+		bn->chan->refs++;
 		
 		bo = bo->next;
 		if (bo == nil) {
@@ -74,5 +82,7 @@ copyngroup(struct ngroup *o)
 	}
 	
 	n->refs = 1;
+	n->lock = 0;
+	unlock(&o->lock);
 	return n;
 }

@@ -81,7 +81,7 @@ findseg(struct proc *p, void *addr)
 		s = p->segs[i];
 		if (s == nil)
 			continue;
-		
+			
 		if (s->base <= addr && s->top > addr) {
 			return s;
 		}
@@ -94,7 +94,7 @@ static struct page *
 findpage(struct segment *s, void *addr)
 {
 	struct page *pg;
-	
+
 	for (pg = s->pages; pg != nil; pg = pg->next) {
 		if (pg->va <= addr && pg->va + pg->size > addr) {
 			return pg;
@@ -109,7 +109,7 @@ fixfault(void *addr)
 {
 	struct segment *s;
 	struct page *pg;
-
+	
 	s = findseg(current, addr);
 	if (s == nil) return false;
 	
@@ -118,6 +118,7 @@ fixfault(void *addr)
 	
 	mmuputpage(pg, s->type == SEG_rw);
 	current->faults++;
+	
 	return true;
 }
 

@@ -91,7 +91,6 @@ task3(void)
 	bind(fds[0], "/com", 0);
 	
 	while (true) {
-		printf("%i: try read\n", pid);
 		r = read(fds[1], (void *) buf, sizeof(buf));
 		if (r <= 0) {
 			printf("%i: read failed\n", pid);
@@ -111,7 +110,7 @@ task4(void)
 {
 	int fd;
 	int pid = getpid();
-	char data[32] = "hello.";
+	char data[32] = {'h', 'i', 0};
 	
 	printf("%i: task 4 started\n", pid);
 	

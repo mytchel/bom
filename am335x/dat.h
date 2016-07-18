@@ -11,7 +11,7 @@
 #define UTEXT		0
 
 struct label {
-	uint32_t regs[12];
+	uint32_t regs[9];
 	uint32_t sp, pc;
 };
 

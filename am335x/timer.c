@@ -27,7 +27,7 @@
 #define WDT_WSPR	0x48
 #define WDT_WWPS	0x34
 
-static void systickhandler(uint32_t);
+static int systickhandler(uint32_t);
 
 void
 initwatchdog(void)
@@ -59,7 +59,7 @@ inittimers(void)
  	while (readl(TIMER0 + TIMER_TWPS)); /* Wait for writes to commit. */
 }
 
-void
+int
 systickhandler(uint32_t irqn)
 {
 	writel(0, TIMER2 + TIMER_TCLR); /* disable timer */
@@ -69,6 +69,8 @@ systickhandler(uint32_t irqn)
 		TIMER2 + TIMER_IRQSTATUS);
 
  	while (readl(TIMER2 + TIMER_TWPS)); /* Wait for writes to commit. */
+ 	
+ 	return true;
 }
 
 void

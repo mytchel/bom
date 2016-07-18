@@ -4,6 +4,16 @@
 #define L1X(va)		(va >> 20)
 #define L2X(va)		((va >> 12) & ((1 << 8) - 1))
 
+#define L1_FAULT	0
+#define L1_COARSE	1
+#define L1_SECTION	2
+#define L1_FINE		3
+
+#define L2_FAULT	0
+#define L2_LARGE	1
+#define L2_SMALL	2
+#define L2_TINY		3
+
 uint32_t ttb[4096] __attribute__((__aligned__(16*1024))) = { L1_FAULT };
 
 void

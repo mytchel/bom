@@ -60,9 +60,13 @@ pathtostr(struct path *p)
 void
 freepath(struct path *p)
 {
+	lock(&p->lock);
+	
 	p->refs--;
-	if (p->refs > 0)
+	if (p->refs > 0) {
+		unlock(&p->lock);
 		return;
+	}
 		
 	if (p->next)
 		kfree(p->next);

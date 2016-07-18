@@ -49,3 +49,17 @@ strlen(const char *s)
 	
 	return len;
 }
+
+void
+lock(int *l)
+{
+	while (*l)
+		schedule();
+	l++;
+}
+
+void
+unlock(int *l)
+{
+	l--;
+}

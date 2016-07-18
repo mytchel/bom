@@ -53,7 +53,9 @@ P_SRC := \
 	../port/segment.c	\
 	../port/fgroup.c	\
 	../port/ngroup.c	\
+	../port/chan.c		\
 	../port/pipe.c		\
+	../port/file.c		\
 	../port/path.c		\
 	../port/heap.c		\
 	../port/misc.c		\

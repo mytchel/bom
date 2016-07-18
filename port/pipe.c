@@ -1,33 +1,53 @@
 #include "dat.h"
 
-struct pipe *
-newpipe(void)
-{
-	struct pipe *p;
+struct pipe {
+	struct chan *c0, *c1;
 	
-	p = kmalloc(sizeof(struct pipe));
-	if (p == nil) {
-		return nil;
-	}
+};
 
-	p->refs = 1;
-	
-	p->action = PIPE_none;
-	p->user = nil;
-	
-	return p;
-}
-
-void
-freepipe(struct pipe *p)
+bool
+newpipe(struct chan **c0, struct chan **c1)
 {
-	p->refs--;
-	if (p->refs > 0)
-		return;
-	
-	if (p->link != nil) {
-		p->link->link = nil;
+	*c0 = newchan(CHAN_pipe, O_RDWR, nil);
+	if (*c0 == nil) {
+		return false;
 	}
 	
-	kfree(p);
+	*c1 = newchan(CHAN_pipe, O_RDWR, nil);
+	if (*c1 == nil) {
+		freechan(*c0);
+		return false;
+	}
+	
+	(*c0)->aux = *c1;
+	(*c1)->aux = *c0;
+	
+	return true;	
 }
+
+static int
+piperead(struct chan *c, void *buf, int n)
+{
+	kprintf("should pipe read\n");
+	return ERR;
+}
+
+static int
+pipewrite(struct chan *c, void *buf, int n)
+{
+	kprintf("should pipe write\n");
+	return ERR;
+}
+
+static int
+pipeclose(struct chan *c)
+{
+
+	return ERR;
+}
+
+struct chantype devpipe = {
+	&piperead,
+	&pipewrite,
+	&pipeclose,
+};

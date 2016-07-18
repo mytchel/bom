@@ -24,6 +24,7 @@ kmain(void)
 	initnullproc();
 	initmainproc();
 	
+	kprintf("Start Proc 1\n");
 	schedule();
 	
 	/* Should never be reached. */
@@ -33,7 +34,6 @@ kmain(void)
 int
 mainproc(void)
 {
-	kprintf("droptouser\n");
 	droptouser((void *) USTACK_TOP);
 	return 0; /* Never reached. */
 }
@@ -52,6 +52,7 @@ initmainproc(void)
 	s = newseg(SEG_rw, (void *) (USTACK_TOP - USTACK_SIZE), USTACK_SIZE);
 	p->segs[Sstack] = s;
 	s->pages = newpage((void *) (USTACK_TOP - USTACK_SIZE));
+	
 
 	s = newseg(SEG_ro, (void *) UTEXT, PAGE_SIZE);
 	p->segs[Stext] = s;
@@ -69,6 +70,7 @@ initmainproc(void)
 			pg->next = newpage(pg->va + PAGE_SIZE);
 			pg = pg->next;
 		} else {
+			pg->next = nil;
 			break;
 		}
 	}
@@ -82,8 +84,9 @@ initmainproc(void)
 int
 nullproc(void)
 {
-	while (true)
+	while (true) {
 		schedule();
+	}
 	return 0;
 }
 

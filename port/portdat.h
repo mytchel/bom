@@ -17,40 +17,48 @@ struct segment {
 	struct page *pages;
 };
 
-enum { PIPE_none, PIPE_writing, PIPE_reading };
+enum { CHAN_pipe, CHAN_file, CHAN_max };
 
-struct pipe {
+struct chan {
 	int refs;
+	int lock;
+	
+	int type;
 	int flags;
 	struct path *path;
-	struct pipe *link;
 	
-	uint8_t action;
-	struct proc *user;
-	uint8_t *buf;
-	size_t n;
+	void *aux;
+};
+
+struct chantype {
+	int (*read)(struct chan *, void *, int);
+	int (*write)(struct chan *, void *, int);
+	int (*close)(struct chan *);
 };
 
 struct path {
 	int refs;
+	int lock;
 	char *s;
 	struct path *next;
 };
 
 struct fgroup {
 	int refs;
-	struct pipe **pipes;
-	size_t npipes;
+	int lock;
+	struct chan **chans;
+	size_t nchans;
 };
 
 struct binding {
 	struct path *path;
-	struct pipe *pipe;
+	struct chan *chan;
 	struct binding *next;
 };
 
 struct ngroup {
 	int refs;
+	int lock;
 	struct binding *bindings;
 };
 
@@ -62,7 +70,7 @@ enum {
 	PROC_waiting,
 };
 
-enum { Sstack, Stext, Sdata, Sbss, Smax };
+enum { Sstack, Stext, Sdata, Smax };
 
 struct proc {
 	struct label label;
@@ -87,8 +95,16 @@ struct proc {
 	struct proc *next;
 };
 
+
+/****** Initialisation ******/
+
+
 void
 initprocs(void);
+
+
+/****** General Functions ******/
+
 
 struct proc *
 newproc(void);
@@ -135,11 +151,11 @@ kmalloc(size_t);
 void
 kfree(void *);
 
-struct pipe *
-newpipe(void);
+struct chan *
+newchan(int, int, struct path *);
 
 void
-freepipe(struct pipe *);
+freechan(struct chan *);
 
 struct path *
 strtopath(const char *);
@@ -166,10 +182,10 @@ struct fgroup *
 copyfgroup(struct fgroup *);
 
 int
-addpipe(struct fgroup *, struct pipe *);
+addchan(struct fgroup *, struct chan *);
 
-struct pipe *
-fdtopipe(struct fgroup *, int);
+struct chan *
+fdtochan(struct fgroup *, int);
 
 struct ngroup *
 newngroup(void);
@@ -191,6 +207,15 @@ strcmp(const char *, const char *);
 
 size_t
 strlen(const char *);
+
+void
+lock(int *);
+
+void
+unlock(int *);
+
+bool
+newpipe(struct chan **, struct chan **);
 
 void
 kprintf(const char *, ...);
@@ -272,3 +297,7 @@ freepage(struct page *);
 extern struct proc *current;
 
 extern int (*syscalltable[NSYSCALLS])(va_list);
+
+extern struct chantype devpipe;
+extern struct chantype devfile;
+extern struct chantype *chantypes[CHAN_max];

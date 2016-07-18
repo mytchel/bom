@@ -24,7 +24,7 @@
 
 #define nirq 128
 
-static void (*handlers[nirq])(uint32_t) = {0};
+static int (*handlers[nirq])(uint32_t) = {0};
 
 void
 initintc(void)
@@ -45,21 +45,24 @@ initintc(void)
 	}
 }
 
-static void
+static int
 irqhandler(void)
 {
+	int r = 0;
 	uint32_t irq = readl(INTC + INTC_SIR_IRQ);
 		
 	if (handlers[irq]) {
-		handlers[irq](irq);
+		r = handlers[irq](irq);
 	}
 	
 	/* Allow new interrupts */
 	writel(1, INTC + INTC_CONTROL);
+	
+	return r;
 }
 
 void
-intcaddhandler(uint32_t irqn, void (*func)(uint32_t))
+intcaddhandler(uint32_t irqn, int (*func)(uint32_t))
 {
 	uint32_t mask, mfield;
 	
@@ -81,7 +84,8 @@ trap(struct ureg *ureg)
 	uint32_t fsr;
 	void *addr;
 	bool fixed = false;
-
+	bool rsch = false;
+	
 	if (ureg->type == ABORT_DATA)
 		ureg->pc -= 8;
 	else
@@ -90,7 +94,7 @@ trap(struct ureg *ureg)
 	switch(ureg->type) {
 	case ABORT_INTERRUPT:
 		fixed = true;
-		irqhandler();
+		rsch = irqhandler();
 		break;
 	case ABORT_INSTRUCTION:
 		break;
@@ -144,5 +148,6 @@ trap(struct ureg *ureg)
 		procremove(current);
 	}
 	
-	schedule();
+	if (rsch)
+		schedule();
 }

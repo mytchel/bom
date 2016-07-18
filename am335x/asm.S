@@ -47,13 +47,13 @@ _start:
 
 
 setlabel:
-	stmia r0, {r1 - r12, sp, lr}
+	stmia r0, {r4 - r12, sp, lr}
 	mov r0, #0
 	mov pc, lr
 	
 
 gotolabel:
-	ldmia r0, {r1 - r12, sp, lr}
+	ldmia r0, {r4 - r12, sp, lr}
 	mov r0, #1
 	mov pc, lr
 

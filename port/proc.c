@@ -24,11 +24,11 @@ void
 schedule(void)
 {
 	struct proc *p;
-
+	
 	if (setlabel(&current->label)) {
 		return;
 	}
-
+	
 	p = nextproc();
 	current = p;
 	mmuswitch(current);

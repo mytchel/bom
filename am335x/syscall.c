@@ -18,7 +18,7 @@ void
 forkfunc(struct proc *p, int (*func)(void))
 {
 	int i;
-	for (i = 0; i < 12; i++)
+	for (i = 0; i < 8; i++)
 		p->label.regs[i] = 0;
 	p->label.sp = (uint32_t) p->kstack + KSTACK;
 	p->label.pc = (uint32_t) func;
@@ -40,19 +40,17 @@ forkchild(struct proc *p, struct ureg *ureg)
 void
 syscall(struct ureg *ureg)
 {
-	int ret;
 	unsigned int sysnum;
 
-	ret = -1;
 	sysnum = (unsigned int) ureg->regs[0];
 
+	ureg->regs[0] = -1;
 	current->ureg = ureg;
 	
 	if (sysnum < NSYSCALLS) {
 		va_list args = (va_list) ureg->sp;
-		ret = syscalltable[sysnum](args);
+		ureg->regs[0] = syscalltable[sysnum](args);
 	}
 	
-	ureg->regs[0] = ret;
 }
 
