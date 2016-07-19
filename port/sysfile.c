@@ -64,16 +64,13 @@ sysclose(va_list args)
 	if (c == nil) {
 		return ERR;
 	}
-
+	
 	/* Remove fd. */
 	lock(&current->fgroup->lock);
 	current->fgroup->chans[fd] = nil;
 	unlock(&current->fgroup->lock);
 
-	lock(&c->lock);
-	chantypes[c->type]->close(c);
 	freechan(c);	
-	unlock(&c->lock);
 	
 	return 0;
 }

@@ -34,7 +34,9 @@ freechan(struct chan *c)
 		unlock(&c->lock);
 		return;
 	}
-	
+
+	kprintf("Actually free chan\n");	
+	chantypes[c->type]->close(c);
 	freepath(c->path);
 	kfree(c);
 }

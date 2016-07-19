@@ -40,8 +40,9 @@ freefgroup(struct fgroup *f)
 
 	for (i = 0; i < f->nchans; i++) {
 		c = f->chans[i];
-		if (c != nil)
+		if (c != nil) {
 			freechan(c);
+		}
 	}
 	
 	kfree(f->chans);
@@ -78,8 +79,8 @@ copyfgroup(struct fgroup *fo)
 	
 	f->refs = 1;
 	f->lock = 0;
+
 	unlock(&fo->lock);
-	
 	return f;
 }
 
@@ -120,7 +121,6 @@ addchan(struct fgroup *f, struct chan *chan)
 		f->nchans *= 2;
 	}
 	
-	chan->refs++;
 	f->chans[fd] = chan;
 	unlock(&f->lock);
 	return fd;

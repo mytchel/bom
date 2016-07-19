@@ -48,7 +48,10 @@ piperead(struct chan *c, char *buf, size_t n)
 	struct pipe *p;
 	
 	p = (struct pipe *) c->aux;
-	
+
+	if (p->c0 == nil || p->c1 == nil)
+		return ELINK;
+		
 	p->waiting = true;
 	p->proc = current;
 	p->buf = buf;
@@ -71,11 +74,18 @@ pipewrite(struct chan *c, char *buf, size_t n)
 	struct pipe *p;
 	
 	p = (struct pipe *) c->aux;
+
+	if (p->c0 == nil || p->c1 == nil)
+		return ELINK;
 	
 	t = 0;
 	while (t < n) {
-		while (!p->waiting)
+		while (!p->waiting && p->c0 != nil && p->c1 != nil)
 			schedule();
+		
+		if (p->c0 == nil || p->c1 == nil) {
+			return n - t;
+		}
 		
 		l = n - t < p->n ? n - t : p->n;
 		memmove(p->buf, buf, l);
@@ -90,7 +100,6 @@ pipewrite(struct chan *c, char *buf, size_t n)
 			p->n = 0;
 			p->waiting = false;
 			procready(p->proc);
-			schedule();
 		}
 	}
 	
@@ -100,8 +109,26 @@ pipewrite(struct chan *c, char *buf, size_t n)
 static int
 pipeclose(struct chan *c)
 {
-	kprintf("Close pipe\n");
-	return ERR;
+	struct pipe *p;
+	
+	p = (struct pipe *) c->aux;
+	
+	if (c == p->c0) {
+		p->c0 = nil;
+	} else {
+		p->c1 = nil;
+	}
+	
+	if (p->waiting) {
+		procready(p->proc);
+		schedule();
+	}
+
+	if (p->c0 == nil && p->c1 == nil) {
+		kfree(p);
+	}
+	
+	return 0;
 }
 
 struct chantype devpipe = {
