@@ -1,17 +1,16 @@
 #include "dat.h"
 
 int
-fileread(struct chan *c, void *buf, int n)
+fileread(struct chan *c, char *buf, size_t n)
 {
 
 	return ERR;
 }
 
 int
-filewrite(struct chan *c, void *buf, int n)
+filewrite(struct chan *c, char *buf, size_t n)
 {
 	return ERR;
-
 }
 
 int

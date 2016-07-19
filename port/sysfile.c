@@ -20,10 +20,9 @@ sysread(va_list args)
 	}
 		
 	lock(&c->lock);
-	
-	r = chantypes[c->type]->read(c, kaddr(current, buf), n);
-
+	r = chantypes[c->type]->read(c, (char *) kaddr(current, buf), n);
 	unlock(&c->lock);
+	
 	return r;
 }
 
@@ -47,10 +46,9 @@ syswrite(va_list args)
 	}
 
 	lock(&c->lock);
-	
-	r = chantypes[c->type]->write(c, kaddr(current, buf), n);
-	
+	r = chantypes[c->type]->write(c, (char *) kaddr(current, buf), n);
 	unlock(&c->lock);
+	
 	return r;
 }
 
@@ -66,13 +64,17 @@ sysclose(va_list args)
 	if (c == nil) {
 		return ERR;
 	}
-	
-	chantypes[c->type]->close(c);
-	
-	/* Remove fd. */
-	current->fgroup->chans[fd] = nil;
-	freechan(c);	
 
+	/* Remove fd. */
+	lock(&current->fgroup->lock);
+	current->fgroup->chans[fd] = nil;
+	unlock(&current->fgroup->lock);
+
+	lock(&c->lock);
+	chantypes[c->type]->close(c);
+	freechan(c);	
+	unlock(&c->lock);
+	
 	return 0;
 }
 

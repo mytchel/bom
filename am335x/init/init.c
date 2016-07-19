@@ -22,7 +22,6 @@ task1(int fd)
 	
 	printf("%i: task 1 started with fd %i\n", pid, fd);
 	while (true) {
-		sleep(1000);
 		r = read(fd, (void *) &i, sizeof(int));
 		if (r <= 0) {
 			printf("%i: failed to read\n", pid);
@@ -30,13 +29,6 @@ task1(int fd)
 		}
 		
 		printf("%i: read %i\n", pid, i);
-		i *= 10;
-		printf("%i: write %i\n", pid, i);
-		r = write(fd, (void *) &i, sizeof(int));
-		if (r <= 0) {
-			printf("%i: failed to write\n", pid);
-			break;
-		}
 	}
 	
 	printf("%i: exiting\n", pid);
@@ -47,11 +39,11 @@ task1(int fd)
 int
 task2(int fd)
 {
-	int i, j;
+	int i;
 	int pid = getpid();
 	printf("%i: task 2 started with fd %i\n", pid, fd);
 	
-	for (i = 0; i < 2; i++) {
+	for (i = 0; i < 4; i++) {
 		sleep(2000);
 		
 		printf("%i: writing %i\n", pid, i);
@@ -60,13 +52,6 @@ task2(int fd)
 			printf("%i: write failed\n", pid);
 			break;
 		}
-		
-		if (read(fd, (void *) &j, sizeof(int)) <= 0) {
-			printf("%i: read failed\n", pid);
-			break;
-		}
-		
-		printf("%i: read %i\n", pid, j);
 	}
 	
 	printf("%i: exiting\n", pid);
@@ -150,8 +135,8 @@ main(void)
 	printf("Fork once\n");
 	f = fork(FORK_cfgroup | FORK_cmem);
 	if (!f) {
-		close(fds[0]);
-		return task1(fds[1]);
+		close(fds[1]);
+		return task1(fds[0]);
 	}
 	
 	sleep(1000);
@@ -159,12 +144,12 @@ main(void)
 	printf("Fork twice\n");
 	f = fork(FORK_cfgroup | FORK_cmem);
 	if (!f) {
-		close(fds[1]);
-		return task2(fds[0]);
+		close(fds[0]);
+		return task2(fds[1]);
 	}
 	
 	sleep(1000);
-
+/*
 	printf("Fork thrice\n");
 	f = fork(FORK_cfgroup | FORK_cmem);
 	if (!f) {
@@ -182,7 +167,7 @@ main(void)
 		close(fds[1]);
 		return task4();
 	}
-	
+*/	
 	printf("tasks initiated\n");
 
 	sleep(1000);

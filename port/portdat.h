@@ -31,8 +31,8 @@ struct chan {
 };
 
 struct chantype {
-	int (*read)(struct chan *, void *, int);
-	int (*write)(struct chan *, void *, int);
+	int (*read)(struct chan *, char *, size_t);
+	int (*write)(struct chan *, char *, size_t);
 	int (*close)(struct chan *);
 };
 
