@@ -1,8 +1,9 @@
 #ifndef __FS_H
 #define __FS_H
 
-struct req {
-	int type;
+enum {
+	FS_reqopen, FS_reqclose,
+	FS_reqread, FS_reqwrite,
 };
 
 #endif

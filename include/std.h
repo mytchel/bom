@@ -31,7 +31,7 @@ close(int);
 
 
 int
-bind(int, const char *, int);
+bind(int, int, const char *);
 
 int
 open(const char *, int);

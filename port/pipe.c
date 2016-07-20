@@ -42,7 +42,7 @@ newpipe(struct chan **c0, struct chan **c1)
 	return true;	
 }
 
-static int
+int
 piperead(struct chan *c, char *buf, size_t n)
 {
 	struct pipe *p;
@@ -67,7 +67,7 @@ piperead(struct chan *c, char *buf, size_t n)
 	}
 }
 
-static int
+int
 pipewrite(struct chan *c, char *buf, size_t n)
 {
 	size_t l, t;
@@ -106,7 +106,7 @@ pipewrite(struct chan *c, char *buf, size_t n)
 	return n;
 }
 
-static int
+int
 pipeclose(struct chan *c)
 {
 	struct pipe *p;
@@ -121,7 +121,7 @@ pipeclose(struct chan *c)
 	
 	if (p->waiting) {
 		procready(p->proc);
-		schedule();
+		p->waiting = false;
 	}
 
 	if (p->c0 == nil && p->c1 == nil) {

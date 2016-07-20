@@ -52,7 +52,7 @@ struct fgroup {
 
 struct binding {
 	struct path *path;
-	struct chan *chan;
+	struct chan *in, *out;
 	struct binding *next;
 };
 
@@ -216,6 +216,27 @@ unlock(int *);
 
 bool
 newpipe(struct chan **, struct chan **);
+
+int
+piperead(struct chan *, char *, size_t);
+
+int
+pipewrite(struct chan *, char *, size_t);
+
+int
+pipeclose(struct chan *);
+
+struct chan *
+fileopen(struct binding *, struct path *, int, int *);
+
+int
+fileread(struct chan *, char *, size_t);
+
+int
+filewrite(struct chan *, char *, size_t);
+
+int
+fileclose(struct chan *);
 
 void
 kprintf(const char *, ...);

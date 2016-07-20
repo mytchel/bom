@@ -35,7 +35,8 @@ freengroup(struct ngroup *n)
 		bb = b;
 		b = b->next;
 		freepath(bb->path);
-		freechan(bb->chan);
+		freechan(bb->in);
+		freechan(bb->out);
 		kfree(bb);
 	}
 
@@ -67,9 +68,13 @@ copyngroup(struct ngroup *o)
 	while (bo != nil) {
 		bn->path = bo->path;
 		bn->path->refs++;
-		bn->chan = bo->chan;
-		bn->chan->refs++;
-		
+
+		bn->in = bo->in;
+		bn->in->refs++;
+
+		bn->out = bo->out;
+		bn->out->refs++;
+			
 		bo = bo->next;
 		if (bo == nil) {
 			bn->next = nil;

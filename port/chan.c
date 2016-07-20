@@ -28,6 +28,8 @@ void
 freechan(struct chan *c)
 {
 	lock(&c->lock);
+	
+	kprintf("dec chan ref from %i\n", c->refs);
 
 	c->refs--;
 	if (c->refs > 0) {
@@ -35,7 +37,8 @@ freechan(struct chan *c)
 		return;
 	}
 
-	kprintf("Actually free chan\n");	
+	kprintf("close and free chan\n");
+	
 	chantypes[c->type]->close(c);
 	freepath(c->path);
 	kfree(c);

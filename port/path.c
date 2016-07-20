@@ -36,7 +36,7 @@ pathtostr(struct path *p)
 	size_t len, i;
 	struct path *pp;
 	
-	len = 0;
+	len = 1;
 	for (pp = p; pp != nil; pp = pp->next)
 		len += strlen(pp->s) + 1;
 
@@ -45,11 +45,13 @@ pathtostr(struct path *p)
 		return nil;
 	
 	i = 0;
+	str[i++] = '/';
 	for (pp = p; pp != nil; pp = pp->next) {
 		len = strlen(pp->s);
-		str[i++] = '/';
 		memmove(&str[i], pp->s, len);
 		i += len;
+		if (pp->next)
+			str[i++] = '/';
 	}
 	
 	str[i] = 0;
