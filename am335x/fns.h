@@ -21,13 +21,16 @@
 #define PAGE_ALIGN(x) 	(((x) + PAGE_SIZE - 1) & PAGE_MASK)
 
 void
-dumpregs(struct ureg *);
-
-void
 uregret(struct ureg *);
 
 void
 droptouser(void *);
+
+void *
+forkfunc_preloader(void *, void *, void *);
+
+void
+forkfunc_loader(void);
 
 uint32_t
 fsrstatus(void);

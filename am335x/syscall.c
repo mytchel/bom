@@ -15,13 +15,18 @@ dumpregs(struct ureg *r)
 }
 
 void
-forkfunc(struct proc *p, int (*func)(void))
+forkfunc(struct proc *p, int (*func)(void *), void *arg)
 {
 	int i;
 	for (i = 0; i < 8; i++)
 		p->label.regs[i] = 0;
-	p->label.sp = (uint32_t) p->kstack + KSTACK;
-	p->label.pc = (uint32_t) func;
+	
+	p->label.sp = (uint32_t) p->kstack + KSTACK - sizeof(uint32_t);
+	p->label.pc = (uint32_t) &forkfunc_loader;
+	
+	p->label.sp = (uint32_t) forkfunc_preloader(
+		(void *) (p->kstack + KSTACK - sizeof(uint32_t)),
+		arg, func);
 }
 
 void

@@ -20,7 +20,7 @@ sysread(va_list args)
 	}
 		
 	lock(&c->lock);
-	r = chantypes[c->type]->read(c, (char *) kaddr(current, buf), n);
+	r = chantypes[c->type]->read(c, (uint8_t *) kaddr(current, buf), n);
 	unlock(&c->lock);
 	
 	return r;
@@ -46,7 +46,7 @@ syswrite(va_list args)
 	}
 
 	lock(&c->lock);
-	r = chantypes[c->type]->write(c, (char *) kaddr(current, buf), n);
+	r = chantypes[c->type]->write(c, (uint8_t *) kaddr(current, buf), n);
 	unlock(&c->lock);
 	
 	return r;
@@ -65,12 +65,13 @@ sysclose(va_list args)
 		return ERR;
 	}
 	
-	/* Remove fd. */
 	lock(&current->fgroup->lock);
-	current->fgroup->chans[fd] = nil;
-	unlock(&current->fgroup->lock);
 
+	/* Remove fd. */
+	current->fgroup->chans[fd] = nil;
 	freechan(c);	
+
+	unlock(&current->fgroup->lock);
 	
 	return 0;
 }
@@ -80,17 +81,15 @@ sysbind(va_list args)
 {
 	int infd, outfd;
 	const char *upath;
-	struct chan *in, *out;
-	size_t elements;
+	struct proc *p;
 	struct path *path;
-	struct binding *b;
+	struct chan *in, *out;
+	struct binding_list *bl;
 	
 	outfd = va_arg(args, int);
 	infd = va_arg(args, int);
 	upath = va_arg(args, const char *);
 
-	kprintf("check fds\n");
-		
 	out = fdtochan(current->fgroup, outfd);
 	if (out == nil) {
 		return ERR;
@@ -100,49 +99,48 @@ sysbind(va_list args)
 	if (in == nil) {
 		return ERR;
 	}
+	
+	lock(&current->ngroup->lock);
 
 	kprintf("check path : '%s'\n", upath);
-	path = strtopath(upath);
+	path = strtopath((uint8_t *) upath);
 
-	kprintf("check other bindings\n");
-	/* Try match binding with an old binding. */
-	elements = pathelements(path);
-	for (b = current->ngroup->bindings; b != nil; b = b->next) {
-		if (pathmatches(path, b->path) == elements) {
-			freepath(path);
-			break;	
-		}
-	}
-
-	if (b == nil) {	
-		/* Add binding. */
-		kprintf("new binding\n");
+	/* Add binding. */
+	kprintf("new binding\n");
 		
-		b = kmalloc(sizeof(struct binding));
-		if (b == nil) {
-			freepath(path);
-			return ERR;
-		}
-		
-		b->path = path;
-		b->next = current->ngroup->bindings;
-		current->ngroup->bindings = b;
-	} else {
-		/* Just need to replace chan for existing binding. */
-		kprintf("override old binding\n");
-		freechan(b->in);
-		freechan(b->out);
-		
+	bl = kmalloc(sizeof(struct binding_list));
+	if (bl == nil) {
 		freepath(path);
+		unlock(&current->ngroup->lock);
+		return ERR;
+	}
+		
+	bl->binding = newbinding(path, out, in);
+	if (bl->binding == nil) {
+		kfree(bl);
+		freepath(path);
+		unlock(&current->ngroup->lock);
+		return ERR;
+	}
+		
+	bl->next = current->ngroup->bindings;
+	current->ngroup->bindings = bl;
+
+	kprintf("bound, now create proc\n");
+	
+	p = newproc();
+	if (p == nil) {
+		freebinding(bl->binding);
+		kfree(bl);
+		unlock(&current->ngroup->lock);
+		return ERR;
 	}
 	
-	b->in = in;
-	b->out = out;
-
-	b->in->refs++;
-	b->out->refs++;
+	forkfunc(p, &mountproc, (void *) bl->binding);
 	
-	kprintf("bound\n");
+	procready(p);
+	
+	unlock(&current->ngroup->lock);
 
 	return 0;
 }
@@ -152,58 +150,45 @@ sysopen(va_list args)
 {
 	int err, flags, mode;
 	const char *upath;
-	char *strpath;
-	struct path *path, *mpath, *pp;
-	struct binding *b, *best;
 	struct chan *c;
+	struct binding_list *bl;
+	struct binding *best;
 	size_t matches, bestmatches;
+	struct path *path, *mpath, *pp;
 	
 	upath = va_arg(args, const char *);
 	flags = va_arg(args, int);
 	
-	kprintf("open '%s' with flags 0b%b\n", upath, flags);
-	
 	if (flags & O_CREATE) {
 		mode = va_arg(args, int);
-		kprintf("and mode = 0b%b\n", mode);
 	} else {
 		mode = 0;
 	}
 	
-	path = strtopath(upath);
+	path = strtopath((uint8_t *) upath);
 	if (path == nil) {
 		return ERR;
 	}
 
-	strpath = pathtostr(path);	
-	kprintf("path = '%s'\n", strpath);
-	kfree(strpath);
-
-	kprintf("check bindings\n");
+	lock(&current->ngroup->lock);
 	
 	bestmatches = 0;
 	best = nil;
-	for (b = current->ngroup->bindings; b != nil; b = b->next) {
-		kprintf("check a binding\n");
-		matches = pathmatches(b->path, path);
+	for (bl = current->ngroup->bindings; bl != nil; bl = bl->next) {
+		matches = pathmatches(bl->binding->path, path);
 		if (matches >= bestmatches) {
-			kprintf("best so far\n");
 			bestmatches = matches;
-			best = b;
+			best = bl->binding;
 		}
 	}
 	
 	if (best == nil) {
 		/* Nothing yet bound. */
 		freepath(path);
+		unlock(&current->ngroup->lock);
 		return ERR;
 	}
 	
-	kprintf("checked all bindings\n");	
-	strpath = pathtostr(best->path);	
-	kprintf("found mount binding at: '%s'\n", strpath);
-	kfree(strpath);
-
 	pp = nil;
 	mpath = path;
 	while (mpath != nil && bestmatches > 0) {
@@ -216,11 +201,9 @@ sysopen(va_list args)
 		freepath(path);
 	}
 	
-	strpath = pathtostr(mpath);
-	kprintf("so path from mount is: '%s'\n", strpath);
-	kfree(strpath);
+	c = fileopen(best, mpath, flags, mode, &err);
 	
-	c = fileopen(best, mpath, flags, &err);
+	unlock(&current->ngroup->lock);
 	
 	if (c == nil) {
 		return err;

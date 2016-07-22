@@ -93,6 +93,8 @@ newproc(void)
 	
 	p->ureg = nil;
 	
+	p->wnext = nil;
+	
 	p->mmu = nil;
 	for (i  = 0; i < Smax; i++)
 		p->segs[i] = nil;

@@ -129,8 +129,13 @@ addchan(struct fgroup *f, struct chan *chan)
 struct chan *
 fdtochan(struct fgroup *f, int fd)
 {
+	struct chan *c = nil;
+	
+	lock(&f->lock);
+	
 	if (fd < f->nchans)
-		return f->chans[fd];
-	else
-		return nil;
+		c = f->chans[fd];
+	
+	unlock(&f->lock);
+	return c;
 }

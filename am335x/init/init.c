@@ -1,6 +1,7 @@
 #include "../include/types.h"
 #include "../include/std.h"
 #include "../include/stdarg.h"
+#include "../include/fs.h"
 
 /* Must not excede one page in size and all changabel variables 
  * must be on the stack. */
@@ -65,8 +66,10 @@ int
 task3(void)
 {
 	int pid = getpid();
-	int in, out;
+	int in;
 	int p1[2], p2[2];
+	uint8_t buf[512];
+	struct request req;
 	
 	printf("%i: set up pipes\n", pid);
 	
@@ -91,20 +94,29 @@ task3(void)
 	close(p2[0]);
 	
 	in = p1[0];
-	out = p2[1];
 
-	char buf[3];	
 	while (true) {
 		printf("%i: read requests\n", pid);
 		
-		if (read(in, buf, sizeof(char) * 3) < 0) {
+		if (read(in, &req, sizeof(struct request)) < 0) {
 			printf("%i: failed to read in\n", pid);
 			break;
 		}
 		
-		printf("%i: read: '%s'\n", pid, buf);
+		printf("%i : Got request with fid: %i\n", pid, req.fid);
 		
-		write(out, buf, sizeof(char) * 3);
+		if (req.n > 0) {
+			req.buf = buf;
+			if (read(in, req.buf, req.n) != req.n) {
+				printf("%i: failed to read buf\n", pid);
+				break;
+			}
+		}
+		
+		switch (req.type) {
+		case REQ_open:
+			printf("%i : should open file '%s'\n", pid, req.buf);
+		}
 	}
 
 	return 3;

@@ -5,7 +5,7 @@ struct pipe {
 
 	bool waiting;	
 	struct proc *proc;
-	char *buf;
+	uint8_t *buf;
 	size_t n;
 };
 
@@ -43,7 +43,7 @@ newpipe(struct chan **c0, struct chan **c1)
 }
 
 int
-piperead(struct chan *c, char *buf, size_t n)
+piperead(struct chan *c, uint8_t *buf, size_t n)
 {
 	struct pipe *p;
 	
@@ -68,7 +68,7 @@ piperead(struct chan *c, char *buf, size_t n)
 }
 
 int
-pipewrite(struct chan *c, char *buf, size_t n)
+pipewrite(struct chan *c, uint8_t *buf, size_t n)
 {
 	size_t l, t;
 	struct pipe *p;

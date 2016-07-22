@@ -5,6 +5,8 @@
 .global _start
 .global setlabel
 .global gotolabel
+.global forkfunc_preloader
+.global forkfunc_loader
 .global uregret
 .global droptouser
 .global fsrstatus
@@ -57,6 +59,21 @@ gotolabel:
 	mov r0, #1
 	mov pc, lr
 
+
+forkfunc_preloader:
+	stmfd r0!, {r1, r2}
+	bx lr
+
+
+forkfunc_loader:
+	ldr lr, =1f	
+	pop {r0, pc}
+
+1:
+	ldr r0, =current
+	bl procremove
+	bl schedule
+	
 
 @ user register return. Not you regret.
 uregret:
@@ -135,4 +152,3 @@ mmudisable:
 	bic r1, r1, #1
 	mcr p15, 0, r1, c1, c0, 0
 	pop {r1, pc}
-	

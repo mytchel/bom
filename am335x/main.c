@@ -5,10 +5,10 @@ extern char *initcode;
 extern int initcodelen;
 
 static void
-initmainproc();
+initmainproc(void);
 
 static void
-initnullproc();
+initnullproc(void);
 
 int
 kmain(void)
@@ -32,8 +32,10 @@ kmain(void)
 }
 
 int
-mainproc(void)
+mainproc(void *arg)
 {
+	kprintf("Drop to user\n");
+	
 	droptouser((void *) USTACK_TOP);
 	return 0; /* Never reached. */
 }
@@ -47,12 +49,11 @@ initmainproc(void)
 	
 	p = newproc();
 	
-	forkfunc(p, &mainproc);
+	forkfunc(p, &mainproc, nil);
 
 	s = newseg(SEG_rw, (void *) (USTACK_TOP - USTACK_SIZE), USTACK_SIZE);
 	p->segs[Sstack] = s;
 	s->pages = newpage((void *) (USTACK_TOP - USTACK_SIZE));
-	
 
 	s = newseg(SEG_ro, (void *) UTEXT, PAGE_SIZE);
 	p->segs[Stext] = s;
@@ -82,7 +83,7 @@ initmainproc(void)
 }
 
 int
-nullproc(void)
+nullproc(void *arg)
 {
 	while (true) {
 		schedule();
@@ -97,8 +98,7 @@ initnullproc(void)
 	
 	p = newproc();
 
-	forkfunc(p, &nullproc);	
+	forkfunc(p, &nullproc, nil);
 
 	procready(p);
 }
-

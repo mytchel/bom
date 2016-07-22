@@ -2,8 +2,24 @@
 #define __FS_H
 
 enum {
-	FS_reqopen, FS_reqclose,
-	FS_reqread, FS_reqwrite,
+	REQ_open, REQ_close,
+	REQ_read, REQ_write,
+};
+
+struct request {
+	int fid;
+	int type;
+
+	int n;
+	uint8_t *buf;
+};
+
+struct response {
+	int fid;
+	int err;
+	
+	int n;
+	uint8_t *buf;
 };
 
 #endif

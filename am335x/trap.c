@@ -146,6 +146,7 @@ trap(struct ureg *ureg)
 		kprintf("kill proc %i for doing something bad\n", current->pid);
 		dumpregs(ureg);
 		procremove(current);
+		schedule();
 	}
 	
 	if (rsch)

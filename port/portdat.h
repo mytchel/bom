@@ -1,5 +1,6 @@
 #include "../include/syscalls.h"
 #include "../include/stdarg.h"
+#include "../include/fs.h"
 
 struct page {
 	void *pa, *va;
@@ -31,15 +32,15 @@ struct chan {
 };
 
 struct chantype {
-	int (*read)(struct chan *, char *, size_t);
-	int (*write)(struct chan *, char *, size_t);
+	int (*read)(struct chan *, uint8_t *, size_t);
+	int (*write)(struct chan *, uint8_t *, size_t);
 	int (*close)(struct chan *);
 };
 
 struct path {
 	int refs;
 	int lock;
-	char *s;
+	uint8_t *s;
 	struct path *next;
 };
 
@@ -51,15 +52,26 @@ struct fgroup {
 };
 
 struct binding {
+	int refs;
+	int lock;
+	
 	struct path *path;
 	struct chan *in, *out;
-	struct binding *next;
+
+	int nreqid;
+	struct response *resp; /* Current response. */
+	struct proc *waiting; /* List of procs waiting. */
+};
+
+struct binding_list {
+	struct binding *binding;
+	struct binding_list *next;
 };
 
 struct ngroup {
 	int refs;
 	int lock;
-	struct binding *bindings;
+	struct binding_list *bindings;
 };
 
 enum {
@@ -73,8 +85,10 @@ enum {
 enum { Sstack, Stext, Sdata, Smax };
 
 struct proc {
+	struct proc *next; /* Next in schedule queue */
+	
 	struct label label;
-	char kstack[KSTACK];
+	uint8_t kstack[KSTACK];
 
 	struct ureg *ureg;
 	
@@ -92,7 +106,8 @@ struct proc {
 	struct segment *segs[Smax];
 	struct page *mmu;
 	
-	struct proc *next;
+	struct proc *wnext; /* Next in wait queue */
+	int fid;
 };
 
 
@@ -105,6 +120,8 @@ initprocs(void);
 
 /****** General Functions ******/
 
+
+/* Procs */
 
 struct proc *
 newproc(void);
@@ -127,6 +144,8 @@ procwait(struct proc *);
 void
 schedule(void);
 
+/* Segments / Proc Memory */
+
 struct segment *
 newseg(int, void *, size_t);
 
@@ -142,6 +161,8 @@ fixfault(void *);
 void *
 kaddr(struct proc *, void *);
 
+/* Kernel memory */
+
 void
 initheap(void *, size_t);
 
@@ -151,17 +172,33 @@ kmalloc(size_t);
 void
 kfree(void *);
 
+void *
+memmove(void *, const void *, size_t);
+
+void *
+memset(void *, int, size_t);
+
+bool
+strcmp(const uint8_t *, const uint8_t *);
+
+size_t
+strlen(const uint8_t *);
+
+/* Channels */
+
 struct chan *
 newchan(int, int, struct path *);
 
 void
 freechan(struct chan *);
 
-struct path *
-strtopath(const char *);
+/* Paths */
 
-char *
-pathtostr(struct path *);
+struct path *
+strtopath(const uint8_t *);
+
+uint8_t *
+pathtostr(struct path *, int *);
 
 void
 freepath(struct path *);
@@ -171,6 +208,8 @@ pathmatches(struct path *, struct path *);
 
 size_t
 pathelements(struct path *);
+
+/* Fgroup */
 
 struct fgroup *
 newfgroup(void);
@@ -187,6 +226,8 @@ addchan(struct fgroup *, struct chan *);
 struct chan *
 fdtochan(struct fgroup *, int);
 
+/* Ngroup */
+
 struct ngroup *
 newngroup(void);
 
@@ -196,17 +237,13 @@ copyngroup(struct ngroup *);
 void
 freengroup(struct ngroup *);
 
-void *
-memmove(void *, const void *, size_t);
+struct binding *
+newbinding(struct path *, struct chan *, struct chan *);
 
-void *
-memset(void *, int, size_t);
+void
+freebinding(struct binding *);
 
-bool
-strcmp(const char *, const char *);
-
-size_t
-strlen(const char *);
+/* Syncronisation */
 
 void
 lock(int *);
@@ -214,32 +251,42 @@ lock(int *);
 void
 unlock(int *);
 
+/* IPC */
+
+int
+mountproc(void *);
+
 bool
 newpipe(struct chan **, struct chan **);
 
 int
-piperead(struct chan *, char *, size_t);
+piperead(struct chan *, uint8_t *, size_t);
 
 int
-pipewrite(struct chan *, char *, size_t);
+pipewrite(struct chan *, uint8_t *, size_t);
 
 int
 pipeclose(struct chan *);
 
 struct chan *
-fileopen(struct binding *, struct path *, int, int *);
+fileopen(struct binding *, struct path *, int, int, int *);
 
 int
-fileread(struct chan *, char *, size_t);
+fileread(struct chan *, uint8_t *, size_t);
 
 int
-filewrite(struct chan *, char *, size_t);
+filewrite(struct chan *, uint8_t *, size_t);
 
 int
 fileclose(struct chan *);
 
+/* Debug */
+
 void
 kprintf(const char *, ...);
+
+void
+dumpregs(struct ureg *);
 
 
 /****** Syscalls ******/
@@ -287,7 +334,7 @@ int
 gotolabel(struct label *);
 
 void
-forkfunc(struct proc *, int (*func)(void));
+forkfunc(struct proc *, int (*func)(void *), void *);
 
 void
 forkchild(struct proc *, struct ureg *);

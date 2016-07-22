@@ -1,7 +1,7 @@
 #include "dat.h"
 
 struct path *
-strtopath(const char *str)
+strtopath(const uint8_t *str)
 {
 	struct path *p;
 	int i, j;
@@ -20,7 +20,7 @@ strtopath(const char *str)
 	 */
 	
 	p->refs = 1;
-	p->s = kmalloc(sizeof(char) * (i+1));
+	p->s = kmalloc(sizeof(uint8_t) * (i+1));
 	for (j = 0; j < i+1; j++)
 		p->s[j] = str[j];
 	p->s[j] = 0;
@@ -29,23 +29,25 @@ strtopath(const char *str)
 	return p;
 }
 
-char *
-pathtostr(struct path *p)
+uint8_t *
+pathtostr(struct path *p, int *n)
 {
-	char *str;
+	uint8_t *str;
 	size_t len, i;
 	struct path *pp;
 	
-	len = 1;
+	len = 0;
 	for (pp = p; pp != nil; pp = pp->next)
 		len += strlen(pp->s) + 1;
 
-	str = kmalloc(sizeof(char) * (len + 1));
+	str = kmalloc(sizeof(uint8_t) * len);
 	if (str == nil)
 		return nil;
-	
+
+	if (n != nil)
+		*n = len;
+		
 	i = 0;
-	str[i++] = '/';
 	for (pp = p; pp != nil; pp = pp->next) {
 		len = strlen(pp->s);
 		memmove(&str[i], pp->s, len);
@@ -55,7 +57,7 @@ pathtostr(struct path *p)
 	}
 	
 	str[i] = 0;
-	
+		
 	return str;
 }
 
