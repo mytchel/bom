@@ -44,6 +44,7 @@ C_SRC := \
 	uart.c			\
 	timer.c			\
 	mem.c			\
+	proc.c			\
 	syscall.c		\
 	mmu.c
 

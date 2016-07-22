@@ -95,13 +95,13 @@ addchan(struct fgroup *f, struct chan *chan)
 		if (f->chans[i] == nil)
 			break;
 	
-	if (f->chans[i] == nil) {
+	if (i < f->nchans) {
 		fd = i;
 	} else {
 		/* Need to grow file table. */
 		struct chan **chans;
 		
-		chans = kmalloc(sizeof(struct file **) * f->nchans * 2);
+		chans = kmalloc(sizeof(struct chan **) * f->nchans * 2);
 		if (chans == nil) {
 			unlock(&f->lock);
 			return -1;

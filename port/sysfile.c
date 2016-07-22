@@ -59,18 +59,24 @@ sysclose(va_list args)
 	struct chan *c;
 	
 	fd = va_arg(args, int);
-	
+
+	kprintf("clsoe %i\n", fd);
+		
 	c = fdtochan(current->fgroup, fd);
 	if (c == nil) {
+		kprintf("%i not found\n", fd);
 		return ERR;
 	}
 	
+	kprintf("lock\n");
 	lock(&current->fgroup->lock);
 
+	kprintf("remove\n");
 	/* Remove fd. */
 	current->fgroup->chans[fd] = nil;
 	freechan(c);	
 
+	kprintf("unlock\n");
 	unlock(&current->fgroup->lock);
 	
 	return 0;

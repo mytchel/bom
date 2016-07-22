@@ -107,7 +107,7 @@ struct proc {
 	struct page *mmu;
 	
 	struct proc *wnext; /* Next in wait queue */
-	int fid;
+	int rid;
 };
 
 

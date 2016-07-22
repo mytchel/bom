@@ -40,7 +40,7 @@ mountproc(void *arg)
 		
 		pp = nil;
 		for (p = b->waiting; p != nil; pp = p, p = p->wnext) {
-			if (p->fid == b->resp->fid) {
+			if (p->rid == b->resp->rid) {
 				procready(p);
 				if (pp == nil) {
 					b->waiting = p->wnext;
@@ -98,14 +98,14 @@ makereq(struct binding *b, struct request *req)
 
 	kprintf("write request\n");
 	
-	req->fid = b->nreqid++;
+	req->rid = b->nreqid++;
 	pipewrite(b->out, (uint8_t *) req, sizeof(struct request));
 	
 	if (req->n > 0) {
 		pipewrite(b->out, req->buf, req->n);
 	}
 	
-	current->fid = req->fid;
+	current->rid = req->rid;
 	current->wnext = b->waiting;
 	b->waiting = current;
 	
@@ -125,23 +125,20 @@ makereq(struct binding *b, struct request *req)
 struct chan *
 fileopen(struct binding *b, struct path *path, int flag, int mode, int *err)
 {
-	struct request *req;
+	struct request req;
 	struct response *resp;
 	
 	*err = ERR;
 	kprintf("file open\n");
 	
-	req = kmalloc(sizeof(struct request));
-	if (req == nil)
-		return nil;
+	req.type = REQ_open;
+	req.buf = (uint8_t *) pathtostr(path, &(req.n));
 	
-	req->type = REQ_open;
-	req->buf = (uint8_t *) pathtostr(path, &(req->n));
+	kprintf("req path = '%s'\n", req.buf);
 	
-	kprintf("req path = '%s'\n", req->buf);
-	
-	resp = makereq(b, req);
-	
+	resp = makereq(b, &req);
+
+	kprintf("got response, rid = %i\n", resp->rid);	
 	*err = resp->err;
 
 	kfree(resp);

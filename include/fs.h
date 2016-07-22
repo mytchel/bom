@@ -7,7 +7,7 @@ enum {
 };
 
 struct request {
-	int fid;
+	int rid;
 	int type;
 
 	int n;
@@ -15,7 +15,7 @@ struct request {
 };
 
 struct response {
-	int fid;
+	int rid;
 	int err;
 	
 	int n;
