@@ -38,10 +38,8 @@ struct chantype {
 };
 
 struct path {
-	int refs;
-	int lock;
 	uint8_t *s;
-	struct path *next;
+	struct path *prev, *next;
 };
 
 struct fgroup {
@@ -95,6 +93,7 @@ struct proc {
 	int state;
 	int pid;
 	struct proc *parent;
+	struct path *dot;
 	
 	int faults;
 	uint32_t quanta;
@@ -200,6 +199,12 @@ strtopath(const uint8_t *);
 uint8_t *
 pathtostr(struct path *, int *);
 
+struct path *
+realpath(struct path *, const uint8_t *);
+
+struct path *
+copypath(struct path *);
+
 void
 freepath(struct path *);
 
@@ -269,7 +274,7 @@ int
 pipeclose(struct chan *);
 
 struct chan *
-fileopen(struct binding *, struct path *, int, int, int *);
+fileopen(struct path *, int, int, int *);
 
 int
 fileread(struct chan *, uint8_t *, size_t);

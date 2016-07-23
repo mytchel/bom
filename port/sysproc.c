@@ -16,7 +16,8 @@ sysexit(va_list args)
 		if (s != nil)
 			freeseg(s);
 	}
-	
+
+	freepath(current->dot);	
 	freefgroup(current->fgroup);
 	freengroup(current->ngroup);
 	
@@ -59,6 +60,7 @@ sysfork(va_list args)
 
 	p->parent = current;
 	p->quanta = current->quanta;
+	p->dot = copypath(current->dot);
 
 	copy = flags & FORK_cmem;
 	for (i = 0; i < Smax; i++) {

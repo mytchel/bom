@@ -60,23 +60,17 @@ sysclose(va_list args)
 	
 	fd = va_arg(args, int);
 
-	kprintf("clsoe %i\n", fd);
-		
 	c = fdtochan(current->fgroup, fd);
 	if (c == nil) {
-		kprintf("%i not found\n", fd);
 		return ERR;
 	}
 	
-	kprintf("lock\n");
 	lock(&current->fgroup->lock);
 
-	kprintf("remove\n");
 	/* Remove fd. */
 	current->fgroup->chans[fd] = nil;
 	freechan(c);	
 
-	kprintf("unlock\n");
 	unlock(&current->fgroup->lock);
 	
 	return 0;
@@ -109,7 +103,7 @@ sysbind(va_list args)
 	lock(&current->ngroup->lock);
 
 	kprintf("check path : '%s'\n", upath);
-	path = strtopath((uint8_t *) upath);
+	path = realpath(current->dot, (uint8_t *) upath);
 
 	/* Add binding. */
 	kprintf("new binding\n");
@@ -170,12 +164,11 @@ sysopen(va_list args)
 	} else {
 		mode = 0;
 	}
-	
-	path = strtopath((uint8_t *) upath);
-	if (path == nil) {
-		return ERR;
-	}
 
+	path = realpath(current->dot, (uint8_t *) upath);
+
+	return ERR;
+	
 	lock(&current->ngroup->lock);
 	
 	bestmatches = 0;
@@ -207,7 +200,7 @@ sysopen(va_list args)
 		freepath(path);
 	}
 	
-	c = fileopen(best, mpath, flags, mode, &err);
+	c = fileopen(mpath, flags, mode, &err);
 	
 	unlock(&current->ngroup->lock);
 	

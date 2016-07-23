@@ -7,19 +7,32 @@ enum {
 };
 
 struct request {
-	int rid;
-	int type;
+	uint32_t rid;
+	uint8_t type;
 
-	int n;
+	size_t n;
 	uint8_t *buf;
 };
 
 struct response {
-	int rid;
-	int err;
+	uint32_t rid;
+	uint8_t err;
 	
-	int n;
+	size_t n;
 	uint8_t *buf;
+};
+
+struct file {
+	uint32_t fid;
+	uint32_t attr;
+	
+	size_t namelen;
+	uint8_t *name;
+};
+
+struct dir {
+	size_t nfiles;
+	struct file **files;
 };
 
 #endif

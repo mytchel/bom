@@ -20,10 +20,13 @@ kmalloc(size_t size)
 {
 	struct block *b, *n, *p;
 	void *block;
-	
+
 	if (size < sizeof(struct block)) {
 		size = sizeof(struct block);
 	}
+
+	/* Align to void * */	
+	size += sizeof(void *) - (size % sizeof(void *));
 
 	p = nil;
 	for (b = heap; b != nil; p = b, b = b->next) {
@@ -33,14 +36,14 @@ kmalloc(size_t size)
 	}
 	
 	if (b == nil) {
-		kprintf("Kernel has run out of memory!\n");
+		kprintf("HEAP EMPTY!\n");
 		return (void *) nil;
 	}
 
-	block = (void *) ((reg_t) b + sizeof(size_t));
+	block = (void *) ((uint8_t *) b + sizeof(size_t));
 	
 	if (b->size > size) {
-		n = (struct block *) ((reg_t) block + size);
+		n = (struct block *) ((uint8_t *) block + size);
 		n->size = b->size - size - sizeof(size_t);
 		n->next = b->next;
 	} else {

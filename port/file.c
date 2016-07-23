@@ -89,6 +89,7 @@ mountproc(void *arg)
 	return 0;
 }
 
+#if 0
 static struct response *
 makereq(struct binding *b, struct request *req)
 {
@@ -122,15 +123,20 @@ makereq(struct binding *b, struct request *req)
 	return resp;
 }
 
+#endif
+
 struct chan *
-fileopen(struct binding *b, struct path *path, int flag, int mode, int *err)
+fileopen(struct path *path, int flag, int mode, int *err)
 {
+/*
 	struct request req;
 	struct response *resp;
-	
+*/	
 	*err = ERR;
 	kprintf("file open\n");
-	
+
+
+/*	
 	req.type = REQ_open;
 	req.buf = (uint8_t *) pathtostr(path, &(req.n));
 	
@@ -142,6 +148,7 @@ fileopen(struct binding *b, struct path *path, int flag, int mode, int *err)
 	*err = resp->err;
 
 	kfree(resp);
+*/
 	return nil;
 }
 

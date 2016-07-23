@@ -84,9 +84,11 @@ newproc(void)
 	if (p == nil)
 		return nil;
 	
-	p->parent = nil;
 	p->state = PROC_suspend;
 	p->pid = nextpid++;
+	
+	p->parent = nil;
+	p->dot = nil;
 	
 	p->faults = 0;
 	p->quanta = 40;

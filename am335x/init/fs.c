@@ -71,12 +71,21 @@ pfile_open(void)
 	int pid = getpid();
 	int fd;
 	
-	fd = open("/com", O_WRONLY);
+
+	/* Some tests */
+	open("../hello/there/../testing", O_RDONLY);
+	open("/../dev", O_RDONLY);
+	open("../com", O_RDONLY);
+	open("/././.", O_RDONLY);
+	open("./com", O_RDONLY);
+	open("com", O_RDONLY);
+
+	fd = open("/dev/com", O_WRONLY);
 	if (fd == -1) {
 		printf("%i: open /com failed\n", pid);
 		return -4;
 	}
-	
+		
 	while (true) {
 		write(fd, "Hello\n", sizeof(char) * 7);
 		sleep(5000);

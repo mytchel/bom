@@ -1,14 +1,14 @@
 #include "dat.h"
 
-struct path *
-strtopath(const uint8_t *str)
+static struct path *
+strtopathh(struct path *prev, const uint8_t *str)
 {
 	struct path *p;
 	int i, j;
 	
 	for (i = 0; str[i] && str[i] != '/'; i++);
 	if (i == 0 && str[i]) {
-		return strtopath(str + 1);
+		return strtopathh(prev, str + 1);
 	} else if (i == 0) {
 		return nil;
 	}
@@ -19,14 +19,20 @@ strtopath(const uint8_t *str)
 	 * (or end of the path).
 	 */
 	
-	p->refs = 1;
 	p->s = kmalloc(sizeof(uint8_t) * (i+1));
-	for (j = 0; j < i+1; j++)
+	for (j = 0; j < i; j++)
 		p->s[j] = str[j];
 	p->s[j] = 0;
 	
-	p->next = strtopath(str + i);
+	p->prev = prev;
+	p->next = strtopathh(p, str + i);
 	return p;
+}
+
+struct path *
+strtopath(const uint8_t *str)
+{
+	return strtopathh(nil, str);
 }
 
 uint8_t *
@@ -41,9 +47,10 @@ pathtostr(struct path *p, int *n)
 		len += strlen(pp->s) + 1;
 
 	str = kmalloc(sizeof(uint8_t) * len);
-	if (str == nil)
+	if (str == nil) {
 		return nil;
-
+	}
+		
 	if (n != nil)
 		*n = len;
 		
@@ -61,19 +68,118 @@ pathtostr(struct path *p, int *n)
 	return str;
 }
 
+struct path *
+realpath(struct path *po, const uint8_t *str)
+{
+	struct path *pstr, *pp, *pt, *path;
+	
+	pstr = strtopath(str);
+	if (str[0] == '/' || po == nil) {
+		path = pstr;
+	} else {
+		path = copypath(po);
+
+		for (pp = path; pp != nil && pp->next != nil; pp = pp->next);
+
+		pp->next = pstr;
+	}
+	
+	pp = path;
+	while (pp != nil) {
+		if (strcmp(pp->s, (const uint8_t *) "..")) {
+			/* Remove current and previous part */
+			pt = pp->prev;
+			if (pt == nil) {
+				path = pp->next;
+				if (pp->next != nil)
+					pp->next->prev = nil;
+				
+				kfree(pp->s);
+				kfree(pp);
+				pp = path;
+			} else {
+				if (pt->prev != nil) {
+					pt->prev->next = pp->next;
+					if (pp->next != nil)
+						pp->next->prev = pt->prev;
+				} else {
+					path = pp->next;
+					if (pp->next != nil)
+						pp->next->prev = nil;
+				}
+				
+				kfree(pt->s);
+				kfree(pt);
+
+				pt = pp;
+				pp = pp->next;
+				kfree(pt->s);
+				kfree(pt);
+			}	
+		} else if (strcmp(pp->s, (const uint8_t *) ".")) {
+			/* Remove current part */
+			pt = pp;
+			
+			if (pp->prev != nil) {
+				pp->prev->next = pp->next;
+			} else {
+				path = pp->next;
+			}
+			
+			if (pp->next != nil)
+				pp->next->prev = pp->prev;
+			
+			pp = pp->next;
+			
+			kfree(pt->s);
+			kfree(pt);
+		} else {
+			pp = pp->next;
+		}
+	}
+	
+	return path;
+}
+
+struct path *
+copypath(struct path *o)
+{
+	struct path *n, *nn;
+	size_t l;
+	
+	if (o == nil)
+		return nil;
+	
+	n = kmalloc(sizeof(struct path));
+	nn = n;
+	nn->prev = nil;
+	
+	while (o != nil) {
+		l = strlen(o->s) + 1;
+		nn->s = kmalloc(sizeof(uint8_t) * l);
+		memmove(nn->s, o->s, l);
+
+		o = o->next;
+		if (o != nil) {
+			nn->next = kmalloc(sizeof(struct path));
+			nn->next->prev = nn;
+			nn = nn->next;
+		}
+	}
+	
+	nn->next = nil;
+	
+	return n;
+}
+
 void
 freepath(struct path *p)
 {
-	lock(&p->lock);
-	
-	p->refs--;
-	if (p->refs > 0) {
-		unlock(&p->lock);
+	if (p == nil)
 		return;
-	}
 		
-	if (p->next)
-		kfree(p->next);
+	freepath(p->next);
+	
 	kfree(p->s);
 	kfree(p);
 }
