@@ -5,18 +5,47 @@
 
 #include "head.h"
 
-#define RootDirLen (sizeof(struct dir) + \
-	sizeof(struct file *) * 2 + \
-	sizeof(struct file) * 2 + \
-	sizeof(uint8_t) * 8)
+uint8_t *
+dumpdir(struct dir *dir, size_t *size)
+{
+	uint8_t *buf, *b;
+	struct file *f;
+	int i;
+	
+	*size = sizeof(struct dir);
+	
+	for (i = 0; i < dir->nfiles; i++) {
+		*size += sizeof(struct file *) + sizeof(struct file);
+		*size += sizeof(uint8_t) * dir->files[i]->namelen;
+	}
+	
+	buf = malloc(*size);
+	if (buf == nil) {
+		return nil;
+	}
+	
+	b = buf;
+	
+	memmove(b, (const void *) dir, sizeof(struct dir));
+	b += sizeof(struct dir);
+	b += sizeof(struct file *) * dir->nfiles;
+	
+	for (i = 0; i < dir->nfiles; i++) {
+		f = dir->files[i];
+		memmove(b, (const void *) f, sizeof(struct file));
+		b += sizeof(struct file);
+		memmove(b, (const void *) f->name, sizeof(uint8_t) * f->namelen);
+		b += sizeof(uint8_t) * f->namelen;
+	}
+	
+	return buf;
+}
 
 void
 walk(struct request *req, struct response *resp)
 {
 	struct dir dir;
-	struct file *files[2], f1, f2, *f;
-	uint8_t buf[RootDirLen], *b;
-	int i;
+	struct file *files[2], f1, f2;
 	
 	dir.nfiles = 2;
 	dir.files = (struct file **) files;
@@ -34,23 +63,7 @@ walk(struct request *req, struct response *resp)
 	f2.namelen = 4;
 	f2.name = (uint8_t *) "com";
 	
-	resp->n = RootDirLen;	
-	resp->buf = buf;
-	b = buf;
-	
-	memmove(b, (const void *) &dir, sizeof(struct dir));
-	b += sizeof(struct dir);
-	memmove(b, (const void *) files, sizeof(struct file *) * dir.nfiles);
-	b += sizeof(struct file *) * dir.nfiles;
-	
-	for (i = 0; i < dir.nfiles; i++) {
-		f = dir.files[i];
-		memmove(b, (const void *) f, sizeof(struct file));
-		b += sizeof(struct file);
-		memmove(b, (const void *) f->name, sizeof(uint8_t) * f->namelen);
-		b += sizeof(uint8_t) * f->namelen;
-	}
-	
+	resp->buf = dumpdir(&dir, &resp->n);
 	resp->err = OK;
 }
 
@@ -134,6 +147,8 @@ pmount(void)
 			if (write(out, resp.buf, resp.n) != resp.n) {
 				break;
 			}
+			
+			free(resp.buf);
 		}
 	}
 

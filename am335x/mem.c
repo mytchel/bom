@@ -88,3 +88,10 @@ freepage(struct page *p)
 	p->next = pages;
 	pages = p;
 }
+
+void *
+pagealign(void *addr)
+{
+	uint32_t x = (uint32_t) addr;
+	return (void *) PAGE_ALIGN(x);
+}

@@ -23,7 +23,7 @@ main(void)
 	sleep(1000);
 	
 	printf("Fork once\n");
-	f = fork(FORK_cfgroup | FORK_cmem);
+	f = fork(FORK_sngroup);
 	if (f < 0) {
 		printf("fork failed\n");
 	} else if (!f) {
@@ -38,7 +38,7 @@ main(void)
 	sleep(1000);
 	
 	printf("Fork twice\n");
-	f = fork(FORK_cfgroup | FORK_cmem);
+	f = fork(FORK_sngroup);
 	if (f < 0) {
 		printf("fork failed\n");
 	} else if (!f) {
@@ -48,7 +48,7 @@ main(void)
 	close(fds[1]);
 	
 	printf("Fork thrice\n");
-	f = fork(FORK_cfgroup | FORK_cmem);
+	f = fork(FORK_sngroup);
 	if (f < 0) {
 		printf("fork failed\n");
 	} else if (!f) {
@@ -58,7 +58,7 @@ main(void)
 	sleep(1000);
 
 	printf("Fork frife\n");
-	f = fork(FORK_cfgroup | FORK_cmem);
+	f = fork(FORK_sngroup);
 	if (f < 0) {
 		printf("fork failed\n");
 	} else if (!f) {

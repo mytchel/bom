@@ -1,44 +1,39 @@
-#include "dat.h"
+#include "head.h"
 
 struct block {
 	size_t size;
 	struct block *next;
 };
 
-static struct block *heap;
-
-void
-initheap(void *start, size_t size)
-{
-	heap = (struct block *) start;
-	heap->size = size - sizeof(size_t);
-	heap->next = nil;
-}
+static struct block *heap = nil;
 
 struct block *
-growheap(struct block *prev)
+growheap(struct block *prev, size_t size)
 {
-	struct page *pg;
 	struct block *b;
+		
+	printf("Grow heap\n");
 	
-	kprintf("grow heap\n");
-	
-	pg = newpage(0);
-	if (pg == nil) {
+	b = getmem(&size);
+	printf("got block 0x%h\n", b);
+	if (b == nil) {
 		return nil;
 	} else if (prev == nil) {
-		b = heap = (struct block *) pg->pa;
+		printf("Reset heap\n");
+		heap = b;
 	} else {
-		b = prev->next = (struct block *) pg->pa;
+		printf("append to end of heap\n");
+		prev->next = b;
 	}
 	
-	b->size = pg->size - sizeof(size_t);
+	b->size = size - sizeof(size_t);
 	b->next = nil;
+	
 	return b;
 }
 
 void *
-kmalloc(size_t size)
+malloc(size_t size)
 {
 	struct block *b, *n, *p;
 	void *block;
@@ -55,9 +50,9 @@ kmalloc(size_t size)
 	}
 	
 	if (b == nil) {
-		b = growheap(p);
+		b = growheap(p, size * 2);
 		if (b == nil) {
-			kprintf("Out of memory!\n");
+			printf("Out of memory!\n");
 			return nil;
 		}
 	}
@@ -87,7 +82,7 @@ kmalloc(size_t size)
 }
 
 void
-kfree(void *ptr)
+free(void *ptr)
 {
 	struct block *b, *p;
 
@@ -113,7 +108,7 @@ kfree(void *ptr)
 	}
 	
 	if (p == nil) {
-		kprintf("Are you sure 0x%h is from the heap?\n", ptr);
+		printf("Are you sure 0x%h is from the heap?\n", ptr);
 		return;
 	}
 	

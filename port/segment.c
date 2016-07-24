@@ -12,6 +12,7 @@ newseg(int type)
 
 	s->refs = 1;	
 	s->type = type;
+	s->pages = nil;
 	
 	return s;
 }
@@ -52,6 +53,9 @@ copyseg(struct segment *s, bool copy)
 			return nil;
 
 		sp = s->pages;
+		if (sp == nil)
+			return n;
+
 		n->pages = newpage(sp->va);
 		np = n->pages;
 		while (sp != nil) {
@@ -77,9 +81,6 @@ findpage(struct proc *p, void *addr, struct segment **seg)
 
 	for (i = 0; i < Smax; i++) {
 		s = p->segs[i];
-		if (s == nil)
-			continue;
-			
 		for (pg = s->pages; pg != nil; pg = pg->next) {
 			if (pg->va <= addr && pg->va + pg->size > addr) {
 				*seg = s;

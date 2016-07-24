@@ -79,7 +79,7 @@ enum {
 	PROC_waiting,
 };
 
-enum { Sstack, Stext, Sdata, Smax };
+enum { Sstack, Stext, Sdata, Sheap, Smax };
 
 struct proc {
 	struct proc *next; /* Next in schedule queue */
@@ -290,16 +290,18 @@ dumpregs(struct ureg *);
 /****** Syscalls ******/
 
 
-int sysexit(va_list);
-int sysfork(va_list);
-int syssleep(va_list);
-int sysgetpid(va_list);
-int syspipe(va_list);
-int sysread(va_list);
-int syswrite(va_list);
-int sysclose(va_list);
-int sysbind(va_list);
-int sysopen(va_list);
+reg_t sysexit(va_list);
+reg_t sysfork(va_list);
+reg_t syssleep(va_list);
+reg_t sysgetpid(va_list);
+reg_t sysgetmem(va_list);
+reg_t sysrmmem(va_list);
+reg_t syspipe(va_list);
+reg_t sysread(va_list);
+reg_t syswrite(va_list);
+reg_t sysclose(va_list);
+reg_t sysbind(va_list);
+reg_t sysopen(va_list);
 
 
 /****** Machine Implimented ******/
@@ -356,13 +358,16 @@ newpage(void *);
 void
 freepage(struct page *);
 
+void *
+pagealign(void *);
+
 
 /****** Global Variables ******/
 
 
 extern struct proc *current;
 
-extern int (*syscalltable[NSYSCALLS])(va_list);
+extern reg_t (*syscalltable[NSYSCALLS])(va_list);
 
 extern struct chantype devpipe;
 extern struct chantype devfile;

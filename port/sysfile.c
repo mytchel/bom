@@ -1,6 +1,6 @@
 #include "dat.h"
 
-int
+reg_t
 sysread(va_list args)
 {
 	int r, fd;
@@ -26,7 +26,7 @@ sysread(va_list args)
 	return r;
 }
 
-int
+reg_t
 syswrite(va_list args)
 {
 	int r, fd;
@@ -52,7 +52,7 @@ syswrite(va_list args)
 	return r;
 }
 
-int
+reg_t
 sysclose(va_list args)
 {
 	int fd;
@@ -76,7 +76,7 @@ sysclose(va_list args)
 	return OK;
 }
 
-int
+reg_t
 sysbind(va_list args)
 {
 	int infd, outfd;
@@ -112,7 +112,7 @@ sysbind(va_list args)
 	if (bl == nil) {
 		freepath(path);
 		unlock(&current->ngroup->lock);
-		return ERR;
+		return ENOMEM;
 	}
 		
 	bl->binding = newbinding(path, out, in);
@@ -120,7 +120,7 @@ sysbind(va_list args)
 		kfree(bl);
 		freepath(path);
 		unlock(&current->ngroup->lock);
-		return ERR;
+		return ENOMEM;
 	}
 		
 	bl->next = current->ngroup->bindings;
@@ -131,7 +131,7 @@ sysbind(va_list args)
 		freebinding(bl->binding);
 		kfree(bl);
 		unlock(&current->ngroup->lock);
-		return ERR;
+		return ENOMEM;
 	}
 	
 	forkfunc(p, &mountproc, (void *) bl->binding);
@@ -145,7 +145,7 @@ sysbind(va_list args)
 	return OK;
 }
 
-int
+reg_t
 sysopen(va_list args)
 {
 	int err, mode, cmode;
@@ -174,7 +174,7 @@ sysopen(va_list args)
 	}
 }
 
-int
+reg_t
 syspipe(va_list args)
 {
 	int *fds;
@@ -183,7 +183,7 @@ syspipe(va_list args)
 	fds = va_arg(args, int*);
 
 	if (!newpipe(&c0, &c1)) {
-		return ERR;
+		return ENOMEM;
 	}
 	
 	fds[0] = addchan(current->fgroup, c0);

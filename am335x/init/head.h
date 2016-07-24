@@ -15,6 +15,12 @@ puts(const char *);
 void
 printf(const char *, ...);
 
+void *
+malloc(size_t);
+
+void
+free(void *);
+
 int
 ppipe0(int fd);
 

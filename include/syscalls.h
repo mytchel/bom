@@ -1,20 +1,23 @@
 #ifndef __SYSCALLS_H
 #define __SYSCALLS_H
 
-#define SYSCALL_EXIT	1
-#define SYSCALL_FORK	2
-#define SYSCALL_SLEEP	3
-#define SYSCALL_GETPID	4
+#define SYSCALL_EXIT		1
+#define SYSCALL_FORK		2
+#define SYSCALL_SLEEP		3
+#define SYSCALL_GETPID		4
 
-#define SYSCALL_PIPE	5
-#define SYSCALL_READ	6
-#define SYSCALL_WRITE	7
-#define SYSCALL_CLOSE	8
+#define SYSCALL_GETMEM		5
+#define SYSCALL_RMMEM		6
 
-#define SYSCALL_BIND	9
-#define SYSCALL_OPEN	10
+#define SYSCALL_PIPE		7
+#define SYSCALL_READ		8
+#define SYSCALL_WRITE		9
+#define SYSCALL_CLOSE		10
 
-#define NSYSCALLS	11
+#define SYSCALL_BIND		11
+#define SYSCALL_OPEN		12
+
+#define NSYSCALLS		13
 
 #define OK		0
 /* General error, either args or memory alloc failed. */
@@ -25,14 +28,16 @@
 #define EMODE		-3
 /* No such file. */
 #define ENOFILE		-4
-/* Function not defined */
+/* Function not implimented */
 #define ENOIMPL		-5
+/* No memory */
+#define ENOMEM		-6
 
-/* Should processor aspects be copyied to child
- * rather than shared with child. */
-#define FORK_cmem	(1<<0)
-#define FORK_cfgroup	(1<<1)
-#define FORK_cngroup	(1<<2)
+/* Should processor aspects be shared with the child
+ * rather than copied. */
+#define FORK_smem	(1<<0)
+#define FORK_sfgroup	(1<<1)
+#define FORK_sngroup	(1<<2)
 
 #define O_RDONLY	(1<<0)
 #define O_WRONLY	(1<<1)

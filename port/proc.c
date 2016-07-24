@@ -98,8 +98,11 @@ newproc(void)
 	p->wnext = nil;
 	
 	p->mmu = nil;
-	for (i  = 0; i < Smax; i++)
-		p->segs[i] = nil;
+
+	p->segs[Sstack] = newseg(SEG_rw);
+	p->segs[Stext] = newseg(SEG_ro);
+	p->segs[Sdata] = newseg(SEG_rw);
+	p->segs[Sheap] = newseg(SEG_rw);
 	
 	for (pp = procs; pp->next; pp = pp->next);
 	pp->next = p;

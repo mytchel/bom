@@ -7,6 +7,8 @@
 .global fork
 .global sleep
 .global getpid
+.global getmem
+.global rmmem
 .global pipe
 .global read
 .global write
@@ -48,7 +50,25 @@ getpid:
 	mov r0, #SYSCALL_GETPID
 	svc 0
 	pop {pc}
-		
+
+
+getmem:
+	push {lr}
+	push {r0}
+	mov r0, #SYSCALL_GETMEM
+	svc 0
+	add sp, sp, #4
+	pop {pc}
+
+
+rmmem:
+	push {lr}
+	push {r0, r1}
+	mov r0, #SYSCALL_RMMEM
+	svc 0
+	add sp, sp, #(4 * 2)
+	pop {pc}
+			
 
 pipe:
 	push {lr}

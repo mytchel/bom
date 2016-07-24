@@ -1,5 +1,4 @@
 #include <stdio.h>
-#include <unistd.h>
 
 int
 main(int argc, char *argv[])
@@ -7,8 +6,13 @@ main(int argc, char *argv[])
 	char b;
 	int l = 0;
 	
+	FILE *f = fopen(argv[2], "r");
+	if (!f) {
+		return 1;
+	}
+		
 	printf("char %s[] = {", argv[1]);
-	while (read(0, &b, sizeof(char))) {
+	while (fread(&b, 1, 1, f)) {
 		printf("%i,", b);
 		l++;
 	}
@@ -17,5 +21,6 @@ main(int argc, char *argv[])
 	
 	printf("int %slen = %i;\n", argv[1], l);
 	
+	fclose(f);
 	return 0;
 }

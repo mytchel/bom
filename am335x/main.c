@@ -1,8 +1,8 @@
 #include "dat.h"
 #include "fns.h"
 
-extern char *initcode;
-extern int initcodelen;
+extern char *initcodetext, *initcodedata;
+extern int initcodetextlen, initcodedatalen;
 
 static void
 initmainproc(void);
@@ -40,39 +40,23 @@ mainproc(void *arg)
 	return 0; /* Never reached. */
 }
 
-void
-initmainproc(void)
+static struct page *
+copysegment(struct segment *s, char **buf, size_t len)
 {
-	struct proc *p;
-	struct segment *s;
 	struct page *pg;
-	size_t l, codelen, ci;
+	size_t i, l;
 	
-	p = newproc();
-	
-	forkfunc(p, &mainproc, nil);
-
-	s = newseg(SEG_rw);
-	p->segs[Sstack] = s;
-	s->pages = newpage((void *) (USTACK_TOP - USTACK_SIZE));
-
-	s = newseg(SEG_ro);
-	p->segs[Stext] = s;
-	s->pages = newpage((void *) UTEXT);
-
-	codelen = initcodelen;
-	ci = 0;
-	
+	i = 0;
 	pg = s->pages;
 	while (true) {
-		l = codelen > PAGE_SIZE ? PAGE_SIZE : codelen;
+		l = len > PAGE_SIZE ? PAGE_SIZE : len;
 		
-		memmove(pg->pa, (uint8_t *) &initcode + ci, l);
-			
-		codelen -= l;
-		ci += l;
+		memmove(pg->pa, (uint8_t *) buf + i, l);
 		
-		if (codelen > 0) {
+		len -= l;	
+		i += l;
+		
+		if (len > 0) {
 			pg->next = newpage(pg->va + pg->size);
 			pg = pg->next;
 		} else {
@@ -80,6 +64,29 @@ initmainproc(void)
 			break;
 		}
 	}
+	
+	return pg;
+}
+
+void
+initmainproc(void)
+{
+	struct proc *p;
+	struct page *pg;
+		
+	p = newproc();
+	
+	forkfunc(p, &mainproc, nil);
+
+	p->segs[Sstack]->pages = newpage((void *) (USTACK_TOP - USTACK_SIZE));
+
+	kprintf("Copy init code text len %i\n", initcodetextlen);
+	p->segs[Stext]->pages = newpage((void *) UTEXT);
+	pg = copysegment(p->segs[Stext], &initcodetext, initcodetextlen);
+
+	kprintf("Copy init code data len %i\n", initcodedatalen);
+	p->segs[Sdata]->pages = newpage(pg->va + pg->size);
+	copysegment(p->segs[Sdata], &initcodedata, initcodedatalen);
 	
 	p->fgroup = newfgroup();
 	p->ngroup = newngroup();
