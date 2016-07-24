@@ -46,29 +46,34 @@ initmainproc(void)
 	struct proc *p;
 	struct segment *s;
 	struct page *pg;
+	size_t l, codelen, ci;
 	
 	p = newproc();
 	
 	forkfunc(p, &mainproc, nil);
 
-	s = newseg(SEG_rw, (void *) (USTACK_TOP - USTACK_SIZE), USTACK_SIZE);
+	s = newseg(SEG_rw);
 	p->segs[Sstack] = s;
 	s->pages = newpage((void *) (USTACK_TOP - USTACK_SIZE));
 
-	s = newseg(SEG_ro, (void *) UTEXT, PAGE_SIZE);
+	s = newseg(SEG_ro);
 	p->segs[Stext] = s;
 	s->pages = newpage((void *) UTEXT);
+
+	codelen = initcodelen;
+	ci = 0;
 	
 	pg = s->pages;
 	while (true) {
-		memmove(pg->pa, &initcode,
-			initcodelen > PAGE_SIZE ? PAGE_SIZE : initcodelen);
-			
-		initcodelen -= PAGE_SIZE;
-		initcode += PAGE_SIZE;
+		l = codelen > PAGE_SIZE ? PAGE_SIZE : codelen;
 		
-		if (initcodelen > 0) {
-			pg->next = newpage(pg->va + PAGE_SIZE);
+		memmove(pg->pa, (uint8_t *) &initcode + ci, l);
+			
+		codelen -= l;
+		ci += l;
+		
+		if (codelen > 0) {
+			pg->next = newpage(pg->va + pg->size);
 			pg = pg->next;
 		} else {
 			pg->next = nil;

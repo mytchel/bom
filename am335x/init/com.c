@@ -1,5 +1,6 @@
 #include "../include/types.h"
 #include "../include/stdarg.h"
+#include "../include/std.h"
 
 void
 puts(const char *);
@@ -115,5 +116,6 @@ printf(const char *fmt, ...)
 	va_end(ap);
 	
 	/* For now */
+	sleep(0); /* Let other things run so we have a decent time frame. */
 	puts(str);
 }

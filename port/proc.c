@@ -91,7 +91,7 @@ newproc(void)
 	p->dot = nil;
 	
 	p->faults = 0;
-	p->quanta = 40;
+	p->quanta = 100;
 	
 	p->ureg = nil;
 	

@@ -16,12 +16,17 @@
 
 #define NSYSCALLS	11
 
+#define OK		0
 /* General error, either args or memory alloc failed. */
 #define ERR		-1
-
-/* Pipe connection closed or in incompatable state.
- * eg: pipe link is reading when attempting to read. */
+/* Pipe connection closed somewhere along the line. */
 #define ELINK		-2
+/* Pipe/File mode wrong for operation. */
+#define EMODE		-3
+/* No such file. */
+#define ENOFILE		-4
+/* Function not defined */
+#define ENOIMPL		-5
 
 /* Should processor aspects be copyied to child
  * rather than shared with child. */

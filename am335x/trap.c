@@ -134,8 +134,9 @@ trap(struct ureg *ureg)
 			break;
 		case 0xd: /* section permission */
 		case 0xf: /* page permission */
-			kprintf("may need to change page permissions.\n"
-				"for now just kill\n");
+			kprintf("page permission error for 0x%h\n"
+				"may need to change page permissions.\n"
+				"for now just kill\n", addr);
 			break;
 		}
 		

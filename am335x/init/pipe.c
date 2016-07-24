@@ -36,7 +36,7 @@ ppipe1(int fd)
 	for (i = 0; i < 4; i++) {
 		printf("%i: sleep\n", pid);
 		
-		sleep(2000);
+		sleep(500);
 		
 		printf("%i: writing %i\n", pid, i);
 

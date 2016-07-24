@@ -13,8 +13,6 @@ enum { SEG_rw, SEG_ro };
 struct segment {
 	int refs;
 	int type;
-	void *base, *top;
-	int size;
 	struct page *pages;
 };
 
@@ -25,7 +23,7 @@ struct chan {
 	int lock;
 	
 	int type;
-	int flags;
+	int mode;
 	struct path *path;
 	
 	void *aux;
@@ -59,6 +57,7 @@ struct binding {
 	int nreqid;
 	struct response *resp; /* Current response. */
 	struct proc *waiting; /* List of procs waiting. */
+	struct proc *srv;
 };
 
 struct binding_list {
@@ -146,7 +145,7 @@ schedule(void);
 /* Segments / Proc Memory */
 
 struct segment *
-newseg(int, void *, size_t);
+newseg(int);
 
 void
 freeseg(struct segment *);
@@ -207,12 +206,6 @@ copypath(struct path *);
 
 void
 freepath(struct path *);
-
-size_t
-pathmatches(struct path *, struct path *);
-
-size_t
-pathelements(struct path *);
 
 /* Fgroup */
 

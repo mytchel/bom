@@ -1,7 +1,7 @@
 #include "dat.h"
 
 struct segment *
-newseg(int type, void *base, size_t size)
+newseg(int type)
 {
 	struct segment *s;
 	
@@ -12,9 +12,6 @@ newseg(int type, void *base, size_t size)
 
 	s->refs = 1;	
 	s->type = type;
-	s->base = base;
-	s->top = (void *) ((uint32_t) base + size);
-	s->size = size;
 	
 	return s;
 }
@@ -50,7 +47,7 @@ copyseg(struct segment *s, bool copy)
 		n = s;
 	} else {
 		/* Gets new pages and copies the data from old. */
-		n = newseg(s->type, s->base, s->size);
+		n = newseg(s->type);
 		if (n == nil)
 			return nil;
 
@@ -71,33 +68,23 @@ copyseg(struct segment *s, bool copy)
 	return n;
 }
 
-static struct segment *
-findseg(struct proc *p, void *addr)
+static struct page *
+findpage(struct proc *p, void *addr, struct segment **seg)
 {
 	struct segment *s;
+	struct page *pg;
 	int i;
-	
+
 	for (i = 0; i < Smax; i++) {
 		s = p->segs[i];
 		if (s == nil)
 			continue;
 			
-		if (s->base <= addr && s->top > addr) {
-			return s;
-		}
-	}
-	
-	return nil;
-}
-
-static struct page *
-findpage(struct segment *s, void *addr)
-{
-	struct page *pg;
-
-	for (pg = s->pages; pg != nil; pg = pg->next) {
-		if (pg->va <= addr && pg->va + pg->size > addr) {
-			return pg;
+		for (pg = s->pages; pg != nil; pg = pg->next) {
+			if (pg->va <= addr && pg->va + pg->size > addr) {
+				*seg = s;
+				return pg;
+			}
 		}
 	}
 	
@@ -110,10 +97,7 @@ fixfault(void *addr)
 	struct segment *s;
 	struct page *pg;
 	
-	s = findseg(current, addr);
-	if (s == nil) return false;
-	
-	pg = findpage(s, addr);
+	pg = findpage(current, addr, &s);
 	if (pg == nil) return false;
 	
 	mmuputpage(pg, s->type == SEG_rw);
@@ -128,10 +112,7 @@ kaddr(struct proc *p, void *addr)
 	struct segment *s;
 	struct page *pg;
 	
-	s = findseg(current, addr);
-	if (s == nil) return nil;
-	
-	pg = findpage(s, addr);
+	pg = findpage(p, addr, &s);
 	if (pg == nil) return nil;
 
 	return pg->pa + (addr - pg->va);

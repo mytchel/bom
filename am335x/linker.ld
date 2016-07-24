@@ -35,7 +35,7 @@ SECTIONS
 	_undef_stack_top = .;
 	
 	_heap_start = .;
-	. = . + 0x08000000;
+	. = . + 0x800000;
 	. = ALIGN(4096);
 	_heap_end = .;
 

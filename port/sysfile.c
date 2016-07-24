@@ -15,8 +15,8 @@ sysread(va_list args)
 	c = fdtochan(current->fgroup, fd);
 	if (c == nil) {
 		return ERR;
-	} else if (!(c->flags & O_RDONLY)) {
-		return ELINK;
+	} else if (!(c->mode & O_RDONLY)) {
+		return EMODE;
 	}
 		
 	lock(&c->lock);
@@ -41,8 +41,8 @@ syswrite(va_list args)
 	c = fdtochan(current->fgroup, fd);
 	if (c == nil) {
 		return ERR;
-	} else if (!(c->flags & O_WRONLY)) {
-		return ELINK;
+	} else if (!(c->mode & O_WRONLY)) {
+		return EMODE;
 	}
 
 	lock(&c->lock);
@@ -73,7 +73,7 @@ sysclose(va_list args)
 
 	unlock(&current->fgroup->lock);
 	
-	return 0;
+	return OK;
 }
 
 int
@@ -93,21 +93,21 @@ sysbind(va_list args)
 	out = fdtochan(current->fgroup, outfd);
 	if (out == nil) {
 		return ERR;
+	} else if (!(out->mode & O_WRONLY)) {
+		return EMODE;
 	}
 
 	in = fdtochan(current->fgroup, infd);
 	if (in == nil) {
 		return ERR;
+	} else if  (!(in->mode & O_RDONLY)) {
+		return EMODE;
 	}
 	
 	lock(&current->ngroup->lock);
 
-	kprintf("check path : '%s'\n", upath);
 	path = realpath(current->dot, (uint8_t *) upath);
 
-	/* Add binding. */
-	kprintf("new binding\n");
-		
 	bl = kmalloc(sizeof(struct binding_list));
 	if (bl == nil) {
 		freepath(path);
@@ -126,8 +126,6 @@ sysbind(va_list args)
 	bl->next = current->ngroup->bindings;
 	current->ngroup->bindings = bl;
 
-	kprintf("bound, now create proc\n");
-	
 	p = newproc();
 	if (p == nil) {
 		freebinding(bl->binding);
@@ -138,73 +136,38 @@ sysbind(va_list args)
 	
 	forkfunc(p, &mountproc, (void *) bl->binding);
 	
+	bl->binding->srv = p;
+	
 	procready(p);
 	
 	unlock(&current->ngroup->lock);
 
-	return 0;
+	return OK;
 }
 
 int
 sysopen(va_list args)
 {
-	int err, flags, mode;
+	int err, mode, cmode;
 	const char *upath;
 	struct chan *c;
-	struct binding_list *bl;
-	struct binding *best;
-	size_t matches, bestmatches;
-	struct path *path, *mpath, *pp;
+	struct path *path;
 	
 	upath = va_arg(args, const char *);
-	flags = va_arg(args, int);
+	mode = va_arg(args, int);
 	
-	if (flags & O_CREATE) {
-		mode = va_arg(args, int);
+	if (mode & O_CREATE) {
+		cmode = va_arg(args, int);
 	} else {
-		mode = 0;
+		cmode = 0;
 	}
 
 	path = realpath(current->dot, (uint8_t *) upath);
 
-	return ERR;
-	
-	lock(&current->ngroup->lock);
-	
-	bestmatches = 0;
-	best = nil;
-	for (bl = current->ngroup->bindings; bl != nil; bl = bl->next) {
-		matches = pathmatches(bl->binding->path, path);
-		if (matches >= bestmatches) {
-			bestmatches = matches;
-			best = bl->binding;
-		}
-	}
-	
-	if (best == nil) {
-		/* Nothing yet bound. */
-		freepath(path);
-		unlock(&current->ngroup->lock);
-		return ERR;
-	}
-	
-	pp = nil;
-	mpath = path;
-	while (mpath != nil && bestmatches > 0) {
-		pp = mpath;
-		mpath = mpath->next;
-	}
-	
-	if (pp != nil) {
-		pp->next = nil;
-		freepath(path);
-	}
-	
-	c = fileopen(mpath, flags, mode, &err);
-	
-	unlock(&current->ngroup->lock);
+	c = fileopen(path, mode, cmode, &err);
 	
 	if (c == nil) {
+		freepath(path);
 		return err;
 	} else {
 		return addchan(current->fgroup, c);
@@ -226,5 +189,5 @@ syspipe(va_list args)
 	fds[0] = addchan(current->fgroup, c0);
 	fds[1] = addchan(current->fgroup, c1);
 	
-	return 0;
+	return OK;
 }

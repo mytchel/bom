@@ -1,4 +1,6 @@
-init_src := init/syscalls.S uart.c init/com.c init/fs.c init/main.c init/pipe.c
+init_src := \
+	init/syscalls.S uart.c init/com.c init/misc.c \
+	init/main.c init/pipe.c init/fs.c  
 
 init/initcode.elf: $(init_src) init/linker.ld
 	@echo CC $@

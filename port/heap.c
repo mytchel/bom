@@ -8,9 +8,9 @@ struct block {
 static struct block *heap;
 
 void
-initheap(void *heap_start, size_t size)
+initheap(void *start, size_t size)
 {
-	heap = (struct block *) heap_start;
+	heap = (struct block *) start;
 	heap->size = size - sizeof(size_t);
 	heap->next = nil;
 }
@@ -19,15 +19,13 @@ void *
 kmalloc(size_t size)
 {
 	struct block *b, *n, *p;
+	struct page *np;
 	void *block;
 
-	if (size < sizeof(struct block)) {
-		size = sizeof(struct block);
+	if (size < sizeof(struct block *)) {
+		size = sizeof(struct block *);
 	}
-
-	/* Align to void * */	
-	size += sizeof(void *) - (size % sizeof(void *));
-
+	
 	p = nil;
 	for (b = heap; b != nil; p = b, b = b->next) {
 		if (b->size >= size) {
@@ -36,29 +34,42 @@ kmalloc(size_t size)
 	}
 	
 	if (b == nil) {
-		kprintf("HEAP EMPTY!\n");
-		return (void *) nil;
+		kprintf("Get another heap page\n");
+		np = newpage(0);
+		if (np == nil) {
+			kprintf("Out of memory!\n");
+			return nil;
+		} else if (p == nil) {
+			b = heap = (struct block *) np;
+		} else {
+			b = p->next = (struct block *) np;
+		}
+		
+		b->size = np->size - sizeof(size_t);
+		b->next = nil;
 	}
 
 	block = (void *) ((uint8_t *) b + sizeof(size_t));
 	
-	if (b->size > size) {
-		n = (struct block *) ((uint8_t *) block + size);
+	if (b->size > size + sizeof(struct block)) {
+		n = (struct block *) (((uint8_t *) block + size) + 
+			(reg_t) ((uint8_t *) block + size) % sizeof(reg_t));
+
 		n->size = b->size - size - sizeof(size_t);
 		n->next = b->next;
+		
+		/* Set size of allocated block (so kfree can find it) */
+		b->size = size;
 	} else {
 		n = b->next;
 	}
-	
-	/* Set size of allocated block (so kfree can find it) */
-	b->size = size;
 	
 	if (p == nil) {
 		heap = n;
 	} else {
 		p->next = n;
 	}
-
+	
 	return block;
 }
 

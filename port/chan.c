@@ -6,7 +6,7 @@ struct chantype *chantypes[CHAN_max] = {
 };
 
 struct chan *
-newchan(int type, int flags, struct path *p)
+newchan(int type, int mode, struct path *p)
 {
 	struct chan *c;
 	
@@ -18,7 +18,7 @@ newchan(int type, int flags, struct path *p)
 	c->refs = 1;
 	c->lock = 0;
 	c->type = type;
-	c->flags = flags;
+	c->mode = mode;
 	c->path = p;
 	
 	return c;
@@ -29,16 +29,12 @@ freechan(struct chan *c)
 {
 	lock(&c->lock);
 	
-	kprintf("dec chan ref from %i\n", c->refs);
-
 	c->refs--;
 	if (c->refs > 0) {
 		unlock(&c->lock);
 		return;
 	}
 
-	kprintf("close and free chan\n");
-	
 	chantypes[c->type]->close(c);
 	freepath(c->path);
 	kfree(c);

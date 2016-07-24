@@ -72,7 +72,7 @@ struct path *
 realpath(struct path *po, const uint8_t *str)
 {
 	struct path *pstr, *pp, *pt, *path;
-	
+
 	pstr = strtopath(str);
 	if (str[0] == '/' || po == nil) {
 		path = pstr;
@@ -182,36 +182,4 @@ freepath(struct path *p)
 	
 	kfree(p->s);
 	kfree(p);
-}
-
-size_t
-pathmatches(struct path *p, struct path *m)
-{
-	size_t matches = 0;
-	struct path *pp, *mp;
-	
-	pp = p;
-	mp = m;
-	while (pp != nil && mp != nil) {
-		if (strcmp(pp->s, mp->s) == false)
-			return matches;
-		
-		pp = pp->next;
-		mp = mp->next;
-		matches++;
-	}
-	
-	return matches;
-}
-
-size_t
-pathelements(struct path *p)
-{
-	size_t i = 0;
-	while (p != nil) {
-		p = p->next;
-		i++;
-	}
-	
-	return i;
 }
