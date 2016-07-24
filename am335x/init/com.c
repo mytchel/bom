@@ -116,6 +116,5 @@ printf(const char *fmt, ...)
 	va_end(ap);
 	
 	/* For now */
-	sleep(0); /* Let other things run so we have a decent time frame. */
 	puts(str);
 }

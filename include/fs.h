@@ -13,6 +13,7 @@ struct request {
 	uint8_t type;
 
 	uint32_t fid;
+	uint32_t offset;
 	size_t n;
 	uint8_t *buf;
 };

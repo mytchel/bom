@@ -12,17 +12,12 @@ growheap(struct block *prev, size_t size)
 {
 	struct block *b;
 		
-	printf("Grow heap\n");
-	
 	b = getmem(&size);
-	printf("got block 0x%h\n", b);
 	if (b == nil) {
 		return nil;
 	} else if (prev == nil) {
-		printf("Reset heap\n");
 		heap = b;
 	} else {
-		printf("append to end of heap\n");
 		prev->next = b;
 	}
 	

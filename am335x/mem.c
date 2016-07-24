@@ -22,7 +22,6 @@ initmemory(void)
 	heap_size = (uint32_t) &_heap_end - (uint32_t) &_heap_start;
 
 	kprintf("ram size      		= %i MB\n", ram_size / 1024 / 1024);
-	kprintf("init heap size		= %i MB\n", heap_size / 1024 / 1024);
 
 	initheap(&_heap_start, heap_size);
 

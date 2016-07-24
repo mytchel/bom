@@ -12,9 +12,30 @@ int
 main(void)
 {
 	int f, fds[2];
+	int stdout;
 
-	printf("Hello from true user space!\n");
+	f = fork(FORK_sngroup);
+	if (!f) {
+		return pmount();
+	}
 	
+	sleep(0);
+	
+	stdout = open("/dev/com", O_WRONLY);
+	if (stdout < 0) {
+		return -1;
+	}
+
+	printf("Fork frife\n");
+	f = fork(FORK_sngroup);
+	if (f < 0) {
+		printf("fork failed\n");
+	} else if (!f) {
+		return pfile_open();
+	}
+	
+	sleep(1000);
+
 	if (pipe(fds) == ERR) {
 		printf("pipe failed\n");
 		return ERR;
@@ -46,26 +67,6 @@ main(void)
 	}
 	
 	close(fds[1]);
-	
-	printf("Fork thrice\n");
-	f = fork(FORK_sngroup);
-	if (f < 0) {
-		printf("fork failed\n");
-	} else if (!f) {
-		return pmount();
-	}
-	
-	sleep(1000);
-
-	printf("Fork frife\n");
-	f = fork(FORK_sngroup);
-	if (f < 0) {
-		printf("fork failed\n");
-	} else if (!f) {
-		return pfile_open();
-	}
-	
-	sleep(1000);
 
 	printf("main task exiting\n");
 	

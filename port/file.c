@@ -137,6 +137,7 @@ makereq(struct binding *b, struct request *req)
 	lock(&b->lock);
 
 	req->rid = b->nreqid++;
+	
 	pipewrite(b->out, (uint8_t *) req, sizeof(struct request));
 	
 	if (req->n > 0) {
@@ -153,7 +154,7 @@ makereq(struct binding *b, struct request *req)
 	schedule();
 
 	resp = b->resp;
-
+	
 	procready(b->srv);
 	
 	return resp;
@@ -217,7 +218,7 @@ checkattr(uint32_t attr, uint32_t mode)
 }
 
 struct chan *
-fileopen(struct path *path, int flag, int mode, int *err)
+fileopen(struct path *path, int mode, int cmode, int *err)
 {
 	struct binding *b, *bp;
 	struct path *p, *mpath;
@@ -281,7 +282,7 @@ fileopen(struct path *path, int flag, int mode, int *err)
 			if (strcmp(f->name, p->s)) {
 				if (p->next && (f->attr & ATTR_dir) == 0) {
 					*err = ENOFILE;
-				} else if (!checkattr(f->attr, flag)) {
+				} else if (!checkattr(f->attr, mode)) {
 					*err = EMODE;
 				} else {
 					req.fid = f->fid;
@@ -306,12 +307,9 @@ fileopen(struct path *path, int flag, int mode, int *err)
 		p = p->next;
 	}
 	
-	kprintf("file found, now open %i\n", req.fid);
-
 	req.type = REQ_open;
 	
 	resp = makereq(b, &req);
-	kprintf("got response, err = %i\n", resp->err);
 	
 	*err = resp->err;
 	
@@ -323,20 +321,17 @@ fileopen(struct path *path, int flag, int mode, int *err)
 		return nil;
 	}
 	
-	kprintf("make a chan\n");
 	c = newchan(CHAN_file, mode, path);
 	if (c == nil) {
 		return nil;
 	}
 	
-	kprintf("make cfile struct\n");
 	cfile = kmalloc(sizeof(struct cfile));
 	if (cfile == nil) {
 		freechan(c);
 		return nil;
 	}
 	
-	kprintf("set up and return new channel\n");
 	c->aux = cfile;
 	
 	cfile->fid = req.fid;
@@ -355,7 +350,27 @@ fileread(struct chan *c, uint8_t *buf, size_t n)
 int
 filewrite(struct chan *c, uint8_t *buf, size_t n)
 {
-	return ERR;
+	struct cfile *cfile;
+	struct request req;
+	struct response *resp;
+	int err;
+	
+	cfile = (struct cfile *) c->aux;
+
+	req.type = REQ_write;	
+	req.fid = cfile->fid;
+	req.offset = cfile->offset;
+	
+	req.buf = buf;
+	req.n = n;
+
+	resp = makereq(cfile->binding, &req);
+	err = resp->err;
+	
+	if (resp->n > 0)
+		kfree(resp->buf);
+	kfree(resp);
+	return err;
 }
 
 int

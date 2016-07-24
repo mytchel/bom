@@ -5,6 +5,30 @@
 
 #include "head.h"
 
+struct file comfile = {
+	2, ATTR_rd | ATTR_wr,
+	4, (uint8_t *) "com"
+};
+
+struct file *devfiles[] = { &comfile };
+
+struct dir devdir = {
+	1,
+	(struct file **) devfiles,
+};
+
+struct file devfile = { 
+	1,	ATTR_rd | ATTR_wr | ATTR_dir,
+	4, (uint8_t *) "dev"
+};
+
+struct file *rootfiles[] = { &devfile };
+
+struct dir root = {
+	1,
+	(struct file **) rootfiles,
+};
+
 uint8_t *
 dumpdir(struct dir *dir, size_t *size)
 {
@@ -42,35 +66,60 @@ dumpdir(struct dir *dir, size_t *size)
 }
 
 void
-walk(struct request *req, struct response *resp)
+bwalk(struct request *req, struct response *resp)
 {
-	struct dir dir;
-	struct file *files[2], f1, f2;
-	
-	dir.nfiles = 2;
-	dir.files = (struct file **) files;
-	
-	files[0] = &f1;
-	files[1] = &f2;
-	
-	f1.fid = 1;
-	f1.attr = ATTR_rd | ATTR_wr | ATTR_dir;
-	f1.namelen = 4;
-	f1.name = (uint8_t *) "dev";
-	
-	f2.fid = 2;
-	f2.attr = ATTR_rd | ATTR_wr;
-	f2.namelen = 4;
-	f2.name = (uint8_t *) "com";
-	
-	resp->buf = dumpdir(&dir, &resp->n);
 	resp->err = OK;
+	if (req->fid == 0) {
+		resp->buf = dumpdir(&root, &resp->n);
+	} else if (req->fid == 1) {
+		resp->buf = dumpdir(&devdir, &resp->n);
+	} else {
+		resp->err = ENOFILE;
+	}
+}
+
+void
+bopen(struct request *req, struct response *resp)
+{
+	if (req->fid != 2) {
+		resp->err = ENOFILE;
+		return;
+	}
+	
+	resp->err = OK;
+}
+
+void
+bread(struct request *req, struct response *resp)
+{
+	if (req->fid != 2) {
+		resp->err = ENOFILE;
+		return;
+	}
+	
+	resp->err = ENOIMPL;
+}
+
+void
+bwrite(struct request *req, struct response *resp)
+{
+	size_t i;
+	
+	if (req->fid != 2) {
+		resp->err = ENOFILE;
+		return;
+	}
+	
+	resp->err = OK;
+	resp->n = 0;
+	
+	for (i = 0; i < req->n; i++)
+		putc(req->buf[i]);
 }
 
 int
 pmount(void)
 {
-	int pid = getpid();
 	int in, out;
 	int p1[2], p2[2];
 	uint8_t buf[512];
@@ -78,19 +127,14 @@ pmount(void)
 	struct response resp;
 	
         if (pipe(p1) == ERR) {
-        	printf("%i: p1 pipe failed\n", pid);
         	return -3;
         } else if (pipe(p2) == ERR) {
-        	printf("%i: p2 pipe failed\n", pid);
-        	return -3;
+        	return -4;
         }
 	
 	if (bind(p1[1], p2[0], "/") < 0) {
-		printf("%i: bind failed\n", pid);
-		return -3;
+		return -5;
 	}
-	
-	sleep(1000);
 	
 	close(p1[1]);
 	close(p2[0]);
@@ -100,16 +144,12 @@ pmount(void)
 
 	while (true) {
 		if (read(in, &req, sizeof(struct request)) < 0) {
-			printf("%i: failed to read in\n", pid);
 			break;
 		}
-		
-		printf("%i : Got request with rid: %i\n", pid, req.rid);
 		
 		if (req.n > 0) {
 			req.buf = buf;
 			if (read(in, req.buf, req.n) != req.n) {
-				printf("%i: failed to read buf\n", pid);
 				break;
 			}
 		}
@@ -118,23 +158,18 @@ pmount(void)
 		resp.rid = req.rid;		
 		switch (req.type) {
 		case REQ_open:
-			printf("%i : should open file %i\n", pid, req.fid);
-			resp.err = ENOIMPL;
+			bopen(&req, &resp);
 			break;
 		case REQ_walk:
-			printf("%i : doing fs walk for fid %i\n", pid, req.fid);
-			walk(&req, &resp);
+			bwalk(&req, &resp);
 			break;
 		case REQ_read:
-			printf("%i : should read %i\n", req.fid);
-			resp.err = ENOIMPL;
+			bread(&req, &resp);
 			break;
 		case REQ_write:
-			printf("%i : should write %i\n", req.fid);
-			resp.err = ENOIMPL;
+			bwrite(&req, &resp);
 			break;
 		default:
-			printf("%i : bad request %i\n", req.rid);
 			resp.err = ENOIMPL;
 			break;
 		}
@@ -160,6 +195,7 @@ pfile_open(void)
 {
 	int pid = getpid();
 	int fd;
+	char *str = "Hello\n";
 	
 	printf("%i : Open some random paths\n", pid);
 	
@@ -175,13 +211,13 @@ pfile_open(void)
 
 	fd = open("/dev/com", O_WRONLY);
 	if (fd < 0) {
-		printf("%i: open /com failed with err %i\n", pid, fd);
+		printf("%i: open /dev/com failed with err %i\n", pid, fd);
 		return -4;
 	}
 	
-	printf("%i: write to /dev/com\n", pid);	
 	while (true) {
-		write(fd, "Hello\n", sizeof(char) * 7);
+		printf("%i: write to /dev/com\n", pid);	
+		write(fd, str, sizeof(char) * strlen((const uint8_t *) str));
 		sleep(5000);
 	}
 	

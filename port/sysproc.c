@@ -115,8 +115,6 @@ sysgetmem(va_list args)
 	
 	size = va_arg(args, size_t *);
 
-	kprintf("Get page %i\n", *size);
-		
 	pages = newpage(0);
 	if (pages == nil) {
 		return nil;
@@ -125,7 +123,6 @@ sysgetmem(va_list args)
 	s = pages->size;
 	p = pages;
 	while (s < *size) {
-		kprintf("get another page\n");
 		p->next = newpage(p->va + p->size);
 		if (p->next == nil) {
 			p = pages;
@@ -144,15 +141,12 @@ sysgetmem(va_list args)
 	*size = s;
 	addr = nil;
 	
-	kprintf("Find a spot that will fit it\n");
-	
 	for (p = current->segs[Sheap]->pages; 
 		p != nil && p->next != nil; 
 		p = p->next) {
 		
 		addr = (uint8_t*) p->va + p->size;
 		if ((size_t) (p->next->va - p->va) - p->size > s) {
-			kprintf("found spot at 0x%h\n", addr);
 			fixpages(pages, (reg_t) addr, p->next);
 			p->next = pages;
 			return (reg_t) addr;
@@ -160,13 +154,11 @@ sysgetmem(va_list args)
 	}
 	
 	if (p != nil) {
-		kprintf("append to segment\n");
 		/* Append on end */
 		addr = (uint8_t *) p->va + p->size;
 		fixpages(pages, (reg_t) addr, nil);
 		p->next = pages;
 	} else {
-		kprintf("set segment\n");
 		
 		for (p = current->segs[Stext]->pages;
 			p != nil;
@@ -180,7 +172,6 @@ sysgetmem(va_list args)
 			if ((uint8_t *) p->va + p->size > (uint8_t *) addr)
 				addr = (uint8_t *) p->va + p->size;
 
-		kprintf("can start putting pages at 0x%h\n", addr);	
 		fixpages(pages, (reg_t) addr, nil);
 		current->segs[Sheap]->pages = pages;
 	}
