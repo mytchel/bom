@@ -1,39 +1,114 @@
 #include "head.h"
 
+#define FDEV 1
+#define FCOM 2
+
+struct file devfile = { 
+	1, ATTR_rd | ATTR_wr | ATTR_dir,
+	4, (uint8_t *) "dev"
+};
+
 struct file comfile = {
 	2, ATTR_rd | ATTR_wr,
 	4, (uint8_t *) "com"
 };
 
-struct file *devfiles[] = { &comfile };
-
-struct dir devdir = {
-	1,
-	(struct file **) devfiles,
+struct dir_list {
+	uint32_t fid;
+	struct dir dir;
+	struct dir_list *next;
 };
 
-struct file devfile = { 
-	1,	ATTR_rd | ATTR_wr | ATTR_dir,
-	4, (uint8_t *) "dev"
-};
+int nfid = 3;
+struct dir_list *dir_list;
 
-struct file *rootfiles[] = { &devfile };
+struct file *
+newfile(uint32_t attr, uint8_t *name)
+{
+	struct file *f;
+	
+	f = malloc(sizeof(struct file));
+	f->fid = nfid++;
+	f->attr = attr;
+	f->lname = strlen(name);
+	f->name = name;
+	
+	return f;
+}
 
-struct dir root = {
-	1,
-	(struct file **) rootfiles,
-};
+void
+diraddfile(struct dir *d, struct file *f)
+{
+	struct file **files;
+	int i;
+	
+	files = malloc(sizeof(struct file*) * (d->nfiles+1));
+	
+	for (i = 0; i < d->nfiles; i++)
+		files[i] = d->files[i];
+	
+	if (d->nfiles > 0)
+		free(d->files);
+	
+	d->nfiles++;
+	d->files = files;
+	
+	files[i] = f; 
+}
+
+struct dir *
+finddir(uint32_t fid)
+{
+	struct dir_list *dl;
+	for (dl = dir_list; dl != nil; dl = dl->next)
+		if (dl->fid == fid)
+			return &dl->dir;
+	return nil;
+}
+
+struct dir *
+adddir(uint32_t fid)
+{
+	struct dir_list *dl;
+	
+	for (dl = dir_list; dl != nil && dl->next != nil; dl = dl->next);
+	
+	if (dl == nil) {
+		dl = dir_list = malloc(sizeof(struct dir_list));
+	} else {
+		dl->next = malloc(sizeof(struct dir_list));
+		dl = dl->next;
+	}
+	
+	dl->next = nil;
+	dl->fid = fid;
+	dl->dir.nfiles = 0;
+	dl->dir.files = nil;
+	return &dl->dir;
+}
+
+void
+initfs(void)
+{
+	struct dir *d;
+	
+	d = adddir(0);
+	diraddfile(d, &devfile);
+	d = adddir(1);
+	diraddfile(d, &comfile);
+}
 
 void
 bwalk(struct request *req, struct response *resp)
 {
-	resp->ret = OK;
-	if (req->fid == ROOTFID) {
-		resp->buf = dirtowalkresponse(&root, &resp->lbuf);
-	} else if (req->fid == 1) {
-		resp->buf = dirtowalkresponse(&devdir, &resp->lbuf);
-	} else {
+	struct dir *d;
+	
+	d = finddir(req->fid);
+	if (d == nil) {
 		resp->ret = ENOFILE;
+	} else {
+		resp->ret = OK;
+		resp->buf = dirtowalkresponse(d, &resp->lbuf);
 	}
 }
 
@@ -63,25 +138,71 @@ bread(struct request *req, struct response *resp)
 void
 bwrite(struct request *req, struct response *resp)
 {
-	uint32_t offset, len;
+	uint32_t offset, len, i;
 	uint8_t *buf;
 
-	if (req->fid != 2) {
-		resp->ret = ENOFILE;
-		return;
-	}
-	
 	buf = req->buf;
-	
 	memmove(&offset, buf, sizeof(uint32_t));
 	buf += sizeof(uint32_t);
 	memmove(&len, buf, sizeof(uint32_t));
 	buf += sizeof(uint32_t);
+
+	i = 0;
+	switch (req->fid){
+	case 2:	
+		while (i < len)
+			putc(buf[i++]);
+		break;
+	default:
+		resp->ret = ENOFILE;
+		return;
+	}
 	
-	printf("should write %i bytes to %i with offset %i from '%s'\n", 
-		len, req->fid, offset, buf);
+	resp->ret = i;
+}
+
+void
+bcreate(struct request *req, struct response *resp)
+{
+	uint32_t attr, lname;
+	uint8_t *buf, *name;
+	struct file *f;
+	struct dir *d;
 	
-	resp->ret = len;
+	printf("bcreate\n");
+
+	buf = req->buf;
+	memmove(&attr, buf, sizeof(uint32_t));
+	buf += sizeof(uint32_t);
+	memmove(&lname, buf, sizeof(uint32_t));
+	buf += sizeof(uint32_t);
+	
+	name = malloc(sizeof(uint8_t) * lname);
+	memmove(name, buf, lname);
+	
+	d = finddir(req->fid);
+	if (d == nil) {
+		resp->ret = ENOFILE;
+		return;
+	}
+	
+	f = newfile(attr, name);
+
+	printf("new file in %i, '%s' has fid %i\n", req->fid, f->name, f->fid);
+
+	diraddfile(d, f);
+	
+	if (attr & ATTR_dir) {
+		adddir(f->fid);
+	}
+
+	resp->ret = f->fid;
+}
+
+void
+bremove(struct request *req, struct response *resp)
+{
+	resp->ret = ENOIMPL;
 }
 
 int
@@ -107,6 +228,8 @@ pmount(void)
 	
 	in = p1[0];
 	out = p2[1];
+	
+	initfs();
 
 	while (true) {
 		if (read(in, &req.rid, sizeof(uint32_t)) < 0) break;
@@ -135,6 +258,12 @@ pmount(void)
 			break;
 		case REQ_write:
 			bwrite(&req, &resp);
+			break;
+		case REQ_remove:
+			bremove(&req, &resp);
+			break;
+		case REQ_create:
+			bcreate(&req, &resp);
 			break;
 		default:
 			resp.ret = ENOIMPL;
@@ -175,6 +304,7 @@ pfile_open(void)
 	open("com", O_RDONLY);
 	open("/dev/hello", O_RDONLY);
 	open("/dev/com/shouldfail", O_RDONLY);
+	open("/dev/hello", O_WRONLY|O_CREATE, ATTR_dir|ATTR_wr);
 	
 	printf("%i: open /dev/com\n", pid);
 

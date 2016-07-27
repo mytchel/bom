@@ -148,16 +148,17 @@ sysbind(va_list args)
 reg_t
 sysopen(va_list args)
 {
-	int err, mode, cmode;
+	int err;
+	uint32_t mode, cmode;
 	const char *upath;
 	struct chan *c;
 	struct path *path;
 	
 	upath = va_arg(args, const char *);
-	mode = va_arg(args, int);
+	mode = va_arg(args, uint32_t);
 	
 	if (mode & O_CREATE) {
-		cmode = va_arg(args, int);
+		cmode = va_arg(args, uint32_t);
 	} else {
 		cmode = 0;
 	}

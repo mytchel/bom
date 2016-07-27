@@ -36,7 +36,7 @@ is falling apart.
 
 - Virtual memory
 - Multiple processes (preemptive)
-- Working system calls so far
+- 'Working' system calls so far
 	- fork
 	- sleep
 	- exit
@@ -46,6 +46,10 @@ is falling apart.
 	- write
 	- close
 	- bind
+	- open
+	- getmem
+	- rmmem
+   As to what they do, well, good luck.
 
 ### Very Helpful Information
 

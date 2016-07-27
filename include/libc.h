@@ -50,7 +50,7 @@ int
 bind(int out, int in, const char *path);
 
 int
-open(const char *path, int mode, ...);
+open(const char *path, uint32_t mode, ...);
 
 
 void *

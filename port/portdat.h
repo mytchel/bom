@@ -249,7 +249,7 @@ int
 pipeclose(struct chan *);
 
 struct chan *
-fileopen(struct path *, int, int, int *);
+fileopen(struct path *, uint32_t, uint32_t, int *);
 
 int
 fileread(struct chan *, uint8_t *, size_t);

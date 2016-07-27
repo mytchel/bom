@@ -280,14 +280,80 @@ checkattr(uint32_t attr, uint32_t mode)
 	}
 }
 
-struct chan *
-fileopen(struct path *path, int mode, int cmode, int *err)
+struct binding *
+filecreate(struct path *path, uint32_t cattr, uint32_t *cfid, int *err)
 {
 	struct binding *b;
 	struct response *resp;
 	struct request req;
-	struct chan *c;
+	struct path *p, *pl;
+	uint32_t attr;
+	uint8_t *name, *buf;
+	int nlen;
+	
+	for (p = path; 
+		p != nil && p->next != nil && p->next->next != nil; 
+		p = p->next);
+
+	if (p == nil || p->next == nil) {
+		return nil;
+	}
+	
+	pl = p->next;
+	p->next = nil;
+	
+	b = filewalk(path, &req.fid, &attr, err);
+	p->next = pl; /* Reset so freepath frees it. */
+	if (*err != OK) {
+		return nil;
+	}
+	
+	if ((attr & (ATTR_wr|ATTR_dir)) != (ATTR_wr|ATTR_dir)) {
+		*err = EMODE;
+		return nil;
+	}
+
+	name = pl->s;
+	nlen = strlen(name);
+
+	req.type = REQ_create;
+	req.lbuf = sizeof(uint32_t) * 2 + sizeof(uint8_t) * (nlen+1);
+	buf = req.buf = malloc(req.lbuf);
+	
+	memmove(buf, &cattr, sizeof(uint32_t));
+	buf += sizeof(uint32_t);
+	memmove(buf, &nlen, sizeof(uint32_t));
+	buf += sizeof(uint32_t);
+	memmove(buf, name, sizeof(uint8_t) * nlen);
+	
+	resp = makereq(b, &req);
+	if (resp == nil) {
+		*err = ELINK;
+		return nil;
+	} else if (resp->ret < OK) {
+		*err = resp->ret;
+		free(resp);
+		return nil;
+	}
+	
+	*cfid = resp->ret;
+	printf("made, new fid = %i\n", *cfid);
+	
+	*err = OK;
+	free(resp);
+	
+	return b;
+		
+}
+
+struct chan *
+fileopen(struct path *path, uint32_t mode, uint32_t cmode, int *err)
+{
+	struct binding *b;
+	struct response *resp;
+	struct request req;
 	struct cfile *cfile;
+	struct chan *c;
 	uint32_t attr;
 	
 	req.type = REQ_open;
@@ -295,7 +361,16 @@ fileopen(struct path *path, int mode, int cmode, int *err)
 	
 	b = filewalk(path, &req.fid, &attr, err);
 	if (*err != OK) {
-		return nil;
+		if (cmode == 0) {
+			return nil;
+		} else {
+			/* Create the file first. */
+			b = filecreate(path, cmode, &req.fid, err);
+			attr = cmode;
+			if (*err != OK) {
+				return nil;
+			}
+		}
 	}
 	
 	if (!checkattr(attr, mode)) {
