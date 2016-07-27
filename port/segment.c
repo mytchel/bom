@@ -5,7 +5,7 @@ newseg(int type)
 {
 	struct segment *s;
 	
-	s = kmalloc(sizeof(struct segment));
+	s = malloc(sizeof(struct segment));
 	if (s == nil) {
 		return nil;
 	}
@@ -33,7 +33,7 @@ freeseg(struct segment *s)
 		freepage(pp);
 	}
 	
-	kfree(s);
+	free(s);
 }
 
 struct segment *

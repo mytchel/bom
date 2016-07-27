@@ -5,14 +5,14 @@ newfgroup(void)
 {
 	struct fgroup *f;
 	
-	f = kmalloc(sizeof(struct fgroup));
+	f = malloc(sizeof(struct fgroup));
 	if (f == nil) {
 		return nil;
 	}
 
-	f->chans = kmalloc(sizeof(struct chan*));
+	f->chans = malloc(sizeof(struct chan*));
 	if (f->chans == nil) {
-		kfree(f);
+		free(f);
 		return nil;
 	}
 	
@@ -45,8 +45,8 @@ freefgroup(struct fgroup *f)
 		}
 	}
 	
-	kfree(f->chans);
-	kfree(f);
+	free(f->chans);
+	free(f);
 }
 
 struct fgroup *
@@ -57,15 +57,15 @@ copyfgroup(struct fgroup *fo)
 	
 	lock(&fo->lock);
 	
-	f = kmalloc(sizeof(struct fgroup));
+	f = malloc(sizeof(struct fgroup));
 	if (f == nil) {
 		unlock(&fo->lock);
 		return nil;
 	}
 
-	f->chans = kmalloc(sizeof(struct chan*) * fo->nchans);
+	f->chans = malloc(sizeof(struct chan*) * fo->nchans);
 	if (f->chans == nil) {
-		kfree(f);
+		free(f);
 		unlock(&fo->lock);
 		return nil;
 	}
@@ -101,7 +101,7 @@ addchan(struct fgroup *f, struct chan *chan)
 		/* Need to grow file table. */
 		struct chan **chans;
 		
-		chans = kmalloc(sizeof(struct chan **) * f->nchans * 2);
+		chans = malloc(sizeof(struct chan **) * f->nchans * 2);
 		if (chans == nil) {
 			unlock(&f->lock);
 			return -1;
@@ -115,7 +115,7 @@ addchan(struct fgroup *f, struct chan *chan)
 		while (i < f->nchans * 2)
 			chans[i++] = nil;
 
-		kfree(f->chans);
+		free(f->chans);
 				
 		f->chans = chans;
 		f->nchans *= 2;

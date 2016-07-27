@@ -63,7 +63,10 @@ P_SRC := \
 	../port/misc.c		\
 	../port/sysproc.c	\
 	../port/sysfile.c	\
-	../port/syscall.c
+	../port/syscall.c	\
+	../lib/fs.c		\
+	../lib/misc.c
+	
 	
 OBJECTS := \
 	$(A_SRC:%.S=%.o) \

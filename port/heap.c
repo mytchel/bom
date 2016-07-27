@@ -21,8 +21,6 @@ growheap(struct block *prev)
 	struct page *pg;
 	struct block *b;
 	
-	kprintf("grow heap\n");
-	
 	pg = newpage(0);
 	if (pg == nil) {
 		return nil;
@@ -37,15 +35,29 @@ growheap(struct block *prev)
 	return b;
 }
 
+static void *
+roundtoptr(void *p)
+{
+	reg_t x, r;
+	x = (reg_t) p;
+	r = x % sizeof(void *);
+	if (r == 0) {
+		return p;
+	} else {
+		return (void *) (x + sizeof(void *) - r);
+	}
+}
+
 void *
-kmalloc(size_t size)
+malloc(size_t size)
 {
 	struct block *b, *n, *p;
 	void *block;
 
-	if (size < sizeof(struct block *)) {
-		size = sizeof(struct block *);
-	}
+	if (size == 0)
+		return nil;
+
+	size = (size_t) roundtoptr((void *) size);
 	
 	p = nil;
 	for (b = heap; b != nil; p = b, b = b->next) {
@@ -57,21 +69,20 @@ kmalloc(size_t size)
 	if (b == nil) {
 		b = growheap(p);
 		if (b == nil) {
-			kprintf("Out of memory!\n");
+			printf("KERNEL OUT OF MEMORY!\n");
 			return nil;
 		}
 	}
 
 	block = (void *) ((uint8_t *) b + sizeof(size_t));
 	
-	if (b->size > size + sizeof(struct block)) {
-		n = (struct block *) (((uint8_t *) block + size) + 
-			(reg_t) ((uint8_t *) block + size) % sizeof(reg_t));
-
+	if (b->size > size + sizeof(size_t) + sizeof(struct block)) {
+		n = (struct block *) ((uint8_t *) block + size);
+		
 		n->size = b->size - size - sizeof(size_t);
 		n->next = b->next;
 		
-		/* Set size of allocated block (so kfree can find it) */
+		/* Set size of allocated block (so free can find it) */
 		b->size = size;
 	} else {
 		n = b->next;
@@ -87,9 +98,10 @@ kmalloc(size_t size)
 }
 
 void
-kfree(void *ptr)
+free(void *ptr)
 {
 	struct block *b, *p;
+	bool palign, nalign;
 
 	b = (struct block *) ((reg_t) ptr - sizeof(size_t));
 
@@ -106,45 +118,44 @@ kfree(void *ptr)
 		return;
 	}
 
-	for (p = heap; p != nil; p = p->next) {
-		if ((void *) p->next > ptr) {
+	for (p = heap; p != nil && p->next != nil; p = p->next) {
+		if ((void *) p->next > ptr && ptr < (void *) p->next->next) {
 			break;
 		}
 	}
 	
 	if (p == nil) {
-		kprintf("Are you sure 0x%h is from the heap?\n", ptr);
+		printf("Are you sure 0x%h is from the heap?\n", ptr);
+		return;
+	} else if (p->next == nil) {
+		/* b is at end of list, append. */
+		b->next = nil;
+		p->next = b;
 		return;
 	}
 	
-	if (p->next == nil) {
-		/* b is at end of list, append. */
-		
-		b->next = nil;
-		p->next = b;
-
-	} else if (((reg_t) b + sizeof(size_t) + b->size == (reg_t) p->next)
-		&& ((reg_t) p + p->size == (reg_t) b)) {
+	palign = (uint8_t *) p + p->size == (uint8_t *) b;
+	nalign = (uint8_t *) b + b->size == (uint8_t *) p->next;
+	
+	if (palign && nalign) {
 		/* b lines up with p and p->next, join them all. */
 		
 		p->size += sizeof(size_t) * 2 + b->size + p->next->size;
 		p->next = p->next->next;
 		
-	} else if ((reg_t) b + sizeof(size_t) + b->size == (reg_t) p->next) {
+	} else if (nalign) {
 		/* b lines up with p->next, join them. */
 		
 		b->size += sizeof(size_t) + p->next->size;
 		b->next = p->next->next;
 		p->next = b;
 
-	} else if ((reg_t) p + p->size == (reg_t) b) {
+	} else if (palign) {
 		/* b lines up with end of p, join them. */
-
 		p->size += sizeof(size_t) + b->size;
 
 	} else {
 		/* b is somewhere between p and p->next. */
-
 		b->next = p->next;
 		p->next = b;
 	}

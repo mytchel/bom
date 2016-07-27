@@ -1,7 +1,8 @@
 init_src := \
 	init/syscalls.S uart.c init/com.c \
-	init/misc.c init/heap.c \
-	init/main.c init/pipe.c init/fs.c  
+	init/heap.c \
+	init/main.c init/pipe.c init/fs.c  \
+	../lib/fs.c ../lib/misc.c
 
 init/initcode.elf: $(init_src) init/linker.ld
 	@echo CC $@
@@ -9,9 +10,10 @@ init/initcode.elf: $(init_src) init/linker.ld
 		$(LGCC)
 
 init/initcode.c: init/initcode.elf init/initcode.list bintoarray/bintoarray
-	$(OBJCOPY) init/initcode.elf /dev/null --dump-section .text=/dev/stdout | \
+	@echo Generate init/initcode.c
+	@$(OBJCOPY) init/initcode.elf /dev/null --dump-section .text=/dev/stdout | \
 		./bintoarray/bintoarray initcodetext > init/initcode.c
-	$(OBJCOPY) init/initcode.elf /dev/null --dump-section .data=/dev/stdout | \
+	@$(OBJCOPY) init/initcode.elf /dev/null --dump-section .data=/dev/stdout | \
 		./bintoarray/bintoarray initcodedata >> init/initcode.c
 
 CLEAN += init/initcode.*

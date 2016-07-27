@@ -16,8 +16,9 @@
 
 #define SYSCALL_BIND		11
 #define SYSCALL_OPEN		12
+#define SYSCALL_REMOVE		13
 
-#define NSYSCALLS		13
+#define NSYSCALLS		14
 
 #define OK		0
 /* General error, either args or memory alloc failed. */
@@ -32,6 +33,9 @@
 #define ENOIMPL		-5
 /* No memory */
 #define ENOMEM		-6
+/* End of file */
+#define EOF		-7
+
 
 /* Should processor aspects be shared with the child
  * rather than copied. */

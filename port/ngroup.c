@@ -5,7 +5,7 @@ newngroup(void)
 {
 	struct ngroup *n;
 	
-	n = kmalloc(sizeof(struct ngroup));
+	n = malloc(sizeof(struct ngroup));
 	if (n == nil) {
 		return nil;
 	}
@@ -35,10 +35,10 @@ freengroup(struct ngroup *n)
 		bb = b;
 		b = b->next;
 		freebinding(bb->binding);
-		kfree(bb);
+		free(bb);
 	}
 
-	kfree(n);
+	free(n);
 }
 
 struct ngroup *
@@ -49,7 +49,7 @@ copyngroup(struct ngroup *o)
 	
 	lock(&o->lock);
 	
-	n = kmalloc(sizeof(struct ngroup));
+	n = malloc(sizeof(struct ngroup));
 	if (n == nil) {
 		unlock(&o->lock);
 		return nil;
@@ -57,7 +57,7 @@ copyngroup(struct ngroup *o)
 	
 	bo = o->bindings;
 	if (bo != nil) {
-		n->bindings = kmalloc(sizeof(struct binding_list));
+		n->bindings = malloc(sizeof(struct binding_list));
 		bn = n->bindings;
 	} else {
 		n->bindings = nil;
@@ -75,7 +75,7 @@ copyngroup(struct ngroup *o)
 		if (bo == nil) {
 			bn->next = nil;
 		} else {
-			bn->next = kmalloc(sizeof(struct binding_list));
+			bn->next = malloc(sizeof(struct binding_list));
 		}
 		
 		bn = bn->next;

@@ -14,20 +14,20 @@ newpipe(struct chan **c0, struct chan **c1)
 {
 	struct pipe *p;
 	
-	p = kmalloc(sizeof(struct pipe));
+	p = malloc(sizeof(struct pipe));
 	if (p == nil) {
 		return false;
 	}
 	
 	*c0 = newchan(CHAN_pipe, O_RDONLY, nil);
 	if (*c0 == nil) {
-		kfree(p);
+		free(p);
 		return false;
 	}
 	
 	*c1 = newchan(CHAN_pipe, O_WRONLY, nil);
 	if (*c1 == nil) {
-		kfree(p);
+		free(p);
 		freechan(*c0);
 		return false;
 	}
@@ -125,7 +125,7 @@ pipeclose(struct chan *c)
 	}
 
 	if (p->c0 == nil && p->c1 == nil) {
-		kfree(p);
+		free(p);
 	}
 	
 	return 0;

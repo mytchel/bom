@@ -108,7 +108,7 @@ sysbind(va_list args)
 
 	path = realpath(current->dot, (uint8_t *) upath);
 
-	bl = kmalloc(sizeof(struct binding_list));
+	bl = malloc(sizeof(struct binding_list));
 	if (bl == nil) {
 		freepath(path);
 		unlock(&current->ngroup->lock);
@@ -117,7 +117,7 @@ sysbind(va_list args)
 		
 	bl->binding = newbinding(path, out, in);
 	if (bl->binding == nil) {
-		kfree(bl);
+		free(bl);
 		freepath(path);
 		unlock(&current->ngroup->lock);
 		return ENOMEM;
@@ -129,7 +129,7 @@ sysbind(va_list args)
 	p = newproc();
 	if (p == nil) {
 		freebinding(bl->binding);
-		kfree(bl);
+		free(bl);
 		unlock(&current->ngroup->lock);
 		return ENOMEM;
 	}
@@ -190,4 +190,17 @@ syspipe(va_list args)
 	fds[1] = addchan(current->fgroup, c1);
 	
 	return OK;
+}
+
+reg_t
+sysremove(va_list args)
+{
+	const char *upath;
+	struct path *path;
+	
+	upath = va_arg(args, const char *);
+
+	path = realpath(current->dot, (uint8_t *) upath);
+
+	return fileremove(path);
 }

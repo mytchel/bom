@@ -6,12 +6,12 @@ dumpregs(struct ureg *r)
 {
 	int i;
 	for (i = 0; i < 13; i++)
-		kprintf("r%i  = 0x%h\n", i, r->regs[i]);
-	kprintf("sp   = 0x%h\n", r->sp);
-	kprintf("lr   = 0x%h\n", r->lr);
-	kprintf("type = %i\n", r->type);
-	kprintf("pc   = 0x%h\n", r->pc);
-	kprintf("psr  = 0b%b\n", r->psr);
+		printf("r%i  = 0x%h\n", i, r->regs[i]);
+	printf("sp   = 0x%h\n", r->sp);
+	printf("lr   = 0x%h\n", r->lr);
+	printf("type = %i\n", r->type);
+	printf("pc   = 0x%h\n", r->pc);
+	printf("psr  = 0b%b\n", r->psr);
 }
 
 void

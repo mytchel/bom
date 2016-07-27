@@ -15,6 +15,7 @@
 .global close
 .global bind
 .global open
+.global remove
 
 _start:
 	ldr lr, =exit
@@ -120,5 +121,14 @@ open:
 	mov r0, #SYSCALL_OPEN
 	svc 0
 	add sp, sp, #(4 * 2)
+	pop {pc}
+
+
+remove:
+	push {lr}
+	push {r0}
+	mov r0, #SYSCALL_OPEN
+	svc 0
+	add sp, sp, #4
 	pop {pc}
 

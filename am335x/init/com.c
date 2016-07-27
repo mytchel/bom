@@ -1,6 +1,6 @@
 #include "../include/types.h"
+#include "../include/libc.h"
 #include "../include/stdarg.h"
-#include "../include/std.h"
 
 void
 puts(const char *);

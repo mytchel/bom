@@ -5,7 +5,7 @@ newbinding(struct path *path, struct chan *out, struct chan *in)
 {
 	struct binding *b;
 	
-	b = kmalloc(sizeof(struct binding));
+	b = malloc(sizeof(struct binding));
 	if (b == nil)
 		return nil;
 	
@@ -15,6 +15,7 @@ newbinding(struct path *path, struct chan *out, struct chan *in)
 	b->path = path;
 	b->in = in;
 	b->out = out;
+	b->rootfid = ROOTFID;
 	
 	in->refs++;
 	out->refs++;

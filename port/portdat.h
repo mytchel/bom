@@ -1,6 +1,7 @@
 #include "../include/syscalls.h"
 #include "../include/stdarg.h"
 #include "../include/fs.h"
+#include "../include/libc.h"
 
 struct page {
 	void *pa, *va;
@@ -53,11 +54,12 @@ struct binding {
 	
 	struct path *path;
 	struct chan *in, *out;
+	uint32_t rootfid;
 
 	int nreqid;
 	struct response *resp; /* Current response. */
 	struct proc *waiting; /* List of procs waiting. */
-	struct proc *srv;
+	struct proc *srv; /* Kernel proc that handles responses */
 };
 
 struct binding_list {
@@ -115,6 +117,9 @@ struct proc {
 void
 initprocs(void);
 
+void
+initheap(void *, size_t);
+
 
 /****** General Functions ******/
 
@@ -158,29 +163,6 @@ fixfault(void *);
 
 void *
 kaddr(struct proc *, void *);
-
-/* Kernel memory */
-
-void
-initheap(void *, size_t);
-
-void *
-kmalloc(size_t);
-
-void
-kfree(void *);
-
-void *
-memmove(void *, const void *, size_t);
-
-void *
-memset(void *, int, size_t);
-
-bool
-strcmp(const uint8_t *, const uint8_t *);
-
-size_t
-strlen(const uint8_t *);
 
 /* Channels */
 
@@ -278,10 +260,13 @@ filewrite(struct chan *, uint8_t *, size_t);
 int
 fileclose(struct chan *);
 
+int
+fileremove(struct path *);
+
 /* Debug */
 
 void
-kprintf(const char *, ...);
+printf(const char *, ...);
 
 void
 dumpregs(struct ureg *);
@@ -302,6 +287,7 @@ reg_t syswrite(va_list);
 reg_t sysclose(va_list);
 reg_t sysbind(va_list);
 reg_t sysopen(va_list);
+reg_t sysremove(va_list);
 
 
 /****** Machine Implimented ******/

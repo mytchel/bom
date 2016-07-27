@@ -52,4 +52,23 @@ bind(int out, int in, const char *path);
 int
 open(const char *path, int mode, ...);
 
+
+void *
+malloc(size_t);
+
+void
+free(void *);
+
+void *
+memmove(void *dest, const void *src, size_t len);
+
+void *
+memset(void *b, int c, size_t len);
+
+bool
+strcmp(const uint8_t *s1, const uint8_t *s2);
+
+size_t
+strlen(const uint8_t *s);
+
 #endif

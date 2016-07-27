@@ -75,7 +75,7 @@ intcaddhandler(uint32_t irqn, int (*func)(uint32_t))
 
 	writel(1, INTC + INTC_CONTROL);
 	
-	kprintf("interrupt %i handler set\n", irqn);
+	printf("interrupt %i handler set\n", irqn);
 }
 
 void
@@ -134,7 +134,7 @@ trap(struct ureg *ureg)
 			break;
 		case 0xd: /* section permission */
 		case 0xf: /* page permission */
-			kprintf("page permission error for 0x%h\n"
+			printf("page permission error for 0x%h\n"
 				"may need to change page permissions.\n"
 				"for now just kill\n", addr);
 			break;
@@ -144,7 +144,7 @@ trap(struct ureg *ureg)
 	}
 	
 	if (!fixed) {
-		kprintf("kill proc %i for doing something bad\n", current->pid);
+		printf("kill proc %i for doing something bad\n", current->pid);
 		dumpregs(ureg);
 		procremove(current);
 		schedule();

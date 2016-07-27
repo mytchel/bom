@@ -13,13 +13,13 @@ strtopathh(struct path *prev, const uint8_t *str)
 		return nil;
 	}
 	
-	p = kmalloc(sizeof(struct path));
+	p = malloc(sizeof(struct path));
 	/* Best to cause some more major issue in the case of a failed
-	 * kmalloc, as I have no way to check if there was an error
+	 * malloc, as I have no way to check if there was an error
 	 * (or end of the path).
 	 */
 	
-	p->s = kmalloc(sizeof(uint8_t) * (i+1));
+	p->s = malloc(sizeof(uint8_t) * (i+1));
 	for (j = 0; j < i; j++)
 		p->s[j] = str[j];
 	p->s[j] = 0;
@@ -43,10 +43,14 @@ pathtostr(struct path *p, int *n)
 	struct path *pp;
 	
 	len = 0;
+	if (p == nil) {
+		len = 1;
+	}
+	
 	for (pp = p; pp != nil; pp = pp->next)
 		len += strlen(pp->s) + 1;
 
-	str = kmalloc(sizeof(uint8_t) * len);
+	str = malloc(sizeof(uint8_t) * len);
 	if (str == nil) {
 		return nil;
 	}
@@ -94,8 +98,8 @@ realpath(struct path *po, const uint8_t *str)
 				if (pp->next != nil)
 					pp->next->prev = nil;
 				
-				kfree(pp->s);
-				kfree(pp);
+				free(pp->s);
+				free(pp);
 				pp = path;
 			} else {
 				if (pt->prev != nil) {
@@ -108,13 +112,13 @@ realpath(struct path *po, const uint8_t *str)
 						pp->next->prev = nil;
 				}
 				
-				kfree(pt->s);
-				kfree(pt);
+				free(pt->s);
+				free(pt);
 
 				pt = pp;
 				pp = pp->next;
-				kfree(pt->s);
-				kfree(pt);
+				free(pt->s);
+				free(pt);
 			}	
 		} else if (strcmp(pp->s, (const uint8_t *) ".")) {
 			/* Remove current part */
@@ -131,8 +135,8 @@ realpath(struct path *po, const uint8_t *str)
 			
 			pp = pp->next;
 			
-			kfree(pt->s);
-			kfree(pt);
+			free(pt->s);
+			free(pt);
 		} else {
 			pp = pp->next;
 		}
@@ -150,18 +154,18 @@ copypath(struct path *o)
 	if (o == nil)
 		return nil;
 	
-	n = kmalloc(sizeof(struct path));
+	n = malloc(sizeof(struct path));
 	nn = n;
 	nn->prev = nil;
 	
 	while (o != nil) {
 		l = strlen(o->s) + 1;
-		nn->s = kmalloc(sizeof(uint8_t) * l);
+		nn->s = malloc(sizeof(uint8_t) * l);
 		memmove(nn->s, o->s, l);
 
 		o = o->next;
 		if (o != nil) {
-			nn->next = kmalloc(sizeof(struct path));
+			nn->next = malloc(sizeof(struct path));
 			nn->next->prev = nn;
 			nn = nn->next;
 		}
@@ -180,6 +184,6 @@ freepath(struct path *p)
 		
 	freepath(p->next);
 	
-	kfree(p->s);
-	kfree(p);
+	free(p->s);
+	free(p);
 }

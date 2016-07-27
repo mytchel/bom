@@ -21,7 +21,7 @@ initmemory(void)
 	ram_size = (uint32_t) &_ram_end - (uint32_t) &_ram_start;
 	heap_size = (uint32_t) &_heap_end - (uint32_t) &_heap_start;
 
-	kprintf("ram size      		= %i MB\n", ram_size / 1024 / 1024);
+	printf("ram size      		= %i MB\n", ram_size / 1024 / 1024);
 
 	initheap(&_heap_start, heap_size);
 
@@ -47,7 +47,7 @@ addpages(void *start, void *end)
 	size = (uint32_t) end - (uint32_t) start;
 	npages = size / PAGE_SIZE;
 	
-	p = kmalloc(sizeof(struct page) * npages);
+	p = malloc(sizeof(struct page) * npages);
 	
 	p[0].pa = start;
 	p[0].va = 0;
@@ -68,10 +68,10 @@ struct page *
 newpage(void *va)
 {
 	struct page *p;
-	
+
 	p = pages;
 	if (p == nil) {
-		kprintf("No free pages!\n");
+		printf("No free pages!\n");
 		return nil;
 	}
 

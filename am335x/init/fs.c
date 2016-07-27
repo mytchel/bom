@@ -1,8 +1,3 @@
-#include "../include/types.h"
-#include "../include/std.h"
-#include "../include/stdarg.h"
-#include "../include/fs.h"
-
 #include "head.h"
 
 struct file comfile = {
@@ -29,52 +24,16 @@ struct dir root = {
 	(struct file **) rootfiles,
 };
 
-uint8_t *
-dumpdir(struct dir *dir, size_t *size)
-{
-	uint8_t *buf, *b;
-	struct file *f;
-	int i;
-	
-	*size = sizeof(struct dir);
-	
-	for (i = 0; i < dir->nfiles; i++) {
-		*size += sizeof(struct file *) + sizeof(struct file);
-		*size += sizeof(uint8_t) * dir->files[i]->namelen;
-	}
-	
-	buf = malloc(*size);
-	if (buf == nil) {
-		return nil;
-	}
-	
-	b = buf;
-	
-	memmove(b, (const void *) dir, sizeof(struct dir));
-	b += sizeof(struct dir);
-	b += sizeof(struct file *) * dir->nfiles;
-	
-	for (i = 0; i < dir->nfiles; i++) {
-		f = dir->files[i];
-		memmove(b, (const void *) f, sizeof(struct file));
-		b += sizeof(struct file);
-		memmove(b, (const void *) f->name, sizeof(uint8_t) * f->namelen);
-		b += sizeof(uint8_t) * f->namelen;
-	}
-	
-	return buf;
-}
-
 void
 bwalk(struct request *req, struct response *resp)
 {
-	resp->err = OK;
-	if (req->fid == 0) {
-		resp->buf = dumpdir(&root, &resp->n);
+	resp->ret = OK;
+	if (req->fid == ROOTFID) {
+		resp->buf = dirtowalkresponse(&root, &resp->lbuf);
 	} else if (req->fid == 1) {
-		resp->buf = dumpdir(&devdir, &resp->n);
+		resp->buf = dirtowalkresponse(&devdir, &resp->lbuf);
 	} else {
-		resp->err = ENOFILE;
+		resp->ret = ENOFILE;
 	}
 }
 
@@ -82,39 +41,47 @@ void
 bopen(struct request *req, struct response *resp)
 {
 	if (req->fid != 2) {
-		resp->err = ENOFILE;
+		resp->ret = ENOFILE;
 		return;
 	}
-	
-	resp->err = OK;
+
+	printf("open %i\n", req->fid);	
+	resp->ret = OK;
 }
 
 void
 bread(struct request *req, struct response *resp)
 {
 	if (req->fid != 2) {
-		resp->err = ENOFILE;
+		resp->ret = ENOFILE;
 		return;
 	}
 	
-	resp->err = ENOIMPL;
+	resp->ret = ENOIMPL;
 }
 
 void
 bwrite(struct request *req, struct response *resp)
 {
-	size_t i;
-	
+	uint32_t offset, len;
+	uint8_t *buf;
+
 	if (req->fid != 2) {
-		resp->err = ENOFILE;
+		resp->ret = ENOFILE;
 		return;
 	}
 	
-	resp->err = OK;
-	resp->n = 0;
+	buf = req->buf;
 	
-	for (i = 0; i < req->n; i++)
-		putc(req->buf[i]);
+	memmove(&offset, buf, sizeof(uint32_t));
+	buf += sizeof(uint32_t);
+	memmove(&len, buf, sizeof(uint32_t));
+	buf += sizeof(uint32_t);
+	
+	printf("should write %i bytes to %i with offset %i from '%s'\n", 
+		len, req->fid, offset, buf);
+	
+	resp->ret = len;
 }
 
 int
@@ -122,7 +89,6 @@ pmount(void)
 {
 	int in, out;
 	int p1[2], p2[2];
-	uint8_t buf[512];
 	struct request req;
 	struct response resp;
 	
@@ -143,19 +109,20 @@ pmount(void)
 	out = p2[1];
 
 	while (true) {
-		if (read(in, &req, sizeof(struct request)) < 0) {
-			break;
-		}
+		if (read(in, &req.rid, sizeof(uint32_t)) < 0) break;
+		if (read(in, &req.type, sizeof(uint8_t)) < 0) break;
+		if (read(in, &req.fid, sizeof(uint32_t)) < 0) break;
+		if (read(in, &req.lbuf, sizeof(uint32_t)) < 0) break;
 		
-		if (req.n > 0) {
-			req.buf = buf;
-			if (read(in, req.buf, req.n) != req.n) {
+		if (req.lbuf > 0) {
+			req.buf = malloc(sizeof(uint8_t) * req.lbuf);
+			if (read(in, req.buf, req.lbuf) != req.lbuf) {
 				break;
 			}
 		}
-	
-		resp.n = 0;
-		resp.rid = req.rid;		
+		
+		resp.rid = req.rid;
+		resp.lbuf = 0;
 		switch (req.type) {
 		case REQ_open:
 			bopen(&req, &resp);
@@ -170,16 +137,16 @@ pmount(void)
 			bwrite(&req, &resp);
 			break;
 		default:
-			resp.err = ENOIMPL;
+			resp.ret = ENOIMPL;
 			break;
 		}
 		
-		if (write(out, &resp, sizeof(struct response)) < 0) {
-			break;
-		}
+		if (write(out, &resp.rid, sizeof(uint32_t)) < 0) break;
+		if (write(out, &resp.ret, sizeof(int32_t)) < 0) break;
+		if (write(out, &resp.lbuf, sizeof(uint32_t)) < 0) break;
 		
-		if (resp.n > 0) {
-			if (write(out, resp.buf, resp.n) != resp.n) {
+		if (resp.lbuf > 0) {
+			if (write(out, resp.buf, resp.lbuf) != resp.lbuf) {
 				break;
 			}
 			
@@ -194,7 +161,7 @@ int
 pfile_open(void)
 {
 	int pid = getpid();
-	int fd;
+	int fd, i = 0;
 	char *str = "Hello\n";
 	
 	printf("%i : Open some random paths\n", pid);
@@ -206,6 +173,8 @@ pfile_open(void)
 	open("/././.", O_RDONLY);
 	open("./com", O_RDONLY);
 	open("com", O_RDONLY);
+	open("/dev/hello", O_RDONLY);
+	open("/dev/com/shouldfail", O_RDONLY);
 	
 	printf("%i: open /dev/com\n", pid);
 
@@ -215,10 +184,10 @@ pfile_open(void)
 		return -4;
 	}
 	
-	while (true) {
+	while (i++ < 5) {
 		printf("%i: write to /dev/com\n", pid);	
-		write(fd, str, sizeof(char) * strlen((const uint8_t *) str));
-		sleep(5000);
+		write(fd, str, sizeof(char) * (1+strlen((const uint8_t *) str)));
+		sleep(1000);
 	}
 	
 	return 4;

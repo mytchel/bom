@@ -10,7 +10,7 @@ newchan(int type, int mode, struct path *p)
 {
 	struct chan *c;
 	
-	c = kmalloc(sizeof(struct chan));
+	c = malloc(sizeof(struct chan));
 	if (c == nil) {
 		return nil;
 	}
@@ -37,5 +37,5 @@ freechan(struct chan *c)
 
 	chantypes[c->type]->close(c);
 	freepath(c->path);
-	kfree(c);
+	free(c);
 }

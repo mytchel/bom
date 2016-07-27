@@ -105,7 +105,7 @@ sprintf(char *str, int max, const char *fmt, ...)
 }
 
 void
-kprintf(const char *fmt, ...)
+printf(const char *fmt, ...)
 {
 	char str[512];
 	va_list ap;

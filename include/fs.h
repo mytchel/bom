@@ -8,39 +8,91 @@ enum {
 	REQ_remove, 
 };
 
+/* 
+ * request/response->buf should be written/read after request/response 
+ * has been written/read for any request/response that has lbuf > 0.
+ */
+
 struct request {
 	uint32_t rid;
 	uint8_t type;
-
 	uint32_t fid;
-	uint32_t offset;
-	size_t n;
+
+	uint32_t lbuf;
 	uint8_t *buf;
+};
+
+struct request_read {
+	uint32_t offset;
+	uint32_t len;
+};
+
+struct request_write {
+	uint32_t offset;
+	uint32_t len;
+	/* Followed by len bytes of data to write. */
+	uint8_t *buf;
+};
+
+struct request_create {
+	uint32_t attr;
+	uint32_t lname;
+	/* Followed by lname bytes of data for name. */
+	uint8_t *name;
 };
 
 struct response {
 	uint32_t rid;
-	int err;
+	int32_t ret;
 	
-	size_t n;
+	uint32_t lbuf;
 	uint8_t *buf;
 };
+
+/* 
+ * Response for walk is dir but is ordered as:
+ * 	file1
+ * 	filename1
+ * 	file2
+ * 	filename2
+ * 	...
+ * through to nfiles.
+ *
+ * Response to write has no buf and ret is either an err
+ * or the number of bytes written.
+ * 
+ * Response to read has ret as err or OK. If OK then 
+ * buf contains the bytes that were read.
+ *
+ * Response to create, remove, open, close have no buf and
+ * ret is an error or OK.
+ */
+
 
 #define ATTR_rd		(1<<0)
 #define ATTR_wr		(1<<1)
 #define ATTR_dir	(1<<2)
 
+#define ROOTFID		0 /* Of any binding. */
+#define ROOTATTR	(ATTR_rd|ATTR_wr|ATTR_dir) /* Of / */
+
 struct file {
 	uint32_t fid;
 	uint32_t attr;
 	
-	size_t namelen;
+	uint32_t lname;
 	uint8_t *name;
 };
 
 struct dir {
-	size_t nfiles;
+	uint32_t nfiles;
 	struct file **files;
 };
+
+uint8_t *
+dirtowalkresponse(struct dir *, uint32_t *);
+
+struct dir *
+walkresponsetodir(uint8_t *, uint32_t);
 
 #endif

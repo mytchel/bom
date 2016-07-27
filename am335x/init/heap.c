@@ -11,7 +11,9 @@ struct block *
 growheap(struct block *prev, size_t size)
 {
 	struct block *b;
-		
+
+	size += sizeof(size_t);
+
 	b = getmem(&size);
 	if (b == nil) {
 		return nil;
@@ -27,15 +29,29 @@ growheap(struct block *prev, size_t size)
 	return b;
 }
 
+static void *
+roundtoptr(void *p)
+{
+	reg_t x, r;
+	x = (reg_t) p;
+	r = x % sizeof(void *);
+	if (r == 0) {
+		return p;
+	} else {
+		return (void *) (x + sizeof(void *) - r);
+	}
+}
+
 void *
 malloc(size_t size)
 {
 	struct block *b, *n, *p;
 	void *block;
 
-	if (size < sizeof(struct block *)) {
-		size = sizeof(struct block *);
-	}
+	if (size == 0)
+		return nil;
+
+	size = (size_t) roundtoptr((void *) size);
 	
 	p = nil;
 	for (b = heap; b != nil; p = b, b = b->next) {
@@ -45,23 +61,22 @@ malloc(size_t size)
 	}
 	
 	if (b == nil) {
-		b = growheap(p, size * 2);
+		b = growheap(p, size);
 		if (b == nil) {
-			printf("Out of memory!\n");
+			printf("out of memory!\n");
 			return nil;
 		}
 	}
 
 	block = (void *) ((uint8_t *) b + sizeof(size_t));
 	
-	if (b->size > size + sizeof(struct block)) {
-		n = (struct block *) (((uint8_t *) block + size) + 
-			(reg_t) ((uint8_t *) block + size) % sizeof(reg_t));
-
+	if (b->size > size + sizeof(size_t) + sizeof(struct block)) {
+		n = (struct block *) ((uint8_t *) block + size);
+		
 		n->size = b->size - size - sizeof(size_t);
 		n->next = b->next;
 		
-		/* Set size of allocated block (so kfree can find it) */
+		/* Set size of allocated block (so free can find it) */
 		b->size = size;
 	} else {
 		n = b->next;
@@ -80,6 +95,7 @@ void
 free(void *ptr)
 {
 	struct block *b, *p;
+	bool palign, nalign;
 
 	b = (struct block *) ((reg_t) ptr - sizeof(size_t));
 
@@ -96,8 +112,8 @@ free(void *ptr)
 		return;
 	}
 
-	for (p = heap; p != nil; p = p->next) {
-		if ((void *) p->next > ptr) {
+	for (p = heap; p != nil && p->next != nil; p = p->next) {
+		if ((void *) p->next > ptr && ptr < (void *) p->next->next) {
 			break;
 		}
 	}
@@ -105,36 +121,35 @@ free(void *ptr)
 	if (p == nil) {
 		printf("Are you sure 0x%h is from the heap?\n", ptr);
 		return;
-	}
-	
-	if (p->next == nil) {
+	} else if (p->next == nil) {
 		/* b is at end of list, append. */
-		
 		b->next = nil;
 		p->next = b;
-
-	} else if (((reg_t) b + sizeof(size_t) + b->size == (reg_t) p->next)
-		&& ((reg_t) p + p->size == (reg_t) b)) {
+		return;
+	}
+	
+	palign = (uint8_t *) p + p->size == (uint8_t *) b;
+	nalign = (uint8_t *) b + b->size == (uint8_t *) p->next;
+	
+	if (palign && nalign) {
 		/* b lines up with p and p->next, join them all. */
 		
 		p->size += sizeof(size_t) * 2 + b->size + p->next->size;
 		p->next = p->next->next;
 		
-	} else if ((reg_t) b + sizeof(size_t) + b->size == (reg_t) p->next) {
+	} else if (nalign) {
 		/* b lines up with p->next, join them. */
 		
 		b->size += sizeof(size_t) + p->next->size;
 		b->next = p->next->next;
 		p->next = b;
 
-	} else if ((reg_t) p + p->size == (reg_t) b) {
+	} else if (palign) {
 		/* b lines up with end of p, join them. */
-
 		p->size += sizeof(size_t) + b->size;
 
 	} else {
 		/* b is somewhere between p and p->next. */
-
 		b->next = p->next;
 		p->next = b;
 	}

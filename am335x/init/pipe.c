@@ -1,8 +1,3 @@
-#include "../include/types.h"
-#include "../include/std.h"
-#include "../include/stdarg.h"
-#include "../include/fs.h"
-
 #include "head.h"
 
 int

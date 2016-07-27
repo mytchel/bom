@@ -24,7 +24,6 @@ kmain(void)
 	initnullproc();
 	initmainproc();
 	
-	kprintf("Start Proc 1\n");
 	schedule();
 	
 	/* Should never be reached. */
@@ -34,8 +33,6 @@ kmain(void)
 int
 mainproc(void *arg)
 {
-	kprintf("Drop to user\n");
-	
 	droptouser((void *) USTACK_TOP);
 	return 0; /* Never reached. */
 }
@@ -80,11 +77,9 @@ initmainproc(void)
 
 	p->segs[Sstack]->pages = newpage((void *) (USTACK_TOP - USTACK_SIZE));
 
-	kprintf("Copy init code text len %i\n", initcodetextlen);
 	p->segs[Stext]->pages = newpage((void *) UTEXT);
 	pg = copysegment(p->segs[Stext], &initcodetext, initcodetextlen);
 
-	kprintf("Copy init code data len %i\n", initcodedatalen);
 	p->segs[Sdata]->pages = newpage(pg->va + pg->size);
 	copysegment(p->segs[Sdata], &initcodedata, initcodedatalen);
 	

@@ -7,7 +7,7 @@ sysexit(va_list args)
 	
 	int code = va_arg(args, int);
 	
-	kprintf("pid %i exited with status %i\n", 
+	printf("pid %i exited with status %i\n", 
 		current->pid, code);
 
 	for (i = 0; i < Smax; i++) {
@@ -189,13 +189,13 @@ sysrmmem(va_list args)
 	addr = va_arg(args, void *);
 	size = va_arg(args, size_t);
 	
-	kprintf("Should unmap 0x%h of len %i from %i\n", addr, size, current->pid);
+	printf("Should unmap 0x%h of len %i from %i\n", addr, size, current->pid);
 	
 	pp = nil;
 	p = current->segs[Sheap]->pages; 
 	while (p != nil && size > 0) {
 		if (p->va == addr) {
-			kprintf("unmap page 0x%h\n", p->va);
+			printf("unmap page 0x%h\n", p->va);
 			addr = (uint8_t *) p->va + p->size;
 			size -= p->size;
 			

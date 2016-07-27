@@ -1,8 +1,3 @@
-#include "../include/types.h"
-#include "../include/std.h"
-#include "../include/stdarg.h"
-#include "../include/fs.h"
-
 #include "head.h"
 
 /* Must not excede one page in size and all changabel variables 
@@ -12,7 +7,6 @@ int
 main(void)
 {
 	int f, fds[2];
-	int stdout;
 
 	f = fork(FORK_sngroup);
 	if (!f) {
@@ -21,12 +15,6 @@ main(void)
 	
 	sleep(0);
 	
-	stdout = open("/dev/com", O_WRONLY);
-	if (stdout < 0) {
-		return -1;
-	}
-
-	printf("Fork frife\n");
 	f = fork(FORK_sngroup);
 	if (f < 0) {
 		printf("fork failed\n");
@@ -43,7 +31,6 @@ main(void)
 	
 	sleep(1000);
 	
-	printf("Fork once\n");
 	f = fork(FORK_sngroup);
 	if (f < 0) {
 		printf("fork failed\n");
@@ -58,7 +45,6 @@ main(void)
 	
 	sleep(1000);
 	
-	printf("Fork twice\n");
 	f = fork(FORK_sngroup);
 	if (f < 0) {
 		printf("fork failed\n");

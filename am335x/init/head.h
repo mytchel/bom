@@ -1,5 +1,5 @@
 #include "../include/types.h"
-#include "../include/std.h"
+#include "../include/libc.h"
 #include "../include/stdarg.h"
 #include "../include/fs.h"
 
@@ -14,12 +14,6 @@ puts(const char *);
 
 void
 printf(const char *, ...);
-
-void *
-malloc(size_t);
-
-void
-free(void *);
 
 int
 ppipe0(int fd);

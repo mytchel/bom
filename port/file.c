@@ -2,52 +2,27 @@
 
 struct cfile {
 	uint32_t fid;
+	bool dir;
 	struct binding *binding;
 	uint32_t offset;
 };
 
-static struct dir *
-responseprocessdir(struct response *resp)
-{
-	struct dir *d;
-	int i;
-	uint8_t *buf;
-	
-	buf = resp->buf;
-	
-	d = (struct dir *) buf;
-	
-	buf += sizeof(struct dir);
-	d->files = (struct file **) buf;
-	buf += sizeof(struct file *) * d->nfiles; 
-
-	for (i = 0; i < d->nfiles; i++) {
-		d->files[i] = (struct file *) buf;
-		buf += sizeof(struct file);
-		d->files[i]->name = buf;
-		buf += sizeof(uint8_t) * d->files[i]->namelen;
-	}
-	
-	return d;
-}
-
 static bool
 respread(struct chan *c, struct response *resp)
 {
-	if (piperead(c, (uint8_t *) resp, sizeof(struct response)) <= 0) {
-		kprintf("kproc mount : Error reading pipe\n");
-		return false;
-	}
+	if (piperead(c, (void *) &resp->rid, sizeof(uint32_t)) <= 0) return false;
+	if (piperead(c, (void *) &resp->ret, sizeof(int32_t)) <= 0) return false;
+	if (piperead(c, (void *) &resp->lbuf, sizeof(uint32_t)) <= 0) return false;
 
-	if (resp->n > 0) {
-		resp->buf = kmalloc(resp->n);
+	if (resp->lbuf > 0) {
+		resp->buf = malloc(sizeof(uint8_t) * resp->lbuf);
 		if (resp->buf == nil) {
-			kprintf("kproc mount : error allocating resp buf\n");
+			printf("kproc mount : error allocating resp buf\n");
 			return false;
 		}
-			
-		if (piperead(c, resp->buf, resp->n) != resp->n) {
-			kprintf("kproc mount : Error reading resp buf\n");
+
+		if (piperead(c, resp->buf, resp->lbuf) != resp->lbuf) {
+			printf("kproc mount : Error reading resp buf\n");
 			return false;
 		}
 	}
@@ -62,17 +37,17 @@ mountproc(void *arg)
 	struct proc *p, *pp;
 	
 	while (b->refs > 0) {
-		b->resp = kmalloc(sizeof(struct response));
+		b->resp = malloc(sizeof(struct response));
 		if (b->resp == nil) {
-			kprintf("kproc mount : error allocating response.\n");
+			printf("kproc mount : error allocating response.\n");
 			break;
 		}
 
 		if (!respread(b->in, b->resp)) {
-			kprintf("kproc mount: error reading responses.\n");
+			printf("kproc mount: error reading responses.\n");
 			break;
 		}
-	
+		
 		lock(&b->lock);
 		
 		pp = nil;
@@ -94,11 +69,11 @@ mountproc(void *arg)
 		schedule();
 	}
 	
-	kprintf("No longer bound\n");
+	printf("No longer bound\n");
 
 	/* Free binding and exit. */
 
-	kprintf("wake waiters\n");
+	printf("wake waiters\n");
 	
 	b->resp = nil;
 		
@@ -107,24 +82,24 @@ mountproc(void *arg)
 		procready(p);
 	}
 	
-	kprintf("lock\n");
+	printf("lock\n");
 	lock(&b->lock);	
 
-	kprintf("free chans\n");	
+	printf("free chans\n");	
 	freechan(b->in);
 	freechan(b->out);
 	
-	kprintf("free path\n");
+	printf("free path\n");
 	freepath(b->path);
 	
 	if (b->resp) {
-		kprintf("bind free'd with response\n");
-		kfree(b->resp);
+		printf("bind free'd with response\n");
+		free(b->resp);
 	}
 	
-	kfree(b);
+	free(b);
 	
-	kprintf("return\n");
+	printf("return\n");
 	
 	return 0;
 }
@@ -137,11 +112,19 @@ makereq(struct binding *b, struct request *req)
 	lock(&b->lock);
 
 	req->rid = b->nreqid++;
+
+	if (pipewrite(b->out, (void *) &req->rid, sizeof(uint32_t)) < 0)
+		return nil;
+	if (pipewrite(b->out, (void *) &req->type, sizeof(uint8_t)) < 0)
+		return nil;
+	if (pipewrite(b->out, (void *) &req->fid, sizeof(uint32_t)) < 0)
+		return nil;
+	if (pipewrite(b->out, (void *) &req->lbuf, sizeof(uint32_t)) < 0)
+		return nil;
 	
-	pipewrite(b->out, (uint8_t *) req, sizeof(struct request));
-	
-	if (req->n > 0) {
-		pipewrite(b->out, req->buf, req->n);
+	if (req->lbuf > 0) {
+		if (pipewrite(b->out, req->buf, req->lbuf) < 0) 
+			return nil;
 	}
 	
 	current->rid = req->rid;
@@ -152,7 +135,7 @@ makereq(struct binding *b, struct request *req)
 	
 	procwait(current);
 	schedule();
-
+	
 	resp = b->resp;
 	
 	procready(b->srv);
@@ -162,11 +145,11 @@ makereq(struct binding *b, struct request *req)
 
 /*
  * Find the binding that matches path to at most a depth of depth
- * return the best binding and set mpath to the remainder of the path.
+ * return the best binding.
  */
  
 static struct binding *
-findbinding(struct path *path, int depth, struct path **mpath)
+findbinding(struct path *path, int depth)
 {
 	struct binding_list *bl;
 	struct path *pp, *bp;
@@ -192,7 +175,6 @@ findbinding(struct path *path, int depth, struct path **mpath)
 		if (bp == nil && d > bestd) {
 			bestd = d;
 			best = bl->binding;
-			*mpath = pp;
 		}
 	}
 	
@@ -201,90 +183,51 @@ findbinding(struct path *path, int depth, struct path **mpath)
 	return best;
 }
 
-bool
-checkattr(uint32_t attr, uint32_t mode)
-{
-	bool r, w;
-	r = attr & ATTR_rd;
-	w = attr & ATTR_wr;
-	
-	if (!r && (mode & O_RDONLY)) {
-		return false;
-	} else if (!w && (mode & O_WRONLY)) {
-		return false;
-	} else {
-		return true;
-	}
-}
-
-struct chan *
-fileopen(struct path *path, int mode, int cmode, int *err)
+struct binding *
+filewalk(struct path *path, uint32_t *fid, uint32_t *attr, int *err)
 {
 	struct binding *b, *bp;
-	struct path *p, *mpath;
 	struct response *resp;
 	struct request req;
+	struct path *p;
 	struct dir *dir;
-	struct chan *c;
-	struct cfile *cfile;
 	struct file *f;
-	int i, depth;
+	size_t depth, i;
 	bool found;
 	
-	uint8_t *str;
-
-	str = pathtostr(path, nil);
-	kprintf("trying to open file '%s'\n", str);
-	kfree(str);
-	
 	req.type = REQ_walk;
-	req.fid = 0;
-	req.n = 0;
+	req.lbuf = 0;
+	req.fid = ROOTFID;
+	*attr = ROOTATTR;
 	
-	b = findbinding(nil, 0, &mpath);
-	if (b == nil) {
-		kprintf("Root not bound!\n");
-		*err = ENOFILE;
-		return nil;
-	}
-
-	mpath = nil;
+	b = findbinding(path, 0);
 	bp = nil;
 	p = path;
 	depth = 0;
 	*err = OK;
 	while (p != nil) {
-		b = findbinding(path, depth, &mpath);
-
-		if (b != bp) {
-			/* If we havent encountered this yet then it is the
-			 * root of the binding. */
-			req.fid = 0;
-		}
-		
 		resp = makereq(b, &req);
 		if (resp == nil) {
-			kprintf("An error occured with the request\n");
 			*err = ELINK;
 			return nil;
-		} else if (resp->err != OK) {
-			*err = resp->err;
-			kfree(resp);
+		} else if (resp->ret != OK) {
+			*err = resp->ret;
+			if (resp->lbuf > 0)
+				free(resp->buf);
+			free(resp);
 			return nil;
 		}
 		
-		dir = responseprocessdir(resp);
+		dir = walkresponsetodir(resp->buf, resp->lbuf);
 
 		found = false;
 		for (i = 0; i < dir->nfiles; i++) {
 			f = dir->files[i];
-			
 			if (strcmp(f->name, p->s)) {
 				if (p->next && (f->attr & ATTR_dir) == 0) {
 					*err = ENOFILE;
-				} else if (!checkattr(f->attr, mode)) {
-					*err = EMODE;
 				} else {
+					*attr = f->attr;
 					req.fid = f->fid;
 					found = true;
 				}
@@ -292,9 +235,9 @@ fileopen(struct path *path, int mode, int cmode, int *err)
 			}
 		}
 		
-		if (resp->n > 0)
-			kfree(resp->buf);
-		kfree(resp);
+		if (resp->lbuf > 0)
+			free(resp->buf);
+		free(resp);
 		
 		if (!found) {
 			*err = ENOFILE;
@@ -303,19 +246,70 @@ fileopen(struct path *path, int mode, int cmode, int *err)
 			return nil;
 		}
 		
-		bp = b;
 		p = p->next;
+
+		bp = b;
+		b = findbinding(path, ++depth);
+		if (b != bp) {
+			/* If we havent encountered this binding yet then it is the
+			 * root of the binding. */
+			req.fid = b->rootfid;
+		}
 	}
 	
+	*fid = req.fid;
+	return b;
+}
+
+bool
+checkattr(uint32_t attr, uint32_t mode)
+{
+	bool r, w, d;
+	r = attr & ATTR_rd;
+	w = attr & ATTR_wr;
+	d = attr & ATTR_dir;
+	
+	if (!r && (mode & O_RDONLY)) {
+		return false;
+	} else if (!w && (mode & O_WRONLY)) {
+		return false;
+	} else if (d && (mode & O_WRONLY)) {
+		return false; /* Can not open dir for write. */
+	} else {
+		return true;
+	}
+}
+
+struct chan *
+fileopen(struct path *path, int mode, int cmode, int *err)
+{
+	struct binding *b;
+	struct response *resp;
+	struct request req;
+	struct chan *c;
+	struct cfile *cfile;
+	uint32_t attr;
+	
 	req.type = REQ_open;
+	req.lbuf = 0;
+	
+	b = filewalk(path, &req.fid, &attr, err);
+	if (*err != OK) {
+		return nil;
+	}
+	
+	if (!checkattr(attr, mode)) {
+		*err = EMODE;
+		return nil;
+	}
 	
 	resp = makereq(b, &req);
 	
-	*err = resp->err;
-	
-	if (resp->n > 0)
-		kfree(resp->buf);
-	kfree(resp);
+	*err = resp->ret;
+
+	if (resp->lbuf > 0)
+		free(resp->buf);	
+	free(resp);
 	
 	if (*err != OK) {
 		return nil;
@@ -326,7 +320,7 @@ fileopen(struct path *path, int mode, int cmode, int *err)
 		return nil;
 	}
 	
-	cfile = kmalloc(sizeof(struct cfile));
+	cfile = malloc(sizeof(struct cfile));
 	if (cfile == nil) {
 		freechan(c);
 		return nil;
@@ -337,6 +331,10 @@ fileopen(struct path *path, int mode, int cmode, int *err)
 	cfile->fid = req.fid;
 	cfile->binding = b;
 	cfile->offset = 0;
+	if (attr & ATTR_dir)
+		cfile->dir = true;
+	else
+		cfile->dir = false;
 
 	return c;
 }
@@ -344,11 +342,100 @@ fileopen(struct path *path, int mode, int cmode, int *err)
 int
 fileread(struct chan *c, uint8_t *buf, size_t n)
 {
-	return ERR;
+	struct request req;
+	struct request_read read;
+	struct response *resp;
+	struct cfile *cfile;
+	int err = 0;
+	
+	cfile = (struct cfile *) c->aux;
+
+	if (cfile->dir) {
+		req.type = REQ_walk;
+		req.fid = cfile->fid;
+
+		resp = makereq(cfile->binding, &req);
+		if (resp == nil) {
+			return ELINK;
+		} else if (resp->ret == OK && resp->lbuf <= cfile->offset) {
+			err = EOF;
+		} else if (resp->ret == OK) {
+			if (resp->lbuf - cfile->offset < n)
+				n = resp->lbuf - cfile->offset;
+				
+			memmove(buf, resp->buf + cfile->offset, n);
+			cfile->offset += n;
+			err = n;
+		} else {
+			err = resp->ret;
+		}
+	} else {
+		req.type = REQ_read;
+		req.fid = cfile->fid;
+		req.buf = (uint8_t *) &read;
+		req.lbuf = sizeof(struct request_read);
+		
+		read.offset = cfile->offset;
+		read.len = n;
+		
+		resp = makereq(cfile->binding, &req);
+		if (resp == nil) {
+			return ELINK;
+		} else if (resp->ret != OK) {
+			err = resp->ret;
+		} else {
+			n = n > resp->lbuf ? resp->lbuf : n;
+			memmove(buf, resp->buf, n);
+			cfile->offset += n;
+			err = n;
+		}
+	}
+
+	if (resp->lbuf > 0)
+		free(resp->buf);
+	free(resp);
+	return err;
 }
 
 int
 filewrite(struct chan *c, uint8_t *buf, size_t n)
+{
+	struct request req;
+	struct response *resp;
+	struct cfile *cfile;
+	uint8_t *b;
+	int err;
+	
+	cfile = (struct cfile *) c->aux;
+	
+	req.type = REQ_write;
+	req.fid = cfile->fid;
+	req.lbuf = sizeof(uint32_t) * 2 + sizeof(uint8_t) * n;
+	req.buf = b = malloc(req.lbuf);
+	
+	memmove(b, &cfile->offset, sizeof(uint32_t));
+	b += sizeof(uint32_t);
+	memmove(b, &n, sizeof(uint32_t));
+	b += sizeof(uint32_t);
+	/* Should change this to write strait into the pipe. */
+	memmove(b, buf, sizeof(uint8_t) * n);
+
+	resp = makereq(cfile->binding, &req);
+	free(req.buf);
+	
+	if (resp == nil) {
+		return ELINK;
+	} if (resp->ret > 0) {
+		cfile->offset += resp->ret;
+	}
+
+	err = resp->ret;
+	free(resp);
+	return err;
+}
+
+int
+fileclose(struct chan *c)
 {
 	struct cfile *cfile;
 	struct request req;
@@ -357,26 +444,24 @@ filewrite(struct chan *c, uint8_t *buf, size_t n)
 	
 	cfile = (struct cfile *) c->aux;
 
-	req.type = REQ_write;	
+	req.type = REQ_close;
 	req.fid = cfile->fid;
-	req.offset = cfile->offset;
-	
-	req.buf = buf;
-	req.n = n;
+	req.lbuf = 0;
 
 	resp = makereq(cfile->binding, &req);
-	err = resp->err;
+	err = resp->ret;
 	
-	if (resp->n > 0)
-		kfree(resp->buf);
-	kfree(resp);
+	if (resp->lbuf > 0)
+		free(resp->buf);
+	free(resp);
+	
 	return err;
 }
 
 int
-fileclose(struct chan *c)
+fileremove(struct path *path)
 {
-	return ERR;
+	return ENOIMPL;
 }
 
 struct chantype devfile = {

@@ -16,4 +16,5 @@ reg_t (*syscalltable[NSYSCALLS])(va_list) = {
 	
 	[SYSCALL_BIND]		= sysbind,
 	[SYSCALL_OPEN]		= sysopen,
+	[SYSCALL_REMOVE]	= sysremove,
 };
