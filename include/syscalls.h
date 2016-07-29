@@ -21,7 +21,7 @@
 #define NSYSCALLS		14
 
 #define OK		0
-/* General error, either args or memory alloc failed. */
+/* General error */
 #define ERR		-1
 /* Pipe connection closed somewhere along the line. */
 #define ELINK		-2
@@ -35,7 +35,6 @@
 #define ENOMEM		-6
 /* End of file */
 #define EOF		-7
-
 
 /* Should processor aspects be shared with the child
  * rather than copied. */

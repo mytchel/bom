@@ -36,10 +36,10 @@ rmmem(void *, size_t);
 int
 pipe(int *fds);
 
-size_t
+int
 read(int fd, void *buf, size_t len);
 
-size_t
+int
 write(int fd, void *buf, size_t len);
 
 int
@@ -52,6 +52,9 @@ bind(int out, int in, const char *path);
 int
 open(const char *path, uint32_t mode, ...);
 
+int
+remove(const char *path);
+
 
 void *
 malloc(size_t);
@@ -59,10 +62,10 @@ malloc(size_t);
 void
 free(void *);
 
-void *
+void
 memmove(void *dest, const void *src, size_t len);
 
-void *
+void
 memset(void *b, int c, size_t len);
 
 bool

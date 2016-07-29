@@ -183,8 +183,8 @@ findbinding(struct path *path, int depth)
 	return best;
 }
 
-struct binding *
-filewalk(struct path *path, uint32_t *fid, uint32_t *attr, int *err)
+static struct binding *
+filewalk(struct path *path, struct file *dir, struct file *file, int *err)
 {
 	struct binding *b, *bp;
 	struct response *resp;
@@ -216,10 +216,18 @@ filewalk(struct path *path, uint32_t *fid, uint32_t *attr, int *err)
 				free(resp->buf);
 			free(resp);
 			return nil;
+		} else if (resp->lbuf == 0) {
+			free(resp);
+			*err = ELINK;
+			return nil;
 		}
 		
 		dir = walkresponsetodir(resp->buf, resp->lbuf);
-
+		if (dir == nil) {
+			*err = ELINK;
+			return nil;
+		}
+		
 		found = false;
 		for (i = 0; i < dir->nfiles; i++) {
 			f = dir->files[i];
@@ -235,8 +243,7 @@ filewalk(struct path *path, uint32_t *fid, uint32_t *attr, int *err)
 			}
 		}
 		
-		if (resp->lbuf > 0)
-			free(resp->buf);
+		free(resp->buf);
 		free(resp);
 		
 		if (!found) {
@@ -261,26 +268,7 @@ filewalk(struct path *path, uint32_t *fid, uint32_t *attr, int *err)
 	return b;
 }
 
-bool
-checkattr(uint32_t attr, uint32_t mode)
-{
-	bool r, w, d;
-	r = attr & ATTR_rd;
-	w = attr & ATTR_wr;
-	d = attr & ATTR_dir;
-	
-	if (!r && (mode & O_RDONLY)) {
-		return false;
-	} else if (!w && (mode & O_WRONLY)) {
-		return false;
-	} else if (d && (mode & O_WRONLY)) {
-		return false; /* Can not open dir for write. */
-	} else {
-		return true;
-	}
-}
-
-struct binding *
+static struct binding *
 filecreate(struct path *path, uint32_t cattr, uint32_t *cfid, int *err)
 {
 	struct binding *b;
@@ -308,16 +296,11 @@ filecreate(struct path *path, uint32_t cattr, uint32_t *cfid, int *err)
 		return nil;
 	}
 	
-	if ((attr & (ATTR_wr|ATTR_dir)) != (ATTR_wr|ATTR_dir)) {
-		*err = EMODE;
-		return nil;
-	}
-
 	name = pl->s;
-	nlen = strlen(name);
+	nlen = strlen(name) + 1;
 
 	req.type = REQ_create;
-	req.lbuf = sizeof(uint32_t) * 2 + sizeof(uint8_t) * (nlen+1);
+	req.lbuf = sizeof(uint32_t) * 2 + sizeof(uint8_t) * nlen;
 	buf = req.buf = malloc(req.lbuf);
 	
 	memmove(buf, &cattr, sizeof(uint32_t));
@@ -330,16 +313,17 @@ filecreate(struct path *path, uint32_t cattr, uint32_t *cfid, int *err)
 	if (resp == nil) {
 		*err = ELINK;
 		return nil;
-	} else if (resp->ret < OK) {
+	} else if (resp->ret != OK) {
 		*err = resp->ret;
-		free(resp);
-		return nil;
+	} else if (resp->lbuf != sizeof(uint32_t)) {
+		*err = ELINK;
+	} else {
+		*err = OK;
+		memmove(cfid, resp->buf, sizeof(uint32_t));
 	}
-	
-	*cfid = resp->ret;
-	printf("made, new fid = %i\n", *cfid);
-	
-	*err = OK;
+
+	if (resp->lbuf > 0)
+		free(resp->buf);
 	free(resp);
 	
 	return b;
@@ -371,11 +355,6 @@ fileopen(struct path *path, uint32_t mode, uint32_t cmode, int *err)
 				return nil;
 			}
 		}
-	}
-	
-	if (!checkattr(attr, mode)) {
-		*err = EMODE;
-		return nil;
 	}
 	
 	resp = makereq(b, &req);
@@ -458,11 +437,13 @@ fileread(struct chan *c, uint8_t *buf, size_t n)
 			return ELINK;
 		} else if (resp->ret != OK) {
 			err = resp->ret;
-		} else {
+		} else if (resp->lbuf > 0) {
 			n = n > resp->lbuf ? resp->lbuf : n;
 			memmove(buf, resp->buf, n);
 			cfile->offset += n;
 			err = n;
+		} else {
+			err = ELINK;
 		}
 	}
 
@@ -500,11 +481,18 @@ filewrite(struct chan *c, uint8_t *buf, size_t n)
 	
 	if (resp == nil) {
 		return ELINK;
-	} if (resp->ret > 0) {
-		cfile->offset += resp->ret;
+	} if (resp->ret != OK) {
+		err = resp->ret;
+	} else if (resp->lbuf == sizeof(uint32_t)) {
+		memmove(&n, resp->buf, sizeof(uint32_t));
+		cfile->offset += n;
+		err = n;
+	} else {
+		err = ELINK;
 	}
 
-	err = resp->ret;
+	if (resp->lbuf > 0)
+		free(resp->buf);
 	free(resp);
 	return err;
 }
@@ -536,7 +524,31 @@ fileclose(struct chan *c)
 int
 fileremove(struct path *path)
 {
-	return ENOIMPL;
+	struct binding *b;
+	struct response *resp;
+	struct request req;
+	uint32_t attr;
+	int err;
+	
+	printf("fileremove\n");
+	
+	req.type = REQ_remove;
+	req.lbuf = 0;
+	
+	b = filewalk(path, &req.fid, &attr, &err);
+	if (err != OK) {
+		return ENOFILE;
+	}
+	
+	resp = makereq(b, &req);
+	
+	err = resp->ret;
+	if (resp->lbuf > 0)
+		free(resp->buf);
+	free(resp);
+
+	printf("response got %i\n", err);
+	return err;
 }
 
 struct chantype devfile = {

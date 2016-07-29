@@ -58,13 +58,16 @@ struct response {
  * 	...
  * through to nfiles.
  *
- * Response to write has no buf and ret is either an err
- * or the number of bytes written.
+ * Response to write has ret as err or OK. If OK then
+ * buf contains the number of bytes that were written.
  * 
  * Response to read has ret as err or OK. If OK then 
  * buf contains the bytes that were read.
  *
- * Response to create, remove, open, close have no buf and
+ * Response to create has ret as err or OK. If OK then
+ * buf contains the fid of the new file.
+ *
+ * Response to remove, open, close have no buf and
  * ret is an error or OK.
  */
 
@@ -74,7 +77,7 @@ struct response {
 #define ATTR_dir	(1<<2)
 
 #define ROOTFID		0 /* Of any binding. */
-#define ROOTATTR	(ATTR_rd|ATTR_wr|ATTR_dir) /* Of / */
+#define ROOTATTR	(ATTR_rd|ATTR_dir) /* Of / */
 
 struct file {
 	uint32_t fid;

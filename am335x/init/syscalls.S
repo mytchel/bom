@@ -127,7 +127,7 @@ open:
 remove:
 	push {lr}
 	push {r0}
-	mov r0, #SYSCALL_OPEN
+	mov r0, #SYSCALL_REMOVE
 	svc 0
 	add sp, sp, #4
 	pop {pc}

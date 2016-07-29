@@ -26,15 +26,3 @@ pmount(void);
 
 int
 pfile_open(void);
-
-void *
-memmove(void *, const void *, size_t);
-
-void *
-memset(void *b, int c, size_t len);
-
-bool
-strcmp(const uint8_t *s1, const uint8_t *s2);
-
-size_t
-strlen(const uint8_t *s);

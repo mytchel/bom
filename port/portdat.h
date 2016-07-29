@@ -252,6 +252,9 @@ struct chan *
 fileopen(struct path *, uint32_t, uint32_t, int *);
 
 int
+fileremove(struct path *);
+
+int
 fileread(struct chan *, uint8_t *, size_t);
 
 int
@@ -259,9 +262,6 @@ filewrite(struct chan *, uint8_t *, size_t);
 
 int
 fileclose(struct chan *);
-
-int
-fileremove(struct path *);
 
 /* Debug */
 

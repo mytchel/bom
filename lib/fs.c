@@ -6,19 +6,32 @@ struct dir *
 walkresponsetodir(uint8_t *buf, uint32_t len)
 {
 	struct dir *d;
-	int i;
+	int fi, i = 0;
 	
-	d = (struct dir *) buf;
-	
-	buf += sizeof(struct dir);
-	d->files = (struct file **) buf;
-	buf += sizeof(struct file *) * d->nfiles; 
+	if (len < sizeof(struct dir))
+		return nil;
 
-	for (i = 0; i < len && i < d->nfiles; i++) {
-		d->files[i] = (struct file *) buf;
-		buf += sizeof(struct file);
-		d->files[i]->name = buf;
-		buf += sizeof(uint8_t) * d->files[i]->lname;
+	d = (struct dir *) buf;
+	i += sizeof(struct dir);
+	
+	if (d->nfiles == 0)
+		return d;
+
+	if (i >= len) return nil;
+	d->files = (struct file **) &buf[i];
+	i += sizeof(struct file *) * d->nfiles; 
+
+	for (fi = 0; fi < d->nfiles; fi++) {
+		if (i % sizeof(void *) > 0)
+			i += i % sizeof(void *);
+		
+		if (i >= len) return nil;
+		d->files[fi] = (struct file *) &buf[i];
+		i += sizeof(struct file);
+
+		if (i >= len) return nil;
+		d->files[fi]->name = &buf[i];
+		i += sizeof(uint8_t) * d->files[fi]->lname;
 	}
 	
 	return d;
@@ -27,34 +40,43 @@ walkresponsetodir(uint8_t *buf, uint32_t len)
 uint8_t *
 dirtowalkresponse(struct dir *dir, uint32_t *size)
 {
-	uint8_t *buf, *b;
+	uint8_t *buf;
 	struct file *f;
-	uint32_t i;
+	uint32_t i, fi;
 	
-	*size = sizeof(struct dir);
-	
-	for (i = 0; i < dir->nfiles; i++) {
-		*size += sizeof(struct file *) + sizeof(struct file);
-		*size += sizeof(uint8_t) * dir->files[i]->lname;
+	i = sizeof(struct dir);
+	i += sizeof(struct file *) * dir->nfiles;
+	for (fi = 0; fi < dir->nfiles; fi++) {
+		if (i % sizeof(void *) > 0)
+			i += i % sizeof(void *);
+		
+		i += sizeof(struct file);
+		i += sizeof(uint8_t) * dir->files[fi]->lname;
 	}
 	
-	buf = malloc(*size);
+	*size = i;
+
+	buf = malloc(i);
 	if (buf == nil) {
+		*size = 0;
 		return nil;
 	}
 	
-	b = buf;
+	i = 0;
+	memmove(&buf[i], (const void *) dir, sizeof(struct dir));
+	i += sizeof(struct dir);
+	i += sizeof(struct file *) * dir->nfiles;
 	
-	memmove(b, (const void *) dir, sizeof(struct dir));
-	b += sizeof(struct dir);
-	b += sizeof(struct file *) * dir->nfiles;
-	
-	for (i = 0; i < dir->nfiles; i++) {
-		f = dir->files[i];
-		memmove(b, (const void *) f, sizeof(struct file));
-		b += sizeof(struct file);
-		memmove(b, (const void *) f->name, sizeof(uint8_t) * f->lname);
-		b += sizeof(uint8_t) * f->lname;
+	for (fi = 0; fi < dir->nfiles; fi++) {
+		if (i % sizeof(void *) > 0)
+			i += i % sizeof(void *);
+		
+		f = dir->files[fi];
+		
+		memmove(&buf[i], (const void *) f, sizeof(struct file));
+		i += sizeof(struct file);
+		memmove(&buf[i], (const void *) f->name, sizeof(uint8_t) * f->lname);
+		i += sizeof(uint8_t) * f->lname;
 	}
 	
 	return buf;

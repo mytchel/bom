@@ -1,39 +1,163 @@
 #include "head.h"
 
-#define FDEV 1
-#define FCOM 2
-
-struct file devfile = { 
-	1, ATTR_rd | ATTR_wr | ATTR_dir,
-	4, (uint8_t *) "dev"
-};
-
-struct file comfile = {
-	2, ATTR_rd | ATTR_wr,
-	4, (uint8_t *) "com"
-};
-
 struct dir_list {
 	uint32_t fid;
 	struct dir dir;
 	struct dir_list *next;
 };
 
-int nfid = 3;
-struct dir_list *dir_list;
+struct file_list {
+	int opened;
+	struct file file;
+	size_t len;
+	uint8_t *buf;
+	uint32_t (*write)(struct file_list *, uint8_t *, uint32_t, uint32_t, int32_t *);
+	uint32_t (*read)(struct file_list *,  uint8_t *, uint32_t, uint32_t, int32_t *);
+	struct file_list *next;
+};
 
-struct file *
+struct dir_list rootdir = {
+	ROOTFID,
+	{ 0, nil },
+	nil
+};
+
+struct file_list rootfile = {
+	0,
+	{
+		ROOTFID,
+		ATTR_rd|ATTR_dir,
+		1,
+		(uint8_t *) ""
+	},
+	0,
+	nil,
+	nil,
+	nil,
+	nil
+};
+
+int nfid = 1;
+struct dir_list *dir_list = &rootdir;
+struct file_list *file_list = &rootfile;
+
+uint32_t
+tmpread(struct file_list *fl, uint8_t *buf, uint32_t offset, uint32_t len, int32_t *err)
+{
+	uint8_t *bbuf;
+	uint32_t i;
+	
+	if (offset >= fl->len) {
+		*err = EOF;
+		return 0;
+	}
+	
+	bbuf = fl->buf + offset;
+	for (i = 0; i + offset < fl->len && i < len; i++)
+		buf[i] = bbuf[i];
+	
+	*err = OK;
+	return i;
+}
+
+uint32_t
+tmpwrite(struct file_list *fl, uint8_t *buf, uint32_t offset, uint32_t len, int32_t *err)
+{
+	uint8_t *bbuf;
+	uint32_t i;
+	
+	if (offset + len >= fl->len) {
+		bbuf = malloc(sizeof(uint8_t) * (offset + len));
+		if (bbuf == nil) {
+			*err = ENOMEM;
+			return 0;
+		}
+
+		if (fl->len > 0) {
+			memmove(bbuf, fl->buf, fl->len);		
+			free(fl->buf);
+		}
+			
+		fl->buf = bbuf;
+		fl->len = offset + len;
+	}
+
+	bbuf = fl->buf + offset;
+	for (i = 0; i + offset < fl->len && i < len; i++)
+		bbuf[i + offset] = buf[i];
+	
+	*err = OK;
+	return i;
+}
+
+uint32_t
+comread(struct file_list *fl, uint8_t *buf, uint32_t offset, uint32_t len, int32_t *err)
+{
+	uint32_t i;
+	
+	for (i = 0; i < len; i++)
+		buf[i] = getc();
+	
+	*err = OK;	
+	return i;
+}
+
+uint32_t
+comwrite(struct file_list *fl, uint8_t *buf, uint32_t offset, uint32_t len, int32_t *err)
+{
+	uint32_t i;
+
+	for (i = 0; i < len; i++)
+		putc(buf[i]);
+	
+	*err = OK;
+	return i;
+}
+
+struct file_list *
 newfile(uint32_t attr, uint8_t *name)
 {
-	struct file *f;
+	struct file_list *fl;
 	
-	f = malloc(sizeof(struct file));
-	f->fid = nfid++;
-	f->attr = attr;
-	f->lname = strlen(name);
-	f->name = name;
+	for (fl = file_list; fl != nil && fl->next != nil; fl = fl->next);
+	if (fl == nil) {
+		fl = file_list = malloc(sizeof(struct file_list));
+	} else {
+		fl->next = malloc(sizeof(struct file_list));
+		fl = fl->next;
+	}
 	
-	return f;
+	fl->next = nil;
+	fl->opened = 0;
+	fl->file.fid = nfid++;
+	fl->file.attr = attr;
+	fl->file.lname = strlen(name) + 1;
+	fl->file.name = malloc(fl->file.lname);
+	memmove(fl->file.name, name, fl->file.lname);
+		
+	if (attr & ATTR_dir) {
+		fl->write = nil;
+		fl->read = nil;
+	} else {
+		fl->write = &tmpwrite;
+		fl->read = &tmpread;
+	}
+
+	fl->len = 0;
+	fl->buf = nil;
+		
+	return fl;
+}
+
+struct file_list *
+findfile(uint32_t fid)
+{
+	struct file_list *fl;
+	for (fl = file_list; fl != nil; fl = fl->next)
+		if (fl->file.fid == fid)
+			break;
+	
+	return fl;
 }
 
 void
@@ -47,22 +171,24 @@ diraddfile(struct dir *d, struct file *f)
 	for (i = 0; i < d->nfiles; i++)
 		files[i] = d->files[i];
 	
+	files[i] = f; 
+	
 	if (d->nfiles > 0)
 		free(d->files);
 	
 	d->nfiles++;
 	d->files = files;
-	
-	files[i] = f; 
 }
 
 struct dir *
 finddir(uint32_t fid)
 {
 	struct dir_list *dl;
-	for (dl = dir_list; dl != nil; dl = dl->next)
+	
+	for (dl = dir_list; dl != nil; dl = dl->next) {
 		if (dl->fid == fid)
 			return &dl->dir;
+	}
 	return nil;
 }
 
@@ -73,29 +199,18 @@ adddir(uint32_t fid)
 	
 	for (dl = dir_list; dl != nil && dl->next != nil; dl = dl->next);
 	
-	if (dl == nil) {
-		dl = dir_list = malloc(sizeof(struct dir_list));
-	} else {
-		dl->next = malloc(sizeof(struct dir_list));
-		dl = dl->next;
-	}
+	dl->next = malloc(sizeof(struct dir_list));
+	dl = dl->next;
 	
+	if (dl == nil) {
+		return nil;
+	}
+
 	dl->next = nil;
 	dl->fid = fid;
 	dl->dir.nfiles = 0;
 	dl->dir.files = nil;
 	return &dl->dir;
-}
-
-void
-initfs(void)
-{
-	struct dir *d;
-	
-	d = adddir(0);
-	diraddfile(d, &devfile);
-	d = adddir(1);
-	diraddfile(d, &comfile);
 }
 
 void
@@ -115,61 +230,97 @@ bwalk(struct request *req, struct response *resp)
 void
 bopen(struct request *req, struct response *resp)
 {
-	if (req->fid != 2) {
+	struct file_list *fl;
+	
+	printf("open %i\n", req->fid);
+	
+	fl = findfile(req->fid);
+	if (fl == nil) {
 		resp->ret = ENOFILE;
 		return;
 	}
 
-	printf("open %i\n", req->fid);	
+	fl->opened++;
+	resp->ret = OK;
+}
+
+void
+bclose(struct request *req, struct response *resp)
+{
+	struct file_list *fl;
+	
+	printf("close %i\n", req->fid);
+	
+	fl = findfile(req->fid);
+	if (fl == nil) {
+		resp->ret = ENOFILE;
+		return;
+	}
+
+	fl->opened--;
 	resp->ret = OK;
 }
 
 void
 bread(struct request *req, struct response *resp)
 {
-	if (req->fid != 2) {
+	uint32_t offset, len;
+	struct file_list *fl;
+	uint8_t *buf;
+	
+	buf = req->buf;
+	memmove(&offset, buf, sizeof(uint32_t));
+	buf += sizeof(uint32_t);
+	memmove(&len, buf, sizeof(uint32_t));
+
+	fl = findfile(req->fid);
+	if (fl == nil) {
 		resp->ret = ENOFILE;
 		return;
 	}
 	
-	resp->ret = ENOIMPL;
+	resp->lbuf = len;
+	resp->buf = malloc(sizeof(uint32_t) * len);
+	resp->lbuf = fl->read(fl, resp->buf, offset, len, &resp->ret);
+	if (resp->lbuf == 0)
+		free(resp->buf);
 }
 
 void
 bwrite(struct request *req, struct response *resp)
 {
-	uint32_t offset, len, i;
+	uint32_t offset, len, n;
+	struct file_list *fl;
 	uint8_t *buf;
-
+	
 	buf = req->buf;
 	memmove(&offset, buf, sizeof(uint32_t));
 	buf += sizeof(uint32_t);
 	memmove(&len, buf, sizeof(uint32_t));
 	buf += sizeof(uint32_t);
 
-	i = 0;
-	switch (req->fid){
-	case 2:	
-		while (i < len)
-			putc(buf[i++]);
-		break;
-	default:
+	fl = findfile(req->fid);
+	if (fl == nil) {
 		resp->ret = ENOFILE;
 		return;
 	}
+
+	n = fl->write(fl, buf, offset, len, &resp->ret);
 	
-	resp->ret = i;
+	resp->lbuf = sizeof(uint32_t);
+	resp->buf = malloc(sizeof(uint32_t));
+	memmove(resp->buf, &n, sizeof(uint32_t));
 }
 
 void
 bcreate(struct request *req, struct response *resp)
 {
 	uint32_t attr, lname;
-	uint8_t *buf, *name;
 	struct file *f;
 	struct dir *d;
+	uint8_t *buf;
 	
-	printf("bcreate\n");
+	printf("create %i\n", req->fid);
 
 	buf = req->buf;
 	memmove(&attr, buf, sizeof(uint32_t));
@@ -177,32 +328,102 @@ bcreate(struct request *req, struct response *resp)
 	memmove(&lname, buf, sizeof(uint32_t));
 	buf += sizeof(uint32_t);
 	
-	name = malloc(sizeof(uint8_t) * lname);
-	memmove(name, buf, lname);
-	
 	d = finddir(req->fid);
 	if (d == nil) {
+		printf("failed to find parent dir %i\n", req->fid);
 		resp->ret = ENOFILE;
 		return;
 	}
 	
-	f = newfile(attr, name);
+	f = &newfile(attr, buf)->file;
 
 	printf("new file in %i, '%s' has fid %i\n", req->fid, f->name, f->fid);
 
 	diraddfile(d, f);
 	
 	if (attr & ATTR_dir) {
+		printf("should add a dir as well\n");
 		adddir(f->fid);
 	}
 
-	resp->ret = f->fid;
+	resp->ret = OK;
+	resp->lbuf = sizeof(uint32_t);
+	resp->buf = malloc(sizeof(uint32_t));
+	memmove(resp->buf, &f->fid, sizeof(uint32_t));
 }
 
 void
 bremove(struct request *req, struct response *resp)
 {
+	struct file_list *fl, *fp;
+	struct dir_list *d, *dt;
+	
+	printf("remove %i\n", req->fid);
 	resp->ret = ENOIMPL;
+	return;
+		
+	fl = findfile(req->fid);
+	if (fl == nil) {
+		resp->ret = ENOFILE;
+		return;
+	}
+
+	if (fl->opened > 0) {
+		printf("%i open, not removing\n", req->fid);
+		resp->ret = ERR;
+		return;
+	}
+
+	for (fp = file_list; fp != nil && fp->next != fl; fp = fp->next);
+	if (fp != nil) {
+		fp->next = fl->next;
+	} else {
+		file_list = file_list->next;
+	}
+	
+	for (d = dir_list; 
+		d != nil && d->next != nil && d->next->fid != req->fid; 
+		d = d->next);
+
+	if (d == nil) {
+		d = dir_list;
+		dir_list = d->next;
+	} else {
+		dt = d;
+		d = dt->next;
+		dt->next = dt->next->next;
+	}
+	
+	free(d);
+	free(fl->file.name);
+	free(fl->buf);
+	free(fl);
+	
+	printf("removed %i\n", req->fid);
+	resp->ret = OK;
+}
+
+void
+initfs(void)
+{
+	struct dir *dev;
+	struct file_list *fl;
+	
+	/* Make /dev */
+	fl = newfile(ATTR_dir|ATTR_wr|ATTR_rd, (uint8_t *) "dev");
+	dev = adddir(fl->file.fid);
+	diraddfile(&rootdir.dir, &fl->file);
+	
+	/* Make /dev/com */
+	fl = newfile(ATTR_wr|ATTR_rd, (uint8_t *) "com");
+	fl->write = &comwrite;
+	fl->read = &comread;
+	diraddfile(dev, &fl->file);
+	
+	/* Make /tmp */
+	fl = newfile(ATTR_dir|ATTR_wr|ATTR_rd, (uint8_t *) "tmp");
+	adddir(fl->file.fid);
+	diraddfile(&rootdir.dir, &fl->file);
 }
 
 int
@@ -243,12 +464,15 @@ pmount(void)
 				break;
 			}
 		}
-		
+
 		resp.rid = req.rid;
 		resp.lbuf = 0;
 		switch (req.type) {
 		case REQ_open:
 			bopen(&req, &resp);
+			break;
+		case REQ_close:
+			bclose(&req, &resp);
 			break;
 		case REQ_walk:
 			bwalk(&req, &resp);
@@ -269,7 +493,7 @@ pmount(void)
 			resp.ret = ENOIMPL;
 			break;
 		}
-		
+
 		if (write(out, &resp.rid, sizeof(uint32_t)) < 0) break;
 		if (write(out, &resp.ret, sizeof(int32_t)) < 0) break;
 		if (write(out, &resp.lbuf, sizeof(uint32_t)) < 0) break;
@@ -290,35 +514,85 @@ int
 pfile_open(void)
 {
 	int pid = getpid();
-	int fd, i = 0;
-	char *str = "Hello\n";
+	int fd, i;
+	uint8_t c;
+	uint8_t *str = (uint8_t *) "Hello\n";
+	uint8_t *str2 = (uint8_t *) "Hello, How are you?\n";
 	
 	printf("%i : Open some random paths\n", pid);
 	
 	/* Some tests */
-	open("../hello/there/../testing", O_RDONLY);
-	open("/../dev", O_RDONLY);
-	open("../com", O_RDONLY);
-	open("/././.", O_RDONLY);
-	open("./com", O_RDONLY);
-	open("com", O_RDONLY);
-	open("/dev/hello", O_RDONLY);
-	open("/dev/com/shouldfail", O_RDONLY);
-	open("/dev/hello", O_WRONLY|O_CREATE, ATTR_dir|ATTR_wr);
+	fd = open("../hello/there/../testing", O_RDONLY);
+	printf("%i : fd = %i\n", pid, fd);
+	fd = open("/../dev", O_RDONLY);
+	printf("%i : fd = %i\n", pid, fd);
+	fd = open("../com", O_RDONLY);
+	printf("%i : fd = %i\n", pid, fd);
+	fd = open("/././.", O_RDONLY);
+	printf("%i : fd = %i\n", pid, fd);
+	fd = open("./com", O_RDONLY);
+	printf("%i : fd = %i\n", pid, fd);
+	fd = open("com", O_RDONLY);
+	printf("%i : fd = %i\n", pid, fd);
+	fd = open("/dev/hello", O_RDONLY);
+	printf("%i : fd = %i\n", pid, fd);
+	fd = open("/dev/com/shouldfail", O_RDONLY);
+	printf("%i : fd = %i\n", pid, fd);
+	fd = open("/tmp/hello/there/../..", O_RDONLY);
+	printf("%i : fd = %i\n", pid, fd);
+
+	printf("%i : open, close, and remove /tmp/hello\n", pid);
+	fd = open("/tmp/hello", O_WRONLY|O_CREATE, ATTR_dir|ATTR_wr);
+	close(fd);
+	remove("/tmp/hello");
+
+	printf("%i : open, open, and remove /tmp/twice\n", pid);
+	open("/tmp/twice", O_WRONLY|O_CREATE, ATTR_dir|ATTR_wr);
+	open("/tmp/twice", O_WRONLY|O_CREATE, ATTR_dir|ATTR_wr);
+	fd = remove("/tmp/twice");
+	if (fd != OK) {
+		printf("%i : failed to remove /tmp/twice (this is good.) \n", pid);
+	}
+
+	printf("open and write /tmp/test\n");	
+	fd = open("/tmp/test", O_WRONLY|O_CREATE, ATTR_wr|ATTR_rd);
+	if (fd < 0) {
+		printf("%i : failed to open /tmp/test, got %i\n", pid, fd);
+		return -4;
+	} else {
+		write(fd, str2, sizeof(char) * (strlen(str2) + 1));
+		close(fd);
+	}
 	
 	printf("%i: open /dev/com\n", pid);
-
 	fd = open("/dev/com", O_WRONLY);
 	if (fd < 0) {
 		printf("%i: open /dev/com failed with err %i\n", pid, fd);
 		return -4;
 	}
 	
-	while (i++ < 5) {
+	for (i = 0; i < 5; i++) {
 		printf("%i: write to /dev/com\n", pid);	
-		write(fd, str, sizeof(char) * (1+strlen((const uint8_t *) str)));
+		write(fd, str, sizeof(char) * (strlen(str) + 1));
 		sleep(1000);
 	}
+
+	fd = open("/tmp/test", O_RDONLY);
+	if (fd < 0) {
+		printf("%i : failed to open /tmp/test, got %i\n", pid, fd);
+		return -4;
+	} else {
+		printf("%i : read from /tmp/test:\n", pid);
+		while (true) {
+			i = read(fd, &c, sizeof(uint8_t));
+			printf("%i : %i \t'%c'\n", pid, i, c);
+			if (i < 0)
+				break;
+		}
+		
+		close(fd);
+	}
 	
+	printf("%i : pfile_open done\n", pid);
 	return 4;
 }
