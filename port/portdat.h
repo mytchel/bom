@@ -1,4 +1,3 @@
-#include "../include/syscalls.h"
 #include "../include/stdarg.h"
 #include "../include/fs.h"
 #include "../include/libc.h"
@@ -340,6 +339,9 @@ mmuputpage(struct page *, bool);
 /* Find a unused page. */
 struct page *
 newpage(void *);
+
+struct page *
+getiopages(void *, size_t *);
 
 void
 freepage(struct page *);

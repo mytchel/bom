@@ -115,11 +115,22 @@ void
 procremove(struct proc *p)
 {
 	struct proc *pp;
+	int i;
 
 	/* Remove proc from list. */
-	for (pp = procs; pp->next != p; pp = pp->next);
+	for (pp = procs; pp != nil && pp->next != p; pp = pp->next);
+	if (pp == nil) /* Umm */
+		return;
 	pp->next = p->next;
 
+	for (i = 0; i < Smax; i++) {
+		freeseg(p->segs[i]);
+	}
+	
+	freepath(p->dot);
+	freefgroup(p->fgroup);
+	freengroup(p->ngroup);
+	
 	p->state = PROC_unused;
 }
 

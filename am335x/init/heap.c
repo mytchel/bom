@@ -14,7 +14,7 @@ growheap(struct block *prev, size_t size)
 
 	size += sizeof(size_t);
 
-	b = getmem(&size);
+	b = getmem(nil, &size);
 	if (b == nil) {
 		return nil;
 	} else if (prev == nil) {

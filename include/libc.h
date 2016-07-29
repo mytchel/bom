@@ -3,6 +3,9 @@
 
 #include "syscalls.h"
 
+
+/* Process system calls */
+
 int
 exit(int code);
 
@@ -15,14 +18,17 @@ sleep(int ms);
 int
 getpid(void);
 
+/* Memory system calls */
 
 /* 
  * Maps a number of pages necessary to contain size and 
  * returns the address. Sets size to the real size returned
- * which will be a multiple of page size.
+ * which will be a multiple of page size. If addr is not null
+ * then it should be the physical address of the memory wanted.
+ * This is so you can request memory mapped IO.
  */
 void *
-getmem(size_t *size);
+getmem(void *addr, size_t *size);
 
 /*
  * Unmaps the pages starting at addr. 
@@ -30,8 +36,10 @@ getmem(size_t *size);
  * from getmem. Size should be a multiple of a page.
  */
 int
-rmmem(void *, size_t);
+rmmem(void *addr, size_t size);
 
+
+/* File operation system calls. */
 
 int
 pipe(int *fds);
@@ -45,6 +53,7 @@ write(int fd, void *buf, size_t len);
 int
 close(int fd);
 
+/* File system system calls. */
 
 int
 bind(int out, int in, const char *path);
@@ -56,17 +65,19 @@ int
 remove(const char *path);
 
 
+/* Helper functions */
+
 void *
-malloc(size_t);
+malloc(size_t size);
 
 void
-free(void *);
+free(void *addr);
 
 void
 memmove(void *dest, const void *src, size_t len);
 
 void
-memset(void *b, int c, size_t len);
+memset(void *dest, int c, size_t len);
 
 bool
 strcmp(const uint8_t *s1, const uint8_t *s2);

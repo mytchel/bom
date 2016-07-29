@@ -3,6 +3,9 @@
 #include "../include/stdarg.h"
 #include "../include/fs.h"
 
+bool
+uartinit(void);
+
 char
 getc(void);
 

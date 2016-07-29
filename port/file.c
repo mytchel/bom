@@ -390,6 +390,10 @@ fileopen(struct path *path, uint32_t mode, uint32_t cmode, int *err)
 	
 	c->aux = cfile;
 	
+	lock(&b->lock);
+	b->refs++;
+	unlock(&b->lock);
+	
 	cfile->fid = req.fid;
 	cfile->binding = b;
 	cfile->offset = 0;
@@ -521,10 +525,17 @@ fileclose(struct chan *c)
 
 	resp = makereq(cfile->binding, &req);
 	err = resp->ret;
-	
 	if (resp->lbuf > 0)
 		free(resp->buf);
 	free(resp);
+
+	if (err == OK) {	
+		lock(&cfile->binding->lock);
+		cfile->binding->refs--;
+		unlock(&cfile->binding->lock);
+		
+		free(cfile);
+	}
 	
 	return err;
 }

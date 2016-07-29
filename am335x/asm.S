@@ -32,6 +32,7 @@ _start:
 	mrc p15, 0, r0, c1, c0, 0
 	bic r0, r0, #(1<<12)
 	bic r0, r0, #(1<<2)
+	bic r1, r1, #(1<<0)
 	mcr p15, 0, r0, c1, c0, 0
 	
 	cps #MODE_IRQ

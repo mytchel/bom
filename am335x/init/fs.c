@@ -420,6 +420,10 @@ initfs(void)
 	struct dir *dev;
 	struct file_list *fl;
 	
+	if (!uartinit()) {
+		exit(-1);
+	}
+	
 	/* Make /dev */
 	fl = newfile(ATTR_dir|ATTR_wr|ATTR_rd, (uint8_t *) "dev");
 	dev = adddir(fl->file.fid);

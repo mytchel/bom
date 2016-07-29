@@ -3,21 +3,11 @@
 reg_t
 sysexit(va_list args)
 {
-	int i;
-	
 	int code = va_arg(args, int);
 	
 	printf("pid %i exited with status %i\n", 
 		current->pid, code);
 
-	for (i = 0; i < Smax; i++) {
-		freeseg(current->segs[i]);
-	}
-
-	freepath(current->dot);	
-	freefgroup(current->fgroup);
-	freengroup(current->ngroup);
-	
 	procremove(current);
 	schedule();
 	
@@ -106,22 +96,19 @@ fixpages(struct page *pg, reg_t offset, struct page *next)
 	pp->next = next;
 }
 
-reg_t
-sysgetmem(va_list args)
+static struct page *
+getnewpages(size_t *size)
 {
 	struct page *pages, *p, *pt;
-	void *addr;
-	size_t *size, s;
+	size_t s;
 	
-	size = va_arg(args, size_t *);
-
 	pages = newpage(0);
 	if (pages == nil) {
 		return nil;
 	}
 	
-	s = pages->size;
 	p = pages;
+	s = pages->size;
 	while (s < *size) {
 		p->next = newpage(p->va + p->size);
 		if (p->next == nil) {
@@ -139,44 +126,126 @@ sysgetmem(va_list args)
 	}
 	
 	*size = s;
-	addr = nil;
-	
-	for (p = current->segs[Sheap]->pages; 
-		p != nil && p->next != nil; 
-		p = p->next) {
+	return pages;	
+}
+
+static void *
+startofheap(void)
+{
+	struct page *p;
+	void *addr = nil;
+
+	for (p = current->segs[Stext]->pages;
+		p != nil;
+		p = p->next)
+		if ((uint8_t *) p->va + p->size > (uint8_t *) addr)
+			addr = (uint8_t *) p->va + p->size;
+
+	for (p = current->segs[Sdata]->pages;
+		p != nil;
+		p = p->next)
+		if ((uint8_t *) p->va + p->size > (uint8_t *) addr)
+			addr = (uint8_t *) p->va + p->size;
+
+	return addr;
+}
+
+static void *
+insertpages(struct page *pages, void *addr, size_t size)
+{
+	struct page *p, *pp;
+	bool fix = addr == nil;
+
+	if (fix) addr = startofheap();
+	pp = nil;
+	for (p = current->segs[Sheap]->pages; p != nil; pp = p, p = p->next) {
 		
-		addr = (uint8_t*) p->va + p->size;
-		if ((size_t) (p->next->va - p->va) - p->size > s) {
-			fixpages(pages, (reg_t) addr, p->next);
-			p->next = pages;
-			return (reg_t) addr;
+		if (fix && pp != nil) 
+			addr = (uint8_t *) pp->va + pp->size;
+		
+		if ((size_t) (p->va - addr) > size) {
+			/* Pages fit in here */
+			fixpages(pages, (reg_t) addr, p);
+			
+			if (pp == nil) {
+				current->segs[Sheap]->pages = pages;
+			} else {
+				pp->next = pages;
+			}
+			
+			return addr;
 		}
 	}
 	
-	if (p != nil) {
+	if (pp != nil) {
 		/* Append on end */
-		addr = (uint8_t *) p->va + p->size;
-		fixpages(pages, (reg_t) addr, nil);
-		p->next = pages;
+		fixpages(pages, (reg_t) addr, p);
+		pp->next = pages;
 	} else {
-		
-		for (p = current->segs[Stext]->pages;
-			p != nil;
-			p = p->next)
-			if ((uint8_t *) p->va + p->size > (uint8_t *) addr)
-				addr = (uint8_t *) p->va + p->size;
-
-		for (p = current->segs[Sdata]->pages;
-			p != nil;
-			p = p->next)
-			if ((uint8_t *) p->va + p->size > (uint8_t *) addr)
-				addr = (uint8_t *) p->va + p->size;
-
+		/* First page on heap. */
 		fixpages(pages, (reg_t) addr, nil);
 		current->segs[Sheap]->pages = pages;
 	}
 
-	return (reg_t) addr;
+	return addr;
+}
+
+static bool
+addrsinuse(void *start, size_t size)
+{
+	struct page *p;
+	int i;
+	void *end = (uint8_t *) start + size;
+	
+	for (i = 0; i < Smax; i++) {
+		for (p = current->segs[i]->pages; p != nil; p = p->next) {
+			if (p->va == start) {
+				return true;
+			} else if (p->va < start 
+				&& start < (void *) ((uint8_t *) p->va + p->size)) {
+				/* Start of block in page */
+				return true;
+			} else if (p->va < end 
+				&& end < (void *) ((uint8_t *) p->va + p->size)) {
+				/* End of block in page */
+				return true;
+			} else if (start <= p->va && p->va <= end) {
+				/* Block encompases page */
+				return true;
+			}
+		}
+	}
+	
+	return false;
+}
+
+reg_t
+sysgetmem(va_list args)
+{
+	struct page *pages = nil;
+	void *addr;
+	size_t *size;
+	
+	addr = va_arg(args, void *);
+	size = va_arg(args, size_t *);
+
+	if (addr != nil && addrsinuse(addr, *size)) {
+		printf("0x%h is already in use by %i\n", addr, current->pid);
+		return nil;
+	}
+
+	if (addr == nil) {
+		pages = getnewpages(size);
+	} else {
+		pages = getiopages(addr, size);
+	}
+	
+	if (pages == nil) {
+		*size = 0;
+		return nil;
+	}
+	
+	return (reg_t) insertpages(pages, addr, *size);
 }
 
 reg_t
