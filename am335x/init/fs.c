@@ -254,8 +254,6 @@ bopen(struct request *req, struct response *resp)
 {
 	struct file_list *fl;
 	
-	printf("open %i\n", req->fid);
-	
 	fl = findfile(req->fid);
 	if (fl == nil) {
 		resp->ret = ENOFILE;
@@ -270,8 +268,6 @@ void
 bclose(struct request *req, struct response *resp)
 {
 	struct file_list *fl;
-	
-	printf("close %i\n", req->fid);
 	
 	fl = findfile(req->fid);
 	if (fl == nil) {
@@ -356,8 +352,6 @@ bcreate(struct request *req, struct response *resp)
 	
 	fl = newfile(attr, buf);
 
-	printf("new file in %i, '%s' has fid %i\n", req->fid, fl->file.name, fl->file.fid);
-
 	fl->parent = d;
 	diraddfile(d, &fl->file);
 	
@@ -384,7 +378,6 @@ bremove(struct request *req, struct response *resp)
 	}
 
 	if (fl->opened > 0) {
-		printf("%i open, not removing\n", req->fid);
 		resp->ret = ERR;
 		return;
 	}
@@ -403,7 +396,6 @@ bremove(struct request *req, struct response *resp)
 	if (d != nil && d->next != nil) {
 		dt = d->next;
 		if (dt->dir.nfiles > 0) {
-			printf("dir not empty, contains %i files\n", dt->dir.nfiles);
 			resp->ret = ERR;
 			return;
 		}
@@ -616,9 +608,9 @@ pfile_open(void)
 		printf("%i : read from /tmp/test:\n", pid);
 		while (true) {
 			i = read(fd, &c, sizeof(uint8_t));
-			printf("%i : %i \t'%c'\n", pid, i, c);
 			if (i < 0)
 				break;
+			printf("%i : '%c'\n", pid, c);
 		}
 		
 		close(fd);

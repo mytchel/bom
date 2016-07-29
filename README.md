@@ -47,9 +47,11 @@ is falling apart.
 	- close
 	- bind
 	- open
+	- remove
 	- getmem
 	- rmmem
-   As to what they do, well, good luck.
+
+As to what they do and how to use them, well, good luck.
 
 ### Very Helpful Information
 
