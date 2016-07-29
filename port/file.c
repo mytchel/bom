@@ -183,8 +183,24 @@ findbinding(struct path *path, int depth)
 	return best;
 }
 
+static struct file *
+findfileindir(struct dir *dir, uint8_t *name)
+{
+	struct file *f;
+	size_t i;
+	
+	for (i = 0; i < dir->nfiles; i++) {
+		f = dir->files[i];
+		if (strcmp(f->name, name)) {
+			return f;
+		}
+	}
+	
+	return nil;
+}
+
 static struct binding *
-filewalk(struct path *path, struct file *dir, struct file *file, int *err)
+filewalk(struct path *path, struct file *parent, struct file *file, int *err)
 {
 	struct binding *b, *bp;
 	struct response *resp;
@@ -192,13 +208,11 @@ filewalk(struct path *path, struct file *dir, struct file *file, int *err)
 	struct path *p;
 	struct dir *dir;
 	struct file *f;
-	size_t depth, i;
-	bool found;
+	size_t depth;
 	
 	req.type = REQ_walk;
 	req.lbuf = 0;
 	req.fid = ROOTFID;
-	*attr = ROOTATTR;
 	
 	b = findbinding(path, 0);
 	bp = nil;
@@ -228,29 +242,38 @@ filewalk(struct path *path, struct file *dir, struct file *file, int *err)
 			return nil;
 		}
 		
-		found = false;
-		for (i = 0; i < dir->nfiles; i++) {
-			f = dir->files[i];
-			if (strcmp(f->name, p->s)) {
-				if (p->next && (f->attr & ATTR_dir) == 0) {
-					*err = ENOFILE;
-				} else {
-					*attr = f->attr;
-					req.fid = f->fid;
-					found = true;
-				}
-				break;
+		f = findfileindir(dir, p->s);
+		if (f == nil) {
+			printf("'%s' not found\n", p->s);
+			*err = ENOFILE;
+		} else if (p->next) {
+			if ((f->attr & ATTR_dir) == 0) {
+				printf("'%s' not a dir\n", p->s);
+				/* Part of path not a dir, so no such file. */
+				*err = ENOFILE;
+			} else if (p->next->next == nil) {
+				printf("'%s' last dir\n", p->s);
+				*err = OK;
+				parent->attr = f->attr;
+				parent->fid = f->fid;
+			} else {
+				printf("'%s' dir\n", p->s);
+				*err = OK;
 			}
+			
+			req.fid = f->fid;
+		} else {
+			printf("'%s' file\n", p->s);
+			file->attr = f->attr;
+			file->fid = f->fid;
+			*err = OK;
 		}
 		
 		free(resp->buf);
 		free(resp);
 		
-		if (!found) {
-			*err = ENOFILE;
-			return nil;
-		} else if (*err != OK) {
-			return nil;
+		if (*err != OK) {
+			return b;
 		}
 		
 		p = p->next;
@@ -264,42 +287,23 @@ filewalk(struct path *path, struct file *dir, struct file *file, int *err)
 		}
 	}
 	
-	*fid = req.fid;
 	return b;
 }
 
-static struct binding *
-filecreate(struct path *path, uint32_t cattr, uint32_t *cfid, int *err)
+static uint32_t
+filecreate(struct binding *b, uint32_t pfid, uint8_t *name, 
+	uint32_t cattr, int *err)
 {
-	struct binding *b;
 	struct response *resp;
 	struct request req;
-	struct path *p, *pl;
-	uint32_t attr;
-	uint8_t *name, *buf;
+	uint8_t *buf;
+	uint32_t cfid;
 	int nlen;
 	
-	for (p = path; 
-		p != nil && p->next != nil && p->next->next != nil; 
-		p = p->next);
-
-	if (p == nil || p->next == nil) {
-		return nil;
-	}
-	
-	pl = p->next;
-	p->next = nil;
-	
-	b = filewalk(path, &req.fid, &attr, err);
-	p->next = pl; /* Reset so freepath frees it. */
-	if (*err != OK) {
-		return nil;
-	}
-	
-	name = pl->s;
-	nlen = strlen(name) + 1;
-
 	req.type = REQ_create;
+	req.fid = pfid;
+	
+	nlen = strlen(name) + 1;
 	req.lbuf = sizeof(uint32_t) * 2 + sizeof(uint8_t) * nlen;
 	buf = req.buf = malloc(req.lbuf);
 	
@@ -319,20 +323,22 @@ filecreate(struct path *path, uint32_t cattr, uint32_t *cfid, int *err)
 		*err = ELINK;
 	} else {
 		*err = OK;
-		memmove(cfid, resp->buf, sizeof(uint32_t));
+		memmove(&cfid, resp->buf, sizeof(uint32_t));
 	}
 
 	if (resp->lbuf > 0)
 		free(resp->buf);
 	free(resp);
 	
-	return b;
+	return cfid;
 		
 }
 
 struct chan *
 fileopen(struct path *path, uint32_t mode, uint32_t cmode, int *err)
 {
+	struct file parent, file;
+	struct path *p;
 	struct binding *b;
 	struct response *resp;
 	struct request req;
@@ -343,18 +349,25 @@ fileopen(struct path *path, uint32_t mode, uint32_t cmode, int *err)
 	req.type = REQ_open;
 	req.lbuf = 0;
 	
-	b = filewalk(path, &req.fid, &attr, err);
+	b = filewalk(path, &parent, &file, err);
 	if (*err != OK) {
-		if (cmode == 0) {
+		if (b == nil || cmode == 0) {
 			return nil;
 		} else {
 			/* Create the file first. */
-			b = filecreate(path, cmode, &req.fid, err);
+			for (p = path; p != nil && p->next != nil; p = p->next);
+			if (p == nil)
+				return nil;
+			
+			req.fid = filecreate(b, parent.fid, p->s, cmode, err);
 			attr = cmode;
 			if (*err != OK) {
 				return nil;
 			}
 		}
+	} else {
+		req.fid = file.fid;
+		attr = file.attr;
 	}
 	
 	resp = makereq(b, &req);
@@ -527,7 +540,7 @@ fileremove(struct path *path)
 	struct binding *b;
 	struct response *resp;
 	struct request req;
-	uint32_t attr;
+	struct file parent, file;
 	int err;
 	
 	printf("fileremove\n");
@@ -535,11 +548,12 @@ fileremove(struct path *path)
 	req.type = REQ_remove;
 	req.lbuf = 0;
 	
-	b = filewalk(path, &req.fid, &attr, &err);
+	b = filewalk(path, &parent, &file, &err);
 	if (err != OK) {
 		return ENOFILE;
 	}
 	
+	req.fid = file.fid;
 	resp = makereq(b, &req);
 	
 	err = resp->ret;

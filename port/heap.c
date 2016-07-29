@@ -102,6 +102,9 @@ free(void *ptr)
 {
 	struct block *b, *p;
 	bool palign, nalign;
+	
+	if (ptr == nil)
+		return;
 
 	b = (struct block *) ((reg_t) ptr - sizeof(size_t));
 

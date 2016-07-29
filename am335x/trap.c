@@ -74,8 +74,6 @@ intcaddhandler(uint32_t irqn, int (*func)(uint32_t))
 	writel(mask, INTC + INTC_CLEARn(mfield));
 
 	writel(1, INTC + INTC_CONTROL);
-	
-	printf("interrupt %i handler set\n", irqn);
 }
 
 void

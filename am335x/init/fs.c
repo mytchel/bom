@@ -7,6 +7,7 @@ struct dir_list {
 };
 
 struct file_list {
+	struct dir *parent;
 	int opened;
 	struct file file;
 	size_t len;
@@ -23,6 +24,7 @@ struct dir_list rootdir = {
 };
 
 struct file_list rootfile = {
+	nil,
 	0,
 	{
 		ROOTFID,
@@ -166,17 +168,37 @@ diraddfile(struct dir *d, struct file *f)
 	struct file **files;
 	int i;
 	
-	files = malloc(sizeof(struct file*) * (d->nfiles+1));
+	files = malloc(sizeof(struct file*) * (d->nfiles + 1));
 	
 	for (i = 0; i < d->nfiles; i++)
 		files[i] = d->files[i];
 	
-	files[i] = f; 
+	files[i] = f;
 	
 	if (d->nfiles > 0)
 		free(d->files);
 	
 	d->nfiles++;
+	d->files = files;
+}
+
+void
+dirremovefile(struct dir *d, struct file *f)
+{
+	struct file **files;
+	int i, j;
+	
+	files = malloc(sizeof(struct file*) * (d->nfiles - 1));
+	
+	i = j = 0;
+	while (i < d->nfiles - 1) {
+		if (d->files[i]->fid != f->fid) {
+			files[j++] = d->files[i];
+		}
+		i++;
+	}
+	
+	d->nfiles--;
 	d->files = files;
 }
 
@@ -316,7 +338,7 @@ void
 bcreate(struct request *req, struct response *resp)
 {
 	uint32_t attr, lname;
-	struct file *f;
+	struct file_list *fl;
 	struct dir *d;
 	uint8_t *buf;
 	
@@ -335,21 +357,22 @@ bcreate(struct request *req, struct response *resp)
 		return;
 	}
 	
-	f = &newfile(attr, buf)->file;
+	fl = newfile(attr, buf);
 
-	printf("new file in %i, '%s' has fid %i\n", req->fid, f->name, f->fid);
+	printf("new file in %i, '%s' has fid %i\n", req->fid, fl->file.name, fl->file.fid);
 
-	diraddfile(d, f);
+	fl->parent = d;
+	diraddfile(d, &fl->file);
 	
-	if (attr & ATTR_dir) {
+	if ((attr & ATTR_dir) == ATTR_dir) {
 		printf("should add a dir as well\n");
-		adddir(f->fid);
+		adddir(fl->file.fid);
 	}
 
 	resp->ret = OK;
 	resp->lbuf = sizeof(uint32_t);
 	resp->buf = malloc(sizeof(uint32_t));
-	memmove(resp->buf, &f->fid, sizeof(uint32_t));
+	memmove(resp->buf, &fl->file.fid, sizeof(uint32_t));
 }
 
 void
@@ -359,8 +382,6 @@ bremove(struct request *req, struct response *resp)
 	struct dir_list *d, *dt;
 	
 	printf("remove %i\n", req->fid);
-	resp->ret = ENOIMPL;
-	return;
 		
 	fl = findfile(req->fid);
 	if (fl == nil) {
@@ -380,23 +401,32 @@ bremove(struct request *req, struct response *resp)
 	} else {
 		file_list = file_list->next;
 	}
-	
+
 	for (d = dir_list; 
 		d != nil && d->next != nil && d->next->fid != req->fid; 
 		d = d->next);
 
-	if (d == nil) {
-		d = dir_list;
-		dir_list = d->next;
-	} else {
-		dt = d;
-		d = dt->next;
-		dt->next = dt->next->next;
-	}
+	if (d != nil && d->next != nil) {
+		dt = d->next;
+		if (dt->dir.nfiles > 0) {
+			printf("dir not empty, contains %i files\n", dt->dir.nfiles);
+			resp->ret = ERR;
+			return;
+		}
+		printf("free dir\n");	
+		free(dt);
 	
-	free(d);
+		d->next = d->next->next;
+	}
+		
+	dirremovefile(fl->parent, &fl->file);
+
+	printf("free filename\n");	
 	free(fl->file.name);
-	free(fl->buf);
+	printf("free buf\n");	
+	if (fl->len > 0)
+		free(fl->buf);
+	printf("free file list\n");	
 	free(fl);
 	
 	printf("removed %i\n", req->fid);
@@ -514,7 +544,7 @@ int
 pfile_open(void)
 {
 	int pid = getpid();
-	int fd, i;
+	int fd, fd2, fd3, i;
 	uint8_t c;
 	uint8_t *str = (uint8_t *) "Hello\n";
 	uint8_t *str2 = (uint8_t *) "Hello, How are you?\n";
@@ -547,14 +577,23 @@ pfile_open(void)
 	remove("/tmp/hello");
 
 	printf("%i : open, open, and remove /tmp/twice\n", pid);
-	open("/tmp/twice", O_WRONLY|O_CREATE, ATTR_dir|ATTR_wr);
-	open("/tmp/twice", O_WRONLY|O_CREATE, ATTR_dir|ATTR_wr);
-	fd = remove("/tmp/twice");
-	if (fd != OK) {
+	fd2 = open("/tmp/twice", O_WRONLY|O_CREATE, ATTR_wr);
+	fd3 = open("/tmp/twice", O_WRONLY|O_CREATE, ATTR_wr);
+	i = remove("/tmp/twice");
+	if (i != OK) {
 		printf("%i : failed to remove /tmp/twice (this is good.) \n", pid);
 	}
+	
+	close(fd2);
+	close(fd3);
+	i = remove("/tmp/twice");
+	if (i != OK) {
+		printf("%i : failed to remove /tmp/twice (this is bad now.)\n", pid);
+	} else {
+		printf("%i : /tmp/twice removed\n", pid);
+	}
 
-	printf("open and write /tmp/test\n");	
+	printf("%i : open and write /tmp/test\n", pid);
 	fd = open("/tmp/test", O_WRONLY|O_CREATE, ATTR_wr|ATTR_rd);
 	if (fd < 0) {
 		printf("%i : failed to open /tmp/test, got %i\n", pid, fd);
@@ -591,6 +630,7 @@ pfile_open(void)
 		}
 		
 		close(fd);
+		remove("/tmp/test");
 	}
 	
 	printf("%i : pfile_open done\n", pid);
