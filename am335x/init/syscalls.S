@@ -20,7 +20,7 @@
 _start:
 	ldr lr, =exit
 	bl main
-
+	bl exit
 
 exit:
 	push {r0}
@@ -117,10 +117,10 @@ bind:
 
 open:
 	push {lr}
-	push {r0, r1}
+	push {r0, r1, r2}
 	mov r0, #SYSCALL_OPEN
 	svc 0
-	add sp, sp, #(4 * 2)
+	add sp, sp, #(4 * 3)
 	pop {pc}
 
 

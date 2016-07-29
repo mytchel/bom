@@ -7,6 +7,8 @@ int
 main(void)
 {
 	int f, fds[2];
+	
+	printf("In Main\nStart some processes\n");
 
 	f = fork(FORK_sngroup);
 	if (!f) {

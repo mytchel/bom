@@ -342,8 +342,6 @@ bcreate(struct request *req, struct response *resp)
 	struct dir *d;
 	uint8_t *buf;
 	
-	printf("create %i\n", req->fid);
-
 	buf = req->buf;
 	memmove(&attr, buf, sizeof(uint32_t));
 	buf += sizeof(uint32_t);
@@ -352,7 +350,6 @@ bcreate(struct request *req, struct response *resp)
 	
 	d = finddir(req->fid);
 	if (d == nil) {
-		printf("failed to find parent dir %i\n", req->fid);
 		resp->ret = ENOFILE;
 		return;
 	}
@@ -365,7 +362,6 @@ bcreate(struct request *req, struct response *resp)
 	diraddfile(d, &fl->file);
 	
 	if ((attr & ATTR_dir) == ATTR_dir) {
-		printf("should add a dir as well\n");
 		adddir(fl->file.fid);
 	}
 
@@ -381,8 +377,6 @@ bremove(struct request *req, struct response *resp)
 	struct file_list *fl, *fp;
 	struct dir_list *d, *dt;
 	
-	printf("remove %i\n", req->fid);
-		
 	fl = findfile(req->fid);
 	if (fl == nil) {
 		resp->ret = ENOFILE;
@@ -413,7 +407,6 @@ bremove(struct request *req, struct response *resp)
 			resp->ret = ERR;
 			return;
 		}
-		printf("free dir\n");	
 		free(dt);
 	
 		d->next = d->next->next;
@@ -421,15 +414,11 @@ bremove(struct request *req, struct response *resp)
 		
 	dirremovefile(fl->parent, &fl->file);
 
-	printf("free filename\n");	
 	free(fl->file.name);
-	printf("free buf\n");	
 	if (fl->len > 0)
 		free(fl->buf);
-	printf("free file list\n");	
 	free(fl);
 	
-	printf("removed %i\n", req->fid);
 	resp->ret = OK;
 }
 
@@ -599,8 +588,11 @@ pfile_open(void)
 		printf("%i : failed to open /tmp/test, got %i\n", pid, fd);
 		return -4;
 	} else {
-		write(fd, str2, sizeof(char) * (strlen(str2) + 1));
+		printf("%i : writing\n", pid);
+		write(fd, str2, sizeof(uint8_t) * (strlen(str2) + 1));
+		printf("%i : close\n", pid);
 		close(fd);
+		printf("%i : closed\n", pid);
 	}
 	
 	printf("%i: open /dev/com\n", pid);

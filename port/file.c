@@ -244,26 +244,21 @@ filewalk(struct path *path, struct file *parent, struct file *file, int *err)
 		
 		f = findfileindir(dir, p->s);
 		if (f == nil) {
-			printf("'%s' not found\n", p->s);
 			*err = ENOFILE;
 		} else if (p->next) {
 			if ((f->attr & ATTR_dir) == 0) {
-				printf("'%s' not a dir\n", p->s);
 				/* Part of path not a dir, so no such file. */
 				*err = ENOFILE;
 			} else if (p->next->next == nil) {
-				printf("'%s' last dir\n", p->s);
 				*err = OK;
 				parent->attr = f->attr;
 				parent->fid = f->fid;
 			} else {
-				printf("'%s' dir\n", p->s);
 				*err = OK;
 			}
 			
 			req.fid = f->fid;
 		} else {
-			printf("'%s' file\n", p->s);
 			file->attr = f->attr;
 			file->fid = f->fid;
 			*err = OK;
@@ -543,8 +538,6 @@ fileremove(struct path *path)
 	struct file parent, file;
 	int err;
 	
-	printf("fileremove\n");
-	
 	req.type = REQ_remove;
 	req.lbuf = 0;
 	
@@ -561,7 +554,6 @@ fileremove(struct path *path)
 		free(resp->buf);
 	free(resp);
 
-	printf("response got %i\n", err);
 	return err;
 }
 
