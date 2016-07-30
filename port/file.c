@@ -121,7 +121,7 @@ static struct response *
 makereq(struct binding *b, struct request *req)
 {
 	struct response *resp;
-	
+
 	lock(&b->lock);
 
 	req->rid = b->nreqid++;
@@ -143,14 +143,14 @@ makereq(struct binding *b, struct request *req)
 	current->rid = req->rid;
 	current->wnext = b->waiting;
 	b->waiting = current;
-	
+
 	unlock(&b->lock);
 	
 	procwait(current);
 	schedule();
 	
-	resp = b->resp;
 	
+	resp = b->resp;
 	procready(b->srv);
 	
 	return resp;
@@ -176,10 +176,13 @@ findbinding(struct path *path, int depth)
 	for (bl = current->ngroup->bindings; bl != nil; bl = bl->next) {
 		d = 0;
 		pp = path;
+		lock(&bl->binding->lock);
 		bp = bl->binding->path;
 		while (d < depth && pp != nil && bp != nil) {
-			if (!strcmp(pp->s, bp->s))
+			if (!strcmp(pp->s, bp->s)) {
 				break;
+			}
+			
 			d++;
 			pp = pp->next;
 			bp = bp->next;
@@ -189,6 +192,8 @@ findbinding(struct path *path, int depth)
 			bestd = d;
 			best = bl->binding;
 		}
+		
+		unlock(&bl->binding->lock);
 	}
 	
 	unlock(&current->ngroup->lock);

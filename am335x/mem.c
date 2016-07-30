@@ -28,16 +28,23 @@ initmemory(void)
 
 	addpages(&pages, PAGE_ALIGN((uint32_t) &_kernel_end), (uint32_t) &_ram_end);
 	addpages(&pages, (uint32_t) &_ram_start, PAGE_ALIGN((uint32_t) &_kernel_start));
-	addpages(&iopages, 0x44000000, 0x45000000);
-			
+
+	addpages(&iopages, 0x47400000, 0x47410000);
+	addpages(&iopages, 0x44C00000, 0x44F00000);
+	addpages(&iopages, 0x48000000, 0x48300000);
+	addpages(&iopages, 0x4A100000, 0x4A110000);
+
 	initmmu();
 
 	/* Give kernel unmapped access to all of ram. */	
 	imap(&_ram_start, &_ram_end, AP_RW_NO);
-	/* Give kernel access to UART */
-	imap((void *) 0x44E09000, (void *) 0x44E0A0000, AP_RW_NO);
+
+	/* Give kernel access to most IO, hope it doesnt touch it. */
+	imap((void *) 0x44000000, (void *) 0x50000000, AP_RW_NO);
 	
 	mmuenable();
+	
+	printf("mmuenabled\n");
 }
 
 void
@@ -63,6 +70,7 @@ addpages(struct page *pages, uint32_t start, uint32_t end)
 			p[i].va = 0;
 			p[i].size = PAGE_SIZE;
 			p[i].next = &p[i+1];
+			p[i].from = pages;
 			start += PAGE_SIZE;
 		}
 		
@@ -70,6 +78,7 @@ addpages(struct page *pages, uint32_t start, uint32_t end)
 		p[i].va = 0;
 		p[i].size = PAGE_SIZE;
 		p[i].next = pages->next;
+		p[i].from = pages;
 		start += PAGE_SIZE;
 		
 		pages->next = p;
@@ -134,8 +143,8 @@ getpages(struct page *pages, void *pa, size_t *size)
 void
 freepage(struct page *p)
 {
-	p->next = pages.next;
-	pages.next = p;
+	p->next = p->from->next;
+	p->from->next = p;
 }
 
 void *

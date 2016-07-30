@@ -69,13 +69,12 @@ sysclose(va_list args)
 		return ERR;
 	}
 	
-	lock(&current->fgroup->lock);
-
 	/* Remove fd. */
+	lock(&current->fgroup->lock);
 	current->fgroup->chans[fd] = nil;
-	freechan(c);	
-
 	unlock(&current->fgroup->lock);
+	
+	freechan(c);	
 	
 	return OK;
 }

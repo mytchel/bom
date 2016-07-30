@@ -12,6 +12,7 @@ void
 initprocs(void)
 {
 	int i;
+
 	for (i = 0; i < MAX_PROCS; i++)
 		procs[i].state = PROC_unused;
 	procs[0].next = nil;
@@ -40,15 +41,17 @@ struct proc *
 nextproc(void)
 {
 	struct proc *p;
-	uint32_t ms;
+	uint32_t t;
 
-	ms = tickstoms(ticks());
-
+	t = ticks();
+	
 	for (p = procs->next; p != nil; p = p->next) {
 		if (p->state == PROC_sleeping) {
-			p->sleep -= ms;
-			if (p->sleep <= 0)
+			if (t > p->sleep) {
 				p->state = PROC_ready;
+			} else {
+				p->sleep -= t;
+			}
 		}
 	}
 	
@@ -91,7 +94,7 @@ newproc(void)
 	p->dot = nil;
 	
 	p->faults = 0;
-	p->quanta = 100;
+	p->quanta = 10;
 	
 	p->ureg = nil;
 	
@@ -144,7 +147,7 @@ void
 procsleep(struct proc *p, uint32_t ms)
 {
 	p->state = PROC_sleeping;
-	p->sleep = ms;
+	p->sleep = mstoticks(ms);
 	
 	if (p == current)
 		schedule();

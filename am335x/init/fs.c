@@ -553,23 +553,24 @@ pfile_open(void)
 	int i;
 	int fd;
 	uint8_t c;
-	uint8_t *str = (uint8_t *) "Hello, World\n";
+	uint8_t *str1 = (uint8_t *) "Hello, World\n";
 	uint8_t *str2 = (uint8_t *) "How are you?\n";
+	uint8_t *str3 = (uint8_t *) "This is just a test";
 
-	write(stdout, str, strlen(str) + 1);
+	write(stdout, str1, sizeof(uint8_t) * strlen(str1));
 	
 	/* Some tests */
 	fd = open("/tmp/test", O_WRONLY|O_CREATE, ATTR_wr|ATTR_rd);
 	if (fd < 0) {
 		return -4;
 	} else {
-		write(fd, str2, sizeof(uint8_t) * strlen(str2));
+		write(fd, str3, sizeof(uint8_t) * strlen(str3));
 		close(fd);
 	}
 	
 	for (i = 0; i < 5; i++) {
 		write(stdout, str2, sizeof(uint8_t) * strlen(str2));
-		sleep(500);
+		sleep(700);
 	}
 
 	printf("open /tmp/test\n");

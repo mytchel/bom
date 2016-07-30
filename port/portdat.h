@@ -6,6 +6,7 @@ struct page {
 	void *pa, *va;
 	size_t size;
 	struct page *next;
+	struct page *from;
 };
 
 enum { SEG_rw, SEG_ro };
@@ -97,7 +98,7 @@ struct proc {
 	
 	int faults;
 	uint32_t quanta;
-	int sleep;
+	uint32_t sleep; /* in ticks */
 
 	struct fgroup *fgroup;
 	struct ngroup *ngroup;

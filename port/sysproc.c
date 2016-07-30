@@ -19,14 +19,13 @@ reg_t
 syssleep(va_list args)
 {
 	int ms;
-	ms = va_arg(args, int);
 
+	ms = va_arg(args, int);
 	if (ms <= 0) {
 		schedule();
-		return 0;
+	} else {
+		procsleep(current, ms);
 	}
-
-	procsleep(current, ms);
 		
 	return 0;
 }
@@ -225,8 +224,6 @@ sysgetmem(va_list args)
 	addr = va_arg(args, void *);
 	size = va_arg(args, size_t *);
 
-	printf("getmem %i 0x%h %i\n", type, addr, *size);
-	
 	if (*size > MAX_MEM_SIZE) {
 		return nil;
 	}
@@ -241,10 +238,8 @@ sysgetmem(va_list args)
 		pages = getnewpages(size);
 		break;
 	case MEM_io:
-		if (addr != nil) {
-			pages = getpages(&iopages, addr, size);
-			addr = nil;
-		}
+		pages = getpages(&iopages, addr, size);
+		addr = nil;
 		break;
 	}
 	
@@ -252,10 +247,7 @@ sysgetmem(va_list args)
 		return nil;
 	}
 
-	printf("find location of mem\n");
-	addr = insertpages(pages, addr, *size);
-	printf("putting mem at 0x%h with size %i\n", addr, *size);
-	return (reg_t) addr;
+	return (reg_t) insertpages(pages, addr, *size);
 }
 
 reg_t

@@ -2,7 +2,6 @@
 #include "fns.h"
 
 #define TIMER0 0x44E05000
-#define TIMER1 0x44E31000
 #define TIMER2 0x48040000
 
 #define TINT0 66
@@ -32,7 +31,11 @@ static int systickhandler(uint32_t);
 void
 initwatchdog(void)
 {
+	size_t s = 0x1000;
 	/* Disable watchdog timer. */
+	
+	/* Dont let user processes get this. */
+	getpages(&iopages, (void *) WDT_1, &s);
 	
 	writel(0x0000AAAA, WDT_1 + WDT_WSPR);
 	while (readl(WDT_1 + WDT_WWPS) & (1<<4));
@@ -43,6 +46,10 @@ initwatchdog(void)
 void
 inittimers(void)
 {
+	size_t s = 0x1000;
+	getpages(&iopages, (void *) TIMER0, &s);
+	getpages(&iopages, (void *) TIMER2, &s);
+	
 	/* Select 32KHz clock for timer 2 */
  	writel(2, CM_DPLL + CLK_SEL2);
 

@@ -12,7 +12,7 @@ struct uart_struct {
 	uint32_t lsr;
 };
 
-static struct uart_struct *uart;
+static volatile struct uart_struct *uart;
 
 bool
 uartinit(void)
@@ -32,7 +32,7 @@ char
 getc(void)
 {
 	while ((uart->lsr & (1 << 0)) == 0)
-		sleep(0);
+		;
 	return (char) (uart->hr & 0xff);
 }
 
@@ -43,7 +43,7 @@ putc(char c)
 		putc('\r');
 	
 	while ((uart->lsr & (1 << 5)) == 0)
-		sleep(0);
+		;
 	uart->hr = c;
 }
 

@@ -30,6 +30,9 @@ void
 initintc(void)
 {
 	int i;
+	size_t s = 0x1000;
+
+	getpages(&iopages, (void *) INTC, &s);
 	
 	/* enable interface auto idle */
 	writel(1, INTC + INTC_SYSCONFIG);
