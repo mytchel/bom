@@ -20,6 +20,8 @@ getpid(void);
 
 /* Memory system calls */
 
+enum { MEM_heap, MEM_io };
+
 /* 
  * Maps a number of pages necessary to contain size and 
  * returns the address. Sets size to the real size returned
@@ -28,7 +30,7 @@ getpid(void);
  * This is so you can request memory mapped IO.
  */
 void *
-getmem(void *addr, size_t *size);
+getmem(int type, void *addr, size_t *size);
 
 /*
  * Unmaps the pages starting at addr. 

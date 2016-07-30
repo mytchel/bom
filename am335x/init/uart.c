@@ -5,54 +5,51 @@
 
 struct uart_struct {
 	uint32_t hr;
-	uint32_t pad[4];
+	uint32_t p1;
+	uint32_t p2;
+	uint32_t lcr;
+	uint32_t p4;
 	uint32_t lsr;
 };
 
 static struct uart_struct *uart;
-
-void uputc(char);
 
 bool
 uartinit(void)
 {
 	size_t size = UART0_LEN;
 	
-	uart = (struct uart_struct *) getmem((void *) UART0, &size);
+	uart = (struct uart_struct *) getmem(MEM_io, (void *) UART0, &size);
 	if (uart == nil)
 		return false;
 	
-	printf("Uart Initialised 0x%h\n", uart);
-	sleep(0);
-	uputc('\n');
-	uputc('\n');
-	uputc('\n');
-	printf("should have printed some newlines\n");
+	puts("User UART Initialised\n");
 	
 	return true;
 }
 
-
 char
-ugetc(void)
+getc(void)
 {
-	while ((uart->lsr & (1 << 0)) == 0);
-	return (char) uart->hr;
+	while ((uart->lsr & (1 << 0)) == 0)
+		sleep(0);
+	return (char) (uart->hr & 0xff);
 }
 
 void
-uputc(char c)
+putc(char c)
 {
 	if (c == '\n')
-		uputc('\r');
+		putc('\r');
 	
-	while ((uart->lsr & (1 << 5)) == 0);
+	while ((uart->lsr & (1 << 5)) == 0)
+		sleep(0);
 	uart->hr = c;
 }
 
 void
-uputs(const char *c)
+puts(const char *c)
 {
 	while (*c)
-		uputc(*c++);
+		putc(*c++);
 }

@@ -17,6 +17,8 @@ sysread(va_list args)
 		return ERR;
 	} else if (!(c->mode & O_RDONLY)) {
 		return EMODE;
+	} else if (n == 0) {
+		return ERR;
 	}
 		
 	lock(&c->lock);
@@ -43,6 +45,8 @@ syswrite(va_list args)
 		return ERR;
 	} else if (!(c->mode & O_WRONLY)) {
 		return EMODE;
+	} else if (n == 0) {
+		return ERR;
 	}
 
 	lock(&c->lock);

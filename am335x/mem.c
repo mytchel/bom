@@ -11,8 +11,8 @@ extern uint32_t *_ram_end;
 extern uint32_t *_kernel_start;
 extern uint32_t *_kernel_end;
 
-static struct page pages = { 0, 0, 0, nil};
-static struct page iopages = { 0, 0, 0, nil};
+struct page pages = { 0, 0, 0, nil};
+struct page iopages = { 0, 0, 0, nil};
 
 void
 initmemory(void)
@@ -34,8 +34,8 @@ initmemory(void)
 
 	/* Give kernel unmapped access to all of ram. */	
 	imap(&_ram_start, &_ram_end, AP_RW_NO);
-	/* Give kernel access to all io. This will be changed. */
-	imap((void *) 0x40000000, (void *) 0x4A400000, AP_RW_RW);
+	/* Give kernel access to UART */
+	imap((void *) 0x44E09000, (void *) 0x44E0A0000, AP_RW_NO);
 	
 	mmuenable();
 }
@@ -94,12 +94,12 @@ newpage(void *va)
 }
 
 struct page *
-getiopages(void *pa, size_t *size)
+getpages(struct page *pages, void *pa, size_t *size)
 {
 	struct page *start, *p, *pp;
 	size_t s;
 	
-	pp = &iopages;
+	pp = pages;
 	for (p = pp->next; p != nil; pp = p, p = p->next) {
 		if (p->pa == pa) {
 			break;
@@ -123,6 +123,8 @@ getiopages(void *pa, size_t *size)
 	if (p != nil) {
 		pp->next = p->next;
 		p->next = nil;
+	} else {
+		pp->next = nil;
 	}
 	
 	*size = s;	

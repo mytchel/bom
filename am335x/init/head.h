@@ -3,6 +3,8 @@
 #include "../include/stdarg.h"
 #include "../include/fs.h"
 
+extern int stdin, stdout, stderr;
+
 bool
 uartinit(void);
 
@@ -17,6 +19,9 @@ puts(const char *);
 
 void
 printf(const char *, ...);
+
+size_t
+sprintf(char *, size_t, const char *, ...);
 
 int
 ppipe0(int fd);

@@ -10,6 +10,8 @@
 #define USTACK_SIZE	PAGE_SIZE
 #define UTEXT		0
 
+#define MAX_MEM_SIZE	1024 * 1024 *32
+
 struct label {
 	uint32_t regs[9];
 	uint32_t sp, pc;

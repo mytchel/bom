@@ -341,7 +341,7 @@ struct page *
 newpage(void *);
 
 struct page *
-getiopages(void *, size_t *);
+getpages(struct page *, void *, size_t *);
 
 void
 freepage(struct page *);
@@ -360,3 +360,5 @@ extern reg_t (*syscalltable[NSYSCALLS])(va_list);
 extern struct chantype devpipe;
 extern struct chantype devfile;
 extern struct chantype *chantypes[CHAN_max];
+
+extern struct page pages, iopages;

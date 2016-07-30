@@ -55,10 +55,10 @@ getpid:
 
 getmem:
 	push {lr}
-	push {r0, r1}
+	push {r0, r1, r2}
 	mov r0, #SYSCALL_GETMEM
 	svc 0
-	add sp, sp, #(4 * 2)
+	add sp, sp, #(4 * 3)
 	pop {pc}
 
 

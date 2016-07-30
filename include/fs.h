@@ -15,7 +15,7 @@ enum {
 
 struct request {
 	uint32_t rid;
-	uint8_t type;
+	uint32_t type;
 	uint32_t fid;
 
 	uint32_t lbuf;

@@ -69,6 +69,21 @@ mountproc(void *arg)
 		schedule();
 	}
 	
+	printf("kproc mount : an error occured\n");
+	printf("free chans\n");	
+	lock(&b->lock);
+	freechan(b->in);
+	freechan(b->out);
+	unlock(&b->lock);
+	
+	while (true) {
+		lock(&b->lock);
+		if (b->refs == 0)
+			break;
+		unlock(&b->lock);
+		schedule();
+	}
+	
 	printf("No longer bound\n");
 
 	/* Free binding and exit. */
@@ -85,15 +100,13 @@ mountproc(void *arg)
 	printf("lock\n");
 	lock(&b->lock);	
 
-	printf("free chans\n");	
-	freechan(b->in);
-	freechan(b->out);
-	
 	printf("free path\n");
 	freepath(b->path);
 	
 	if (b->resp) {
 		printf("bind free'd with response\n");
+		if (b->resp->lbuf > 0)
+			free(b->resp->buf);
 		free(b->resp);
 	}
 	
@@ -113,17 +126,17 @@ makereq(struct binding *b, struct request *req)
 
 	req->rid = b->nreqid++;
 
-	if (pipewrite(b->out, (void *) &req->rid, sizeof(uint32_t)) < 0)
+	if (pipewrite(b->out, (void *) &req->rid, sizeof(req->rid)) != sizeof(req->rid))
 		return nil;
-	if (pipewrite(b->out, (void *) &req->type, sizeof(uint8_t)) < 0)
+	if (pipewrite(b->out, (void *) &req->type, sizeof(req->type)) != sizeof(req->type))
 		return nil;
-	if (pipewrite(b->out, (void *) &req->fid, sizeof(uint32_t)) < 0)
+	if (pipewrite(b->out, (void *) &req->fid, sizeof(req->fid)) != sizeof(req->fid))
 		return nil;
-	if (pipewrite(b->out, (void *) &req->lbuf, sizeof(uint32_t)) < 0)
+	if (pipewrite(b->out, (void *) &req->lbuf, sizeof(req->lbuf)) != sizeof(req->lbuf))
 		return nil;
-	
+
 	if (req->lbuf > 0) {
-		if (pipewrite(b->out, req->buf, req->lbuf) < 0) 
+		if (pipewrite(b->out, req->buf, req->lbuf) != req->lbuf) 
 			return nil;
 	}
 	
@@ -299,6 +312,7 @@ filecreate(struct binding *b, uint32_t pfid, uint8_t *name,
 	req.fid = pfid;
 	
 	nlen = strlen(name) + 1;
+	
 	req.lbuf = sizeof(uint32_t) * 2 + sizeof(uint8_t) * nlen;
 	buf = req.buf = malloc(req.lbuf);
 	
@@ -366,6 +380,10 @@ fileopen(struct path *path, uint32_t mode, uint32_t cmode, int *err)
 	}
 	
 	resp = makereq(b, &req);
+	if (resp == nil) {
+		*err = ELINK;
+		return nil;
+	}
 	
 	*err = resp->ret;
 
@@ -416,9 +434,10 @@ fileread(struct chan *c, uint8_t *buf, size_t n)
 	
 	cfile = (struct cfile *) c->aux;
 
+	req.fid = cfile->fid;
 	if (cfile->dir) {
 		req.type = REQ_walk;
-		req.fid = cfile->fid;
+		req.lbuf = 0;
 
 		resp = makereq(cfile->binding, &req);
 		if (resp == nil) {
@@ -437,9 +456,8 @@ fileread(struct chan *c, uint8_t *buf, size_t n)
 		}
 	} else {
 		req.type = REQ_read;
-		req.fid = cfile->fid;
-		req.buf = (uint8_t *) &read;
 		req.lbuf = sizeof(struct request_read);
+		req.buf = (uint8_t *) &read;
 		
 		read.offset = cfile->offset;
 		read.len = n;
@@ -524,6 +542,10 @@ fileclose(struct chan *c)
 	req.lbuf = 0;
 
 	resp = makereq(cfile->binding, &req);
+	if (resp == nil) {
+		return ELINK;
+	}
+	
 	err = resp->ret;
 	if (resp->lbuf > 0)
 		free(resp->buf);
@@ -549,16 +571,19 @@ fileremove(struct path *path)
 	struct file parent, file;
 	int err;
 	
-	req.type = REQ_remove;
-	req.lbuf = 0;
-	
 	b = filewalk(path, &parent, &file, &err);
 	if (err != OK) {
 		return ENOFILE;
 	}
-	
+
+	req.type = REQ_remove;
+	req.lbuf = 0;
 	req.fid = file.fid;
 	resp = makereq(b, &req);
+
+	if (resp == nil) {
+		return ELINK;
+	}
 	
 	err = resp->ret;
 	if (resp->lbuf > 0)

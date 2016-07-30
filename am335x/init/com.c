@@ -1,9 +1,4 @@
-#include "../include/types.h"
-#include "../include/libc.h"
-#include "../include/stdarg.h"
-
-void
-puts(const char *);
+#include "head.h"
 
 static int
 printint(char *str, size_t max, unsigned int i, unsigned int base)
@@ -28,12 +23,13 @@ printint(char *str, size_t max, unsigned int i, unsigned int base)
 	return d;
 }
 
-int
-vsprintf(char *str, int max, const char *fmt, va_list ap)
+size_t
+vsprintf(char *str, size_t max, const char *fmt, va_list ap)
 {
-	int i;
-	unsigned int ind, u;
+	unsigned int u;
+	size_t ind;
 	char *s;
+	int i;
 	
 	ind = 0;
 	while (*fmt != 0 && ind < max) {
@@ -93,10 +89,10 @@ vsprintf(char *str, int max, const char *fmt, va_list ap)
 	return ind;
 }
 
-int
-sprintf(char *str, int max, const char *fmt, ...)
+size_t
+sprintf(char *str, size_t max, const char *fmt, ...)
 {
-	int i;
+	size_t i;
 	va_list ap;
 	
 	va_start(ap, fmt);
@@ -108,13 +104,15 @@ sprintf(char *str, int max, const char *fmt, ...)
 void
 printf(const char *fmt, ...)
 {
-	char str[512];
+	char str[128];
+	size_t i;
 	va_list ap;
 	
 	va_start(ap, fmt);
-	vsprintf(str, 512, fmt, ap);
+	i = vsprintf(str, 128, fmt, ap);
 	va_end(ap);
-	
-	/* For now */
-	puts(str);
+
+	if (i > 0) {
+		write(stdout, str, i);
+	}
 }

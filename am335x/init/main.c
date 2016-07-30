@@ -3,60 +3,58 @@
 /* Must not excede one page in size and all changabel variables 
  * must be on the stack. */
 
+int stdin, stdout, stderr;
+
 int
 main(void)
 {
 	int f, fds[2];
-	
-	printf("In Main\nStart some processes\n");
 
 	f = fork(FORK_sngroup);
 	if (!f) {
 		return pmount();
 	}
 	
-	sleep(0);
+	sleep(10);
+
+	stdin = open("/dev/com", O_RDONLY);
+	stdout = open("/dev/com", O_WRONLY);
+	stderr = open("/dev/com", O_WRONLY);
+	if (stdin < 0 || stdout < 0 || stderr < 0)
+		return -1;
 	
 	f = fork(FORK_sngroup);
 	if (f < 0) {
-		printf("fork failed\n");
+		return -1;
 	} else if (!f) {
 		return pfile_open();
 	}
-	
-	sleep(1000);
 
 	if (pipe(fds) == ERR) {
-		printf("pipe failed\n");
-		return ERR;
+		return -1;
 	}
-	
+
 	sleep(1000);
-	
 	f = fork(FORK_sngroup);
 	if (f < 0) {
-		printf("fork failed\n");
+		return -2;
 	} else if (!f) {
-		printf("Close other end of pipe 1\n");
 		close(fds[1]);
 		return ppipe0(fds[0]);
 	}
 	
-	printf("Close other end of pipe 0\n");
 	close(fds[0]);
 	
 	sleep(1000);
-	
 	f = fork(FORK_sngroup);
 	if (f < 0) {
-		printf("fork failed\n");
+		return -3;
 	} else if (!f) {
 		return ppipe1(fds[1]);
 	}
 	
 	close(fds[1]);
 
-	printf("main task exiting\n");
-	
+	sleep(1000);
 	return 0;
 }

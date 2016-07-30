@@ -1,7 +1,6 @@
 init_src := \
 	init/syscalls.S init/uart.c init/com.c \
 	init/heap.c \
-	uart.c \
 	init/main.c init/pipe.c init/fs.c  \
 	../lib/fs.c ../lib/misc.c
 

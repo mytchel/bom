@@ -48,7 +48,7 @@ tmpread(struct file_list *fl, uint8_t *buf, uint32_t offset, uint32_t len, int32
 {
 	uint8_t *bbuf;
 	uint32_t i;
-	
+
 	if (offset >= fl->len) {
 		*err = EOF;
 		return 0;
@@ -57,7 +57,7 @@ tmpread(struct file_list *fl, uint8_t *buf, uint32_t offset, uint32_t len, int32
 	bbuf = fl->buf + offset;
 	for (i = 0; i + offset < fl->len && i < len; i++)
 		buf[i] = bbuf[i];
-	
+
 	*err = OK;
 	return i;
 }
@@ -441,13 +441,47 @@ initfs(void)
 	diraddfile(&rootdir.dir, &fl->file);
 }
 
+void
+handlereq(struct request *req, struct response *resp)
+{
+	switch (req->type) {
+	case REQ_open:
+		bopen(req, resp);
+		break;
+	case REQ_close:
+		bclose(req, resp);
+		break;
+	case REQ_walk:
+		bwalk(req, resp);
+		break;
+	case REQ_read:
+		bread(req, resp);
+		break;
+	case REQ_write:
+		bwrite(req, resp);
+		break;
+	case REQ_remove:
+		bremove(req, resp);
+		break;
+	case REQ_create:
+		bcreate(req, resp);
+		break;
+	default:
+		resp->ret = ENOIMPL;
+		break;
+	}
+}
+
 int
 pmount(void)
 {
 	int in, out;
 	int p1[2], p2[2];
+	uint8_t buf[1024];
 	struct request req;
 	struct response resp;
+	
+	req.buf = buf;
 	
         if (pipe(p1) == ERR) {
         	return -3;
@@ -468,50 +502,38 @@ pmount(void)
 	initfs();
 
 	while (true) {
-		if (read(in, &req.rid, sizeof(uint32_t)) < 0) break;
-		if (read(in, &req.type, sizeof(uint8_t)) < 0) break;
-		if (read(in, &req.fid, sizeof(uint32_t)) < 0) break;
-		if (read(in, &req.lbuf, sizeof(uint32_t)) < 0) break;
+		if (read(in, &req.rid, sizeof(req.rid)) != sizeof(req.rid))
+			break;
+		if (read(in, &req.type, sizeof(req.type)) != sizeof(req.type))
+			break;
+		if (read(in, &req.fid, sizeof(req.fid)) != sizeof(req.fid))
+			break;
+		if (read(in, &req.lbuf, sizeof(req.lbuf)) != sizeof(req.lbuf))
+			break;
 		
-		if (req.lbuf > 0) {
-			req.buf = malloc(sizeof(uint8_t) * req.lbuf);
-			if (read(in, req.buf, req.lbuf) != req.lbuf) {
+		resp.rid = req.rid;
+		resp.lbuf = 0;
+		resp.ret = OK;
+		
+		if (req.lbuf > 1024) {
+			resp.ret = ENOMEM;
+		} else if (req.lbuf > 0) {
+			if (read(in, req.buf, sizeof(uint8_t) * req.lbuf) 
+				!= sizeof(uint8_t) * req.lbuf) {
 				break;
 			}
 		}
-
-		resp.rid = req.rid;
-		resp.lbuf = 0;
-		switch (req.type) {
-		case REQ_open:
-			bopen(&req, &resp);
-			break;
-		case REQ_close:
-			bclose(&req, &resp);
-			break;
-		case REQ_walk:
-			bwalk(&req, &resp);
-			break;
-		case REQ_read:
-			bread(&req, &resp);
-			break;
-		case REQ_write:
-			bwrite(&req, &resp);
-			break;
-		case REQ_remove:
-			bremove(&req, &resp);
-			break;
-		case REQ_create:
-			bcreate(&req, &resp);
-			break;
-		default:
-			resp.ret = ENOIMPL;
-			break;
+		
+		if (resp.ret == OK) {
+			handlereq(&req, &resp);
 		}
-
-		if (write(out, &resp.rid, sizeof(uint32_t)) < 0) break;
-		if (write(out, &resp.ret, sizeof(int32_t)) < 0) break;
-		if (write(out, &resp.lbuf, sizeof(uint32_t)) < 0) break;
+		
+		if (write(out, &resp.rid, sizeof(resp.rid)) != sizeof(resp.rid))
+			break;
+		if (write(out, &resp.ret, sizeof(resp.ret)) != sizeof(resp.ret))
+			break;
+		if (write(out, &resp.lbuf, sizeof(resp.lbuf)) != sizeof(resp.lbuf))
+			break;
 		
 		if (resp.lbuf > 0) {
 			if (write(out, resp.buf, resp.lbuf) != resp.lbuf) {
@@ -528,99 +550,44 @@ pmount(void)
 int
 pfile_open(void)
 {
-	int pid = getpid();
-	int fd, fd2, fd3, i;
+	int i;
+	int fd;
 	uint8_t c;
-	uint8_t *str = (uint8_t *) "Hello\n";
-	uint8_t *str2 = (uint8_t *) "Hello, How are you?\n";
-	
-	printf("%i : Open some random paths\n", pid);
+	uint8_t *str = (uint8_t *) "Hello, World\n";
+	uint8_t *str2 = (uint8_t *) "How are you?\n";
+
+	write(stdout, str, strlen(str) + 1);
 	
 	/* Some tests */
-	fd = open("../hello/there/../testing", O_RDONLY);
-	printf("%i : fd = %i\n", pid, fd);
-	fd = open("/../dev", O_RDONLY);
-	printf("%i : fd = %i\n", pid, fd);
-	fd = open("../com", O_RDONLY);
-	printf("%i : fd = %i\n", pid, fd);
-	fd = open("/././.", O_RDONLY);
-	printf("%i : fd = %i\n", pid, fd);
-	fd = open("./com", O_RDONLY);
-	printf("%i : fd = %i\n", pid, fd);
-	fd = open("com", O_RDONLY);
-	printf("%i : fd = %i\n", pid, fd);
-	fd = open("/dev/hello", O_RDONLY);
-	printf("%i : fd = %i\n", pid, fd);
-	fd = open("/dev/com/shouldfail", O_RDONLY);
-	printf("%i : fd = %i\n", pid, fd);
-	fd = open("/tmp/hello/there/../..", O_RDONLY);
-	printf("%i : fd = %i\n", pid, fd);
-
-	printf("%i : open, close, and remove /tmp/hello\n", pid);
-	fd = open("/tmp/hello", O_WRONLY|O_CREATE, ATTR_dir|ATTR_wr);
-	close(fd);
-	remove("/tmp/hello");
-
-	printf("%i : open, open, and remove /tmp/twice\n", pid);
-	fd2 = open("/tmp/twice", O_WRONLY|O_CREATE, ATTR_wr);
-	fd3 = open("/tmp/twice", O_WRONLY|O_CREATE, ATTR_wr);
-	i = remove("/tmp/twice");
-	if (i != OK) {
-		printf("%i : failed to remove /tmp/twice (this is good.) \n", pid);
-	}
-	
-	close(fd2);
-	close(fd3);
-	i = remove("/tmp/twice");
-	if (i != OK) {
-		printf("%i : failed to remove /tmp/twice (this is bad now.)\n", pid);
-	} else {
-		printf("%i : /tmp/twice removed\n", pid);
-	}
-
-	printf("%i : open and write /tmp/test\n", pid);
 	fd = open("/tmp/test", O_WRONLY|O_CREATE, ATTR_wr|ATTR_rd);
 	if (fd < 0) {
-		printf("%i : failed to open /tmp/test, got %i\n", pid, fd);
 		return -4;
 	} else {
-		printf("%i : writing\n", pid);
-		write(fd, str2, sizeof(uint8_t) * (strlen(str2) + 1));
-		printf("%i : close\n", pid);
+		write(fd, str2, sizeof(uint8_t) * strlen(str2));
 		close(fd);
-		printf("%i : closed\n", pid);
-	}
-	
-	printf("%i: open /dev/com\n", pid);
-	fd = open("/dev/com", O_WRONLY);
-	if (fd < 0) {
-		printf("%i: open /dev/com failed with err %i\n", pid, fd);
-		return -4;
 	}
 	
 	for (i = 0; i < 5; i++) {
-		printf("%i: write to /dev/com\n", pid);	
-		write(fd, str, sizeof(char) * (strlen(str) + 1));
-		sleep(1000);
+		write(stdout, str2, sizeof(uint8_t) * strlen(str2));
+		sleep(500);
 	}
 
+	printf("open /tmp/test\n");
 	fd = open("/tmp/test", O_RDONLY);
 	if (fd < 0) {
-		printf("%i : failed to open /tmp/test, got %i\n", pid, fd);
 		return -4;
 	} else {
-		printf("%i : read from /tmp/test:\n", pid);
+		printf("read /tmp/test\n");
 		while (true) {
-			i = read(fd, &c, sizeof(uint8_t));
-			if (i < 0)
+			i = read(fd, &c, sizeof(c));
+			if (i != sizeof(c))
 				break;
-			printf("%i : '%c'\n", pid, c);
+			printf("%i, '%c'\n", i, c);
 		}
 		
 		close(fd);
 		remove("/tmp/test");
 	}
 	
-	printf("%i : pfile_open done\n", pid);
 	return 4;
 }

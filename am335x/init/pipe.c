@@ -7,6 +7,7 @@ ppipe0(int fd)
 	
 	printf("%i: task 1 started with fd %i\n", pid, fd);
 	while (true) {
+		sleep(100);
 		printf("%i: wait for write\n", pid);
 		n = read(fd, (void *) &i, sizeof(int));
 		if (n != sizeof(int)) {
@@ -14,6 +15,7 @@ ppipe0(int fd)
 			break;
 		}
 		
+		sleep(100);
 		printf("%i: read %i\n", pid, i);
 	}
 	
@@ -29,10 +31,7 @@ ppipe1(int fd)
 	printf("%i: task 2 started with fd %i\n", pid, fd);
 	
 	for (i = 0; i < 4; i++) {
-		printf("%i: sleep\n", pid);
-		
-		sleep(500);
-		
+		sleep(400);
 		printf("%i: writing %i\n", pid, i);
 
 		n = write(fd, (void *) &i, sizeof(int));

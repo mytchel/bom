@@ -93,7 +93,8 @@ fixpages(struct page *pg, reg_t offset, struct page *next)
 	for (p = pg; p != nil; pp = p, p = p->next)
 		p->va = (uint8_t *) p->va + offset;
 	
-	pp->next = next;
+	if (pp != nil) /* Should never be nil. */
+		pp->next = next;
 }
 
 static struct page *
@@ -113,6 +114,7 @@ getnewpages(size_t *size)
 		p->next = newpage(p->va + p->size);
 		if (p->next == nil) {
 			p = pages;
+			printf("Failed to get another page, free them all\n");
 			while (p != nil) {
 				pt = p->next;
 				freepage(p);
@@ -165,25 +167,17 @@ insertpages(struct page *pages, void *addr, size_t size)
 		
 		if ((size_t) (p->va - addr) > size) {
 			/* Pages fit in here */
-			fixpages(pages, (reg_t) addr, p);
-			
-			if (pp == nil) {
-				current->segs[Sheap]->pages = pages;
-			} else {
-				pp->next = pages;
-			}
-			
-			return addr;
+			break;
 		}
 	}
 	
 	if (pp != nil) {
-		/* Append on end */
+		if (fix) addr = (uint8_t *) pp->va + pp->size;
 		fixpages(pages, (reg_t) addr, p);
 		pp->next = pages;
 	} else {
 		/* First page on heap. */
-		fixpages(pages, (reg_t) addr, nil);
+		fixpages(pages, (reg_t) addr, p);
 		current->segs[Sheap]->pages = pages;
 	}
 
@@ -225,27 +219,43 @@ sysgetmem(va_list args)
 	struct page *pages = nil;
 	void *addr;
 	size_t *size;
+	int type;
 	
+	type = va_arg(args, int);
 	addr = va_arg(args, void *);
 	size = va_arg(args, size_t *);
 
+	printf("getmem %i 0x%h %i\n", type, addr, *size);
+	
+	if (*size > MAX_MEM_SIZE) {
+		return nil;
+	}
+	
 	if (addr != nil && addrsinuse(addr, *size)) {
 		printf("0x%h is already in use by %i\n", addr, current->pid);
 		return nil;
 	}
 
-	if (addr == nil) {
+	switch (type) {
+	case MEM_heap:
 		pages = getnewpages(size);
-	} else {
-		pages = getiopages(addr, size);
+		break;
+	case MEM_io:
+		if (addr != nil) {
+			pages = getpages(&iopages, addr, size);
+			addr = nil;
+		}
+		break;
 	}
 	
 	if (pages == nil) {
-		*size = 0;
 		return nil;
 	}
-	
-	return (reg_t) insertpages(pages, addr, *size);
+
+	printf("find location of mem\n");
+	addr = insertpages(pages, addr, *size);
+	printf("putting mem at 0x%h with size %i\n", addr, *size);
+	return (reg_t) addr;
 }
 
 reg_t
