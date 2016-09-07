@@ -1,5 +1,4 @@
-#include "dat.h"
-#include "trap.h"
+#include "head.h"
 #include "fns.h"
 
 #define INTC			0x48200000
@@ -14,7 +13,7 @@
 #define INTC_ITRn(i)		0x80+(0x20*i)+0x00
 #define INTC_MIRn(i)		0x80+(0x20*i)+0x04
 #define INTC_CLEARn(i)		0x80+(0x20*i)+0x08
-#define INTC_SET(i)		0x80+(0x20*i)+0x0c
+#define INTC_SETn(i)		0x80+(0x20*i)+0x0c
 #define INTC_ISR_SETn(i)	0x80+(0x20*i)+0x10
 #define INTC_ISR_CLEARn(i)	0x80+(0x20*i)+0x14
 #define INTC_PENDING_IRQn(i)	0x80+(0x20*i)+0x18
@@ -24,133 +23,189 @@
 
 #define nirq 128
 
-static int (*handlers[nirq])(uint32_t) = {0};
+static void
+maskintr(int irqn);
+static void
+unmaskintr(int irqn);
+
+static bool (*handlers[nirq])(uint32_t) = {0};
+static struct proc *intrwait = nil;
 
 void
 initintc(void)
 {
-	int i;
-	size_t s = 0x1000;
+  int i;
+  size_t s = 0x1000;
 
-	getpages(&iopages, (void *) INTC, &s);
+  getpages(&iopages, (void *) INTC, &s);
 	
-	/* enable interface auto idle */
-	writel(1, INTC + INTC_SYSCONFIG);
+  /* enable interface auto idle */
+  writel(1, INTC + INTC_SYSCONFIG);
 
-	/* mask all interrupts. */
-	for (i = 0; i < nirq / 32; i++) {
-		writel(0xffffffff, INTC + INTC_MIRn(i));
-	}
+  /* mask all interrupts. */
+  for (i = 0; i < nirq / 32; i++) {
+    writel(0xffffffff, INTC + INTC_MIRn(i));
+  }
 	
-	/* Set all interrupts to lowest priority. */
-	for (i = 0; i < nirq; i++) {
-		writel(63 << 2, INTC + INTC_ILRn(i));
-	}
-}
-
-static int
-irqhandler(void)
-{
-	int r = 0;
-	uint32_t irq = readl(INTC + INTC_SIR_IRQ);
-		
-	if (handlers[irq]) {
-		r = handlers[irq](irq);
-	}
+  /* Set all interrupts to lowest priority. */
+  for (i = 0; i < nirq; i++) {
+    writel(63 << 2, INTC + INTC_ILRn(i));
+  }
 	
-	/* Allow new interrupts */
-	writel(1, INTC + INTC_CONTROL);
-	
-	return r;
+  writel(1, INTC + INTC_CONTROL);
 }
 
 void
-intcaddhandler(uint32_t irqn, int (*func)(uint32_t))
+maskintr(int irqn)
 {
-	uint32_t mask, mfield;
-	
-	handlers[irqn] = func;
-	
-	/* Unmask interrupt number. */
-	mfield = irqn / 32;
-	mask = 1 << (irqn % 32);
-	writel(mask, INTC + INTC_CLEARn(mfield));
+  uint32_t mask, mfield;
 
-	writel(1, INTC + INTC_CONTROL);
+  mfield = irqn / 32;
+  mask = 1 << (irqn % 32);
+
+  writel(mask, INTC + INTC_SETn(mfield));
+}
+
+void
+unmaskintr(int irqn)
+{
+  uint32_t mask, mfield;
+
+  mfield = irqn / 32;
+  mask = 1 << (irqn % 32);
+
+  writel(mask, INTC + INTC_CLEARn(mfield));
+}
+
+void
+intcaddhandler(uint32_t irqn, bool (*func)(uint32_t))
+{
+  handlers[irqn] = func;
+  unmaskintr(irqn);
+}
+
+bool
+procwaitintr(struct proc *p, int irqn)
+{
+  if (irqn < 0 || irqn > nirq) {
+    return false;
+  } else if (handlers[irqn] != nil) {
+    return false;
+  }
+	
+  p->waiting.intr = irqn;
+  p->wnext = intrwait;
+  intrwait = p;
+	
+  unmaskintr(irqn);
+	
+  return true;
+}
+
+static bool
+irqhandler(void)
+{
+  struct proc *p;
+  uint32_t irq;
+  bool r;
+	
+  r = false;
+  irq = readl(INTC + INTC_SIR_IRQ);		
+  if (handlers[irq]) {
+    /* Kernel handler */
+    r = handlers[irq](irq);
+  } else {
+    /* User proc handler */
+    for (p = intrwait; p != nil; p = p->wnext) {
+      if (p->waiting.intr == irq) {
+	procready(p);
+	maskintr(irq);
+	r = true;
+      }
+    }
+  }
+	
+  /* Allow new interrupts */
+  writel(1, INTC + INTC_CONTROL);
+	
+  return r;
 }
 
 void
 trap(struct ureg *ureg)
 {
-	uint32_t fsr;
-	void *addr;
-	bool fixed = false;
-	bool rsch = false;
+  uint32_t fsr;
+  void *addr;
+  bool fixed = true;
+  bool rsch = false;
+
+  printf("%i trapped\n", current->pid);
 	
-	if (ureg->type == ABORT_DATA)
-		ureg->pc -= 8;
-	else
-		ureg->pc -= 4;
+  if (ureg->type == ABORT_DATA)
+    ureg->pc -= 8;
+  else
+    ureg->pc -= 4;
 	
-	switch(ureg->type) {
-	case ABORT_INTERRUPT:
-		fixed = true;
-		rsch = irqhandler();
-		break;
-	case ABORT_INSTRUCTION:
-		break;
-	case ABORT_PREFETCH:
-		fixed = fixfault((void *) ureg->pc);
-		break;
-	case ABORT_DATA:
-		addr = faultaddr();
-		fsr = fsrstatus() & 0xf;
+  switch(ureg->type) {
+  case ABORT_INTERRUPT:
+    rsch = irqhandler();
+    break;
+  case ABORT_INSTRUCTION:
+    break;
+  case ABORT_PREFETCH:
+    fixed = fixfault((void *) ureg->pc);
+    break;
+  case ABORT_DATA:
+    addr = faultaddr();
+    fsr = fsrstatus() & 0xf;
+    fixed = false;
 		
-		switch (fsr) {
-		case 0x0: /* vector */
-			break;
-		case 0x1: /* alignment */
-		case 0x3: /* also alignment */
-			break;
-		case 0x2: /* terminal */
-			break;
-		case 0x4: /* external linefetch section */
-			break;
-		case 0x6: /* external linefetch page */
-			break;
-		case 0x5: /* section translation */
-		case 0x7: /* page translation */
-			/* Try add page */
-			fixed = fixfault(addr);
-			break;
-		case 0x8: /* external non linefetch section */
-			break;
-		case 0xa: /* external non linefetch page */
-			break;
-		case 0x9: /* domain section */
-		case 0xb: /* domain page */
-			break;
-		case 0xc: /* external translation l1 */
-		case 0xe: /* external translation l2 */
-			break;
-		case 0xd: /* section permission */
-		case 0xf: /* page permission */
-			printf("page permission error for 0x%h\n"
-				"may need to change page permissions.\n"
-				"for now just kill\n", addr);
-			break;
-		}
+    switch (fsr) {
+    case 0x0: /* vector */
+      break;
+    case 0x1: /* alignment */
+    case 0x3: /* also alignment */
+      break;
+    case 0x2: /* terminal */
+      break;
+    case 0x4: /* external linefetch section */
+      break;
+    case 0x6: /* external linefetch page */
+      break;
+    case 0x5: /* section translation */
+    case 0x7: /* page translation */
+      /* Try add page */
+      fixed = fixfault(addr);
+      break;
+    case 0x8: /* external non linefetch section */
+      break;
+    case 0xa: /* external non linefetch page */
+      break;
+    case 0x9: /* domain section */
+    case 0xb: /* domain page */
+      break;
+    case 0xc: /* external translation l1 */
+    case 0xe: /* external translation l2 */
+      break;
+    case 0xd: /* section permission */
+    case 0xf: /* page permission */
+      printf("page permission error for 0x%h\n"
+	     "may need to change page permissions.\n"
+	     "for now just kill\n", addr);
+      break;
+    }
 		
-		break;
-	}
+    break;
+  }
 	
-	if (!fixed) {
-		printf("kill proc %i for doing something bad\n", current->pid);
-		dumpregs(ureg);
-		procremove(current);
-		schedule();
-	}
+  if (!fixed) {
+    printf("kill proc %i for doing something bad\n",
+	   current->pid);
+    dumpregs(ureg);
+    procremove(current);
+    schedule();
+  }
 	
-	if (rsch)
-		schedule();
+  if (rsch)
+    schedule();
 }

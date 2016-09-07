@@ -1,4 +1,4 @@
-#include "dat.h"
+#include "head.h"
 #include "fns.h"
 
 extern char *initcodetext, *initcodedata;
@@ -13,99 +13,110 @@ initnullproc(void);
 int
 kmain(void)
 {
-	puts("  --  Bom Booting  --\n\n");
+  puts("  --  Bom Booting  --\n\n");
 
-	initwatchdog();
-	initmemory();
-	initintc();
-	inittimers();
+  initmemory();
+  initintc();
+  inittimers();
+  initwatchdog();
 
-	initprocs();
-	initnullproc();
-	initmainproc();
+  initnullproc();
+  initmainproc();
 	
-	schedule();
+  schedule();
 	
-	/* Should never be reached. */
-	return 0;
+  /* Should never be reached. */
+  return 0;
 }
 
 int
 mainproc(void *arg)
 {
-	droptouser((void *) USTACK_TOP);
-	return 0; /* Never reached. */
+  printf("Drop to user for inital proc\n");
+  droptouser((void *) USTACK_TOP);
+  return 0; /* Never reached. */
 }
 
 static struct page *
 copysegment(struct segment *s, char **buf, size_t len)
 {
-	struct page *pg;
-	size_t i, l;
+  struct page *pg;
+  size_t i, l;
 	
-	i = 0;
-	pg = s->pages;
-	while (true) {
-		l = len > PAGE_SIZE ? PAGE_SIZE : len;
+  i = 0;
+  pg = s->pages;
+  while (true) {
+    l = len > PAGE_SIZE ? PAGE_SIZE : len;
 		
-		memmove(pg->pa, (uint8_t *) buf + i, l);
+    memmove(pg->pa, (uint8_t *) buf + i, l);
 		
-		len -= l;	
-		i += l;
+    len -= l;	
+    i += l;
 		
-		if (len > 0) {
-			pg->next = newpage(pg->va + pg->size);
-			pg = pg->next;
-		} else {
-			pg->next = nil;
-			break;
-		}
-	}
+    if (len > 0) {
+      pg->next = newpage(pg->va + pg->size);
+      pg = pg->next;
+    } else {
+      pg->next = nil;
+      break;
+    }
+  }
 	
-	return pg;
+  return pg;
 }
 
 void
 initmainproc(void)
 {
-	struct proc *p;
-	struct page *pg;
+  struct proc *p;
+  struct page *pg;
 		
-	p = newproc();
+  p = newproc();
+  if (p == nil) {
+    printf("Failed to create main proc\n");
+    return;
+  }
 	
-	forkfunc(p, &mainproc, nil);
+  initproc(p);
+  forkfunc(p, &mainproc, nil);
 
-	p->segs[Sstack]->pages = newpage((void *) (USTACK_TOP - USTACK_SIZE));
+  p->segs[Sstack]->pages =
+    newpage((void *) (USTACK_TOP - USTACK_SIZE));
 
-	p->segs[Stext]->pages = newpage((void *) UTEXT);
-	pg = copysegment(p->segs[Stext], &initcodetext, initcodetextlen);
+  p->segs[Stext]->pages = newpage((void *) UTEXT);
+  pg = copysegment(p->segs[Stext], &initcodetext, initcodetextlen);
 
-	p->segs[Sdata]->pages = newpage(pg->va + pg->size);
-	copysegment(p->segs[Sdata], &initcodedata, initcodedatalen);
+  p->segs[Sdata]->pages = newpage(pg->va + pg->size);
+  copysegment(p->segs[Sdata], &initcodedata, initcodedatalen);
 	
-	p->fgroup = newfgroup();
-	p->ngroup = newngroup();
+  p->fgroup = newfgroup();
+  p->ngroup = newngroup();
+  p->parent = nil;
 	
-	procready(p);
+  procready(p);
 }
 
 int
 nullproc(void *arg)
 {
-	while (true) {
-		schedule();
-	}
-	return 0;
+  while (true)
+    schedule();
+
+  return 0;
 }
 
 void
 initnullproc(void)
 {
-	struct proc *p;
+  struct proc *p;
 	
-	p = newproc();
-
-	forkfunc(p, &nullproc, nil);
-
-	procready(p);
+  p = newproc();
+  if (p == nil) {
+    printf("Failed to create null proc\n");
+    return;
+  }
+	
+  initproc(p);
+  forkfunc(p, &nullproc, nil);
+  procready(p);
 }

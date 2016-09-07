@@ -1,4 +1,5 @@
-#include "head.h"
+#include "../include/libc.h"
+#include "../include/stdarg.h"
 
 static int
 printint(char *str, size_t max, unsigned int i, unsigned int base)
@@ -113,6 +114,7 @@ printf(const char *fmt, ...)
 	va_end(ap);
 
 	if (i > 0) {
+		sleep(100);
 		write(stdout, str, i);
 	}
 }

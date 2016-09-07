@@ -1,37 +1,23 @@
-#include "dat.h"
+#include "head.h"
 
 static struct proc *
 nextproc(void);
 
-static uint32_t nextpid;
-static struct proc procs[MAX_PROCS];
-
-struct proc *current;
-
-void
-initprocs(void)
-{
-	int i;
-
-	for (i = 0; i < MAX_PROCS; i++)
-		procs[i].state = PROC_unused;
-	procs[0].next = nil;
-	
-	nextpid = 1;
-	current = procs;
-}
+static uint32_t nextpid = 1;
+static struct proc procs[MAX_PROCS] = {{0}};
+struct proc *current = procs;
 
 void
 schedule(void)
 {
-	struct proc *p;
+	/* gotolabel will enable on switch. */
+	disableintr();
 	
 	if (setlabel(&current->label)) {
 		return;
 	}
 	
-	p = nextproc();
-	current = p;
+	current = nextproc();
 	mmuswitch(current);
 	setsystick(current->quanta);
 	gotolabel(&current->label);
@@ -83,35 +69,37 @@ newproc(void)
 			break;
 		}
 	}
-	
+
 	if (p == nil)
 		return nil;
 	
 	p->state = PROC_suspend;
 	p->pid = nextpid++;
-	
-	p->parent = nil;
-	p->dot = nil;
-	
 	p->faults = 0;
-	p->quanta = 10;
-	
 	p->ureg = nil;
-	
 	p->wnext = nil;
-	
 	p->mmu = nil;
 
+	for (pp = procs; pp->next; pp = pp->next);
+	pp->next = p;
+	p->next = nil;
+		
+	return p;
+}
+
+void
+initproc(struct proc *p)
+{
+	p->dot = nil;
+	p->quanta = 1000;
+	
 	p->segs[Sstack] = newseg(SEG_rw);
 	p->segs[Stext] = newseg(SEG_ro);
 	p->segs[Sdata] = newseg(SEG_rw);
 	p->segs[Sheap] = newseg(SEG_rw);
 	
-	for (pp = procs; pp->next; pp = pp->next);
-	pp->next = p;
-	p->next = nil;
-	
-	return p;
+	p->fgroup = nil;
+	p->ngroup = nil;
 }
 
 void

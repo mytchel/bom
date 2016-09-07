@@ -1,11 +1,11 @@
-#include "head.h"
+#include "../include/libc.h"
 
 int
 ppipe0(int fd)
 {
 	int i, n, pid = getpid();
 	
-	printf("%i: task 1 started with fd %i\n", pid, fd);
+	printf("%i: ppipe0 started with fd %i\n", pid, fd);
 	while (true) {
 		sleep(100);
 		printf("%i: wait for write\n", pid);
@@ -28,7 +28,7 @@ int
 ppipe1(int fd)
 {
 	int i, n, pid = getpid();
-	printf("%i: task 2 started with fd %i\n", pid, fd);
+	printf("%i: ppipe1 started with fd %i\n", pid, fd);
 	
 	for (i = 0; i < 4; i++) {
 		sleep(400);

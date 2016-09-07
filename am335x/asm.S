@@ -5,6 +5,8 @@
 .global _start
 .global setlabel
 .global gotolabel
+.global disableintr
+.global enableintr
 .global forkfunc_preloader
 .global forkfunc_loader
 .global uregret
@@ -45,7 +47,7 @@ _start:
 	ldr sp, =_svc_stack_top
 	
 	bl vectortableinit
-	
+
 	b kmain
 
 
@@ -61,6 +63,15 @@ gotolabel:
 	mov pc, lr
 
 
+disableintr:
+#	cpsid if
+	bx lr
+
+enableintr:
+#	cpsie if
+	bx lr
+	
+	
 forkfunc_preloader:
 	stmfd r0!, {r1, r2}
 	bx lr
@@ -76,7 +87,7 @@ forkfunc_loader:
 	bl schedule
 	
 
-@ user register return. Not you regret.
+@ user register return
 uregret:
 	mov r0, sp
 	add sp, sp, #(4 * 15)

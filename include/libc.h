@@ -1,8 +1,10 @@
 #ifndef __STD_H
 #define __STD_H
 
+#include "types.h"
 #include "syscalls.h"
 
+extern int stdin, stdout, stderr;
 
 /* Process system calls */
 
@@ -40,11 +42,14 @@ getmem(int type, void *addr, size_t *size);
 int
 rmmem(void *addr, size_t size);
 
+/* Blocks until interrupt intr occurs. */
+int
+waitintr(int intr);
 
 /* File operation system calls. */
 
 int
-pipe(int *fds);
+pipe(int fds[2]);
 
 int
 read(int fd, void *buf, size_t len);
@@ -86,5 +91,8 @@ strcmp(const uint8_t *s1, const uint8_t *s2);
 
 size_t
 strlen(const uint8_t *s);
+
+void
+printf(const char *, ...);
 
 #endif

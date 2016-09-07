@@ -1,4 +1,4 @@
-#include "dat.h"
+#include "head.h"
 
 struct ngroup *
 newngroup(void)
@@ -68,10 +68,10 @@ copyngroup(struct ngroup *o)
 		
 		bn->binding = bo->binding;
 		bn->binding->refs++;
-		
-		unlock(&bo->binding->lock);
 			
 		bo = bo->next;
+		unlock(&bo->binding->lock);
+		
 		if (bo == nil) {
 			bn->next = nil;
 		} else {

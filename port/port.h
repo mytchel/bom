@@ -3,119 +3,119 @@
 #include "../include/libc.h"
 
 struct page {
-	void *pa, *va;
-	size_t size;
-	struct page *next;
-	struct page *from;
+  void *pa, *va;
+  size_t size;
+  struct page *next;
+  struct page *from;
 };
 
 enum { SEG_rw, SEG_ro };
 
 struct segment {
-	int refs;
-	int type;
-	struct page *pages;
+  int refs;
+  int type;
+  struct page *pages;
 };
 
 enum { CHAN_pipe, CHAN_file, CHAN_max };
 
 struct chan {
-	int refs;
-	int lock;
+  int refs;
+  int lock;
 	
-	int type;
-	int mode;
-	struct path *path;
+  int type;
+  int mode;
+  struct path *path;
 	
-	void *aux;
+  void *aux;
 };
 
 struct chantype {
-	int (*read)(struct chan *, uint8_t *, size_t);
-	int (*write)(struct chan *, uint8_t *, size_t);
-	int (*close)(struct chan *);
+  int (*read)(struct chan *, uint8_t *, size_t);
+  int (*write)(struct chan *, uint8_t *, size_t);
+  int (*close)(struct chan *);
 };
 
 struct path {
-	uint8_t *s;
-	struct path *prev, *next;
+  uint8_t *s;
+  struct path *prev, *next;
 };
 
 struct fgroup {
-	int refs;
-	int lock;
-	struct chan **chans;
-	size_t nchans;
+  int refs;
+  int lock;
+  struct chan **chans;
+  size_t nchans;
 };
 
 struct binding {
-	int refs;
-	int lock;
+  int refs;
+  int lock;
 	
-	struct path *path;
-	struct chan *in, *out;
-	uint32_t rootfid;
+  struct path *path;
+  struct chan *in, *out;
+  uint32_t rootfid;
 
-	int nreqid;
-	struct response *resp; /* Current response. */
-	struct proc *waiting; /* List of procs waiting. */
-	struct proc *srv; /* Kernel proc that handles responses */
+  int nreqid;
+  struct proc *waiting; /* List of procs waiting. */
+  struct proc *srv; /* Kernel proc that handles responses */
 };
 
 struct binding_list {
-	struct binding *binding;
-	struct binding_list *next;
+  struct binding *binding;
+  struct binding_list *next;
 };
 
 struct ngroup {
-	int refs;
-	int lock;
-	struct binding_list *bindings;
+  int refs;
+  int lock;
+  struct binding_list *bindings;
 };
 
 enum {
-	PROC_unused, /* Not really a state */
-	PROC_suspend,
-	PROC_ready,
-	PROC_sleeping,
-	PROC_waiting,
+  PROC_unused, /* Not really a state */
+  PROC_suspend,
+  PROC_ready,
+  PROC_sleeping,
+  PROC_waiting,
 };
 
 enum { Sstack, Stext, Sdata, Sheap, Smax };
 
 struct proc {
-	struct proc *next; /* Next in schedule queue */
+  struct proc *next; /* Next in schedule queue */
 	
-	struct label label;
-	uint8_t kstack[KSTACK];
+  struct label label;
+  uint8_t kstack[KSTACK];
 
-	struct ureg *ureg;
+  struct ureg *ureg;
 	
-	int state;
-	int pid;
-	struct proc *parent;
-	struct path *dot;
+  int state;
+  int pid;
+  struct proc *parent;
+  struct path *dot;
 	
-	int faults;
-	uint32_t quanta;
-	uint32_t sleep; /* in ticks */
+  int faults;
+  uint32_t quanta;
+  uint32_t sleep; /* in ticks */
 
-	struct fgroup *fgroup;
-	struct ngroup *ngroup;
+  struct fgroup *fgroup;
+  struct ngroup *ngroup;
 
-	struct segment *segs[Smax];
-	struct page *mmu;
+  struct segment *segs[Smax];
+  struct page *mmu;
 	
-	struct proc *wnext; /* Next in wait queue */
-	int rid;
+  struct proc *wnext; /* Next in wait queue */
+  void *aux;
+  union {
+    int rid;
+    int intr;
+  } waiting;
 };
 
 
 /****** Initialisation ******/
 
-
-void
-initprocs(void);
 
 void
 initheap(void *, size_t);
@@ -128,6 +128,9 @@ initheap(void *, size_t);
 
 struct proc *
 newproc(void);
+
+void
+initproc(struct proc *);
 
 void
 procremove(struct proc *);
@@ -163,6 +166,17 @@ fixfault(void *);
 
 void *
 kaddr(struct proc *, void *);
+
+/* Get an unused page. */
+struct page *
+newpage(void *);
+
+/* Get specific pages from page list. */
+struct page *
+getpages(struct page *, void *, size_t *);
+
+void
+freepage(struct page *);
 
 /* Channels */
 
@@ -223,13 +237,8 @@ newbinding(struct path *, struct chan *, struct chan *);
 void
 freebinding(struct binding *);
 
-/* Syncronisation */
-
-void
-lock(int *);
-
-void
-unlock(int *);
+struct binding *
+findbinding(struct ngroup *, struct path *, int);
 
 /* IPC */
 
@@ -268,9 +277,6 @@ fileclose(struct chan *);
 void
 printf(const char *, ...);
 
-void
-dumpregs(struct ureg *);
-
 
 /****** Syscalls ******/
 
@@ -281,6 +287,7 @@ reg_t syssleep(va_list);
 reg_t sysgetpid(va_list);
 reg_t sysgetmem(va_list);
 reg_t sysrmmem(va_list);
+reg_t syswaitintr(va_list);
 reg_t syspipe(va_list);
 reg_t sysread(va_list);
 reg_t syswrite(va_list);
@@ -292,12 +299,11 @@ reg_t sysremove(va_list);
 
 /****** Machine Implimented ******/
 
+void
+dumpregs(struct ureg *);
 
 void
 puts(const char *);
-
-char
-getc(void);
 
 /* Number of ticks since last call. */
 uint32_t
@@ -309,7 +315,7 @@ tickstoms(uint32_t);
 uint32_t
 mstoticks(uint32_t);
 
-/* Set systick interrupt to occur in .. ms */
+/* Set systick interrupt to occur in ... ms */
 void
 setsystick(uint32_t);
 
@@ -337,18 +343,23 @@ mmudisable(void);
 void
 mmuputpage(struct page *, bool);
 
-/* Find a unused page. */
-struct page *
-newpage(void *);
-
-struct page *
-getpages(struct page *, void *, size_t *);
-
-void
-freepage(struct page *);
-
 void *
 pagealign(void *);
+
+bool
+procwaitintr(struct proc *, int);
+
+void
+lock(int *);
+
+void
+unlock(int *);
+
+void
+disableintr(void);
+
+void
+enableintr(void);
 
 
 /****** Global Variables ******/

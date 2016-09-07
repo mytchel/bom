@@ -1,4 +1,4 @@
-#include "dat.h"
+#include "head.h"
 #include "fns.h"
 
 static void
@@ -11,8 +11,8 @@ extern uint32_t *_ram_end;
 extern uint32_t *_kernel_start;
 extern uint32_t *_kernel_end;
 
-struct page pages = { 0, 0, 0, nil};
-struct page iopages = { 0, 0, 0, nil};
+struct page pages = {0};
+struct page iopages = {0};
 
 void
 initmemory(void)
@@ -43,8 +43,6 @@ initmemory(void)
 	imap((void *) 0x44000000, (void *) 0x50000000, AP_RW_NO);
 	
 	mmuenable();
-	
-	printf("mmuenabled\n");
 }
 
 void
@@ -83,68 +81,6 @@ addpages(struct page *pages, uint32_t start, uint32_t end)
 		
 		pages->next = p;
 	}
-}
-
-struct page *
-newpage(void *va)
-{
-	struct page *p;
-
-	p = pages.next;
-	if (p == nil) {
-		printf("No free pages!\n");
-		return nil;
-	}
-
-	pages.next = p->next;
-	p->next = nil;
-	p->va = va;
-	return p;
-}
-
-struct page *
-getpages(struct page *pages, void *pa, size_t *size)
-{
-	struct page *start, *p, *pp;
-	size_t s;
-	
-	pp = pages;
-	for (p = pp->next; p != nil; pp = p, p = p->next) {
-		if (p->pa == pa) {
-			break;
-		}
-	}
-	
-	if (p == nil)
-		return nil;
-	
-	start = p;
-	s = 0;
-	while (p != nil) {
-		s += p->size;
-		if (s >= *size) {
-			break;
-		} else {
-			p = p->next;
-		}
-	}
-
-	if (p != nil) {
-		pp->next = p->next;
-		p->next = nil;
-	} else {
-		pp->next = nil;
-	}
-	
-	*size = s;	
-	return start;
-}
-
-void
-freepage(struct page *p)
-{
-	p->next = p->from->next;
-	p->from->next = p;
 }
 
 void *

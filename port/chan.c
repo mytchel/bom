@@ -1,4 +1,4 @@
-#include "dat.h"
+#include "head.h"
 
 struct chantype *chantypes[CHAN_max] = {
 	[CHAN_pipe] = &devpipe,

@@ -1,4 +1,4 @@
-#include "head.h"
+#include "../include/libc.h"
 
 struct block {
 	size_t size;
@@ -16,7 +16,6 @@ growheap(struct block *prev, size_t size)
 
 	b = getmem(MEM_heap, nil, &size);
 	if (b == nil) {
-		puts("out of memory\n");
 		return nil;
 	} else if (prev == nil) {
 		heap = b;

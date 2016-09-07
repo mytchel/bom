@@ -1,4 +1,4 @@
-#include "dat.h"
+#include "head.h"
 
 reg_t
 sysexit(va_list args)
@@ -113,7 +113,6 @@ getnewpages(size_t *size)
 		p->next = newpage(p->va + p->size);
 		if (p->next == nil) {
 			p = pages;
-			printf("Failed to get another page, free them all\n");
 			while (p != nil) {
 				pt = p->next;
 				freepage(p);
@@ -229,7 +228,6 @@ sysgetmem(va_list args)
 	}
 	
 	if (addr != nil && addrsinuse(addr, *size)) {
-		printf("0x%h is already in use by %i\n", addr, current->pid);
 		return nil;
 	}
 
@@ -266,7 +264,6 @@ sysrmmem(va_list args)
 	p = current->segs[Sheap]->pages; 
 	while (p != nil && size > 0) {
 		if (p->va == addr) {
-			printf("unmap page 0x%h\n", p->va);
 			addr = (uint8_t *) p->va + p->size;
 			size -= p->size;
 			
@@ -286,4 +283,20 @@ sysrmmem(va_list args)
 	}
 	
 	return ENOIMPL;
+}
+
+reg_t
+syswaitintr(va_list args)
+{
+	int irqn;
+
+	irqn = va_arg(args, int);
+
+	if (procwaitintr(current, irqn)) {
+		procwait(current);
+		schedule();
+		return OK;
+	} else {
+		return ERR;
+	}
 }

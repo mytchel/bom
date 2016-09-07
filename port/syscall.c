@@ -1,4 +1,4 @@
-#include "dat.h"
+#include "head.h"
 
 reg_t (*syscalltable[NSYSCALLS])(va_list) = {
 	[SYSCALL_EXIT] 		= sysexit,
@@ -8,6 +8,7 @@ reg_t (*syscalltable[NSYSCALLS])(va_list) = {
 	
 	[SYSCALL_GETMEM]	= sysgetmem,
 	[SYSCALL_RMMEM]		= sysrmmem,
+	[SYSCALL_WAITINTR]	= syswaitintr,
 	
 	[SYSCALL_PIPE]		= syspipe,
 	[SYSCALL_READ]		= sysread,

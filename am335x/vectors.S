@@ -43,7 +43,7 @@ swi_ex:
 	stmia r0, {r0, r1, lr}
 	
 	mov r0, sp
-	
+
 	bl syscall
 	b uregret
 	
@@ -96,7 +96,7 @@ switch:
 	b uregret
 
 
-@ Not used. But just incase kick and scream.
+@ Not used. But just in case kick and scream.
 fiq_ex:
 	ldr r0, =fiq_msg
 	bl puts

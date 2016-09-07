@@ -1,12 +1,16 @@
 init_src := \
-	init/syscalls.S init/uart.c init/com.c \
-	init/heap.c \
+	init/heap.c init/com.c \
 	init/main.c init/pipe.c init/fs.c  \
+	init/mount.c init/uart.c init/mmc.c \
 	../lib/fs.c ../lib/misc.c
 
-init/initcode.elf: $(init_src) init/linker.ld
+init_objs := init/syscalls.o $(init_src:%.c=%.o)
+
+CLEAN += $(init_objs)
+
+init/initcode.elf: $(init_objs) init/linker.ld
 	@echo CC $@
-	@$(CC) $(CFLAGS) -o $@ $(init_src) $(LDFLAGS) -T init/linker.ld \
+	@$(CC) $(CFLAGS) -o $@ $(init_objs) $(LDFLAGS) -T init/linker.ld \
 		$(LGCC)
 
 init/initcode.c: init/initcode.elf init/initcode.list bintoarray/bintoarray

@@ -1,4 +1,4 @@
-#include "dat.h"
+#include "head.h"
 
 static struct path *
 strtopathh(struct path *prev, const uint8_t *str)

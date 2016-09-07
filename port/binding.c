@@ -1,4 +1,4 @@
-#include "dat.h"
+#include "head.h"
 
 struct binding *
 newbinding(struct path *path, struct chan *out, struct chan *in)
@@ -20,7 +20,6 @@ newbinding(struct path *path, struct chan *out, struct chan *in)
 	in->refs++;
 	out->refs++;
 
-	b->resp = nil;
 	b->waiting = nil;
 	b->nreqid = 0;
 	
@@ -41,4 +40,49 @@ freebinding(struct binding *b)
 	 * when mountproc sees that refs <=0
 	 * it will do freeing.
 	 */
+}
+
+/*
+ * Find the binding that matches path to at most a depth of depth
+ * return the best binding.
+ */
+ 
+struct binding *
+findbinding(struct ngroup *ngroup, struct path *path, int depth)
+{
+	struct binding_list *bl;
+	struct path *pp, *bp;
+	struct binding *best;
+	int d, bestd;
+	
+	lock(&ngroup->lock);
+
+	best = nil;
+	bestd = -1;
+	for (bl = ngroup->bindings; bl != nil; bl = bl->next) {
+		d = 0;
+		pp = path;
+		lock(&bl->binding->lock);
+		bp = bl->binding->path;
+		while (d < depth && pp != nil && bp != nil) {
+			if (!strcmp(pp->s, bp->s)) {
+				break;
+			}
+			
+			d++;
+			pp = pp->next;
+			bp = bp->next;
+		}
+		
+		if (bp == nil && d > bestd) {
+			bestd = d;
+			best = bl->binding;
+		}
+		
+		unlock(&bl->binding->lock);
+	}
+	
+	unlock(&ngroup->lock);
+	
+	return best;
 }

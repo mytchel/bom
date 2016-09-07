@@ -1,4 +1,4 @@
-#include "dat.h"
+#include "head.h"
 #include "fns.h"
 
 #define TIMER0 0x44E05000
@@ -26,17 +26,17 @@
 #define WDT_WSPR	0x48
 #define WDT_WWPS	0x34
 
-static int systickhandler(uint32_t);
+static bool systickhandler(uint32_t);
 
 void
 initwatchdog(void)
 {
 	size_t s = 0x1000;
-	/* Disable watchdog timer. */
 	
 	/* Dont let user processes get this. */
 	getpages(&iopages, (void *) WDT_1, &s);
 	
+	/* Disable watchdog timer. */
 	writel(0x0000AAAA, WDT_1 + WDT_WSPR);
 	while (readl(WDT_1 + WDT_WWPS) & (1<<4));
 	writel(0x00005555, WDT_1 + WDT_WSPR);
@@ -66,9 +66,10 @@ inittimers(void)
  	while (readl(TIMER0 + TIMER_TWPS)); /* Wait for writes to commit. */
 }
 
-int
+bool
 systickhandler(uint32_t irqn)
 {
+	printf("systick\n");
 	writel(0, TIMER2 + TIMER_TCLR); /* disable timer */
 
 	/* Clear irq status. */
@@ -86,6 +87,8 @@ setsystick(uint32_t ms)
 	uint32_t t = mstoticks(ms);
 	
 	writel(0, TIMER2 + TIMER_TCLR); /* disable timer */
+ 	while (readl(TIMER2 + TIMER_TWPS)); /* Wait for writes to commit. */
+	
 	writel(0, TIMER2 + TIMER_TCRR); /* set timer to 0 */
 	writel(t, TIMER2 + TIMER_TMAR); /* set compare value */
 

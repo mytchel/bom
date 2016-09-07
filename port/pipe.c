@@ -1,4 +1,4 @@
-#include "dat.h"
+#include "head.h"
 
 struct pipe {
 	struct chan *c0, *c1;
@@ -56,7 +56,7 @@ piperead(struct chan *c, uint8_t *buf, size_t n)
 	p->proc = current;
 	p->buf = buf;
 	p->n = n;
-	
+
 	procwait(current);
 	schedule();
 	
@@ -84,7 +84,7 @@ pipewrite(struct chan *c, uint8_t *buf, size_t n)
 			schedule();
 		
 		if (p->c0 == nil || p->c1 == nil) {
-			return n - t;
+			return t;
 		}
 		
 		l = n - t < p->n ? n - t : p->n;
@@ -103,7 +103,7 @@ pipewrite(struct chan *c, uint8_t *buf, size_t n)
 		}
 	}
 	
-	return n;
+	return t;
 }
 
 int

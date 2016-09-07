@@ -1,4 +1,4 @@
-#include "dat.h"
+#include "head.h"
 
 struct segment *
 newseg(int type)
@@ -118,3 +118,66 @@ kaddr(struct proc *p, void *addr)
 
 	return pg->pa + (addr - pg->va);
 }
+
+struct page *
+newpage(void *va)
+{
+	struct page *p;
+
+	p = pages.next;
+	if (p == nil) {
+		printf("No free pages!\n");
+		return nil;
+	}
+
+	pages.next = p->next;
+	p->next = nil;
+	p->va = va;
+	return p;
+}
+
+struct page *
+getpages(struct page *pages, void *pa, size_t *size)
+{
+	struct page *start, *p, *pp;
+	size_t s;
+	
+	pp = pages;
+	for (p = pp->next; p != nil; pp = p, p = p->next) {
+		if (p->pa == pa) {
+			break;
+		}
+	}
+	
+	if (p == nil)
+		return nil;
+	
+	start = p;
+	s = 0;
+	while (p != nil) {
+		s += p->size;
+		if (s >= *size) {
+			break;
+		} else {
+			p = p->next;
+		}
+	}
+
+	if (p != nil) {
+		pp->next = p->next;
+		p->next = nil;
+	} else {
+		pp->next = nil;
+	}
+	
+	*size = s;	
+	return start;
+}
+
+void
+freepage(struct page *p)
+{
+	p->next = p->from->next;
+	p->from->next = p;
+}
+

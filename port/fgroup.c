@@ -1,4 +1,4 @@
-#include "dat.h"
+#include "head.h"
 
 struct fgroup *
 newfgroup(void)
@@ -90,7 +90,7 @@ addchan(struct fgroup *f, struct chan *chan)
 	int i, fd;
 	
 	lock(&f->lock);
-	
+
 	for (i = 0; i < f->nchans; i++)
 		if (f->chans[i] == nil)
 			break;
@@ -123,6 +123,7 @@ addchan(struct fgroup *f, struct chan *chan)
 	
 	f->chans[fd] = chan;
 	unlock(&f->lock);
+
 	return fd;
 }
 

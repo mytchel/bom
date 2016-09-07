@@ -23,6 +23,6 @@ struct ureg {
 	uint32_t type, psr, pc;
 };
 
-#include "../port/portdat.h"
+#include "../port/port.h"
 
 #endif

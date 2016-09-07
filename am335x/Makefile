@@ -41,6 +41,7 @@ C_SRC := \
 	init/initcode.c		\
 	main.c			\
 	trap.c			\
+	lock.c			\
 	uart.c			\
 	timer.c			\
 	mem.c			\
@@ -58,9 +59,9 @@ P_SRC := \
 	../port/chan.c		\
 	../port/pipe.c		\
 	../port/file.c		\
+	../port/mount.c		\
 	../port/path.c		\
 	../port/heap.c		\
-	../port/misc.c		\
 	../port/sysproc.c	\
 	../port/sysfile.c	\
 	../port/syscall.c	\

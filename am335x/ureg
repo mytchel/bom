@@ -1,0 +1,6 @@
+mmu.c:		pg->next = current->mmu;
+mmu.c:		current->mmu = pg;
+syscall.c:  current->ureg = ureg;
+syscall.c:  printf("%i syscall %i\n", current->pid, sysnum);
+trap.c:  printf("%i trapped\n", current->pid);
+trap.c:	   current->pid);

@@ -39,7 +39,7 @@ void *
 faultaddr(void);
 
 void
-intcaddhandler(uint32_t, int (*)(uint32_t));
+intcaddhandler(uint32_t, bool (*)(uint32_t));
 
 void
 mmuinvalidate(void);

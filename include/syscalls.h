@@ -18,7 +18,8 @@
 #define SYSCALL_OPEN		12
 #define SYSCALL_REMOVE		13
 
-#define NSYSCALLS		14
+#define SYSCALL_WAITINTR	14
+#define NSYSCALLS		15
 
 #define OK		0
 /* General error */
