@@ -64,11 +64,11 @@ gotolabel:
 
 
 disableintr:
-#	cpsid if
+	cpsid if
 	bx lr
 
 enableintr:
-#	cpsie if
+	cpsie if
 	bx lr
 	
 	

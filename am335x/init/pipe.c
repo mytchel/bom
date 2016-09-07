@@ -30,7 +30,7 @@ ppipe1(int fd)
 	int i, n, pid = getpid();
 	printf("%i: ppipe1 started with fd %i\n", pid, fd);
 	
-	for (i = 0; i < 4; i++) {
+	for (i = 0; i < 20; i++) {
 		sleep(400);
 		printf("%i: writing %i\n", pid, i);
 

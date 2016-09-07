@@ -81,6 +81,35 @@ switch:
 	sub sp, sp, #(4 * 3)
 	stmia sp, {r0, r1, r3}
 	sub r0, sp, #(4 * 2)
+
+	ands r3, r1, #0xf
+	beq _user
+
+	@ kernel mode interrupted
+	
+	add sp, sp, #(4 * 3)
+	stmia r0, {sp, lr}
+
+	sub r0, r0, #(4 * 8)
+	stmia r0, {r5 - r12}
+	sub r0, r0, #(4 * 5)
+	ldmfd r2, {r1 - r5}
+	stmia r0, {r1 - r5}
+
+	mov sp, r0
+	mov r1, #1
+	bl trap
+
+	add sp, sp, #(4 * 15)
+	ldmia sp, {r1, r2, r3}
+	msr spsr, r2
+	str r3, [sp]
+	sub sp, sp, #(4 * 15)
+
+	ldmia sp, {r0 - r12, sp, lr, pc}^
+
+_user:  @ user mode interrupted
+
 	cps #MODE_SYS
 	stmia r0, {sp, lr}
 	cps #MODE_SVC
@@ -90,8 +119,9 @@ switch:
 	sub r0, r0, #(4 * 5)
 	ldmfd r2, {r1 - r5}
 	stmia r0, {r1 - r5}
-	
+
 	mov sp, r0
+	mov r1, #0
 	bl trap
 	b uregret
 

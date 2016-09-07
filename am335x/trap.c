@@ -132,15 +132,15 @@ irqhandler(void)
 }
 
 void
-trap(struct ureg *ureg)
+trap(struct ureg *ureg, int t)
 {
   uint32_t fsr;
   void *addr;
   bool fixed = true;
   bool rsch = false;
 
-  printf("%i trapped\n", current->pid);
-	
+  printf("%i interupted %i: %i\n", current->pid, t, ureg->type);
+
   if (ureg->type == ABORT_DATA)
     ureg->pc -= 8;
   else

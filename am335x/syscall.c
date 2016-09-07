@@ -10,9 +10,10 @@ syscall(struct ureg *ureg)
 
   current->ureg = ureg;
 
+  enableintr();
+  
   if (sysnum < NSYSCALLS) {
-    va_list args = (va_list) ureg->sp;
-    ureg->regs[0] = syscalltable[sysnum](args);
+    ureg->regs[0] = syscalltable[sysnum]((va_list) ureg->sp);
   } else {
     ureg->regs[0] = -1;
   }

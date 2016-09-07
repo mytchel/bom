@@ -87,7 +87,6 @@ main(void)
 
 	printf("ppipe0\n");
 	f = fork(FORK_sngroup);
-	printf("f = %i\n", f);
 	if (f < 0) {
 		return -4;
 	} else if (!f) {
@@ -102,7 +101,6 @@ main(void)
 
 	printf("ppipe1\n");
 	f = fork(FORK_sngroup);
-	printf("forked %i\n", f);
 	if (f < 0) {
 		return -5;
 	} else if (!f) {
