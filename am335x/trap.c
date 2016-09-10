@@ -1,3 +1,21 @@
+/*
+ *   Copyright (C) 2016	Mytchel Hammond <mytchel@openmailbox.org>
+ *
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation; either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; if not, write to the Free Software
+ *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ */
+
 #include "head.h"
 #include "fns.h"
 
@@ -87,12 +105,18 @@ intcaddhandler(uint32_t irqn, bool (*func)(uint32_t))
 bool
 procwaitintr(struct proc *p, int irqn)
 {
+  struct proc *pp;
+  
   if (irqn < 0 || irqn > nirq) {
     return false;
   } else if (handlers[irqn] != nil) {
     return false;
   }
-	
+
+  for (pp = intrwait; pp != nil; pp = pp->next)
+    if (pp->waiting.intr == irqn)
+      return false;
+  
   p->waiting.intr = irqn;
   p->wnext = intrwait;
   intrwait = p;
@@ -132,14 +156,12 @@ irqhandler(void)
 }
 
 void
-trap(struct ureg *ureg, int t)
+trap(struct ureg *ureg)
 {
   uint32_t fsr;
   void *addr;
   bool fixed = true;
   bool rsch = false;
-
-  printf("%i interupted %i: %i\n", current->pid, t, ureg->type);
 
   if (ureg->type == ABORT_DATA)
     ureg->pc -= 8;
@@ -159,7 +181,7 @@ trap(struct ureg *ureg, int t)
     addr = faultaddr();
     fsr = fsrstatus() & 0xf;
     fixed = false;
-		
+
     switch (fsr) {
     case 0x0: /* vector */
       break;
