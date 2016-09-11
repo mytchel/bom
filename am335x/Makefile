@@ -1,3 +1,21 @@
+#
+#    Copyright (C) 2016	Mytchel Hammond <mytchel@openmailbox.org>
+#
+#    This program is free software; you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation; either version 2 of the License, or
+#    (at your option) any later version.
+#
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with this program; if not, write to the Free Software
+#    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+#
+
 .SUFFIXES: .S .c .h .o .elf .bin .list .umg
 
 CLEAN = 
@@ -17,11 +35,11 @@ OBJDUMP := $(CROSS_COMPILE)objdump
 CLEAN += am335x.*
 
 CFLAGS :=-mcpu=cortex-a8 \
-	-Wall -Werror -O2 \
-	-nostdinc -ffreestanding \
-	-std=c89 \
-	-Dam335x \
-	-I.
+        -Wall -Werror -O2 \
+        -nostdinc -ffreestanding \
+        -std=c89 \
+        -Dam335x \
+        -I${.CURDIR} -I${.CURDIR}/../include
 
 LDFLAGS := -nostdlib -nodefaultlibs
 LGCC := -L/usr/local/lib/gcc/arm-none-eabi/4.9.3/ -lgcc
@@ -34,41 +52,41 @@ include bintoarray/local.mk
 include init/local.mk
 
 A_SRC := \
-	asm.S			\
-	vectors.S
+        asm.S                   \
+        vectors.S
 
 C_SRC := \
-	init/initcode.c		\
-	main.c			\
-	trap.c			\
-	lock.c			\
-	uart.c			\
-	timer.c			\
-	mem.c			\
-	proc.c			\
-	syscall.c		\
-	mmu.c
+        init/initcode.c         \
+        main.c                  \
+        trap.c                  \
+        lock.c                  \
+        uart.c                  \
+        timer.c                 \
+        mem.c                   \
+        proc.c                  \
+        syscall.c               \
+        mmu.c
 
 P_SRC := \
-	../port/com.c		\
-	../port/proc.c		\
-	../port/segment.c	\
-	../port/fgroup.c	\
-	../port/ngroup.c	\
-	../port/binding.c	\
-	../port/chan.c		\
-	../port/pipe.c		\
-	../port/file.c		\
-	../port/mount.c		\
-	../port/path.c		\
-	../port/heap.c		\
-	../port/sysproc.c	\
-	../port/sysfile.c	\
-	../port/syscall.c	\
-	../lib/fs.c		\
+        ../port/com.c           \
+        ../port/proc.c          \
+        ../port/segment.c       \
+        ../port/fgroup.c        \
+        ../port/ngroup.c        \
+        ../port/binding.c       \
+        ../port/chan.c          \
+        ../port/pipe.c          \
+        ../port/file.c          \
+        ../port/mount.c         \
+        ../port/path.c          \
+        ../port/heap.c          \
+        ../port/sysproc.c       \
+        ../port/sysfile.c       \
+        ../port/syscall.c       \
+        ../lib/fs.c             \
 	../lib/misc.c
-	
-	
+
+
 OBJECTS := \
 	$(A_SRC:%.S=%.o) \
 	$(C_SRC:%.c=%.o) \
@@ -102,7 +120,7 @@ am335x.umg: am335x.bin mkuboot/mkuboot
 	@./mkuboot/mkuboot -a arm \
 		-e ${loadaddr} -l ${loadaddr} -o linux \
 		am335x.bin am335x.umg
-	
+
 clean: 
 	@echo cleaning
 	@rm -f $(CLEAN)

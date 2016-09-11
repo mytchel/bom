@@ -1,4 +1,3 @@
-
 #
 #    Copyright (C) 2016	Mytchel Hammond <mytchel@openmailbox.org>
 #
