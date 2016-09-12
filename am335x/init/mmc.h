@@ -6,9 +6,9 @@ struct mmc_regs {
   uint32_t pad1[3];
   uint32_t csre;
   uint32_t systest;
-  uint32_t sd_con;
+  uint32_t con;
   uint32_t pwcnt;
-  uint32_t pad2[52];
+  uint32_t pad2[51];
   uint32_t sdmasa;
   uint32_t blk;
   uint32_t arg;
@@ -18,28 +18,29 @@ struct mmc_regs {
   uint32_t rsp54;
   uint32_t rsp76;
   uint32_t data;
-  uint32_t sd_pstate;
+  uint32_t pstate;
   uint32_t hctl;
   uint32_t sysctl;
-  uint32_t sd_stat;
-  uint32_t sd_ie;
-  uint32_t sd_ise;
+  uint32_t stat;
+  uint32_t ie;
+  uint32_t ise;
   uint32_t ac12;
   uint32_t capa;
   uint32_t pad3[1];
   uint32_t curcapa;
-  uint32_t pad4[2];
+  uint32_t pad4[1];
   uint32_t fe;
   uint32_t admaes;
   uint32_t admasal;
   uint32_t admasah;
-  uint32_t pad5[40];
+  uint32_t pad5[39];
   uint32_t rev;
 };
 
 struct mmc {
   volatile struct mmc_regs *regs;
   int intr;
+  char *name;
 };
 
 #define MMCHS_SD_SYSCONFIG_AUTOIDLE                    (0x1 << 0)  /* Internal clock gating strategy */
@@ -67,8 +68,6 @@ struct mmc {
 #define MMCHS_SD_CON_DW8_1BIT     (0x0 << 5) /* 1 or 4 bits data width configuration(also set SD_HCTL) */
 #define MMCHS_SD_CON_DW8_8BITS    (0x1 << 5) /* 8 bits data width configuration */
 #define MMCHS_SD_CON_INIT         (0x1 << 1) /* Send initialization stream (all cards) */
-#define MMCHS_SD_CON_INIT_NOINIT  (0x0 << 1) /* Do nothing */
-#define MMCHS_SD_CON_INIT_INIT    (0x1 << 1) /* Send initialization stream */
 #define MMCHS_SD_CON_OD           (0x1 << 0) /* Card open drain mode (MMC cards only) */
 #define MMCHS_SD_CON_OD_PP        (0x0 << 0) /* No open drain (push-pull). */
 #define MMCHS_SD_CON_OD_OD        (0x1 << 0) /* Open drain */
@@ -147,8 +146,6 @@ struct mmc {
 #define MMCHS_SD_SYSCTL_SRA  (0x1   << 24)  /* Soft reset all (host controller) */
 
 #define MMCHS_SD_SYSCTL_ICE     (0x1 << 0) /* Internal clock enable register  */
-#define MMCHS_SD_SYSCTL_ICE_DIS (0x0 << 0) /* Disable internal clock */
-#define MMCHS_SD_SYSCTL_ICE_EN  (0x1 << 0) /* Enable internal clock */
 #define MMCHS_SD_SYSCTL_ICS          (0x1 << 1) /* Internal clock stable register  */
 #define MMCHS_SD_SYSCTL_ICS_UNSTABLE (0x0 << 1) /* Internal clock is unstable */
 #define MMCHS_SD_SYSCTL_ICS_STABLE   (0x1 << 1) /* Internal clock is stable   */

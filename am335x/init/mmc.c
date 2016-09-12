@@ -31,7 +31,7 @@ static int
 mmcinit(struct mmc *);
 
 static int
-mmcproc(void *addr, int intr);
+mmcproc(char *name, void *addr, int intr);
 
 static int
 mmcintrwait(struct mmc *mmc, uint32_t mask);
@@ -51,57 +51,63 @@ mmc(void)
 
   p = fork(FORK_sngroup);
   if (p == 0) {
+    return mmcproc("mmc0", (void *) MMCHS0, MMC0_intr);
+  } else if (p < 0) {
     printf("mmc failed to fork for mmc0\n");
-  } else if (p > 0) {
-    return mmcproc((void *) MMCHS0, MMC0_intr);
   }
 
   p = fork(FORK_sngroup);
   if (p == 0) {
+    return mmcproc("mmc1", (void *) MMC1, MMC1_intr);
+  } else if (p < 0) {
     printf("mmc failed to fork for mmc1\n");
-  } else if (p > 0) {
-    return mmcproc((void *) MMC1, MMC1_intr);
   }
 
+  /* Not supported i believe
+   *
+   */
+  /*
   p = fork(FORK_sngroup);
   if (p == 0) {
+    return mmcproc("mmc2", (void *) MMCHS2, MMC2_intr);
+  } else if (p < 0) {
     printf("mmc failed to fork for mmc2\n");
-  } else if (p > 0) {
-    return mmcproc((void *) MMCHS2, MMC2_intr);
   }
-
+  */
+  
   return 0;
 }
 
 int
-mmcproc(void *addr, int intr)
+mmcproc(char *name, void *addr, int intr)
 {
   struct mmc *mmc;
   size_t size = 4 * 1024;
 
+  printf("%s running in proc %i\n", name, getpid());
+  
   mmc = malloc(sizeof(struct mmc));
   if (!mmc) {
-    printf("mmc malloc failed!\n");
+    printf("%s malloc failed!\n", name);
     return -1;
   }
 
   mmc->intr = intr;
-  
+  mmc->name = name;
   mmc->regs = (struct mmc_regs *) getmem(MEM_io, addr, &size);
   if (!mmc->regs) {
-    printf("mmc failed to map register space!\n");
+    printf("%s failed to map register space!\n", mmc->name);
     return -2;
   }
 
-  printf("%i: init mmc\n", getpid());
   if (mmcinit(mmc)) {
-    printf("failed to init mmc!\n");
+    printf("%s failed to init!\n", mmc->name);
     rmmem((void *) mmc->regs, size);
     return -2;
   }
 
-  printf("%i: finished setting up mmc card as best as I could.\n",
-	 getpid());
+  printf("%s finished setting up mmc card as best as I could.\n",
+	 mmc->name);
 
   mmcintrwait(mmc, 0xffffffff);
 
@@ -113,10 +119,10 @@ mmcintrwait(struct mmc *mmc, uint32_t mask)
 {
   uint32_t v;
   
-  printf("%i: waiting for intr\n", getpid());
+  printf("%s: waiting for intr\n", mmc->name);
   while (waitintr(mmc->intr) != ERR) {
-    printf("%i: got intr %i, 0b%b\n", getpid(), mmc->intr, v);
-    while ((v = mmc->regs->sd_stat) != 0) {
+    printf("%s: got intr %i, 0b%b\n", mmc->name, mmc->intr, v);
+    while ((v = mmc->regs->stat) != 0) {
       if (v & MMCHS_SD_STAT_BRR) {
 	handle_brr(mmc);
 	continue;
@@ -131,7 +137,7 @@ mmcintrwait(struct mmc *mmc, uint32_t mask)
 	return 1;
       }
 
-      printf("mmc unexpected interrupt 0b%b\n", v);
+      printf("%s unexpected interrupt 0b%b\n", mmc->name, v);
     }
   }
 
@@ -143,33 +149,28 @@ mmcinit(struct mmc *mmc)
 {
   int i;
 
-  printf("mmc status = 0b%b\n", mmc->regs->sysstatus);
-  printf("mmc config = 0b%b\n", mmc->regs->sysconfig);
-  printf("mmc pstate = 0b%b\n", mmc->regs->sd_pstate);
+  printf("%s rev 0b%b (%i)\n", mmc->name,
+	 mmc->regs->rev, mmc->regs->rev);
 
   mmc->regs->sysconfig |= MMCHS_SD_SYSCONFIG_SOFTRESET;
 
-  i = 25;
+  i = 100;
   do {
-    sleep(0);
+    sleep(1);
     i--;
   } while (i > 0 &&
 	   !(mmc->regs->sysstatus & MMCHS_SD_SYSSTATUS_RESETDONE));
 
   if (!i) {
-    printf("%i: Failed to reset controller!\n", getpid());
+    printf("%s: Failed to reset controller!\n", mmc->name);
     return -1;
   }
 
-  printf("mmc card reset (took %i loops)\n", i);
-  printf("mmc pstate = 0b%b\n", mmc->regs->sd_pstate);
+  /* Enable 1.8, 3.0 3.3V */
+  mmc->regs->capa |= MMCHS_SD_CAPA_VS18 |
+    MMCHS_SD_CAPA_VS30 |
+    MMCHS_SD_CAPA_VS33;
 
-  printf("set capa\n");
-  /* Enable 1.8, 3.0, 3.3V */
-  mmc->regs->capa |= MMCHS_SD_CAPA_VS18 | MMCHS_SD_CAPA_VS30;
-
-  printf("set sysconfig\n");
-  
   mmc->regs->sysconfig |= MMCHS_SD_SYSCONFIG_AUTOIDLE;
   mmc->regs->sysconfig |= MMCHS_SD_SYSCONFIG_ENAWAKEUP;
   mmc->regs->sysconfig &= ~MMCHS_SD_SYSCONFIG_SIDLEMODE;
@@ -179,47 +180,87 @@ mmcinit(struct mmc *mmc)
   mmc->regs->sysconfig &= ~MMCHS_SD_SYSCONFIG_STANDBYMODE;
   mmc->regs->sysconfig |= MMCHS_SD_SYSCONFIG_STANDBYMODE_WAKEUP_INTERNAL;
 
-  printf("wakup on sd interrupt for sdio\n");
+  /* wakup on sd interrupt for sdio */
+  mmc->regs->hctl |= MMCHS_SD_HCTL_IWE;
 
-  mmc->regs->hctl = MMCHS_SD_HCTL_IWE;
+  /* change to 1 bit mode */ 
+  mmc->regs->con &= ~MMCHS_SD_CON_DW8;
+  mmc->regs->hctl &= ~MMCHS_SD_HCTL_DTW;
 
-  printf("set 3v\n");
   /* set to 3.0V */
   mmc->regs->hctl &= ~MMCHS_SD_HCTL_SDVS;
   mmc->regs->hctl |= MMCHS_SD_HCTL_SDVS_VS30;
 
-  printf("%i: hctl = 0b%b\n", getpid(), mmc->regs->hctl);
-
-  printf("change to 1 bit mode\n");
-  /* change to 1 bit mode */ 
-  mmc->regs->sd_con &= ~MMCHS_SD_CON_DW8;
-  mmc->regs->hctl &= ~MMCHS_SD_HCTL_DTW;
-
-  printf("power on card\n");
   /* Power on card */
   mmc->regs->hctl |= MMCHS_SD_HCTL_SDBP;
+
+  i = 100;
+  do {
+    sleep(1);
+    i--;
+  } while (i > 0 && !(mmc->regs->hctl & MMCHS_SD_HCTL_SDBP));
+
+  if (!i) {
+    printf("%s: failed to power on card!\n", mmc->name);
+    return -2;
+  }
+
+  printf("%s powered on!\n", mmc->name);
+
+  /* enable internal clock and clock to card */
+  mmc->regs->sysctl |= MMCHS_SD_SYSCTL_ICE;
+
+  /* set clock frequence to 400kHz */
+  mmc->regs->sysctl &= ~MMCHS_SD_SYSCTL_CLKD;
+  mmc->regs->sysctl |= 0xf0 << 6;
+
+  /* enable clock */
+  mmc->regs->sysctl |= MMCHS_SD_SYSCTL_CEN;
+
+  i = 100;
+  do {
+    sleep(1);
+    i--;
+  } while (i > 0 && !(mmc->regs->sysctl & MMCHS_SD_SYSCTL_ICS));
+
+  if (!i) {
+    printf("%s: mmc clock not stable\n", mmc->name);
+    return -3;
+  }
+
+  /* Enable interrupts */
+  mmc->regs->ie |= MMCHS_SD_IE_CC_ENABLE;
+  mmc->regs->ie |= MMCHS_SD_IE_TC_ENABLE;
+  mmc->regs->ie |= MMCHS_SD_IE_ERROR_MASK;
+
+  /* clear stat register */
+  mmc->regs->stat = 0xffffffff;
+
+  printf("%s send init\n", mmc->name);
+  /* send init signal */
+  mmc->regs->con |= MMCHS_SD_CON_INIT;
+  mmc->regs->cmd = 0;
 
   i = 25;
   do {
     sleep(0);
     i--;
-  } while (!(mmc->regs->hctl & (1 << 8)) && i > 0);
+  } while (i > 0 && !(mmc->regs->stat & MMCHS_SD_STAT_CC));
 
   if (!i) {
-    printf("%i: failed to power on card!\n", getpid());
+    printf("%s: mmc command 0 failed!\n", mmc->name);
     return -2;
   }
 
-  printf("card on\n");
-  
-  /* clear stat register */
-  mmc->regs->sd_stat = 0xffffffff;
+  /* remove con init */
+  mmc->regs->con &= ~MMCHS_SD_CON_INIT;
 
-  /* enable interrupts */
-  mmc->regs->sd_ise = 0xfffffff;
+  /* clean stat */
+  mmc->regs->stat |= MMCHS_SD_IE_CC_ENABLE;
   
-  printf("mmc pstate = 0b%b\n", mmc->regs->sd_pstate);
-
+  /* enable send interrupts to intc */
+  mmc->regs->ise = 0xfffffff;
+  
   return 0;
 }
 
@@ -228,12 +269,12 @@ handle_bwr(struct mmc *mmc)
 {
   printf("handle bwr\n");
 
-  if (!(mmc->regs->sd_pstate & MMCHS_SD_PSTATE_BWE)) {
+  if (!(mmc->regs->pstate & MMCHS_SD_PSTATE_BWE)) {
     printf("pstate bad for write\n");
     return;
   }
 
-  mmc->regs->sd_stat |= MMCHS_SD_STAT_BWR;
+  mmc->regs->stat |= MMCHS_SD_STAT_BWR;
 }
 
 void
@@ -241,10 +282,10 @@ handle_brr(struct mmc *mmc)
 {
   printf("handle brd\n");
 
-  if (!(mmc->regs->sd_pstate & MMCHS_SD_PSTATE_BRE)) {
+  if (!(mmc->regs->pstate & MMCHS_SD_PSTATE_BRE)) {
     printf("pstate bad for read\n");
     return;
   }
 
-  mmc->regs->sd_stat |= MMCHS_SD_STAT_BRR;
+  mmc->regs->stat |= MMCHS_SD_STAT_BRR;
 }
