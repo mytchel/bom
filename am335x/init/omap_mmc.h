@@ -50,6 +50,9 @@ struct mmchs {
   char *name;
   uint8_t *data;
   size_t data_len;
+
+  /* Not the best place for this but it should suffice */
+  uint32_t rca;
 };
 
 #define MMCHS_SD_SYSCONFIG_AUTOIDLE                    (0x1 << 0)  /* Internal clock gating strategy */

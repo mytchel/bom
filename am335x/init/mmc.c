@@ -30,13 +30,14 @@
 #define MMC1_intr 28
 #define MMC2_intr 29
 
-struct mmchs_command {
+enum { RESP_NO, RESP_LEN_48, RESP_LEN_136 };
+
+struct mmc_command {
   uint32_t cmd;
   uint32_t arg;
-  bool want_resp;
-  bool read;
-  bool write;
-  uint32_t resp;
+  int resp_type;
+  uint32_t resp[4];
+  bool read, write;
   uint8_t *data;
   uint32_t data_len;
 };
@@ -52,12 +53,9 @@ mmchsintrwait(struct mmchs *mmchs, uint32_t mask)
 {
   uint32_t v;
 
-  printf("%s wait intr\nie  = 0b%b\nise = 0b%b\n", mmchs->name,
-	 mmchs->regs->ie, mmchs->regs->ise);
-  
   while (waitintr(mmchs->intr) != ERR) {
     while ((v = mmchs->regs->stat) != 0) {
-      printf("%s intr, stat = 0b%b\n", mmchs->name, v);
+
       if (v & MMCHS_SD_STAT_BRR) {
 	handle_brr(mmchs);
 	continue;
@@ -85,8 +83,6 @@ handle_bwr(struct mmchs *mmchs)
   size_t i;
   uint32_t v;
 
-  printf("handle bwr\n");
-
   if (mmchs->data == nil) {
     printf("%s->data == nil!\n", mmchs->name);
     return;
@@ -105,7 +101,7 @@ handle_bwr(struct mmchs *mmchs)
     mmchs->regs->data = v;
   }
 
-  mmchs->regs->stat |= MMCHS_SD_STAT_BWR;
+  mmchs->regs->stat = MMCHS_SD_STAT_BWR;
   mmchs->data = nil;
 }
 
@@ -115,8 +111,6 @@ handle_brr(struct mmchs *mmchs)
   size_t i;
   uint32_t v;
   
-  printf("handle brd\n");
-
   if (mmchs->data == nil) {
     printf("%s->data == nil!\n", mmchs->name);
     return;
@@ -135,7 +129,7 @@ handle_brr(struct mmchs *mmchs)
     mmchs->data[i+3] = *((uint8_t *) &v + 3);
   }
 
-  mmchs->regs->stat |= MMCHS_SD_STAT_BRR;
+  mmchs->regs->stat = MMCHS_SD_STAT_BRR;
   mmchs->data = nil;
 }
 
@@ -152,27 +146,35 @@ mmchssendrawcmd(struct mmchs *mmchs, uint32_t cmd, uint32_t arg)
   mmchs->regs->cmd = cmd;
 
   if (!mmchsintrwait(mmchs, MMCHS_SD_STAT_CC)) {
-    mmchs->regs->stat |= MMCHS_SD_STAT_CC;
+    mmchs->regs->stat = MMCHS_SD_STAT_CC;
     return false;
   }
 
-  mmchs->regs->stat |= MMCHS_SD_STAT_CC;
+  mmchs->regs->stat = MMCHS_SD_STAT_CC;
 
   return true;
 }
 
 static bool
-mmchssendcmd(struct mmchs *mmchs, struct mmchs_command *c)
+mmchssendcmd(struct mmchs *mmchs, struct mmc_command *c)
 {
   uint32_t cmd;
   bool r;
 
   cmd = MMCHS_SD_CMD_INDX_CMD(c->cmd);
 
-  if (c->want_resp) {
+  switch (c->resp_type) {
+  case RESP_LEN_48:
     cmd |= MMCHS_SD_CMD_RSP_TYPE_48B;
-  } else {
+    break;
+  case RESP_LEN_136:
+    cmd |= MMCHS_SD_CMD_RSP_TYPE_136B;
+    break;
+  case RESP_NO:
     cmd |= MMCHS_SD_CMD_RSP_TYPE_NO_RESP;
+    break;
+  default:
+    return false;
   }
 
   if (c->read || c->write) {
@@ -198,16 +200,15 @@ mmchssendcmd(struct mmchs *mmchs, struct mmchs_command *c)
   }
 
   r = mmchssendrawcmd(mmchs, cmd, c->arg);
-  printf("%s back from raw\n", mmchs->name);
 
-  if (c->read || c->write) {
+  if (r && (c->read || c->write)) {
     printf("%s wait for tc\n", mmchs->name);
     if (!mmchsintrwait(mmchs, MMCHS_SD_IE_TC_ENABLE)) {
       printf("%s wait for transfer complete failed!\n", mmchs->name);
       return false;
     }
 
-    mmchs->regs->stat |= MMCHS_SD_IE_TC_ENABLE;
+    mmchs->regs->stat = MMCHS_SD_IE_TC_ENABLE;
   }
   
   if (c->read) {
@@ -216,12 +217,74 @@ mmchssendcmd(struct mmchs *mmchs, struct mmchs_command *c)
     mmchs->regs->ie |= MMCHS_SD_IE_BWR_ENABLE;
   }
 
-  if (c->want_resp) {
-    c->resp = mmchs->regs->rsp10;
+
+  switch (c->resp_type) {
+  case RESP_LEN_48:
+    c->resp[0] = mmchs->regs->rsp10;
+  case RESP_LEN_136:
+    c->resp[1] = mmchs->regs->rsp32;
+    c->resp[2] = mmchs->regs->rsp54;
+    c->resp[3] = mmchs->regs->rsp76;
+    break;
+  case RESP_NO:
+    break;
   }
-  
+
   return r;
 }
+
+static bool
+mmchssendappcmd(struct mmchs *mmchs, struct mmc_command *c)
+{
+  struct mmc_command cmd;
+
+  cmd.cmd = MMC_APP_CMD;
+  cmd.arg = mmchs->rca;
+  cmd.resp_type = RESP_LEN_48;
+  cmd.read = false; cmd.write = false;
+  cmd.data = nil;
+  cmd.data_len = 0;
+
+  if (!mmchssendcmd(mmchs, &cmd)) {
+    return false;
+  }
+
+  return mmchssendcmd(mmchs, c);
+}
+
+static bool
+readblock(struct mmchs *mmchs, uint32_t blk, uint8_t *buf)
+{
+  struct mmc_command cmd;
+
+  cmd.cmd = MMC_READ_BLOCK_SINGLE;
+  cmd.arg = blk;
+  cmd.resp_type = RESP_LEN_48;
+  cmd.read = true;
+  cmd.write = false;
+  cmd.data = buf;
+  cmd.data_len = 512;
+
+  return mmchssendcmd(mmchs, &cmd);
+}
+
+/*
+  static bool
+  writeblock(struct mmchs *mmchs, uint32_t blk, uint32_t *buf)
+  {
+  struct mmc_command cmd;
+
+  cmd.cmd = MMC_WRITE_BLOCK_SINGLE;
+  cmd.resp_type = RESP_LEN_48;
+  cmd.read = false;
+  cmd.write = true;
+  cmd.arg = blk;
+  cmd.data = buf;
+  cmd.data_len = 512;
+
+  return mmchssendcmd(mmchs, &cmd);
+  }
+*/
 
 static bool
 mmchsinit(struct mmchs *mmchs)
@@ -329,7 +392,7 @@ mmchsinit(struct mmchs *mmchs)
   }
 
   /* clean stat */
-  mmchs->regs->stat |= MMCHS_SD_IE_CC_ENABLE;
+  mmchs->regs->stat = MMCHS_SD_IE_CC_ENABLE;
 
   /* remove con init */
   mmchs->regs->con &= ~MMCHS_SD_CON_INIT;
@@ -341,12 +404,12 @@ mmchsinit(struct mmchs *mmchs)
 }
 
 static bool
-mmchsgotoidle(struct mmchs *mmchs)
+cardgotoidle(struct mmchs *mmchs)
 {
-  struct mmchs_command cmd;
+  struct mmc_command cmd;
 
   cmd.cmd = MMC_GO_IDLE_STATE;
-  cmd.want_resp = false;
+  cmd.resp_type = RESP_NO;
   cmd.read = cmd.write = false;
   cmd.arg = 0;
   cmd.data = nil;
@@ -354,14 +417,13 @@ mmchsgotoidle(struct mmchs *mmchs)
   return mmchssendcmd(mmchs, &cmd);
 }
 
-/*
 static bool
-mmchsidentification(struct mmchs *mmchs)
+cardidentification(struct mmchs *mmchs)
 {
-  struct mmchs_command cmd;
+  struct mmc_command cmd;
 
   cmd.cmd = SD_SEND_IF_COND;
-  cmd.want_resp = true;
+  cmd.resp_type = RESP_LEN_48;
   cmd.read = cmd.write = false;
   cmd.data = nil;
   cmd.arg = MMCHS_SD_ARG_CMD8_VHS | MMCHS_SD_ARG_CMD8_CHECK_PATTERN;
@@ -371,7 +433,7 @@ mmchsidentification(struct mmchs *mmchs)
     return false;
   }
 
-  if (cmd.resp !=
+  if (cmd.resp[0] !=
       (MMCHS_SD_ARG_CMD8_VHS | MMCHS_SD_ARG_CMD8_CHECK_PATTERN)) {
     printf("%s check pattern check failed 0x%h\n",
 	   mmchs->name, cmd.resp);
@@ -380,40 +442,118 @@ mmchsidentification(struct mmchs *mmchs)
 
   return true;
 }
-*/
+
 static bool
-readblock(struct mmchs *mmchs, uint32_t blk, uint8_t *buf)
+cardqueryvolttype(struct mmchs *mmchs)
 {
-  struct mmchs_command cmd;
+  struct mmc_command cmd;
 
-  cmd.cmd = MMC_READ_BLOCK_SINGLE;
-  cmd.arg = blk;
-  cmd.want_resp = true;
-  cmd.read = true;
-  cmd.write = false;
-  cmd.data = buf;
-  cmd.data_len = 512;
+  cmd.cmd = SD_APP_OP_COND;
+  cmd.resp_type = RESP_LEN_48;
+  cmd.read = cmd.write = false;
+  cmd.data = nil;
+  cmd.arg =
+    MMC_OCR_3_3V_3_4V | MMC_OCR_3_2V_3_3V | MMC_OCR_3_1V_3_2V |
+    MMC_OCR_3_0V_3_1V | MMC_OCR_2_9V_3_0V | MMC_OCR_2_8V_2_9V |
+    MMC_OCR_2_7V_2_8V | MMC_OCR_HCS;
 
+  printf("%s query voltage\n", mmchs->name);
+  
+  if (!mmchssendappcmd(mmchs, &cmd)) {
+    /* mmc cards should fall into here. */
+    printf("%s is an mmc card\n", mmchs->name);
+    mmchs->regs->stat = 0xffffffff; /* clear stat */
+    mmchs->regs->sysconfig |= MMCHS_SD_SYSCONFIG_SRC;
+    while (mmchs->regs->sysconfig & MMCHS_SD_SYSCONFIG_SRC)
+      sleep(0);
+
+    cmd.cmd = MMC_SEND_OP_COND;
+    while (!(cmd.resp[0] & MMC_OCR_MEM_READY)) {
+      if (!mmchssendcmd(mmchs, &cmd)) {
+	return false;
+      }
+    }
+   
+  } else {
+    /* SD cards here. */
+    printf("%s is an sd card\n", mmchs->name);
+    while (!(cmd.resp[0] & MMC_OCR_MEM_READY)) {
+      if (!mmchssendappcmd(mmchs, &cmd)) {
+	return false;
+      }
+    }
+
+  }
+
+  return true;
+}
+
+static bool
+cardselect(struct mmchs *mmchs)
+{
+  struct mmc_command cmd;
+
+  cmd.cmd = MMC_ALL_SEND_CID;
+  cmd.resp_type = RESP_LEN_136;
+  cmd.read = cmd.write = false;
+  cmd.data = nil;
+  cmd.arg = 0;
+
+  printf("%s send cid\n", mmchs->name);
+  if (!mmchssendcmd(mmchs, &cmd)) {
+    return false;
+  }
+
+  cmd.cmd = MMC_SET_RELATIVE_ADDR;
+  cmd.resp_type = RESP_LEN_48;
+
+  printf("%s set rel addr\n", mmchs->name);
+  if (!mmchssendcmd(mmchs, &cmd)) {
+    return false;
+  }
+
+  mmchs->rca = SD_R6_RCA(cmd.resp);
+  
+  cmd.cmd = MMC_SELECT_CARD;
+  cmd.resp_type = RESP_LEN_48;
+  cmd.read = cmd.write = false;
+  cmd.data = nil;
+  cmd.arg = MMC_ARG_RCA(mmchs->rca);
+
+  printf("%s select card\n", mmchs->name);
   return mmchssendcmd(mmchs, &cmd);
 }
 
-/*
 static bool
-writeblock(struct mmchs *mmchs, uint32_t blk, uint32_t *buf)
+cardinit(struct mmchs *mmchs)
 {
-  struct mmchs_command cmd;
+  if (!cardgotoidle(mmchs)) {
+    printf("%s failed to goto idle state!\n", mmchs->name);
+    return false;
+  }
 
-  cmd.cmd = MMC_WRITE_BLOCK_SINGLE;
-  cmd.want_resp = true;
-  cmd.read = false;
-  cmd.write = true;
-  cmd.arg = blk;
-  cmd.data = buf;
-  cmd.data_len = 512;
+  if (cardidentification(mmchs)) {
+    printf("%s is sd 2.0\n", mmchs->name);
+  } else {
+    printf("%s possibly mmc card!\n", mmchs->name);
+    mmchs->regs->stat = 0xffffffff; /* clear stat */
+    mmchs->regs->sysconfig |= MMCHS_SD_SYSCONFIG_SRC;
+    while (mmchs->regs->sysconfig & MMCHS_SD_SYSCONFIG_SRC)
+      sleep(0);
+  }
 
-  return mmchssendcmd(mmchs, &cmd);
+  if (!cardqueryvolttype(mmchs)) {
+    printf("%s failed to query voltage and type!\n", mmchs->name);
+    return false;
+  }
+  
+  if (!cardselect(mmchs)) {
+    printf("%s identify and select card failed!\n", mmchs->name);
+    return false;
+  }
+
+  return true;
 }
-*/
 
 static int
 mmchsproc(char *name, void *addr, int intr)
@@ -437,31 +577,24 @@ mmchsproc(char *name, void *addr, int intr)
     return -2;
   }
 
+  printf("%s init host\n", mmchs->name);
   if (!mmchsinit(mmchs)) {
-    printf("%s failed to init!\n", mmchs->name);
-    rmmem((void *) mmchs->regs, size);
+    printf("%s failed to init host!\n", mmchs->name);
     return -2;
   }
 
-  if (!mmchsgotoidle(mmchs)) {
-    printf("%s failed to goto idle state!\n", mmchs->name);
+  printf("%s init card\n", mmchs->name);
+  if (!cardinit(mmchs)) {
+    printf("%s failed to init card!\n", mmchs->name);
     return -3;
   }
-  /*  
-  if (!mmchsidentification(mmchs)) {
-    printf("%s failed to do identification, possibly mmc card!\n",
-	   mmchs->name);
-    return -4;
-  }
-
-  printf("%s identification good\n", mmchs->name);
-  */
 
   printf("%s try read a block\n", mmchs->name);
   
   uint32_t i;
   uint8_t buf[512];
-  if (!readblock(mmchs, 1, buf)) {
+
+  if (!readblock(mmchs, 0, buf)) {
     printf("%s failed to read stat = 0b%b\n",
 	   mmchs->name, mmchs->regs->stat);
     return -5;
