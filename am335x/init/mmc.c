@@ -16,8 +16,11 @@
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#include "libc.h"
-#include "init/mmc.h"
+#include <libc.h>
+
+#include "sdmmcreg.h"
+#include "sdhcreg.h"
+#include "omap_mmc.h"
 
 #define MMCHS0	0x48060000 /* sd */
 #define MMC1	0x481D8000 /* mmc */
@@ -27,265 +30,473 @@
 #define MMC1_intr 28
 #define MMC2_intr 29
 
-static int
-mmcinit(struct mmc *);
-
-static int
-mmcproc(char *name, void *addr, int intr);
-
-static int
-mmcintrwait(struct mmc *mmc, uint32_t mask);
+struct mmchs_command {
+  uint32_t cmd;
+  uint32_t arg;
+  bool want_resp;
+  bool read;
+  bool write;
+  uint32_t resp;
+  uint8_t *data;
+  uint32_t data_len;
+};
 
 static void
-handle_brr(struct mmc *mmc);
+handle_brr(struct mmchs *mmchs);
 
 static void
-handle_bwr(struct mmc *mmc);
+handle_bwr(struct mmchs *mmchs);
 
-int
-mmc(void)
-{
-  int p;
-	
-  printf("Should init MMC cards\n");
-
-  p = fork(FORK_sngroup);
-  if (p == 0) {
-    return mmcproc("mmc0", (void *) MMCHS0, MMC0_intr);
-  } else if (p < 0) {
-    printf("mmc failed to fork for mmc0\n");
-  }
-
-  p = fork(FORK_sngroup);
-  if (p == 0) {
-    return mmcproc("mmc1", (void *) MMC1, MMC1_intr);
-  } else if (p < 0) {
-    printf("mmc failed to fork for mmc1\n");
-  }
-
-  /* Not supported i believe
-   *
-   */
-  /*
-  p = fork(FORK_sngroup);
-  if (p == 0) {
-    return mmcproc("mmc2", (void *) MMCHS2, MMC2_intr);
-  } else if (p < 0) {
-    printf("mmc failed to fork for mmc2\n");
-  }
-  */
-  
-  return 0;
-}
-
-int
-mmcproc(char *name, void *addr, int intr)
-{
-  struct mmc *mmc;
-  size_t size = 4 * 1024;
-
-  printf("%s running in proc %i\n", name, getpid());
-  
-  mmc = malloc(sizeof(struct mmc));
-  if (!mmc) {
-    printf("%s malloc failed!\n", name);
-    return -1;
-  }
-
-  mmc->intr = intr;
-  mmc->name = name;
-  mmc->regs = (struct mmc_regs *) getmem(MEM_io, addr, &size);
-  if (!mmc->regs) {
-    printf("%s failed to map register space!\n", mmc->name);
-    return -2;
-  }
-
-  if (mmcinit(mmc)) {
-    printf("%s failed to init!\n", mmc->name);
-    rmmem((void *) mmc->regs, size);
-    return -2;
-  }
-
-  printf("%s finished setting up mmc card as best as I could.\n",
-	 mmc->name);
-
-  mmcintrwait(mmc, 0xffffffff);
-
-  return 0;
-}
-
-int
-mmcintrwait(struct mmc *mmc, uint32_t mask)
+static bool
+mmchsintrwait(struct mmchs *mmchs, uint32_t mask)
 {
   uint32_t v;
+
+  printf("%s wait intr\nie  = 0b%b\nise = 0b%b\n", mmchs->name,
+	 mmchs->regs->ie, mmchs->regs->ise);
   
-  printf("%s: waiting for intr\n", mmc->name);
-  while (waitintr(mmc->intr) != ERR) {
-    printf("%s: got intr %i, 0b%b\n", mmc->name, mmc->intr, v);
-    while ((v = mmc->regs->stat) != 0) {
+  while (waitintr(mmchs->intr) != ERR) {
+    while ((v = mmchs->regs->stat) != 0) {
+      printf("%s intr, stat = 0b%b\n", mmchs->name, v);
       if (v & MMCHS_SD_STAT_BRR) {
-	handle_brr(mmc);
+	handle_brr(mmchs);
 	continue;
       } else if (v & MMCHS_SD_STAT_BWR) {
-	handle_bwr(mmc);
+	handle_bwr(mmchs);
 	continue;
       }
 
       if (v & mask) {
-	return 0;
+	return true;
       } else if (v & MMCHS_SD_STAT_ERROR_MASK) {
-	return 1;
+	return false;
       }
 
-      printf("%s unexpected interrupt 0b%b\n", mmc->name, v);
+      printf("%s unexpected interrupt 0b%b\n", mmchs->name, v);
     }
   }
 
-  return 1;
+  return false;
 }
 
-int
-mmcinit(struct mmc *mmc)
+void
+handle_bwr(struct mmchs *mmchs)
+{
+  size_t i;
+  uint32_t v;
+
+  printf("handle bwr\n");
+
+  if (mmchs->data == nil) {
+    printf("%s->data == nil!\n", mmchs->name);
+    return;
+  }
+
+  for (i = 0; i < mmchs->data_len; i += 4) {
+    while (!(mmchs->regs->pstate & MMCHS_SD_PSTATE_BWE)) {
+      printf("%s pstate bad!\n", mmchs->name);
+    }
+
+    *((uint8_t *) &v) = mmchs->data[i];
+    *((uint8_t *) &v + 1) = mmchs->data[i+1];
+    *((uint8_t *) &v + 2) = mmchs->data[i+2];
+    *((uint8_t *) &v + 3) = mmchs->data[i+3];
+
+    mmchs->regs->data = v;
+  }
+
+  mmchs->regs->stat |= MMCHS_SD_STAT_BWR;
+  mmchs->data = nil;
+}
+
+void
+handle_brr(struct mmchs *mmchs)
+{
+  size_t i;
+  uint32_t v;
+  
+  printf("handle brd\n");
+
+  if (mmchs->data == nil) {
+    printf("%s->data == nil!\n", mmchs->name);
+    return;
+  }
+
+  for (i = 0; i < mmchs->data_len; i += 4) {
+    while (!(mmchs->regs->pstate & MMCHS_SD_PSTATE_BRE)) {
+      printf("%s pstate bad!\n", mmchs->name);
+    }
+
+    v = mmchs->regs->data;
+
+    mmchs->data[i] = *((uint8_t *) &v);
+    mmchs->data[i+1] = *((uint8_t *) &v + 1);
+    mmchs->data[i+2] = *((uint8_t *) &v + 2);
+    mmchs->data[i+3] = *((uint8_t *) &v + 3);
+  }
+
+  mmchs->regs->stat |= MMCHS_SD_STAT_BRR;
+  mmchs->data = nil;
+}
+
+static bool
+mmchssendrawcmd(struct mmchs *mmchs, uint32_t cmd, uint32_t arg)
+{
+  if (mmchs->regs->stat != 0) {
+    printf("%s stat in bad shape 0b%b\n",
+	   mmchs->name, mmchs->regs->stat);
+    return false;
+  }
+
+  mmchs->regs->arg = arg;
+  mmchs->regs->cmd = cmd;
+
+  if (!mmchsintrwait(mmchs, MMCHS_SD_STAT_CC)) {
+    mmchs->regs->stat |= MMCHS_SD_STAT_CC;
+    return false;
+  }
+
+  mmchs->regs->stat |= MMCHS_SD_STAT_CC;
+
+  return true;
+}
+
+static bool
+mmchssendcmd(struct mmchs *mmchs, struct mmchs_command *c)
+{
+  uint32_t cmd;
+  bool r;
+
+  cmd = MMCHS_SD_CMD_INDX_CMD(c->cmd);
+
+  if (c->want_resp) {
+    cmd |= MMCHS_SD_CMD_RSP_TYPE_48B;
+  } else {
+    cmd |= MMCHS_SD_CMD_RSP_TYPE_NO_RESP;
+  }
+
+  if (c->read || c->write) {
+    if (c->data == nil || c->data_len > 0xfff)
+      return false;
+    
+    mmchs->data = c->data;
+    mmchs->data_len = c->data_len;
+
+    mmchs->regs->blk &= ~MMCHS_SD_BLK_BLEN;
+    mmchs->regs->blk |= c->data_len;
+
+    cmd |= MMCHS_SD_CMD_DP_DATA;
+    cmd |= MMCHS_SD_CMD_MSBS_SINGLE;
+  }
+  
+  if (c->read) {
+    cmd |= MMCHS_SD_CMD_DDIR_READ;
+    mmchs->regs->ie |= MMCHS_SD_IE_BRR_ENABLE;
+  } else if (c->write) {
+    cmd |= MMCHS_SD_CMD_DDIR_WRITE;
+    mmchs->regs->ie |= MMCHS_SD_IE_BWR_ENABLE;
+  }
+
+  r = mmchssendrawcmd(mmchs, cmd, c->arg);
+  printf("%s back from raw\n", mmchs->name);
+
+  if (c->read || c->write) {
+    printf("%s wait for tc\n", mmchs->name);
+    if (!mmchsintrwait(mmchs, MMCHS_SD_IE_TC_ENABLE)) {
+      printf("%s wait for transfer complete failed!\n", mmchs->name);
+      return false;
+    }
+
+    mmchs->regs->stat |= MMCHS_SD_IE_TC_ENABLE;
+  }
+  
+  if (c->read) {
+    mmchs->regs->ie |= MMCHS_SD_IE_BRR_ENABLE;
+  } else if (c->write) {
+    mmchs->regs->ie |= MMCHS_SD_IE_BWR_ENABLE;
+  }
+
+  if (c->want_resp) {
+    c->resp = mmchs->regs->rsp10;
+  }
+  
+  return r;
+}
+
+static bool
+mmchsinit(struct mmchs *mmchs)
 {
   int i;
 
-  printf("%s rev 0b%b (%i)\n", mmc->name,
-	 mmc->regs->rev, mmc->regs->rev);
+  printf("%s rev 0b%b (%i)\n", mmchs->name,
+	 mmchs->regs->rev, mmchs->regs->rev);
 
-  mmc->regs->sysconfig |= MMCHS_SD_SYSCONFIG_SOFTRESET;
+  mmchs->regs->sysconfig |= MMCHS_SD_SYSCONFIG_SOFTRESET;
 
   i = 100;
   do {
     sleep(1);
     i--;
   } while (i > 0 &&
-	   !(mmc->regs->sysstatus & MMCHS_SD_SYSSTATUS_RESETDONE));
+	   !(mmchs->regs->sysstatus & MMCHS_SD_SYSSTATUS_RESETDONE));
 
   if (!i) {
-    printf("%s: Failed to reset controller!\n", mmc->name);
-    return -1;
+    printf("%s: Failed to reset controller!\n", mmchs->name);
+    return false;
   }
 
   /* Enable 1.8, 3.0 3.3V */
-  mmc->regs->capa |= MMCHS_SD_CAPA_VS18 |
+  mmchs->regs->capa |= MMCHS_SD_CAPA_VS18 |
     MMCHS_SD_CAPA_VS30 |
     MMCHS_SD_CAPA_VS33;
 
-  mmc->regs->sysconfig |= MMCHS_SD_SYSCONFIG_AUTOIDLE;
-  mmc->regs->sysconfig |= MMCHS_SD_SYSCONFIG_ENAWAKEUP;
-  mmc->regs->sysconfig &= ~MMCHS_SD_SYSCONFIG_SIDLEMODE;
-  mmc->regs->sysconfig |= MMCHS_SD_SYSCONFIG_SIDLEMODE_IDLE;
-  mmc->regs->sysconfig &= ~MMCHS_SD_SYSCONFIG_CLOCKACTIVITY;
-  mmc->regs->sysconfig |= MMCHS_SD_SYSCONFIG_CLOCKACTIVITY_OFF;
-  mmc->regs->sysconfig &= ~MMCHS_SD_SYSCONFIG_STANDBYMODE;
-  mmc->regs->sysconfig |= MMCHS_SD_SYSCONFIG_STANDBYMODE_WAKEUP_INTERNAL;
+  mmchs->regs->sysconfig |= MMCHS_SD_SYSCONFIG_AUTOIDLE;
+  mmchs->regs->sysconfig |= MMCHS_SD_SYSCONFIG_ENAWAKEUP;
+  mmchs->regs->sysconfig &= ~MMCHS_SD_SYSCONFIG_SIDLEMODE;
+  mmchs->regs->sysconfig |= MMCHS_SD_SYSCONFIG_SIDLEMODE_IDLE;
+  mmchs->regs->sysconfig &= ~MMCHS_SD_SYSCONFIG_CLOCKACTIVITY;
+  mmchs->regs->sysconfig |= MMCHS_SD_SYSCONFIG_CLOCKACTIVITY_OFF;
+  mmchs->regs->sysconfig &= ~MMCHS_SD_SYSCONFIG_STANDBYMODE;
+  mmchs->regs->sysconfig |= MMCHS_SD_SYSCONFIG_STANDBYMODE_WAKEUP_INTERNAL;
 
   /* wakup on sd interrupt for sdio */
-  mmc->regs->hctl |= MMCHS_SD_HCTL_IWE;
+  mmchs->regs->hctl |= MMCHS_SD_HCTL_IWE;
 
   /* change to 1 bit mode */ 
-  mmc->regs->con &= ~MMCHS_SD_CON_DW8;
-  mmc->regs->hctl &= ~MMCHS_SD_HCTL_DTW;
+  mmchs->regs->con &= ~MMCHS_SD_CON_DW8;
+  mmchs->regs->hctl &= ~MMCHS_SD_HCTL_DTW;
 
   /* set to 3.0V */
-  mmc->regs->hctl &= ~MMCHS_SD_HCTL_SDVS;
-  mmc->regs->hctl |= MMCHS_SD_HCTL_SDVS_VS30;
+  mmchs->regs->hctl &= ~MMCHS_SD_HCTL_SDVS;
+  mmchs->regs->hctl |= MMCHS_SD_HCTL_SDVS_VS30;
 
   /* Power on card */
-  mmc->regs->hctl |= MMCHS_SD_HCTL_SDBP;
+  mmchs->regs->hctl |= MMCHS_SD_HCTL_SDBP;
 
   i = 100;
   do {
     sleep(1);
     i--;
-  } while (i > 0 && !(mmc->regs->hctl & MMCHS_SD_HCTL_SDBP));
+  } while (i > 0 && !(mmchs->regs->hctl & MMCHS_SD_HCTL_SDBP));
 
   if (!i) {
-    printf("%s: failed to power on card!\n", mmc->name);
-    return -2;
+    printf("%s: failed to power on card!\n", mmchs->name);
+    return false;
   }
 
-  printf("%s powered on!\n", mmc->name);
-
   /* enable internal clock and clock to card */
-  mmc->regs->sysctl |= MMCHS_SD_SYSCTL_ICE;
+  mmchs->regs->sysctl |= MMCHS_SD_SYSCTL_ICE;
 
   /* set clock frequence to 400kHz */
-  mmc->regs->sysctl &= ~MMCHS_SD_SYSCTL_CLKD;
-  mmc->regs->sysctl |= 0xf0 << 6;
+  mmchs->regs->sysctl &= ~MMCHS_SD_SYSCTL_CLKD;
+  mmchs->regs->sysctl |= 0xf0 << 6;
 
   /* enable clock */
-  mmc->regs->sysctl |= MMCHS_SD_SYSCTL_CEN;
+  mmchs->regs->sysctl |= MMCHS_SD_SYSCTL_CEN;
 
   i = 100;
   do {
     sleep(1);
     i--;
-  } while (i > 0 && !(mmc->regs->sysctl & MMCHS_SD_SYSCTL_ICS));
+  } while (i > 0 && !(mmchs->regs->sysctl & MMCHS_SD_SYSCTL_ICS));
 
   if (!i) {
-    printf("%s: mmc clock not stable\n", mmc->name);
-    return -3;
+    printf("%s: mmchs clock not stable\n", mmchs->name);
+    return false;
   }
 
   /* Enable interrupts */
-  mmc->regs->ie |= MMCHS_SD_IE_CC_ENABLE;
-  mmc->regs->ie |= MMCHS_SD_IE_TC_ENABLE;
-  mmc->regs->ie |= MMCHS_SD_IE_ERROR_MASK;
+  mmchs->regs->ie |= MMCHS_SD_IE_CC_ENABLE;
+  mmchs->regs->ie |= MMCHS_SD_IE_TC_ENABLE;
+  mmchs->regs->ie |= MMCHS_SD_IE_ERROR_MASK;
 
   /* clear stat register */
-  mmc->regs->stat = 0xffffffff;
+  mmchs->regs->stat = 0xffffffff;
 
-  printf("%s send init\n", mmc->name);
   /* send init signal */
-  mmc->regs->con |= MMCHS_SD_CON_INIT;
-  mmc->regs->cmd = 0;
+  mmchs->regs->con |= MMCHS_SD_CON_INIT;
+  mmchs->regs->cmd = 0;
 
   i = 25;
   do {
-    sleep(0);
+    sleep(1);
     i--;
-  } while (i > 0 && !(mmc->regs->stat & MMCHS_SD_STAT_CC));
+  } while (i > 0 && !(mmchs->regs->stat & MMCHS_SD_STAT_CC));
 
   if (!i) {
-    printf("%s: mmc command 0 failed!\n", mmc->name);
+    printf("%s: mmchs command 0 failed!\n", mmchs->name);
+    return false;
+  }
+
+  /* clean stat */
+  mmchs->regs->stat |= MMCHS_SD_IE_CC_ENABLE;
+
+  /* remove con init */
+  mmchs->regs->con &= ~MMCHS_SD_CON_INIT;
+ 
+  /* enable send interrupts to intc */
+  mmchs->regs->ise = 0xffffffff;
+  
+  return true;
+}
+
+static bool
+mmchsgotoidle(struct mmchs *mmchs)
+{
+  struct mmchs_command cmd;
+
+  cmd.cmd = MMC_GO_IDLE_STATE;
+  cmd.want_resp = false;
+  cmd.read = cmd.write = false;
+  cmd.arg = 0;
+  cmd.data = nil;
+
+  return mmchssendcmd(mmchs, &cmd);
+}
+
+/*
+static bool
+mmchsidentification(struct mmchs *mmchs)
+{
+  struct mmchs_command cmd;
+
+  cmd.cmd = SD_SEND_IF_COND;
+  cmd.want_resp = true;
+  cmd.read = cmd.write = false;
+  cmd.data = nil;
+  cmd.arg = MMCHS_SD_ARG_CMD8_VHS | MMCHS_SD_ARG_CMD8_CHECK_PATTERN;
+
+  if (!mmchssendcmd(mmchs, &cmd)) {
+    printf("%s identification command failed!\n", mmchs->name);
+    return false;
+  }
+
+  if (cmd.resp !=
+      (MMCHS_SD_ARG_CMD8_VHS | MMCHS_SD_ARG_CMD8_CHECK_PATTERN)) {
+    printf("%s check pattern check failed 0x%h\n",
+	   mmchs->name, cmd.resp);
+    return false;
+  }
+
+  return true;
+}
+*/
+static bool
+readblock(struct mmchs *mmchs, uint32_t blk, uint8_t *buf)
+{
+  struct mmchs_command cmd;
+
+  cmd.cmd = MMC_READ_BLOCK_SINGLE;
+  cmd.arg = blk;
+  cmd.want_resp = true;
+  cmd.read = true;
+  cmd.write = false;
+  cmd.data = buf;
+  cmd.data_len = 512;
+
+  return mmchssendcmd(mmchs, &cmd);
+}
+
+/*
+static bool
+writeblock(struct mmchs *mmchs, uint32_t blk, uint32_t *buf)
+{
+  struct mmchs_command cmd;
+
+  cmd.cmd = MMC_WRITE_BLOCK_SINGLE;
+  cmd.want_resp = true;
+  cmd.read = false;
+  cmd.write = true;
+  cmd.arg = blk;
+  cmd.data = buf;
+  cmd.data_len = 512;
+
+  return mmchssendcmd(mmchs, &cmd);
+}
+*/
+
+static int
+mmchsproc(char *name, void *addr, int intr)
+{
+  struct mmchs *mmchs;
+  size_t size = 4 * 1024;
+
+  printf("%s running in proc %i\n", name, getpid());
+  
+  mmchs = malloc(sizeof(struct mmchs));
+  if (!mmchs) {
+    printf("%s malloc failed!\n", name);
+    return -1;
+  }
+
+  mmchs->intr = intr;
+  mmchs->name = name;
+  mmchs->regs = (struct mmchs_regs *) getmem(MEM_io, addr, &size);
+  if (!mmchs->regs) {
+    printf("%s failed to map register space!\n", mmchs->name);
     return -2;
   }
 
-  /* remove con init */
-  mmc->regs->con &= ~MMCHS_SD_CON_INIT;
+  if (!mmchsinit(mmchs)) {
+    printf("%s failed to init!\n", mmchs->name);
+    rmmem((void *) mmchs->regs, size);
+    return -2;
+  }
 
-  /* clean stat */
-  mmc->regs->stat |= MMCHS_SD_IE_CC_ENABLE;
+  if (!mmchsgotoidle(mmchs)) {
+    printf("%s failed to goto idle state!\n", mmchs->name);
+    return -3;
+  }
+  /*  
+  if (!mmchsidentification(mmchs)) {
+    printf("%s failed to do identification, possibly mmc card!\n",
+	   mmchs->name);
+    return -4;
+  }
+
+  printf("%s identification good\n", mmchs->name);
+  */
+
+  printf("%s try read a block\n", mmchs->name);
   
-  /* enable send interrupts to intc */
-  mmc->regs->ise = 0xfffffff;
+  uint32_t i;
+  uint8_t buf[512];
+  if (!readblock(mmchs, 1, buf)) {
+    printf("%s failed to read stat = 0b%b\n",
+	   mmchs->name, mmchs->regs->stat);
+    return -5;
+  }
+
+  printf("%s print block 1\n", mmchs->name);
+
+  for (i = 0; i < 512; i += 4)
+    printf("%s %i %h %h %h %h\n", mmchs->name,
+	   buf[i], buf[i+1], buf[i+2], buf[i+3]);
   
   return 0;
 }
 
-void
-handle_bwr(struct mmc *mmc)
+int
+mmc(void)
 {
-  printf("handle bwr\n");
+  int p;
+	
+  printf("Should init MMCHS cards\n");
 
-  if (!(mmc->regs->pstate & MMCHS_SD_PSTATE_BWE)) {
-    printf("pstate bad for write\n");
-    return;
+  p = fork(FORK_sngroup);
+  if (p == 0) {
+    return mmchsproc("mmc0", (void *) MMCHS0, MMC0_intr);
+  } else if (p < 0) {
+    printf("mmchs failed to fork for mmc0\n");
   }
 
-  mmc->regs->stat |= MMCHS_SD_STAT_BWR;
-}
-
-void
-handle_brr(struct mmc *mmc)
-{
-  printf("handle brd\n");
-
-  if (!(mmc->regs->pstate & MMCHS_SD_PSTATE_BRE)) {
-    printf("pstate bad for read\n");
-    return;
+  p = fork(FORK_sngroup);
+  if (p == 0) {
+    return mmchsproc("mmc1", (void *) MMC1, MMC1_intr);
+  } else if (p < 0) {
+    printf("mmchs failed to fork for mmc1\n");
   }
 
-  mmc->regs->stat |= MMCHS_SD_STAT_BRR;
+  return 0;
 }
+

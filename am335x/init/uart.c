@@ -16,7 +16,7 @@
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#include "../include/libc.h"
+#include <libc.h>
 
 #define UART0   	0x44E09000
 #define UART0_LEN   	0x1000

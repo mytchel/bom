@@ -16,9 +16,8 @@
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#include "../include/types.h"
-#include "../include/libc.h"
-#include "../include/fs.h"
+#include <libc.h>
+#include <fs.h>
 
 struct dir *
 walkresponsetodir(uint8_t *buf, uint32_t len)

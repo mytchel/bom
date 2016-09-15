@@ -39,7 +39,7 @@ CFLAGS :=-mcpu=cortex-a8 \
         -nostdinc -ffreestanding \
         -std=c89 \
         -Dam335x \
-        -I${.CURDIR} -I${.CURDIR}/../include
+        -I${.CURDIR}/../include -I${.CURDIR}
 
 LDFLAGS := -nostdlib -nodefaultlibs
 LGCC := -L/usr/local/lib/gcc/arm-none-eabi/4.9.3/ -lgcc

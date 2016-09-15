@@ -16,8 +16,8 @@
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#include "../include/libc.h"
-#include "../include/fs.h"
+#include <libc.h>
+#include <fs.h>
 
 size_t putc(uint8_t *, size_t);
 size_t getc(uint8_t *, size_t);

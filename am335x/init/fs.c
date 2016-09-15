@@ -16,8 +16,8 @@
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#include "../include/libc.h"
-#include "../include/fs.h"
+#include <libc.h>
+#include <fs.h>
 
 int
 pfile_open(void)

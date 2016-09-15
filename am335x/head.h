@@ -19,7 +19,7 @@
 #ifndef __DAT_H
 #define __DAT_H
 
-#include "../include/types.h"
+#include <types.h>
 
 #define MAX_PROCS	512
 #define KSTACK		4028

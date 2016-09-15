@@ -129,22 +129,31 @@ procwaitintr(struct proc *p, int irqn)
 static bool
 irqhandler(void)
 {
-  struct proc *p;
+  struct proc *p, *pp;
   uint32_t irq;
   bool r;
 	
   r = false;
-  irq = readl(INTC + INTC_SIR_IRQ);		
+  irq = readl(INTC + INTC_SIR_IRQ);
+
   if (handlers[irq]) {
     /* Kernel handler */
     r = handlers[irq](irq);
   } else {
     /* User proc handler */
-    for (p = intrwait; p != nil; p = p->wnext) {
+    pp = nil;
+    for (p = intrwait; p != nil; pp = p, p = p->wnext) {
       if (p->waiting.intr == irq) {
+	if (pp != nil) {
+	  pp->next = p->next;
+	} else {
+	  intrwait = p->next;
+	}
+	
 	procready(p);
 	maskintr(irq);
 	r = true;
+	break;
       }
     }
   }

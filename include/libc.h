@@ -19,8 +19,8 @@
 #ifndef __STD_H
 #define __STD_H
 
-#include "types.h"
-#include "syscalls.h"
+#include <types.h>
+#include <syscalls.h>
 
 extern int stdin, stdout, stderr;
 

@@ -1,5 +1,12 @@
+/*
+ * Largely taken from minix's beagle port at
+ * /minix/drivers/storage/mmc/omap_mmc.h
+ * with some changes.
+ */
+#ifndef _OMAP_MMC_H
+#define _OMAP_MMC_H
 
-struct mmc_regs {
+struct mmchs_regs {
   uint32_t pad[68];
   uint32_t sysconfig;
   uint32_t sysstatus;
@@ -37,10 +44,12 @@ struct mmc_regs {
   uint32_t rev;
 };
 
-struct mmc {
-  volatile struct mmc_regs *regs;
+struct mmchs {
+  volatile struct mmchs_regs *regs;
   int intr;
   char *name;
+  uint8_t *data;
+  size_t data_len;
 };
 
 #define MMCHS_SD_SYSCONFIG_AUTOIDLE                    (0x1 << 0)  /* Internal clock gating strategy */
@@ -61,6 +70,7 @@ struct mmc {
 #define MMCHS_SD_SYSCONFIG_STANDBYMODE_NO_STANDBY      (0x1 << 12) /* Never go into standby mode */
 #define MMCHS_SD_SYSCONFIG_STANDBYMODE_WAKEUP_INTERNAL (0x2 << 12) /* Go into wake-up mode based on internal knowledge */
 #define MMCHS_SD_SYSCONFIG_STANDBYMODE_WAKEUP_SMART    (0x3 << 12) /* Go info wake-up mode when possible */
+#define MMCHS_SD_SYSCONFIG_SRC                         (0x1 << 25) /* Software reset for mmc_cmd line */
 
 #define MMCHS_SD_SYSSTATUS_RESETDONE 0x01
 
@@ -203,3 +213,4 @@ struct mmc {
 #define MMCHS_SD_CAPA_VS30 (0x01 << 25 )  /* 3.0 volt */
 #define MMCHS_SD_CAPA_VS33 (0x01 << 24 )  /* 3.3 volt */
 
+#endif

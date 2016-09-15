@@ -16,9 +16,8 @@
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#include "../include/libc.h"
-#include "../include/stdarg.h"
-#include "../include/fs.h"
+#include <libc.h>
+#include <stdarg.h>
 
 int
 ppipe0(int fd);

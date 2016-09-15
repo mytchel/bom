@@ -16,7 +16,7 @@
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#include "../include/types.h"
+#include <types.h>
 
 void *
 memmove(void *dest, const void *src, size_t len)

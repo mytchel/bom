@@ -317,11 +317,15 @@ syswaitintr(va_list args)
 
   irqn = va_arg(args, int);
 
+  disableintr();
+  
   if (procwaitintr(current, irqn)) {
     procwait(current);
+    /* schedule enables interrupts */
     schedule();
     return OK;
   } else {
+    enableintr();
     return ERR;
   }
 }
