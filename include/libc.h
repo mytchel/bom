@@ -16,15 +16,13 @@
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#ifndef __STD_H
-#define __STD_H
+#ifndef _LIBC_H_
+#define _LIBC_H_
 
 #include <types.h>
 #include <syscalls.h>
 
 extern int stdin, stdout, stderr;
-
-/* Process system calls */
 
 int
 exit(int code);
@@ -64,8 +62,6 @@ rmmem(void *addr, size_t size);
 int
 waitintr(int intr);
 
-/* File operation system calls. */
-
 int
 pipe(int fds[2]);
 
@@ -78,8 +74,6 @@ write(int fd, void *buf, size_t len);
 int
 close(int fd);
 
-/* File system system calls. */
-
 int
 bind(int out, int in, const char *path);
 
@@ -88,9 +82,6 @@ open(const char *path, uint32_t mode, ...);
 
 int
 remove(const char *path);
-
-
-/* Helper functions */
 
 void *
 malloc(size_t size);

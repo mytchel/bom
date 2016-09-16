@@ -53,6 +53,8 @@ struct mmchs {
 
   /* Not the best place for this but it should suffice */
   uint32_t rca;
+  uint32_t csd[4];
+  uint32_t size;
 };
 
 #define MMCHS_SD_SYSCONFIG_AUTOIDLE                    (0x1 << 0)  /* Internal clock gating strategy */
@@ -73,7 +75,6 @@ struct mmchs {
 #define MMCHS_SD_SYSCONFIG_STANDBYMODE_NO_STANDBY      (0x1 << 12) /* Never go into standby mode */
 #define MMCHS_SD_SYSCONFIG_STANDBYMODE_WAKEUP_INTERNAL (0x2 << 12) /* Go into wake-up mode based on internal knowledge */
 #define MMCHS_SD_SYSCONFIG_STANDBYMODE_WAKEUP_SMART    (0x3 << 12) /* Go info wake-up mode when possible */
-#define MMCHS_SD_SYSCONFIG_SRC                         (0x1 << 25) /* Software reset for mmc_cmd line */
 
 #define MMCHS_SD_SYSSTATUS_RESETDONE 0x01
 

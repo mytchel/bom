@@ -16,21 +16,13 @@
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-typedef	signed char		int8_t;
-typedef	unsigned char		uint8_t;
-typedef	short			int16_t;
-typedef	unsigned short		uint16_t;
-typedef	int			int32_t;
-typedef	unsigned int		uint32_t;
-typedef	long long		int64_t;
-typedef	unsigned long long	uint64_t;
+#ifndef _STRING_H_
+#define _STRING_H_
 
-typedef double			double_t;
-typedef float			float_t;
-typedef long			ptrdiff_t;
-typedef	unsigned long		size_t;
-typedef	long			ssize_t;
+size_t
+vsnprintf(char *str, size_t max, const char *fmt, va_list ap);
 
-typedef unsigned int		reg_t;
+size_t
+snprintf(char *str, size_t max, const char *fmt, ...);
 
-#define UINT_MAX                0xffffffff
+#endif

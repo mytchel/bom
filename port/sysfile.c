@@ -18,29 +18,61 @@
 
 #include "head.h"
 
-reg_t
-sysread(va_list args)
+int
+read(int fd, void *buf, size_t len)
 {
-  int r, fd;
-  size_t n;
-  void *buf;
   struct chan *c;
-	
-  fd = va_arg(args, int);
-  buf = va_arg(args, void *);
-  n = va_arg(args, size_t);
+  int r;
 	
   c = fdtochan(current->fgroup, fd);
   if (c == nil) {
     return ERR;
   } else if (!(c->mode & O_RDONLY)) {
     return EMODE;
-  } else if (n == 0) {
+  } else if (len == 0) {
     return ERR;
   }
 		
   lock(&c->lock);
-  r = chantypes[c->type]->read(c, (uint8_t *) kaddr(current, buf), n);
+  r = chantypes[c->type]->read(c, (uint8_t *) kaddr(current, buf),
+			       len);
+  unlock(&c->lock);
+	
+  return r;
+}
+
+reg_t
+sysread(va_list args)
+{
+  int fd;
+  size_t len;
+  void *buf;
+
+  fd = va_arg(args, int);
+  buf = va_arg(args, void *);
+  len = va_arg(args, size_t);
+
+  return read(fd, buf, len);
+}
+
+int
+write(int fd, void *buf, size_t len)
+{
+  struct chan *c;
+  int r;
+
+  c = fdtochan(current->fgroup, fd);
+  if (c == nil) {
+    return ERR;
+  } else if (!(c->mode & O_WRONLY)) {
+    return EMODE;
+  } else if (len == 0) {
+    return ERR;
+  }
+	
+  lock(&c->lock);
+  r = chantypes[c->type]->write(c, (uint8_t *) kaddr(current, buf),
+				len);
   unlock(&c->lock);
 	
   return r;
@@ -49,29 +81,15 @@ sysread(va_list args)
 reg_t
 syswrite(va_list args)
 {
-  int r, fd;
-  size_t n;
+  int fd;
   void *buf;
-  struct chan *c;
+  size_t len;
 	
   fd = va_arg(args, int);
   buf = va_arg(args, void *);
-  n = va_arg(args, size_t);
-	
-  c = fdtochan(current->fgroup, fd);
-  if (c == nil) {
-    return ERR;
-  } else if (!(c->mode & O_WRONLY)) {
-    return EMODE;
-  } else if (n == 0) {
-    return ERR;
-  }
-	
-  lock(&c->lock);
-  r = chantypes[c->type]->write(c, (uint8_t *) kaddr(current, buf), n);
-  unlock(&c->lock);
-	
-  return r;
+  len = va_arg(args, size_t);
+
+  return write(fd, buf, len);
 }
 
 reg_t

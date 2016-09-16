@@ -16,8 +16,8 @@
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#ifndef __SYSCALLS_H
-#define __SYSCALLS_H
+#ifndef _SYSCALLS_H_
+#define _SYSCALLS_H_
 
 #define SYSCALL_EXIT		1
 #define SYSCALL_FORK		2

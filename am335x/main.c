@@ -38,6 +38,7 @@ kmain(void)
   inittimers();
   initwatchdog();
 
+  initroot();
   initnullproc();
   initmainproc();
 	

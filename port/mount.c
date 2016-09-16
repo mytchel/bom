@@ -88,6 +88,7 @@ mountproc(void *arg)
       if (resp->lbuf > 0)
 	free(resp->buf);
       free(resp);
+      break;
     }
     
     unlock(&b->lock);

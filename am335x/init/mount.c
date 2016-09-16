@@ -35,10 +35,6 @@ struct file_list {
   struct file file;
   size_t len;
   uint8_t *buf;
-  uint32_t (*write)(struct file_list *, uint8_t *,
-		    uint32_t, uint32_t, int32_t *);
-  uint32_t (*read)(struct file_list *,  uint8_t *,
-		   uint32_t, uint32_t, int32_t *);
   struct file_list *next;
 };
 
@@ -59,16 +55,14 @@ struct file_list rootfile = {
   },
   0,
   nil,
-  nil,
-  nil,
   nil
 };
 
-int nfid = 1;
-struct dir_list *dir_list = &rootdir;
-struct file_list *file_list = &rootfile;
+static int nfid = 1;
+static struct dir_list *dir_list = &rootdir;
+static struct file_list *file_list = &rootfile;
 
-uint32_t
+static uint32_t
 tmpread(struct file_list *fl, uint8_t *buf, uint32_t offset,
 	uint32_t len, int32_t *err)
 {
@@ -88,7 +82,7 @@ tmpread(struct file_list *fl, uint8_t *buf, uint32_t offset,
   return i;
 }
 
-uint32_t
+static uint32_t
 tmpwrite(struct file_list *fl, uint8_t *buf, uint32_t offset,
 	 uint32_t len, int32_t *err)
 {
@@ -119,23 +113,7 @@ tmpwrite(struct file_list *fl, uint8_t *buf, uint32_t offset,
   return i;
 }
 
-uint32_t
-comread(struct file_list *fl, uint8_t *buf, uint32_t offset,
-	uint32_t len, int32_t *err)
-{
-  *err = OK;	
-  return getc(buf, len);
-}
-
-uint32_t
-comwrite(struct file_list *fl, uint8_t *buf, uint32_t offset,
-	 uint32_t len, int32_t *err)
-{
-  *err = OK;
-  return putc(buf, len);
-}
-
-struct file_list *
+static struct file_list *
 newfile(uint32_t attr, uint8_t *name)
 {
   struct file_list *fl;
@@ -155,14 +133,6 @@ newfile(uint32_t attr, uint8_t *name)
   fl->file.lname = strlen(name) + 1;
   fl->file.name = malloc(fl->file.lname);
   memmove(fl->file.name, name, fl->file.lname);
-		
-  if (attr & ATTR_dir) {
-    fl->write = nil;
-    fl->read = nil;
-  } else {
-    fl->write = &tmpwrite;
-    fl->read = &tmpread;
-  }
 
   fl->len = 0;
   fl->buf = nil;
@@ -170,7 +140,7 @@ newfile(uint32_t attr, uint8_t *name)
   return fl;
 }
 
-struct file_list *
+static struct file_list *
 findfile(uint32_t fid)
 {
   struct file_list *fl;
@@ -181,7 +151,7 @@ findfile(uint32_t fid)
   return fl;
 }
 
-void
+static void
 diraddfile(struct dir *d, struct file *f)
 {
   struct file **files;
@@ -201,7 +171,7 @@ diraddfile(struct dir *d, struct file *f)
   d->files = files;
 }
 
-void
+static void
 dirremovefile(struct dir *d, struct file *f)
 {
   struct file **files;
@@ -221,7 +191,7 @@ dirremovefile(struct dir *d, struct file *f)
   d->files = files;
 }
 
-struct dir *
+static struct dir *
 finddir(uint32_t fid)
 {
   struct dir_list *dl;
@@ -233,7 +203,7 @@ finddir(uint32_t fid)
   return nil;
 }
 
-struct dir *
+static struct dir *
 adddir(uint32_t fid)
 {
   struct dir_list *dl;
@@ -254,7 +224,7 @@ adddir(uint32_t fid)
   return &dl->dir;
 }
 
-void
+static void
 bwalk(struct request *req, struct response *resp)
 {
   struct dir *d;
@@ -268,7 +238,7 @@ bwalk(struct request *req, struct response *resp)
   }
 }
 
-void
+static void
 bopen(struct request *req, struct response *resp)
 {
   struct file_list *fl;
@@ -283,7 +253,7 @@ bopen(struct request *req, struct response *resp)
   resp->ret = OK;
 }
 
-void
+static void
 bclose(struct request *req, struct response *resp)
 {
   struct file_list *fl;
@@ -298,7 +268,7 @@ bclose(struct request *req, struct response *resp)
   resp->ret = OK;
 }
 
-void
+static void
 bread(struct request *req, struct response *resp)
 {
   uint32_t offset, len;
@@ -315,14 +285,15 @@ bread(struct request *req, struct response *resp)
     resp->ret = ENOFILE;
     return;
   }
-	
-  resp->buf = malloc(sizeof(uint32_t) * len);
-  resp->lbuf = fl->read(fl, resp->buf, offset, len, &resp->ret);
+
+  resp->ret = OK;
+  resp->buf = malloc(sizeof(uint8_t) * len);
+  resp->lbuf = tmpread(fl, resp->buf, offset, len, &resp->ret);
   if (resp->lbuf == 0)
     free(resp->buf);
 }
 
-void
+static void
 bwrite(struct request *req, struct response *resp)
 {
   uint32_t offset, len, n;
@@ -341,14 +312,15 @@ bwrite(struct request *req, struct response *resp)
     return;
   }
 
-  n = fl->write(fl, buf, offset, len, &resp->ret);
+  n = tmpwrite(fl, buf, offset, len, &resp->ret);
 	
+  resp->ret = OK;
   resp->lbuf = sizeof(uint32_t);
   resp->buf = malloc(sizeof(uint32_t));
   memmove(resp->buf, &n, sizeof(uint32_t));
 }
 
-void
+static void
 bcreate(struct request *req, struct response *resp)
 {
   uint32_t attr, lname;
@@ -383,7 +355,7 @@ bcreate(struct request *req, struct response *resp)
   memmove(resp->buf, &fl->file.fid, sizeof(uint32_t));
 }
 
-void
+static void
 bremove(struct request *req, struct response *resp)
 {
   struct file_list *fl, *fp;
@@ -432,116 +404,12 @@ bremove(struct request *req, struct response *resp)
   resp->ret = OK;
 }
 
-void
-initfs(void)
-{
-  struct dir *dev;
-  struct file_list *fl;
-	
-  if (!uartinit()) {
-    exit(-1);
-  }
-	
-  /* Make /dev */
-  fl = newfile(ATTR_dir|ATTR_wr|ATTR_rd, (uint8_t *) "dev");
-  dev = adddir(fl->file.fid);
-  diraddfile(&rootdir.dir, &fl->file);
-	
-  /* Make /dev/com */
-  fl = newfile(ATTR_wr|ATTR_rd, (uint8_t *) "com");
-  fl->write = &comwrite;
-  fl->read = &comread;
-  diraddfile(dev, &fl->file);
-	
-  /* Make /tmp */
-  fl = newfile(ATTR_dir|ATTR_wr|ATTR_rd, (uint8_t *) "tmp");
-  adddir(fl->file.fid);
-  diraddfile(&rootdir.dir, &fl->file);
-}
-
-void
-handlereq(struct request *req, struct response *resp)
-{
-  switch (req->type) {
-  case REQ_open:
-    bopen(req, resp);
-    break;
-  case REQ_close:
-    bclose(req, resp);
-    break;
-  case REQ_walk:
-    bwalk(req, resp);
-    break;
-  case REQ_read:
-    bread(req, resp);
-    break;
-  case REQ_write:
-    bwrite(req, resp);
-    break;
-  case REQ_remove:
-    bremove(req, resp);
-    break;
-  case REQ_create:
-    bcreate(req, resp);
-    break;
-  default:
-    resp->ret = ENOIMPL;
-    break;
-  }
-}
-
-int
-mountloop(int in, int out)
-{
-  uint8_t buf[1024];
-  size_t reqsize, respsize;
-  struct request req;
-  struct response resp;
-
-  reqsize = sizeof(req.rid)
-    + sizeof(req.type)
-    + sizeof(req.fid)
-    + sizeof(req.lbuf);
-
-  respsize = sizeof(resp.rid)
-    + sizeof(resp.ret)
-    + sizeof(resp.lbuf);
-  
-  req.buf = buf;
-	
-  initfs();
-
-  while (true) {
-    if (read(in, &req, reqsize) != reqsize)
-      break;
-
-    resp.rid = req.rid;
-    resp.lbuf = 0;
-    resp.ret = OK;
-		
-    if (req.lbuf > 1024) {
-      resp.ret = ENOMEM;
-    } else if (req.lbuf > 0) {
-      if (read(in, req.buf, req.lbuf) != req.lbuf) {
-	break;
-      }
-    }
-		
-    if (resp.ret == OK) {
-      handlereq(&req, &resp);
-    }
-		
-    if (write(out, &resp, respsize) != respsize)
-      break;
-		
-    if (resp.lbuf > 0) {
-      if (write(out, resp.buf, resp.lbuf) != resp.lbuf) {
-	break;
-      }
-
-      free(resp.buf);
-    }
-  }
-
-  return 3;
-}
+struct fsmount fsmount = {
+  bopen,
+  bclose,
+  bwalk,
+  bread,
+  bwrite,
+  bremove,
+  bcreate,
+};

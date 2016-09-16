@@ -30,7 +30,14 @@ newngroup(void)
 
 	n->refs = 1;
 	n->lock = 0;
-	n->bindings = nil;
+	n->bindings = malloc(sizeof(struct binding_list));
+	if (n->bindings == nil) {
+	  free(n);
+	  return nil;
+	}
+
+	n->bindings->binding = rootbinding;
+	n->bindings->next = nil;
 	
 	return n;
 }

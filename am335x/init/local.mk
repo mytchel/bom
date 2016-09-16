@@ -19,8 +19,9 @@
 init_src := \
 	init/main.c init/heap.c init/com.c \
 	init/pipe.c init/fs.c  \
-	init/mount.c init/uart.c init/mmc.c \
-	../lib/fs.c ../lib/misc.c
+	init/misc.c init/mount.c \
+	init/mmc/mmc.c \
+	../lib/fs.c ../lib/misc.c ../lib/string.c
 
 init_objs := init/syscalls.o $(init_src:%.c=%.o)
 

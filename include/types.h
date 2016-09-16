@@ -16,8 +16,8 @@
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#ifndef __TYPES_H
-#define __TYPES_H
+#ifndef _TYPES_H_
+#define _TYPES_H_
 
 #ifdef am335x
 #include <types_am335x.h>

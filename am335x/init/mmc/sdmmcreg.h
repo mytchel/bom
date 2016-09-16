@@ -315,7 +315,8 @@
 #define SFUNC_STATUS_GROUP(status, group) \
 	be16toh(__bitfield((uint32_t *)(status), (7 - (group)) << 4, 16))
 
-/* Might be slow, but it should work on big and little endian systems. */
+#define MMC_RSP_BITS(resp, start, len)	__bitfield((resp), (start), (len))
+
 
 #endif	/* _SDMMCREG_H_ */
 

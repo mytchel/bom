@@ -18,121 +18,197 @@
 
 #include <libc.h>
 #include <stdarg.h>
+#include <string.h>
+#include <fs.h>
 
-static int
-printint(char *str, size_t max, unsigned int i, unsigned int base)
+#define UART0   	0x44E09000
+#define UART0_LEN   	0x1000
+
+struct uart_struct {
+  uint32_t hr;
+  uint32_t p1;
+  uint32_t p2;
+  uint32_t lcr;
+  uint32_t p4;
+  uint32_t lsr;
+};
+
+static volatile struct uart_struct *uart;
+
+static bool
+uartinit(void)
 {
-	unsigned int d;
-	unsigned char s[32];
-	int c = 0;
+  size_t size = UART0_LEN;
 	
-	do {
-		d = i / base;
-		i = i % base;
-		if (i > 9) s[c++] = 'a' + (i-10);
-		else s[c++] = '0' + i;
-		i = d;
-	} while (i > 0);
+  uart = (struct uart_struct *)
+    getmem(MEM_io, (void *) UART0, &size);
 
-	d = 0;
-	while (c > 0 && d < max) {
-		str[d++] = s[--c];
-	}
-	
-	return d;
+  if (uart == nil)
+    return false;
+  else
+    return true;
 }
 
-size_t
-vsprintf(char *str, size_t max, const char *fmt, va_list ap)
+static size_t
+getc(uint8_t *s, size_t len)
 {
-	unsigned int u;
-	size_t ind;
-	char *s;
-	int i;
+  size_t i;
 	
-	ind = 0;
-	while (*fmt != 0 && ind < max) {
-		if (*fmt != '%') {
-			str[ind++] = *fmt++;
-			continue;
-		}
+  for (i = 0; i < len; i++) {
+    while ((uart->lsr & (1 << 0)) == 0)
+      ;
 		
-		fmt++;
-		switch (*fmt) {
-		case '%':
-			str[ind++] = '%';
-			break;
-		case 'i':
-			i = va_arg(ap, int);
-			if (i < 0) {
-				str[ind++] = '-';
-				i = -i;
-			}
-
-			if (ind == max)
-				break;
-
-			ind += printint(str + ind, max - ind,
-				(unsigned int) i, 10);		
-			break;
-		case 'u':
-			u = va_arg(ap, unsigned int);
-			ind += printint(str + ind, max - ind,
-				 u, 10);
-			break;
-		case 'h':
-			u = va_arg(ap, unsigned int);
-			ind += printint(str + ind, max - ind, 
-				u, 16);
-			break;
-		case 'b':
-			u = va_arg(ap, unsigned int);
-			ind += printint(str + ind, max - ind, 
-				u, 2);
-			break;
-		case 'c':
-			i = va_arg(ap, int);
-			str[ind++] = i;
-			break;
-		case 's':
-			s = va_arg(ap, char*);
-			for (i = 0; ind < max && s[i]; i++)
-				str[ind++] = s[i];
-			break;
-		}
-		
-		fmt++;
-	}
-
-	str[ind] = 0;
-	return ind;
-}
-
-size_t
-sprintf(char *str, size_t max, const char *fmt, ...)
-{
-	size_t i;
-	va_list ap;
+    s[i] = (uint8_t) (uart->hr & 0xff);
+  }
 	
-	va_start(ap, fmt);
-	i = vsprintf(str, max, fmt, ap);
-	va_end(ap);
-	return i;
+  return i;
 }
 
-void
+static size_t
+putc(uint8_t *s, size_t len)
+{
+  size_t i;
+	
+  for (i = 0; i < len; i++) {
+    if (s[i] == '\n') {
+      while ((uart->lsr & (1 << 5)) == 0)
+	;
+      uart->hr = '\r';
+    }
+
+    while ((uart->lsr & (1 << 5)) == 0)
+      ;
+    uart->hr = s[i];
+  }
+	
+  return i;
+}
+
+static void
+comopen(struct request *req, struct response *resp)
+{
+  resp->ret = OK;
+}
+
+static void
+comclose(struct request *req, struct response *resp)
+{
+  resp->ret = OK;
+}
+
+static void
+comwalk(struct request *req, struct response *resp)
+{
+  resp->ret = ENOIMPL;
+}
+
+static void
+comread(struct request *req, struct response *resp)
+{
+  uint32_t offset, len;
+  uint8_t *buf;
+
+  buf = req->buf;
+  memmove(&offset, buf, sizeof(uint32_t));
+  buf += sizeof(uint32_t);
+  memmove(&len, buf, sizeof(uint32_t));
+
+  resp->ret = OK;
+  resp->buf = malloc(sizeof(uint8_t) * len);
+  resp->lbuf = len;
+
+  getc(resp->buf, len);
+}
+
+static void
+comwrite(struct request *req, struct response *resp)
+{
+  uint32_t offset, len, n;
+  uint8_t *buf;
+
+  buf = req->buf;
+  memmove(&offset, buf, sizeof(uint32_t));
+  buf += sizeof(uint32_t);
+  memmove(&len, buf, sizeof(uint32_t));
+  buf += sizeof(uint32_t);
+
+  n = putc(buf, len);
+
+  resp->lbuf = sizeof(uint32_t);
+  resp->buf = malloc(sizeof(uint32_t));
+  memmove(resp->buf, &n, sizeof(uint32_t));
+  resp->ret = OK;
+}
+
+static void
+comremove(struct request *req, struct response *resp)
+{
+  resp->ret = ENOIMPL;
+}
+
+static void
+comcreate(struct request *req, struct response *resp)
+{
+  resp->ret = ENOIMPL;
+}
+
+static struct fsmount mount = {
+  comopen,
+  comclose,
+  comwalk,
+  comread,
+  comwrite,
+  comremove,
+  comcreate,
+};
+
+bool
+commount(void)
+{
+  int f, p1[2], p2[2];
+
+  if (pipe(p1) == ERR) {
+    return false;
+  } else if (pipe(p2) == ERR) {
+    return false;
+  }
+
+  f = open("/dev/com", O_WRONLY|O_CREATE, ATTR_wr|ATTR_rd);
+  if (f < 0) {
+    return false;
+  }
+  
+  if (bind(p1[1], p2[0], "/dev/com") == ERR) {
+    return false;
+  }
+
+  close(p1[1]);
+  close(p2[0]);
+
+  if (!fork(FORK_sngroup)) {
+    if (!uartinit()) {
+      exit(-100);
+    }
+
+    exit(fsmountloop(p1[0], p2[1], &mount));
+  }
+
+  return true;
+}
+
+ void
 printf(const char *fmt, ...)
 {
-	char str[128];
-	size_t i;
-	va_list ap;
+  char str[128];
+  size_t i;
+  va_list ap;
 	
-	va_start(ap, fmt);
-	i = vsprintf(str, 128, fmt, ap);
-	va_end(ap);
+  va_start(ap, fmt);
+  i = vsnprintf(str, 128, fmt, ap);
+  va_end(ap);
 
-	if (i > 0) {
-		sleep(100);
-		write(stdout, str, i);
-	}
+  if (i > 0) {
+    write(stdout, str, i);
+  }
 }
+

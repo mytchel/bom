@@ -78,12 +78,14 @@ P_SRC := \
         ../port/pipe.c          \
         ../port/file.c          \
         ../port/mount.c         \
+        ../port/root.c          \
         ../port/path.c          \
         ../port/heap.c          \
         ../port/sysproc.c       \
         ../port/sysfile.c       \
         ../port/syscall.c       \
         ../lib/fs.c             \
+        ../lib/string.c         \
 	../lib/misc.c
 
 

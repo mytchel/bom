@@ -98,3 +98,92 @@ dirtowalkresponse(struct dir *dir, uint32_t *size)
 	
 	return buf;
 }
+
+int
+fsmountloop(int in, int out, struct fsmount *mount)
+{
+  uint8_t *buf;
+  size_t bufsize, reqsize, respsize;
+  struct request req;
+  struct response resp;
+
+  bufsize = 1024;
+
+  buf = malloc(sizeof(uint8_t) * bufsize);
+
+  reqsize = sizeof(req.rid)
+    + sizeof(req.type)
+    + sizeof(req.fid)
+    + sizeof(req.lbuf);
+
+  respsize = sizeof(resp.rid)
+    + sizeof(resp.ret)
+    + sizeof(resp.lbuf);
+  
+  req.buf = buf;
+	
+  while (true) {
+    if (read(in, &req, reqsize) != reqsize)
+      goto err;
+
+    resp.rid = req.rid;
+    resp.lbuf = 0;
+		
+    if (req.lbuf >= bufsize) {
+      resp.ret = ENOMEM;
+      if (write(out, &resp, respsize) != respsize)
+	goto err;
+      continue;
+
+    } else if (req.lbuf > 0) {
+      if (read(in, req.buf, req.lbuf) != req.lbuf)
+	goto err;
+    }
+		
+    switch (req.type) {
+    case REQ_open:
+      mount->open(&req, &resp);
+      break;
+    case REQ_close:
+      mount->close(&req, &resp);
+      break;
+    case REQ_read:
+      mount->read(&req, &resp);
+      break;
+    case REQ_write:
+      mount->write(&req, &resp);
+      break;
+    case REQ_remove:
+      mount->remove(&req, &resp);
+      break;
+    case REQ_create:
+      mount->create(&req, &resp);
+      break;
+    default:
+      resp.ret = ENOIMPL;
+      break;
+    }
+
+    if (write(out, &resp, respsize) != respsize)
+      goto err;
+		
+    if (resp.lbuf > 0) {
+      if (write(out, resp.buf, resp.lbuf) != resp.lbuf) {
+	goto err;
+      }
+
+      free(resp.buf);
+    }
+  }
+
+  return 0;
+
+ err:
+
+  if (resp.lbuf > 0)
+    free(resp.buf);
+
+  free(buf);
+
+  return 1;
+}

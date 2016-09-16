@@ -16,8 +16,8 @@
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#ifndef __FS_H
-#define __FS_H
+#ifndef _FS_H_
+#define _FS_H_
 
 enum {
 	REQ_open, REQ_close,
@@ -115,5 +115,18 @@ dirtowalkresponse(struct dir *, uint32_t *);
 
 struct dir *
 walkresponsetodir(uint8_t *, uint32_t);
+
+struct fsmount {
+  void (*open)(struct request *, struct response *);
+  void (*close)(struct request *, struct response *);
+  void (*walk)(struct request *, struct response *);
+  void (*read)(struct request *, struct response *);
+  void (*write)(struct request *, struct response *);
+  void (*remove)(struct request *, struct response *);
+  void (*create)(struct request *, struct response *);
+};
+
+int
+fsmountloop(int, int, struct fsmount *);
 
 #endif

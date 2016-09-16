@@ -16,9 +16,10 @@
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#include "../include/stdarg.h"
-#include "../include/fs.h"
-#include "../include/libc.h"
+#include <libc.h>
+#include <stdarg.h>
+#include <fs.h>
+#include <string.h>
 
 struct page {
   void *pa, *va;
@@ -134,6 +135,8 @@ struct proc {
 
 /****** Initialisation ******/
 
+void
+initroot(void);
 
 void
 initheap(void *, size_t);
@@ -295,6 +298,9 @@ fileclose(struct chan *);
 void
 printf(const char *, ...);
 
+void
+panic(const char *, ...);
+
 
 /****** Syscalls ******/
 
@@ -392,3 +398,5 @@ extern struct chantype devfile;
 extern struct chantype *chantypes[CHAN_max];
 
 extern struct page pages, iopages;
+
+extern struct binding *rootbinding;
