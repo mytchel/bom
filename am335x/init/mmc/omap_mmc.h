@@ -83,8 +83,7 @@ struct mmchs {
 #define MMCHS_SD_CON_DW8_8BITS    (0x1 << 5) /* 8 bits data width configuration */
 #define MMCHS_SD_CON_INIT         (0x1 << 1) /* Send initialization stream (all cards) */
 #define MMCHS_SD_CON_OD           (0x1 << 0) /* Card open drain mode (MMC cards only) */
-#define MMCHS_SD_CON_OD_PP        (0x0 << 0) /* No open drain (push-pull). */
-#define MMCHS_SD_CON_OD_OD        (0x1 << 0) /* Open drain */
+#define MMCHS_SD_CON_MODE         (0x1 << 4) /* Mode select */
 
 #define MMCHS_SD_BLK_NBLK             (0xffffu << 16) /* Block count for the current transfer */
 #define MMCHS_SD_BLK_BLEN             (0xfff << 0)     /* Transfer block size */

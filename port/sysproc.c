@@ -320,8 +320,9 @@ syswaitintr(va_list args)
 
   irqn = va_arg(args, int);
 
+  /*
   disableintr();
-
+  */
   if (procwaitintr(current, irqn)) {
     debug("%i waiting for irq %i\n", current->pid, irqn);
     procwait(current);

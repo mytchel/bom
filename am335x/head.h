@@ -31,14 +31,15 @@
 #define MAX_MEM_SIZE	1024 * 1024 *32
 
 struct label {
-	uint32_t regs[9];
-	uint32_t sp, pc;
+  uint32_t psr;
+  uint32_t regs[9];
+  uint32_t sp, pc;
 };
 
 struct ureg {
-	uint32_t regs[13];
-	uint32_t sp, lr;
-	uint32_t type, psr, pc;
+  uint32_t regs[13];
+  uint32_t sp, lr;
+  uint32_t type, psr, pc;
 };
 
 #include "../port/port.h"

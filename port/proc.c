@@ -24,7 +24,7 @@ nextproc(void);
 static uint32_t nextpid = 1;
 static struct proc procs[MAX_PROCS] = {{0}};
 
-struct proc *current = procs;
+struct proc *current = &procs[1];
 
 void
 schedule(void)
@@ -65,15 +65,20 @@ nextproc(void)
   do {
     p = p->next;
     if (p == nil) {
-      p = procs->next;
+      p = procs->next->next;
     }
 		
     if (p->state == PROC_ready) {
       break;
     }
   } while (p != current);
-	
-  return p;
+
+  if (p->state != PROC_ready) {
+    debug("No procs to run\n");
+    return procs->next;
+  } else {
+    return p;
+  }
 }
 	
 struct proc *

@@ -174,22 +174,25 @@ trap(struct ureg *ureg)
   bool fixed = true;
   bool rsch = false;
 
+  current->inkernel = true;
+
   if (ureg->type == ABORT_DATA)
     ureg->pc -= 8;
   else
     ureg->pc -= 4;
 
-  current->inkernel = true;
-
-  debug("%i trapped (%i)\n", current->pid, ureg->type);
+  debug("%i trapped (type %i)\n", current->pid, ureg->type);
 	
   switch(ureg->type) {
   case ABORT_INTERRUPT:
+    debug("handle irq\n");
     rsch = irqhandler();
     break;
   case ABORT_INSTRUCTION:
+    debug("%i bad instruction at 0x%h\n", current->pid, ureg->pc);
     break;
   case ABORT_PREFETCH:
+    debug("%i prefetch abort 0x%h\n", current->pid, ureg->pc);
     fixed = fixfault((void *) ureg->pc);
     break;
   case ABORT_DATA:
@@ -204,11 +207,8 @@ trap(struct ureg *ureg)
       break;
     case 0x1: /* alignment */
     case 0x3: /* also alignment */
-      break;
     case 0x2: /* terminal */
-      break;
     case 0x4: /* external linefetch section */
-      break;
     case 0x6: /* external linefetch page */
       break;
     case 0x5: /* section translation */
@@ -217,25 +217,21 @@ trap(struct ureg *ureg)
       fixed = fixfault(addr);
       break;
     case 0x8: /* external non linefetch section */
-      break;
     case 0xa: /* external non linefetch page */
-      break;
     case 0x9: /* domain section */
     case 0xb: /* domain page */
-      break;
     case 0xc: /* external translation l1 */
     case 0xe: /* external translation l2 */
       break;
     case 0xd: /* section permission */
     case 0xf: /* page permission */
-      printf("page permission error for 0x%h\n"
-	     "may need to change page permissions.\n"
-	     "for now just kill\n", addr);
+      printf("%i page permission error for 0x%h\n",
+	     current, addr);
       break;
     }
 
     if (!fixed) {
-      printf("%i tried to access 0x%h\n", current->pid, addr);
+      printf("%i data abort on 0x%h\n", current->pid, addr);
     }
 		
     break;

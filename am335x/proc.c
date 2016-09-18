@@ -39,10 +39,13 @@ forkfunc(struct proc *p, int (*func)(void *), void *arg)
 	for (i = 0; i < 8; i++)
 		p->label.regs[i] = 0;
 	
-	p->label.pc = (uint32_t) &forkfunc_loader;
+	p->label.psr = MODE_SVC;
+
 	p->label.sp = (uint32_t) forkfunc_preloader(
 		(void *) (p->kstack + KSTACK - sizeof(uint32_t)),
 		arg, func);
+
+	p->label.pc = (uint32_t) &forkfunc_loader;
 }
 
 void

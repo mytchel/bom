@@ -19,10 +19,6 @@
 #include <libc.h>
 #include <fs.h>
 
-size_t putc(uint8_t *, size_t);
-size_t getc(uint8_t *, size_t);
-bool uartinit(void);
-
 struct dir_list {
   uint32_t fid;
   struct dir dir;

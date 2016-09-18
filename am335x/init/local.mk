@@ -17,10 +17,10 @@
 #
 
 init_src := \
-	init/main.c init/heap.c init/com.c \
+	init/main.c init/heap.c \
 	init/pipe.c init/fs.c  \
-	init/misc.c init/mount.c \
-	init/mmc/mmc.c \
+	init/com.c init/tmp.c \
+	init/mmc/mmc.c init/mmc/misc.c \
 	../lib/fs.c ../lib/misc.c ../lib/string.c
 
 init_objs := init/syscalls.o $(init_src:%.c=%.o)

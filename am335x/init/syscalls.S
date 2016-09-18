@@ -37,7 +37,7 @@
 .global waitintr
 
 .word 0x0
-	
+
 _start:
 	bl main
 	b exit
@@ -160,4 +160,5 @@ waitintr:
 	add sp, sp, #4
 	pop {pc}
 	
-	
+
+

@@ -70,23 +70,26 @@ _start:
 
 
 setlabel:
-	stmia r0, {r4 - r12, sp, lr}
+	mrs r1, cpsr
+	stmia r0, {r1, r4 - r12, sp, lr}
 	mov r0, #0
 	mov pc, lr
 	
 
 gotolabel:
-	ldmia r0, {r4 - r12, sp, lr}
+	ldmia r0, {r1, r4 - r12, sp, lr}
+	msr cpsr, r1
 	mov r0, #1
 	mov pc, lr
 
 
 disableintr:
-	cpsid if
+	cpsid i
 	bx lr
 
+
 enableintr:
-	cpsie if
+	cpsie i
 	bx lr
 	
 	
@@ -105,11 +108,9 @@ forkfunc_loader:
 	bl schedule
 	
 
-@ user register return
 uregret:
 	mov r0, sp
 	add sp, sp, #(4 * 15)
-	@ r1 is type, can be ignored
 	ldmia sp!, {r1, r2, lr}
 	msr spsr, r2
 	cps #MODE_SYS

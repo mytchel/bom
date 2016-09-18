@@ -35,7 +35,7 @@ struct uart_struct {
 
 static volatile struct uart_struct *uart;
 
-static bool
+bool
 uartinit(void)
 {
   size_t size = UART0_LEN;
@@ -50,7 +50,7 @@ uartinit(void)
 }
 
 static size_t
-getc(uint8_t *s, size_t len)
+gets(uint8_t *s, size_t len)
 {
   size_t i;
 	
@@ -65,7 +65,7 @@ getc(uint8_t *s, size_t len)
 }
 
 static size_t
-putc(uint8_t *s, size_t len)
+puts(uint8_t *s, size_t len)
 {
   size_t i;
 	
@@ -117,7 +117,7 @@ comread(struct request *req, struct response *resp)
   resp->buf = malloc(sizeof(uint8_t) * len);
   resp->lbuf = len;
 
-  getc(resp->buf, len);
+  gets(resp->buf, len);
 }
 
 static void
@@ -132,7 +132,7 @@ comwrite(struct request *req, struct response *resp)
   memmove(&len, buf, sizeof(uint32_t));
   buf += sizeof(uint32_t);
 
-  n = putc(buf, len);
+  n = puts(buf, len);
 
   resp->lbuf = sizeof(uint32_t);
   resp->buf = malloc(sizeof(uint32_t));

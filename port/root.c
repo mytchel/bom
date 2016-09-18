@@ -147,18 +147,6 @@ bwalk(struct request *req, struct response *resp)
 }
 
 static void
-bread(struct request *req, struct response *resp)
-{
-  resp->ret = ENOIMPL;
-}
-
-static void
-bwrite(struct request *req, struct response *resp)
-{
-  resp->ret = ENOIMPL;
-}
-
-static void
 bremove(struct request *req, struct response *resp)
 {
   resp->ret = ENOIMPL;
@@ -242,8 +230,8 @@ static struct fsmount mount = {
   &bopen,
   &bclose,
   &bwalk,
-  &bread,
-  &bwrite,
+  nil,
+  nil,
   &bremove,
   &bcreate
 };

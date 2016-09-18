@@ -57,11 +57,15 @@ int
 __bitfield(uint32_t *src, int start, int len);
 
 static bool
-mmchsintrwait(uint32_t mask)
+mmchswaitintr(uint32_t mask)
 {
   uint32_t v;
 
-  while (waitintr(mmchs->intr) != ERR) {
+  v = mmchs->regs->ie;
+  mmchs->regs->ie = v;
+  mmchs->regs->ie = 0xffffffff;
+
+  while (true) {/*waitintr(mmchs->intr) != ERR) {*/
     while ((v = mmchs->regs->stat) != 0) {
       if (v & MMCHS_SD_STAT_BRR) {
 	handle_brr();
@@ -116,6 +120,8 @@ handle_brr(void)
 {
   size_t i;
   uint32_t v;
+
+  printf("%s brr\n", mmchs->name);
   
   if (mmchs->data == nil) {
     printf("%s->data == nil!\n", mmchs->name);
@@ -146,8 +152,7 @@ mmccmdreset(void)
   mmchs->regs->stat = 0xffffffff;
   mmchs->regs->sysctl |= MMCHS_SD_SYSCTL_SRC;
 
-  while (!(mmchs->regs->sysctl & MMCHS_SD_SYSCTL_SRC) && i > 0)
-    i--;
+  while (!(mmchs->regs->sysctl & MMCHS_SD_SYSCTL_SRC) && i-- > 0);
 
   i = 100;
   while ((mmchs->regs->sysctl & MMCHS_SD_SYSCTL_SRC) && i-- > 0)
@@ -164,9 +169,10 @@ mmchssendrawcmd(uint32_t cmd, uint32_t arg)
   }
 
   mmchs->regs->arg = arg;
+  sleep(0);
   mmchs->regs->cmd = cmd;
 
-  if (!mmchsintrwait(MMCHS_SD_STAT_CC)) {
+  if (!mmchswaitintr(MMCHS_SD_STAT_CC)) {
     mmchs->regs->stat = MMCHS_SD_STAT_CC;
     return false;
   }
@@ -214,16 +220,17 @@ mmchssendcmd(struct mmc_command *c)
   
   if (c->read) {
     cmd |= MMCHS_SD_CMD_DDIR_READ;
-    mmchs->regs->ie |= MMCHS_SD_IE_BRR;
   } else if (c->write) {
     cmd |= MMCHS_SD_CMD_DDIR_WRITE;
-    mmchs->regs->ie |= MMCHS_SD_IE_BWR;
   }
 
+  printf("%s send raw\n", mmchs->name);
   r = mmchssendrawcmd(cmd, c->arg);
+  printf("%s got %i from raw\n", mmchs->name, r);
 
   if (r && (c->read || c->write)) {
-    if (!mmchsintrwait(MMCHS_SD_IE_TC)) {
+  printf("%s wait for transfer\n", mmchs->name);
+    if (!mmchswaitintr(MMCHS_SD_IE_TC)) {
       printf("%s wait for transfer complete failed!\n", mmchs->name);
       return false;
     }
@@ -231,13 +238,6 @@ mmchssendcmd(struct mmc_command *c)
     mmchs->regs->stat = MMCHS_SD_IE_TC;
   }
   
-  if (c->read) {
-    mmchs->regs->ie |= MMCHS_SD_IE_BRR;
-  } else if (c->write) {
-    mmchs->regs->ie |= MMCHS_SD_IE_BWR;
-  }
-
-
   switch (c->resp_type) {
   case RESP_LEN_48:
     c->resp[0] = mmchs->regs->rsp10;
@@ -273,99 +273,45 @@ mmchssendappcmd(struct mmc_command *c)
 }
 
 static bool
-readblock(uint32_t blk, uint8_t *buf)
+mmchssoftreset(void)
 {
-  struct mmc_command cmd;
+  int i = 100;
 
-  cmd.cmd = MMC_READ_BLOCK_SINGLE;
-  cmd.arg = blk;
-  cmd.resp_type = RESP_LEN_48;
-  cmd.read = true;
-  cmd.write = false;
-  cmd.data = buf;
-  cmd.data_len = 512;
+  mmchs->regs->sysconfig |= MMCHS_SD_SYSCONFIG_SOFTRESET;
 
-  return mmchssendcmd(&cmd);
-}
-
-/*
-  static bool
-  writeblock(struct mmchs *mmchs, uint32_t blk, uint32_t *buf)
-  {
-  struct mmc_command cmd;
-
-  cmd.cmd = MMC_WRITE_BLOCK_SINGLE;
-  cmd.resp_type = RESP_LEN_48;
-  cmd.read = false;
-  cmd.write = true;
-  cmd.arg = blk;
-  cmd.data = buf;
-  cmd.data_len = 512;
-
-  return mmchssendcmd(&cmd);
+  while (!(mmchs->regs->sysstatus & MMCHS_SD_SYSSTATUS_RESETDONE)) {
+    sleep(1);
+    if (i-- < 0) {
+      printf("%s: Failed to reset controller!\n", mmchs->name);
+      return false;
+    }
   }
-*/
+
+  return true;
+}
 
 static bool
 mmchsinit(void)
 {
   int i;
 
-  mmchs->regs->sysconfig |= MMCHS_SD_SYSCONFIG_SOFTRESET;
-
-  i = 100;
-  do {
-    sleep(1);
-    i--;
-  } while (i > 0 &&
-	   !(mmchs->regs->sysstatus & MMCHS_SD_SYSSTATUS_RESETDONE));
-
-  if (!i) {
-    printf("%s: Failed to reset controller!\n", mmchs->name);
-    return false;
-  }
-
   /* 1-bit mode */
-  mmchs->regs->hctl &= ~MMCHS_SD_HCTL_DTW;
   mmchs->regs->con &= ~MMCHS_SD_CON_DW8;
 
-  /* Enable 1.8, 3.0 3.3V */
-  mmchs->regs->capa |= MMCHS_SD_CAPA_VS18 |
-    MMCHS_SD_CAPA_VS30 |
-    MMCHS_SD_CAPA_VS33;
-
-  /*
-  mmchs->regs->sysconfig |= MMCHS_SD_SYSCONFIG_AUTOIDLE;
-  mmchs->regs->sysconfig |= MMCHS_SD_SYSCONFIG_ENAWAKEUP;
-  mmchs->regs->sysconfig &= ~MMCHS_SD_SYSCONFIG_SIDLEMODE;
-  mmchs->regs->sysconfig |= MMCHS_SD_SYSCONFIG_SIDLEMODE_IDLE;
-  mmchs->regs->sysconfig &= ~MMCHS_SD_SYSCONFIG_CLOCKACTIVITY;
-  mmchs->regs->sysconfig |= MMCHS_SD_SYSCONFIG_CLOCKACTIVITY_OFF;
-  mmchs->regs->sysconfig &= ~MMCHS_SD_SYSCONFIG_STANDBYMODE;
-  mmchs->regs->sysconfig |= MMCHS_SD_SYSCONFIG_STANDBYMODE_WAKEUP_INTERNAL;
-  */
-  
-  /* wakup on sd interrupt for sdio */
-  mmchs->regs->hctl |= MMCHS_SD_HCTL_IWE;
-  mmchs->regs->hctl |= MMCHS_SD_HCTL_REM;
-  mmchs->regs->hctl |= MMCHS_SD_HCTL_INS;
-
   /* set to 3.0V */
-  mmchs->regs->hctl &= ~MMCHS_SD_HCTL_SDVS;
-  mmchs->regs->hctl |= MMCHS_SD_HCTL_SDVS_VS30;
+  mmchs->regs->hctl = MMCHS_SD_HCTL_SDVS_VS30;
+  mmchs->regs->capa |= MMCHS_SD_CAPA_VS18 | MMCHS_SD_CAPA_VS30;
 
   /* Power on card */
   mmchs->regs->hctl |= MMCHS_SD_HCTL_SDBP;
 
   i = 100;
-  do {
+  while (!(mmchs->regs->hctl & MMCHS_SD_HCTL_SDBP)) {
     sleep(1);
-    i--;
-  } while (i > 0 && !(mmchs->regs->hctl & MMCHS_SD_HCTL_SDBP));
-
-  if (!i) {
-    printf("%s: failed to power on card!\n", mmchs->name);
-    return false;
+    if (i-- < 0) {
+      printf("%s: failed to power on card!\n", mmchs->name);
+      return false;
+    }
   }
 
   /* enable internal clock and clock to card */
@@ -390,39 +336,36 @@ mmchsinit(void)
   }
 
   /* Enable interrupts */
-  mmchs->regs->ie |= MMCHS_SD_IE_CC;
-  mmchs->regs->ie |= MMCHS_SD_IE_TC;
-  mmchs->regs->ie |= MMCHS_SD_IE_CINS;
-  mmchs->regs->ie |= MMCHS_SD_IE_CREM;
-  mmchs->regs->ie |= MMCHS_SD_IE_ERROR_MASK;
+  mmchs->regs->ie =
+    MMCHS_SD_IE_ERROR_MASK |
+    MMCHS_SD_IE_CC | MMCHS_SD_IE_TC |
+    MMCHS_SD_IE_BRR | MMCHS_SD_IE_BWR;
 
-  /* clear stat register */
-  mmchs->regs->stat = 0xffffffff;
+  /* enable send interrupts to intc */
+  mmchs->regs->ise = 0xffffffff;
 
+  return true;
+}
+
+static bool
+mmchsinitstream(void)
+{
   /* send init signal */
   mmchs->regs->con |= MMCHS_SD_CON_INIT;
+
   mmchs->regs->cmd = 0;
-
-  i = 25;
-  do {
-    sleep(1);
-    i--;
-  } while (i > 0 && !(mmchs->regs->stat & MMCHS_SD_STAT_CC));
-
-  if (!i) {
-    printf("%s: mmchs command 0 failed!\n", mmchs->name);
+  if (!mmchswaitintr(MMCHS_SD_STAT_CC)) {
+    printf("%s failed to send CMD0 (1)\n", mmchs->name);
     return false;
   }
 
-  /* clean stat */
-  mmchs->regs->stat = MMCHS_SD_IE_CC;
+  mmchs->regs->stat = MMCHS_SD_STAT_CC;
 
-  /* remove con init */
+  /* remove init */
   mmchs->regs->con &= ~MMCHS_SD_CON_INIT;
- 
-  /* enable send interrupts to intc */
-  mmchs->regs->ise = 0xffffffff;
-  
+
+  mmchs->regs->stat = 0xffffffff;
+
   return true;
 }
 
@@ -469,6 +412,7 @@ static bool
 cardqueryvolttype(void)
 {
   struct mmc_command cmd;
+  int r;
 
   cmd.cmd = SD_APP_OP_COND;
   cmd.resp_type = RESP_LEN_48;
@@ -479,8 +423,10 @@ cardqueryvolttype(void)
     MMC_OCR_3_0V_3_1V | MMC_OCR_2_9V_3_0V | MMC_OCR_2_8V_2_9V |
     MMC_OCR_2_7V_2_8V | MMC_OCR_HCS;
 
-  if (!mmchssendappcmd(&cmd)) {
-    /* mmc cards should fall into here. */
+  r = mmchssendappcmd(&cmd);
+
+  if (!r && (mmchs->regs->stat & MMCHS_SD_STAT_CTO)) {
+    /* eMMC cards here. */
     printf("%s is a mmc card\n", mmchs->name);
     mmccmdreset();
 
@@ -491,7 +437,7 @@ cardqueryvolttype(void)
       }
     }
    
-  } else {
+  } else if (r) {
     /* SD cards here. */
     printf("%s is a sd card\n", mmchs->name);
     while (!(cmd.resp[0] & MMC_OCR_MEM_READY)) {
@@ -499,7 +445,10 @@ cardqueryvolttype(void)
 	return false;
       }
     }
-
+  } else {
+    printf("%s failed to determine card type for voltage query.\n",
+	   mmchs->name);
+    return false;
   }
 
   return true;
@@ -527,7 +476,7 @@ cardidentify(void)
     return false;
   }
 
-  mmchs->rca = SD_R6_RCA(cmd.resp);
+  mmchs->rca = 0;/*SD_R6_RCA(cmd.resp);*/
 
   return true;
 }
@@ -558,6 +507,8 @@ cardcsd(void)
   cmd.arg = MMC_ARG_RCA(mmchs->rca);
 
   if (!mmchssendcmd(&cmd)) {
+    printf("%s csd failed, stat = 0b%b\n",
+	   mmchs->name, mmchs->regs->stat);
     return false;
   }
 
@@ -611,6 +562,40 @@ cardinit(void)
   return true;
 }
 
+static bool
+readblock(uint32_t blk, uint8_t *buf)
+{
+  struct mmc_command cmd;
+
+  cmd.cmd = MMC_READ_BLOCK_SINGLE;
+  cmd.arg = blk;
+  cmd.resp_type = RESP_LEN_48;
+  cmd.read = true;
+  cmd.write = false;
+  cmd.data = buf;
+  cmd.data_len = 512;
+
+  return mmchssendcmd(&cmd);
+}
+
+/*
+  static bool
+  writeblock(struct mmchs *mmchs, uint32_t blk, uint32_t *buf)
+  {
+  struct mmc_command cmd;
+
+  cmd.cmd = MMC_WRITE_BLOCK_SINGLE;
+  cmd.resp_type = RESP_LEN_48;
+  cmd.read = false;
+  cmd.write = true;
+  cmd.arg = blk;
+  cmd.data = buf;
+  cmd.data_len = 512;
+
+  return mmchssendcmd(&cmd);
+  }
+*/
+
 static void
 bopen(struct request *req, struct response *resp)
 {
@@ -628,10 +613,44 @@ bclose(struct request *req, struct response *resp)
 static void
 bread(struct request *req, struct response *resp)
 {
-  printf("%s read\n", mmchs->name);
-  resp->ret = ERR;
+  uint32_t offset, len, blk, nblk, i;
+  uint8_t *buf;
 
-  readblock(0, nil);
+  printf("%s read\n", mmchs->name);
+
+  buf = req->buf;
+  memmove(&offset, buf, sizeof(uint32_t));
+  buf += sizeof(uint32_t);
+  memmove(&len, buf, sizeof(uint32_t));
+
+
+  blk = 1 + offset / 512;
+  nblk = len / 512;
+  if (len % 512 != 0) {
+    nblk++;
+  }
+
+  printf("%s read %i blocks from %i\n", mmchs->name, nblk, blk);
+
+  resp->buf = malloc(nblk * 512);
+  if (resp->buf == nil) {
+    resp->ret = ENOMEM;
+    return;
+  }
+
+  for (i = 0; i < nblk; i++) {
+    printf("%s read %i\n", mmchs->name, blk + i);
+    readblock(blk + i, &resp->buf[i * 512]);
+  }
+
+  if (i == nblk) {
+    /* Use given len so they dont get more than they asked for. */
+    resp->lbuf = len;
+  } else {
+    resp->lbuf = i * 512;
+  }
+  
+  resp->ret = OK;
 }
 
 static void
@@ -641,13 +660,20 @@ bwrite(struct request *req, struct response *resp)
   resp->ret = ENOIMPL;
 }
 
+static void
+bremove(struct request *req, struct response *resp)
+{
+  printf("%s remove, should exit.\n", mmchs->name);
+  resp->ret = ENOIMPL;
+}
+
 static struct fsmount mount = {
   &bopen,
   &bclose,
   nil,
   &bread,
   &bwrite,
-  nil,
+  &bremove,
   nil,
 };
 
@@ -674,28 +700,26 @@ mmchsproc(char *name, void *addr, int intr)
     return -2;
   }
 
+  if (!mmchssoftreset()) {
+    printf("%s failed to reset host!\n", mmchs->name);
+    return -2;
+  }
+  
   if (!mmchsinit()) {
     printf("%s failed to init host!\n", mmchs->name);
     return -2;
   }
 
-  while (!(mmchs->regs->pstate & MMCHS_SD_PSTATE_CSS)) {
-    printf("%s Card state not stable\n", mmchs->name);
-    sleep(10);
+  if (!mmchsinitstream()) {
+    printf("%s failed to init host stream!\n", mmchs->name);
+    return -2;
   }
 
-  if (!(mmchs->regs->pstate & MMCHS_SD_PSTATE_CDP)) {
-    printf("%s no card detected.\n", mmchs->name);
-    return -4;
-  } 
-
-  printf("%s card detected!\n", mmchs->name);
-  
   if (!cardinit()) {
     printf("%s failed to init card!\n", mmchs->name);
     return -3;
   }
-
+  /*
   switch (SD_CSD_CSDVER(mmchs->csd)) {
   case 0:
     mmchs->size = SD_CSD_CAPACITY(mmchs->csd) * 512;
@@ -713,6 +737,8 @@ mmchsproc(char *name, void *addr, int intr)
 
   printf("%s is of size %i Mb\n", mmchs->name,
 	 mmchs->size / 1024 / 1024);
+
+  */
   
   if (pipe(p1) == ERR) {
     return -4;
@@ -729,7 +755,6 @@ mmchsproc(char *name, void *addr, int intr)
     printf("%s failed to create %s.\n", mmchs->name, filename);
     return -6;
   }
-  close(fd);
   
   if (bind(p1[1], p2[0], filename) == ERR) {
     return -7;

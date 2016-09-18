@@ -38,9 +38,8 @@ kmain(void)
   inittimers();
   initwatchdog();
 
-  initroot();
-
   initnullproc();
+  initroot();
   initmainproc();
 
   debug("\nStarting procs\n");
@@ -121,10 +120,7 @@ initmainproc(void)
 int
 nullproc(void *arg)
 {
-  while (true) {
-    schedule();
-  }
-
+  while (true);
   return 0;
 }
 

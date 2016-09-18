@@ -51,8 +51,6 @@ main(void)
     return -1;
   }
 
-  close(f);
-
   f = commount("/dev/com");
   if (f < 0) {
     return -1;
