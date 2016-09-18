@@ -51,6 +51,8 @@ main(void)
     return -1;
   }
 
+  close(f);
+
   f = commount("/dev/com");
   if (f < 0) {
     return -1;
@@ -114,5 +116,7 @@ main(void)
 
   close(fds[1]);
 
+  printf("Init completed. Exiting...\n");
+  
   return 0;
 }

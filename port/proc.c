@@ -114,7 +114,7 @@ void
 initproc(struct proc *p)
 {
   p->dot = nil;
-  p->quanta = 2;
+  p->quanta = 100;
 	
   p->segs[Sstack] = newseg(SEG_rw);
   p->segs[Stext] = newseg(SEG_ro);

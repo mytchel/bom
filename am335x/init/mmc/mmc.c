@@ -138,6 +138,22 @@ handle_brr(void)
   mmchs->data = nil;
 }
 
+static void
+mmccmdreset(void)
+{
+  int i = 100;
+  
+  mmchs->regs->stat = 0xffffffff;
+  mmchs->regs->sysctl |= MMCHS_SD_SYSCTL_SRC;
+
+  while (!(mmchs->regs->sysctl & MMCHS_SD_SYSCTL_SRC) && i > 0)
+    i--;
+
+  i = 100;
+  while ((mmchs->regs->sysctl & MMCHS_SD_SYSCTL_SRC) && i-- > 0)
+    sleep(1);
+}
+
 static bool
 mmchssendrawcmd(uint32_t cmd, uint32_t arg)
 {
@@ -198,27 +214,27 @@ mmchssendcmd(struct mmc_command *c)
   
   if (c->read) {
     cmd |= MMCHS_SD_CMD_DDIR_READ;
-    mmchs->regs->ie |= MMCHS_SD_IE_BRR_ENABLE;
+    mmchs->regs->ie |= MMCHS_SD_IE_BRR;
   } else if (c->write) {
     cmd |= MMCHS_SD_CMD_DDIR_WRITE;
-    mmchs->regs->ie |= MMCHS_SD_IE_BWR_ENABLE;
+    mmchs->regs->ie |= MMCHS_SD_IE_BWR;
   }
 
   r = mmchssendrawcmd(cmd, c->arg);
 
   if (r && (c->read || c->write)) {
-    if (!mmchsintrwait(MMCHS_SD_IE_TC_ENABLE)) {
+    if (!mmchsintrwait(MMCHS_SD_IE_TC)) {
       printf("%s wait for transfer complete failed!\n", mmchs->name);
       return false;
     }
 
-    mmchs->regs->stat = MMCHS_SD_IE_TC_ENABLE;
+    mmchs->regs->stat = MMCHS_SD_IE_TC;
   }
   
   if (c->read) {
-    mmchs->regs->ie |= MMCHS_SD_IE_BRR_ENABLE;
+    mmchs->regs->ie |= MMCHS_SD_IE_BRR;
   } else if (c->write) {
-    mmchs->regs->ie |= MMCHS_SD_IE_BWR_ENABLE;
+    mmchs->regs->ie |= MMCHS_SD_IE_BWR;
   }
 
 
@@ -309,11 +325,16 @@ mmchsinit(void)
     return false;
   }
 
+  /* 1-bit mode */
+  mmchs->regs->hctl &= ~MMCHS_SD_HCTL_DTW;
+  mmchs->regs->con &= ~MMCHS_SD_CON_DW8;
+
   /* Enable 1.8, 3.0 3.3V */
   mmchs->regs->capa |= MMCHS_SD_CAPA_VS18 |
     MMCHS_SD_CAPA_VS30 |
     MMCHS_SD_CAPA_VS33;
 
+  /*
   mmchs->regs->sysconfig |= MMCHS_SD_SYSCONFIG_AUTOIDLE;
   mmchs->regs->sysconfig |= MMCHS_SD_SYSCONFIG_ENAWAKEUP;
   mmchs->regs->sysconfig &= ~MMCHS_SD_SYSCONFIG_SIDLEMODE;
@@ -322,13 +343,12 @@ mmchsinit(void)
   mmchs->regs->sysconfig |= MMCHS_SD_SYSCONFIG_CLOCKACTIVITY_OFF;
   mmchs->regs->sysconfig &= ~MMCHS_SD_SYSCONFIG_STANDBYMODE;
   mmchs->regs->sysconfig |= MMCHS_SD_SYSCONFIG_STANDBYMODE_WAKEUP_INTERNAL;
-
+  */
+  
   /* wakup on sd interrupt for sdio */
   mmchs->regs->hctl |= MMCHS_SD_HCTL_IWE;
-
-  /* change to 1 bit mode */ 
-  mmchs->regs->con &= ~MMCHS_SD_CON_DW8;
-  mmchs->regs->hctl &= ~MMCHS_SD_HCTL_DTW;
+  mmchs->regs->hctl |= MMCHS_SD_HCTL_REM;
+  mmchs->regs->hctl |= MMCHS_SD_HCTL_INS;
 
   /* set to 3.0V */
   mmchs->regs->hctl &= ~MMCHS_SD_HCTL_SDVS;
@@ -370,8 +390,10 @@ mmchsinit(void)
   }
 
   /* Enable interrupts */
-  mmchs->regs->ie |= MMCHS_SD_IE_CC_ENABLE;
-  mmchs->regs->ie |= MMCHS_SD_IE_TC_ENABLE;
+  mmchs->regs->ie |= MMCHS_SD_IE_CC;
+  mmchs->regs->ie |= MMCHS_SD_IE_TC;
+  mmchs->regs->ie |= MMCHS_SD_IE_CINS;
+  mmchs->regs->ie |= MMCHS_SD_IE_CREM;
   mmchs->regs->ie |= MMCHS_SD_IE_ERROR_MASK;
 
   /* clear stat register */
@@ -393,7 +415,7 @@ mmchsinit(void)
   }
 
   /* clean stat */
-  mmchs->regs->stat = MMCHS_SD_IE_CC_ENABLE;
+  mmchs->regs->stat = MMCHS_SD_IE_CC;
 
   /* remove con init */
   mmchs->regs->con &= ~MMCHS_SD_CON_INIT;
@@ -459,14 +481,9 @@ cardqueryvolttype(void)
 
   if (!mmchssendappcmd(&cmd)) {
     /* mmc cards should fall into here. */
-    printf("%s is a mmc card, do reset\n", mmchs->name);
-    mmchs->regs->stat = 0xffffffff; /* clear stat */
-    mmchs->regs->sysctl |= MMCHS_SD_SYSCTL_SRC;
-    do {
-      sleep(1);
-    } while (mmchs->regs->sysctl & MMCHS_SD_SYSCTL_SRC);
+    printf("%s is a mmc card\n", mmchs->name);
+    mmccmdreset();
 
-    printf("%s send_op_cond\n", mmchs->name);
     cmd.cmd = MMC_SEND_OP_COND;
     while (!(cmd.resp[0] & MMC_OCR_MEM_READY)) {
       if (!mmchssendcmd(&cmd)) {
@@ -560,20 +577,11 @@ cardinit(void)
     return false;
   }
 
-  if (cardidentification()) {
-    printf("%s is sd 2.0\n", mmchs->name);
-  } else {
-    printf("%s possibly mmc card!\n", mmchs->name);
-    mmchs->regs->stat = 0xffffffff; /* clear stat */
+  if (!cardidentification()) {
+    printf("%s failed to do card identification\n", mmchs->name);
+    printf("%s cmd reset\n", mmchs->name);
+    mmccmdreset();
   }
-
-  mmchs->regs->sysctl |= MMCHS_SD_SYSCTL_SRC;
-  printf("%s wait for reset to end\n", mmchs->name);
-  do {
-    sleep(1);
-  } while (mmchs->regs->sysctl & MMCHS_SD_SYSCTL_SRC);
-
-  printf("%s ready to move on\n", mmchs->name);
 
   if (!cardqueryvolttype()) {
     printf("%s failed to query voltage and type!\n", mmchs->name);
@@ -671,6 +679,18 @@ mmchsproc(char *name, void *addr, int intr)
     return -2;
   }
 
+  while (!(mmchs->regs->pstate & MMCHS_SD_PSTATE_CSS)) {
+    printf("%s Card state not stable\n", mmchs->name);
+    sleep(10);
+  }
+
+  if (!(mmchs->regs->pstate & MMCHS_SD_PSTATE_CDP)) {
+    printf("%s no card detected.\n", mmchs->name);
+    return -4;
+  } 
+
+  printf("%s card detected!\n", mmchs->name);
+  
   if (!cardinit()) {
     printf("%s failed to init card!\n", mmchs->name);
     return -3;

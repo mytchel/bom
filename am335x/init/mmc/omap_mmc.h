@@ -133,6 +133,8 @@ struct mmchs {
 #define MMCHS_SD_CMD_DE_EN                (0x1 << 0)  /* Enable DMA  */
 #define MMCHS_SD_CMD_MASK  				   ~(0x1 << 30  | 0x1 << 31 | 0x1 << 18 | 0x1 <<3) /* bits 30 , 31 and 18 are reserved */
 
+#define MMCHS_SD_PSTATE_CDP          (0x1 << 18) /* Card detect pin */
+#define MMCHS_SD_PSTATE_CSS          (0x1 << 17) /* Card state stable */
 #define MMCHS_SD_PSTATE_CI           (0x1 << 16) /* Card Inserted */
 #define MMCHS_SD_PSTATE_CI_INSERTED  (0x1 << 16) /* Card Inserted  is inserted*/
 #define MMCHS_SD_PSTATE_BRE          (0x1 << 11) /* Buffer read enable */
@@ -153,6 +155,8 @@ struct mmchs {
 #define MMCHS_SD_HCTL_SDVS_VS30      (0x6 << 9) /*3.0 V */
 #define MMCHS_SD_HCTL_SDVS_VS33      (0x7 << 9) /*3.3 V */
 #define MMCHS_SD_HCTL_IWE            (0x1 << 24)/* wake-up event on SD interrupt */
+#define MMCHS_SD_HCTL_REM            (0x1 << 26)/* wake-up event on SD removal */
+#define MMCHS_SD_HCTL_INS            (0x1 << 25)/* wake-up event on SD insersion */
 
 #define MMCHS_SD_SYSCTL_CLKD (0x3ff << 6)  /* 10 bits clock frequency select */
 #define MMCHS_SD_SYSCTL_SRD  (0x1   << 26)  /* Soft reset for mmc_dat line */
@@ -183,6 +187,7 @@ struct mmchs {
 #define MMCHS_SD_STAT_CTO             (0x1 << 16) /* command timeout error */
 #define MMCHS_SD_STAT_ERRI            (0x01 << 15) /* Error interrupt */
 #define MMCHS_SD_STAT_ERROR_MASK      (0xff << 15 | 0x3 << 24 | 0x03 << 28)
+#define MMCHS_SD_STAT_CINS            (0x1 << 6) /* Card inserted */
 #define MMCHS_SD_STAT_BRR             (0x1 << 5) /* Buffer Read ready */
 #define MMCHS_SD_STAT_BWR             (0x1 << 4) /* Buffer Write ready */
 #define MMCHS_SD_STAT_CC              (0x1 << 0) /* Command complete status */
@@ -192,25 +197,14 @@ struct mmchs {
 #define MMCHS_SD_STAT_TC_UNRAISED     (0x0 << 1) /* Transfer not completed */
 #define MMCHS_SD_STAT_TC_RAISED       (0x1 << 1) /* Transfer completed */
 
-#define MMCHS_SD_IE_ERROR_MASK     (0xff << 15 | 0x3 << 24 | 0x03 << 28)
+#define MMCHS_SD_IE_ERROR_MASK        (0xff << 15 | 0x3 << 24 | 0x03 << 28)
 
-#define MMCHS_SD_IE_CC_ENABLE        (0x1 << 0) /* Command complete interrupt enable */
-#define MMCHS_SD_IE_CC_ENABLE_ENABLE (0x1 << 0) /* Command complete Interrupts are enabled */
-#define MMCHS_SD_IE_CC_ENABLE_CLEAR  (0x1 << 0) /* Clearing is done by writing a 0x1 */
-
-#define MMCHS_SD_IE_TC_ENABLE        (0x1 << 1) /* Transfer complete interrupt enable */
-#define MMCHS_SD_IE_TC_ENABLE_ENABLE (0x1 << 1) /* Transfer complete Interrupts are enabled */
-#define MMCHS_SD_IE_TC_ENABLE_CLEAR  (0x1 << 1) /* Clearing TC is done by writing a 0x1 */
-
-#define MMCHS_SD_IE_BRR_ENABLE         (0x1 << 5) /* Buffer read ready interrupt  */
-#define MMCHS_SD_IE_BRR_ENABLE_DISABLE (0x0 << 5) /* Buffer read ready interrupt disable */
-#define MMCHS_SD_IE_BRR_ENABLE_ENABLE  (0x1 << 5) /* Buffer read ready interrupt enable */
-#define MMCHS_SD_IE_BRR_ENABLE_CLEAR   (0x1 << 5) /* Buffer read ready interrupt clear */
-
-#define MMCHS_SD_IE_BWR_ENABLE         (0x1 << 4) /* Buffer write ready interrupt  */
-#define MMCHS_SD_IE_BWR_ENABLE_DISABLE (0x0 << 4) /* Buffer write ready interrupt disable */
-#define MMCHS_SD_IE_BWR_ENABLE_ENABLE  (0x1 << 4) /* Buffer write ready interrupt enable */
-#define MMCHS_SD_IE_BWR_ENABLE_CLEAR   (0x1 << 4) /* Buffer write ready interrupt clear */
+#define MMCHS_SD_IE_CC                (0x1 << 0) /* Command complete interrupt enable */
+#define MMCHS_SD_IE_TC                (0x1 << 1) /* Transfer complete interrupt enable */
+#define MMCHS_SD_IE_BRR               (0x1 << 5) /* Buffer read ready interrupt  */
+#define MMCHS_SD_IE_BWR               (0x1 << 4) /* Buffer write ready interrupt  */
+#define MMCHS_SD_IE_CINS              (0x1 << 6) /* Buffer write ready interrupt  */
+#define MMCHS_SD_IE_CREM              (0x1 << 7) /* Buffer write ready interrupt  */
 
 #define MMCHS_SD_CAPA_VS_MASK (0x7 << 24 )  /* voltage mask */
 #define MMCHS_SD_CAPA_VS18 (0x01 << 26 )  /* 1.8 volt */

@@ -140,7 +140,7 @@ droptouser:
 	mov r10, #0
 	mov r11, #0
 	mov r12, #0
-	movs pc, #0
+	movs pc, #4
 
 
 fsrstatus:
