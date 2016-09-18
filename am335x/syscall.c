@@ -24,16 +24,25 @@ syscall(struct ureg *ureg)
 {
   unsigned int sysnum;
 
+  current->inkernel = true;
+
   sysnum = (unsigned int) ureg->regs[0];
 
   current->ureg = ureg;
 
-  enableintr();
+  debug("%i syscalled %i\n", current->pid, sysnum);
+
+  /*  enableintr();
+   */
   
   if (sysnum < NSYSCALLS) {
     ureg->regs[0] = syscalltable[sysnum]((va_list) ureg->sp);
   } else {
     ureg->regs[0] = -1;
   }
+
+  debug("%i out of syscall\n", current->pid);
+
+  current->inkernel = false;
 }
 

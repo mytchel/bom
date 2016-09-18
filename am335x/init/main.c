@@ -29,8 +29,11 @@ ppipe1(int fd);
 int
 pfile_open(void);
 
-bool
-commount(void);
+int
+commount(char *path);
+
+int
+tmpmount(char *path);
 
 int
 mmc(void);
@@ -41,110 +44,75 @@ int stdin, stdout, stderr;
 int
 main(void)
 {
-  int f;
-  int p1[2], p2[2];
-  int fds[2];
+  int f, fds[2];
 
-  if (!commount()) {
-    return -1;
-  }
-  
-  if (pipe(p1) == ERR) {
-    return -4;
-  } else if (pipe(p2) == ERR) {
-    return -5;
-  }
-
-  f = open("/tmp", O_WRONLY|O_CREATE, ATTR_wr|ATTR_rd|ATTR_dir);
-  if (f < 0) {
-    return -3;
-  }
-
-  if (bind(p1[1], p2[0], "/tmp") == ERR) {
-    return -6;
-  }
-	
-  close(p1[1]);
-  close(p2[0]);
-
-  f = fork(FORK_sngroup);
+  f = open("/dev", O_WRONLY|O_CREATE, ATTR_wr|ATTR_rd|ATTR_dir);
   if (f < 0) {
     return -1;
-  } else if (!f) {
-    return fsmountloop(p1[0], p2[1], &fsmount);
   }
-	
-  close(p1[0]);
-  close(p2[1]);
-	
+
+  f = commount("/dev/com");
+  if (f < 0) {
+    return -1;
+  }
+
   stdin = open("/dev/com", O_RDONLY);
   stdout = open("/dev/com", O_WRONLY);
   stderr = open("/dev/com", O_WRONLY);
 
-  if (stdin < 0) return -1;
-  if (stdout < 0) return -2;
+  if (stdin < 0) return -2;
+  if (stdout < 0) return -3;
   if (stderr < 0) return -3;
-	
-  printf("/ mount proc is pid %i\n", f);
-	
-  f = fork(FORK_sngroup);
+
+  printf("/dev/com mounted pid %i\n", f);
+
+  f = tmpmount("/tmp");
+  if (f < 0) {
+    return -1;
+  }
+
+  printf("/tmp mounted on pid %i\n", f);
+  
+   f = fork(FORK_sngroup);
   if (f < 0) {
     return -6;
   } else if (!f) {
-    printf("forked to %i\n", getpid());
+    printf("mmc on %i\n", getpid());
     return mmc();
   }
 
-  sleep(100);
-
-  printf("pfile_open\n");
   f = fork(FORK_sngroup);
   if (f < 0) {
     return -2;
   } else if (!f) {
-    printf("forked to %i\n", getpid());
+    printf("pfile_open on %i\n", getpid());
     return pfile_open();
   }
 
-  sleep(100);
-
-  printf("make pipe\n");
   if (pipe(fds) == ERR) {
     return -3;
   }
 	
-  printf("pipe made fds = [%i, %i]\n", fds[0], fds[1]);
-
-  printf("ppipe0\n");
   f = fork(FORK_sngroup);
   if (f < 0) {
     return -4;
   } else if (!f) {
-    printf("forked to %i\n", getpid());
+    printf("ppipe0 on %i\n", getpid());
     close(fds[1]);
     return ppipe0(fds[0]);
   }
 	
   close(fds[0]);
 	
-  sleep(100);
-
-  printf("ppipe1\n");
   f = fork(FORK_sngroup);
   if (f < 0) {
     return -5;
   } else if (!f) {
-    printf("forked to %i\n", getpid());
+    printf("ppipe1 on %i\n", getpid());
     return ppipe1(fds[1]);
   }
 
-  printf("close\n");
-		
   close(fds[1]);
-
-  printf("pipe test done\n");
-	
-  sleep(100);
 
   return 0;
 }

@@ -25,7 +25,7 @@ ppipe0(int fd)
 	
 	printf("%i: ppipe0 started with fd %i\n", pid, fd);
 	while (true) {
-		sleep(100);
+		sleep(0);
 		printf("%i: wait for write\n", pid);
 		n = read(fd, (void *) &i, sizeof(int));
 		if (n != sizeof(int)) {
@@ -33,7 +33,7 @@ ppipe0(int fd)
 			break;
 		}
 		
-		sleep(100);
+		sleep(0);
 		printf("%i: read %i\n", pid, i);
 	}
 	
@@ -49,7 +49,7 @@ ppipe1(int fd)
 	printf("%i: ppipe1 started with fd %i\n", pid, fd);
 	
 	for (i = 0; i < 10; i++) {
-		sleep(400);
+		sleep(0);
 		printf("%i: writing %i\n", pid, i);
 
 		n = write(fd, (void *) &i, sizeof(int));

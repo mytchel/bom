@@ -37,9 +37,8 @@
 .global waitintr
 
 _start:
-	ldr lr, =exit
 	bl main
-	bl exit
+	b exit
 
 exit:
 	push {r0}

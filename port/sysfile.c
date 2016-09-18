@@ -23,7 +23,7 @@ read(int fd, void *buf, size_t len)
 {
   struct chan *c;
   int r;
-	
+
   c = fdtochan(current->fgroup, fd);
   if (c == nil) {
     return ERR;
@@ -32,10 +32,9 @@ read(int fd, void *buf, size_t len)
   } else if (len == 0) {
     return ERR;
   }
-		
+
   lock(&c->lock);
-  r = chantypes[c->type]->read(c, (uint8_t *) kaddr(current, buf),
-			       len);
+  r = chantypes[c->type]->read(c, buf, len);
   unlock(&c->lock);
 	
   return r;
@@ -52,7 +51,7 @@ sysread(va_list args)
   buf = va_arg(args, void *);
   len = va_arg(args, size_t);
 
-  return read(fd, buf, len);
+  return read(fd, (uint8_t *) kaddr(current, buf), len);
 }
 
 int
@@ -71,8 +70,7 @@ write(int fd, void *buf, size_t len)
   }
 	
   lock(&c->lock);
-  r = chantypes[c->type]->write(c, (uint8_t *) kaddr(current, buf),
-				len);
+  r = chantypes[c->type]->write(c, buf, len);
   unlock(&c->lock);
 	
   return r;
@@ -89,7 +87,7 @@ syswrite(va_list args)
   buf = va_arg(args, void *);
   len = va_arg(args, size_t);
 
-  return write(fd, buf, len);
+  return write(fd, kaddr(current, buf), len);
 }
 
 reg_t
@@ -100,18 +98,24 @@ sysclose(va_list args)
 	
   fd = va_arg(args, int);
 
+  debug("Close %i\n", fd);
+
   c = fdtochan(current->fgroup, fd);
   if (c == nil) {
     return ERR;
   }
-	
+
+  debug("close got chan from fd %i\n", fd);
+
   /* Remove fd. */
   lock(&current->fgroup->lock);
   current->fgroup->chans[fd] = nil;
   unlock(&current->fgroup->lock);
-	
-  freechan(c);	
-	
+
+  debug("removed %i from fgroup\n", fd);
+  freechan(c);
+  debug("chan freed\n");
+  
   return OK;
 }
 
@@ -147,6 +151,12 @@ sysbind(va_list args)
 
   path = realpath(current->dot, (uint8_t *) upath);
 
+#if DEBUG == 1
+  char *str = (char *) pathtostr(path, nil);
+  printf("Binding %i to '%s'\n", current->pid, upath);
+  free(str);
+#endif
+  
   bl = malloc(sizeof(struct binding_list));
   if (bl == nil) {
     freepath(path);

@@ -136,6 +136,8 @@ irqhandler(void)
   r = false;
   irq = readl(INTC + INTC_SIR_IRQ);
 
+  debug("irq: %i\n", irq);
+
   if (handlers[irq]) {
     /* Kernel handler */
     r = handlers[irq](irq);
@@ -176,6 +178,10 @@ trap(struct ureg *ureg)
     ureg->pc -= 8;
   else
     ureg->pc -= 4;
+
+  current->inkernel = true;
+
+  debug("%i trapped (%i)\n", current->pid, ureg->type);
 	
   switch(ureg->type) {
   case ABORT_INTERRUPT:
@@ -190,6 +196,8 @@ trap(struct ureg *ureg)
     addr = faultaddr();
     fsr = fsrstatus() & 0xf;
     fixed = false;
+
+    debug("%i data abort 0x%h\n", current->pid, addr);
 
     switch (fsr) {
     case 0x0: /* vector */
@@ -225,6 +233,10 @@ trap(struct ureg *ureg)
 	     "for now just kill\n", addr);
       break;
     }
+
+    if (!fixed) {
+      printf("%i tried to access 0x%h\n", current->pid, addr);
+    }
 		
     break;
   }
@@ -239,4 +251,6 @@ trap(struct ureg *ureg)
 	
   if (rsch)
     schedule();
+
+  current->inkernel = false;
 }

@@ -22,15 +22,15 @@ reg_t
 sysexit(va_list args)
 {
   int code = va_arg(args, int);
-	
-  printf("pid %i exited with status %i\n", 
+
+  debug("pid %i exited with status %i\n", 
 	 current->pid, code);
 
   procremove(current);
   schedule();
 	
   /* Never reached. */
-  return ERR;
+  return code; /*ERR;*/
 }
 
 reg_t
@@ -246,7 +246,7 @@ sysgetmem(va_list args)
   addr = va_arg(args, void *);
   size = va_arg(args, size_t *);
 
-  printf("getmem 0x%h, %i\n", addr, *size);
+  debug("getmem 0x%h, %i\n", addr, *size);
   
   if (*size > MAX_MEM_SIZE) {
     return nil;
@@ -270,7 +270,10 @@ sysgetmem(va_list args)
     return nil;
   }
 
-  return (reg_t) insertpages(pages, addr, *size);
+  addr = insertpages(pages, addr, *size);
+
+  debug("getmem success, put %i bytes at 0x%h\n", *size, addr);
+  return (reg_t) addr;
 }
 
 reg_t
@@ -283,7 +286,7 @@ sysrmmem(va_list args)
   addr = va_arg(args, void *);
   size = va_arg(args, size_t);
 	
-  printf("Should unmap 0x%h of len %i from %i\n", addr, size, current->pid);
+  debug("Should unmap 0x%h of len %i from %i\n", addr, size, current->pid);
 	
   pp = nil;
   p = current->segs[Sheap]->pages; 
@@ -318,13 +321,15 @@ syswaitintr(va_list args)
   irqn = va_arg(args, int);
 
   disableintr();
-  
+
   if (procwaitintr(current, irqn)) {
+    debug("%i waiting for irq %i\n", current->pid, irqn);
     procwait(current);
     /* schedule enables interrupts */
     schedule();
     return OK;
   } else {
+    debug("%i wait for irq %i failed\n", current->pid, irqn);
     enableintr();
     return ERR;
   }

@@ -21,6 +21,12 @@
 #include <fs.h>
 #include <string.h>
 
+#if DEBUG == 1
+#define debug(...)  printf(__VA_ARGS__)
+#else
+#define debug(...) {}
+#endif
+
 struct page {
   void *pa, *va;
   size_t size;
@@ -108,7 +114,8 @@ struct proc {
   uint8_t kstack[KSTACK];
 
   struct ureg *ureg;
-	
+
+  bool inkernel;
   int state;
   int pid;
   struct proc *parent;
@@ -283,15 +290,6 @@ fileopen(struct path *, uint32_t, uint32_t, int *);
 
 int
 fileremove(struct path *);
-
-int
-fileread(struct chan *, uint8_t *, size_t);
-
-int
-filewrite(struct chan *, uint8_t *, size_t);
-
-int
-fileclose(struct chan *);
 
 /* Debug */
 

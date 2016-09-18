@@ -19,6 +19,16 @@
 #ifndef _FS_H_
 #define _FS_H_
 
+#define FS_MAX_BUF_LEN  (1024*1024)
+#define FS_MAX_NAME_LEN 255
+
+#define ATTR_rd		(1<<0)
+#define ATTR_wr		(1<<1)
+#define ATTR_dir	(1<<2)
+
+#define ROOTFID		0 /* Of any binding. */
+#define ROOTATTR	(ATTR_wr|ATTR_rd|ATTR_dir) /* Of / */
+
 enum {
 	REQ_open, REQ_close,
 	REQ_read, REQ_write,
@@ -89,14 +99,6 @@ struct response {
  * ret is an error or OK.
  */
 
-
-#define ATTR_rd		(1<<0)
-#define ATTR_wr		(1<<1)
-#define ATTR_dir	(1<<2)
-
-#define ROOTFID		0 /* Of any binding. */
-#define ROOTATTR	(ATTR_rd|ATTR_dir) /* Of / */
-
 struct file {
 	uint32_t fid;
 	uint32_t attr;
@@ -111,10 +113,9 @@ struct dir {
 };
 
 uint8_t *
-dirtowalkresponse(struct dir *, uint32_t *);
-
+dirtowalkresponse(struct dir *dir, uint32_t *size);
 struct dir *
-walkresponsetodir(uint8_t *, uint32_t);
+walkresponsetodir(uint8_t *buf, uint32_t len);
 
 struct fsmount {
   void (*open)(struct request *, struct response *);
@@ -128,5 +129,7 @@ struct fsmount {
 
 int
 fsmountloop(int, int, struct fsmount *);
+
+extern bool debugfs;
 
 #endif

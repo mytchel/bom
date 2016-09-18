@@ -19,7 +19,7 @@
 #ifndef _TYPES_H_
 #define _TYPES_H_
 
-#ifdef am335x
+#ifdef _AM335X_
 #include <types_am335x.h>
 #else
 #error Need to set arch to get types

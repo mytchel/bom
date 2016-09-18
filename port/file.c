@@ -84,16 +84,19 @@ filewalk(struct path *path, struct file *parent, struct file *file, int *err)
   struct file *f;
   size_t depth;
 	
-  req.type = REQ_walk;
-  req.lbuf = 0;
-  req.fid = ROOTFID;
-	
   b = findbinding(current->ngroup, path, 0);
   if (b == nil) {
     *err = ENOFILE;
     return nil;
   }
-	
+
+  req.type = REQ_walk;
+  req.lbuf = 0;
+  req.fid = b->rootfid;
+
+  parent->attr = ATTR_wr|ATTR_rd|ATTR_dir;
+  parent->fid = b->rootfid;
+ 	
   bp = nil;
   p = path;
   depth = 0;
@@ -114,7 +117,7 @@ filewalk(struct path *path, struct file *parent, struct file *file, int *err)
       *err = ELINK;
       return nil;
     }
-		
+
     dir = walkresponsetodir(resp->buf, resp->lbuf);
     if (dir == nil) {
       *err = ELINK;
@@ -149,12 +152,7 @@ filewalk(struct path *path, struct file *parent, struct file *file, int *err)
     if (*err != OK) {
       return b;
     }
-		
-    p = p->next;
 
-    if (p == nil)
-      break;
-		
     bp = b;
     b = findbinding(current->ngroup, path, ++depth);
     if (b == nil) {
@@ -164,7 +162,14 @@ filewalk(struct path *path, struct file *parent, struct file *file, int *err)
       /* If we havent encountered this binding yet then it is the
        * root of the binding. */
       req.fid = b->rootfid;
+      if (p->next && p->next->next == nil) {
+	parent->fid = b->rootfid;
+      } else if (p->next == nil) {
+	file->fid = b->rootfid;
+      }
     }
+
+    p = p->next;
   }
 	
   return b;
@@ -193,7 +198,7 @@ filecreate(struct binding *b, uint32_t pfid, uint8_t *name,
   memmove(buf, &nlen, sizeof(uint32_t));
   buf += sizeof(uint32_t);
   memmove(buf, name, sizeof(uint8_t) * nlen);
-	
+
   resp = makereq(b, &req);
   if (resp == nil) {
     *err = ELINK;
@@ -240,7 +245,7 @@ fileopen(struct path *path, uint32_t mode, uint32_t cmode, int *err)
       if (p == nil) {
 	return nil;
       }
-			
+
       req.fid = filecreate(b, parent.fid, p->s, cmode, err);
       attr = cmode;
       if (*err != OK) {
@@ -327,7 +332,7 @@ fileremove(struct path *path)
   return err;
 }
 
-int
+static int
 fileread(struct chan *c, uint8_t *buf, size_t n)
 {
   struct request req;
@@ -387,7 +392,7 @@ fileread(struct chan *c, uint8_t *buf, size_t n)
   return err;
 }
 
-int
+static int
 filewrite(struct chan *c, uint8_t *buf, size_t n)
 {
   struct request req;
@@ -402,6 +407,10 @@ filewrite(struct chan *c, uint8_t *buf, size_t n)
   req.fid = cfile->fid;
   req.lbuf = sizeof(uint32_t) * 2 + sizeof(uint8_t) * n;
   req.buf = b = malloc(req.lbuf);
+
+  if (req.buf == nil) {
+    return ENOMEM;
+  }
 	
   memmove(b, &cfile->offset, sizeof(uint32_t));
   b += sizeof(uint32_t);
@@ -411,6 +420,7 @@ filewrite(struct chan *c, uint8_t *buf, size_t n)
   memmove(b, buf, sizeof(uint8_t) * n);
 
   resp = makereq(cfile->binding, &req);
+
   free(req.buf);
 	
   if (resp == nil) {
@@ -428,17 +438,18 @@ filewrite(struct chan *c, uint8_t *buf, size_t n)
   if (resp->lbuf > 0)
     free(resp->buf);
   free(resp);
+
   return err;
 }
 
-int
+static int
 fileclose(struct chan *c)
 {
   struct cfile *cfile;
   struct request req;
   struct response *resp;
   int err;
-	
+
   cfile = (struct cfile *) c->aux;
 
   req.type = REQ_close;
@@ -449,7 +460,7 @@ fileclose(struct chan *c)
   if (resp == nil) {
     return ELINK;
   }
-	
+
   err = resp->ret;
   if (resp->lbuf > 0)
     free(resp->buf);

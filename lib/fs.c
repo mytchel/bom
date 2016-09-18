@@ -19,97 +19,95 @@
 #include <libc.h>
 #include <fs.h>
 
+bool debugfs = false;
+
 struct dir *
 walkresponsetodir(uint8_t *buf, uint32_t len)
 {
-	struct dir *d;
-	int fi, i = 0;
+  struct dir *d;
+  int fi, i = 0;
 	
-	if (len < sizeof(struct dir))
-		return nil;
+  if (len < sizeof(uint32_t))
+    return nil;
 
-	d = (struct dir *) buf;
-	i += sizeof(struct dir);
+  d = (struct dir *) buf;
+  i += sizeof(struct dir);
 	
-	if (d->nfiles == 0)
-		return d;
+  if (d->nfiles == 0)
+    return d;
 
-	if (i >= len) return nil;
-	d->files = (struct file **) &buf[i];
-	i += sizeof(struct file *) * d->nfiles; 
+  if (i >= len) return nil;
+  d->files = (struct file **) &buf[i];
+  i += sizeof(struct file *) * d->nfiles; 
 
-	for (fi = 0; fi < d->nfiles; fi++) {
-		if (i % sizeof(void *) > 0)
-			i += i % sizeof(void *);
+  for (fi = 0; fi < d->nfiles; fi++) {
+    if (i % sizeof(void *) > 0)
+      i += sizeof(void *) - (i % sizeof(void *));
 		
-		if (i >= len) return nil;
-		d->files[fi] = (struct file *) &buf[i];
-		i += sizeof(struct file);
+    if (i >= len) return nil;
+    d->files[fi] = (struct file *) &buf[i];
+    i += sizeof(struct file);
 
-		if (i >= len) return nil;
-		d->files[fi]->name = &buf[i];
-		i += sizeof(uint8_t) * d->files[fi]->lname;
-	}
+    if (i >= len) return nil;
+    d->files[fi]->name = &buf[i];
+    i += sizeof(uint8_t) * d->files[fi]->lname;
+  }
 	
-	return d;
+  return d;
 }
 
 uint8_t *
 dirtowalkresponse(struct dir *dir, uint32_t *size)
 {
-	uint8_t *buf;
-	struct file *f;
-	uint32_t i, fi;
+  uint8_t *buf;
+  struct file *f;
+  uint32_t i, fi;
 	
-	i = sizeof(struct dir);
-	i += sizeof(struct file *) * dir->nfiles;
-	for (fi = 0; fi < dir->nfiles; fi++) {
-		if (i % sizeof(void *) > 0)
-			i += i % sizeof(void *);
+  i = sizeof(struct dir);
+  i += sizeof(struct file *) * dir->nfiles;
+  for (fi = 0; fi < dir->nfiles; fi++) {
+    if (i % sizeof(void *) > 0)
+      i += sizeof(void *) - (i % sizeof(void *));
 		
-		i += sizeof(struct file);
-		i += sizeof(uint8_t) * dir->files[fi]->lname;
-	}
+    i += sizeof(struct file);
+    i += sizeof(uint8_t) * dir->files[fi]->lname;
+  }
 	
-	*size = i;
+  *size = i;
 
-	buf = malloc(i);
-	if (buf == nil) {
-		*size = 0;
-		return nil;
-	}
+  buf = malloc(i);
+  if (buf == nil) {
+    *size = 0;
+    return nil;
+  }
 	
-	i = 0;
-	memmove(&buf[i], (const void *) dir, sizeof(struct dir));
-	i += sizeof(struct dir);
-	i += sizeof(struct file *) * dir->nfiles;
+  i = 0;
+  memmove(&buf[i], (const void *) dir, sizeof(struct dir));
+  i += sizeof(struct dir);
+  i += sizeof(struct file *) * dir->nfiles;
 	
-	for (fi = 0; fi < dir->nfiles; fi++) {
-		if (i % sizeof(void *) > 0)
-			i += i % sizeof(void *);
+  for (fi = 0; fi < dir->nfiles; fi++) {
+    if (i % sizeof(void *) > 0)
+      i += sizeof(void *) - (i % sizeof(void *));
 		
-		f = dir->files[fi];
+    f = dir->files[fi];
 		
-		memmove(&buf[i], (const void *) f, sizeof(struct file));
-		i += sizeof(struct file);
-		memmove(&buf[i], (const void *) f->name, sizeof(uint8_t) * f->lname);
-		i += sizeof(uint8_t) * f->lname;
-	}
+    memmove(&buf[i], (const void *) f, sizeof(struct file));
+    i += sizeof(struct file);
+    memmove(&buf[i], (const void *) f->name, sizeof(uint8_t) * f->lname);
+    i += sizeof(uint8_t) * f->lname;
+  }
 	
-	return buf;
+  return buf;
 }
 
 int
 fsmountloop(int in, int out, struct fsmount *mount)
 {
-  uint8_t *buf;
-  size_t bufsize, reqsize, respsize;
+  uint8_t buf[1024];/*FS_MAX_BUF_LEN];*/
+  size_t reqsize, respsize;
   struct request req;
   struct response resp;
-
-  bufsize = 1024;
-
-  buf = malloc(sizeof(uint8_t) * bufsize);
 
   reqsize = sizeof(req.rid)
     + sizeof(req.type)
@@ -121,48 +119,65 @@ fsmountloop(int in, int out, struct fsmount *mount)
     + sizeof(resp.lbuf);
   
   req.buf = buf;
-	
+
+  if (debugfs)
+    printf("fs start mount loop.\n");
+
   while (true) {
+    if (debugfs)
+      printf("fs wait for request.\n");
+
     if (read(in, &req, reqsize) != reqsize)
       goto err;
 
     resp.rid = req.rid;
     resp.lbuf = 0;
-		
-    if (req.lbuf >= bufsize) {
-      resp.ret = ENOMEM;
-      if (write(out, &resp, respsize) != respsize)
-	goto err;
-      continue;
+    resp.ret = ENOIMPL;
 
-    } else if (req.lbuf > 0) {
-      if (read(in, req.buf, req.lbuf) != req.lbuf)
-	goto err;
+    if (debugfs)
+      printf("fs got request rid = %i, lbuf = %i, type = %i\n",
+	     req.rid, req.lbuf, req.type);
+
+    if (req.lbuf > 0 && read(in, req.buf, req.lbuf) != req.lbuf) {
+      goto err;
     }
-		
+
+    if (debugfs)
+      printf("fs process request %i\n", req.rid);
+
     switch (req.type) {
     case REQ_open:
-      mount->open(&req, &resp);
+      if (mount->open)
+	mount->open(&req, &resp);
       break;
     case REQ_close:
-      mount->close(&req, &resp);
+      if (mount->close)
+	mount->close(&req, &resp);
+      break;
+    case REQ_walk:
+      if (mount->walk)
+	mount->walk(&req, &resp);
       break;
     case REQ_read:
-      mount->read(&req, &resp);
+      if (mount->read)
+	mount->read(&req, &resp);
       break;
     case REQ_write:
-      mount->write(&req, &resp);
+      if (mount->write)
+	mount->write(&req, &resp);
       break;
     case REQ_remove:
-      mount->remove(&req, &resp);
+      if (mount->remove)
+	mount->remove(&req, &resp);
       break;
     case REQ_create:
-      mount->create(&req, &resp);
-      break;
-    default:
-      resp.ret = ENOIMPL;
+      if (mount->create)
+	mount->create(&req, &resp);
       break;
     }
+
+    if (debugfs)
+      printf("fs hand over response for %i\n", req.rid);
 
     if (write(out, &resp, respsize) != respsize)
       goto err;
@@ -185,5 +200,5 @@ fsmountloop(int in, int out, struct fsmount *mount)
 
   free(buf);
 
-  return 1;
+  return -1;
 }

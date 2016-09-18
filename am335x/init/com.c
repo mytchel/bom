@@ -153,50 +153,55 @@ comcreate(struct request *req, struct response *resp)
 }
 
 static struct fsmount mount = {
-  comopen,
-  comclose,
-  comwalk,
-  comread,
-  comwrite,
-  comremove,
-  comcreate,
+  &comopen,
+  &comclose,
+  &comwalk,
+  &comread,
+  &comwrite,
+  &comremove,
+  &comcreate,
 };
 
-bool
-commount(void)
+int
+commount(char *path)
 {
   int f, p1[2], p2[2];
 
   if (pipe(p1) == ERR) {
-    return false;
+    return -2;
   } else if (pipe(p2) == ERR) {
-    return false;
+    return -3;
   }
 
-  f = open("/dev/com", O_WRONLY|O_CREATE, ATTR_wr|ATTR_rd);
+  f = open(path, O_WRONLY|O_CREATE, ATTR_wr|ATTR_rd);
   if (f < 0) {
-    return false;
+    return -4;
   }
   
-  if (bind(p1[1], p2[0], "/dev/com") == ERR) {
-    return false;
+  if (bind(p1[1], p2[0], path) == ERR) {
+    return -5;
   }
 
   close(p1[1]);
   close(p2[0]);
 
-  if (!fork(FORK_sngroup)) {
+  f = fork(FORK_sngroup);
+  if (!f) {
     if (!uartinit()) {
-      exit(-100);
+      return -1;
     }
 
-    exit(fsmountloop(p1[0], p2[1], &mount));
+    sleep(10); /* Give time for parent to close pipes */
+    return fsmountloop(p1[0], p2[1], &mount);
   }
 
-  return true;
+  close(p1[0]);
+  close(p2[1]);
+
+  return f;
 }
 
- void
+void
 printf(const char *fmt, ...)
 {
   char str[128];

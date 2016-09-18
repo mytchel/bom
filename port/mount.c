@@ -52,6 +52,13 @@ mountproc(void *arg)
   struct proc *p, *pp;
   struct response *resp;
   bool found;
+
+  #if DEBUG == 1
+  char *str = (char *) pathtostr(b->path, nil);
+  debug("kmountproc for '%s' on pid %i\n",
+	str, current->pid);
+  free(str);
+  #endif
 	
   while (b->refs > 0) {
     resp = malloc(sizeof(struct response));

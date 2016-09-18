@@ -413,3 +413,40 @@ struct fsmount fsmount = {
   bremove,
   bcreate,
 };
+
+int
+tmpmount(char *path)
+{
+  int f, p1[2], p2[2];
+  
+  if (pipe(p1) == ERR) {
+    return -4;
+  } else if (pipe(p2) == ERR) {
+    return -5;
+  }
+
+  f = open(path, O_WRONLY|O_CREATE, ATTR_wr|ATTR_rd|ATTR_dir);
+  if (f < 0) {
+    return -3;
+  }
+
+  if (bind(p1[1], p2[0], path) == ERR) {
+    return -6;
+  }
+	
+  close(p1[1]);
+  close(p2[0]);
+
+  f = fork(FORK_sngroup);
+  if (f < 0) {
+    return -1;
+  } else if (!f) {
+    sleep(10); /* Give time for parent to close pipes */
+    return fsmountloop(p1[0], p2[1], &fsmount);
+  }
+	
+  close(p1[0]);
+  close(p2[1]);
+
+  return f;
+}

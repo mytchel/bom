@@ -24,6 +24,7 @@ all: am335x.list am335x.umg
 
 loadaddr=0x82000000
 
+DEBUG ?= 0
 HOSTCC ?= cc
 CROSS_COMPILE ?= arm-none-eabi-
 
@@ -38,7 +39,7 @@ CFLAGS :=-mcpu=cortex-a8 \
         -Wall -Werror -O2 \
         -nostdinc -ffreestanding \
         -std=c89 \
-        -Dam335x \
+        -D_AM335X_ -DDEBUG=${DEBUG} \
         -I${.CURDIR}/../include -I${.CURDIR}
 
 LDFLAGS := -nostdlib -nodefaultlibs

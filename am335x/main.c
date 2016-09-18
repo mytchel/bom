@@ -39,9 +39,12 @@ kmain(void)
   initwatchdog();
 
   initroot();
+
   initnullproc();
   initmainproc();
-	
+
+  debug("\nStarting procs\n");
+  
   schedule();
 	
   /* Should never be reached. */
@@ -51,7 +54,7 @@ kmain(void)
 int
 mainproc(void *arg)
 {
-  printf("Drop to user for inital proc\n");
+  debug("Drop to user for inital proc (pid = %i)\n", current->pid);
   droptouser((void *) USTACK_TOP);
   return 0; /* Never reached. */
 }
@@ -118,8 +121,9 @@ initmainproc(void)
 int
 nullproc(void *arg)
 {
-  while (true)
+  while (true) {
     schedule();
+  }
 
   return 0;
 }
@@ -138,4 +142,6 @@ initnullproc(void)
   initproc(p);
   forkfunc(p, &nullproc, nil);
   procready(p);
+
+  debug("null proc on pid %i\n", p->pid);
 }

@@ -62,9 +62,7 @@ mmchsintrwait(uint32_t mask)
   uint32_t v;
 
   while (waitintr(mmchs->intr) != ERR) {
-    printf("%s process intr\n", mmchs->name);
     while ((v = mmchs->regs->stat) != 0) {
-
       if (v & MMCHS_SD_STAT_BRR) {
 	handle_brr();
 	continue;
@@ -95,13 +93,12 @@ handle_bwr(void)
   if (mmchs->data == nil) {
     printf("%s->data == nil!\n", mmchs->name);
     return;
-  }
+  } else if (!(mmchs->regs->pstate & MMCHS_SD_PSTATE_BWE)) {
+    printf("%s pstate bad!\n", mmchs->name);
+    return;
+  } 
 
   for (i = 0; i < mmchs->data_len; i += 4) {
-    while (!(mmchs->regs->pstate & MMCHS_SD_PSTATE_BWE)) {
-      printf("%s pstate bad!\n", mmchs->name);
-    }
-
     *((uint8_t *) &v) = mmchs->data[i];
     *((uint8_t *) &v + 1) = mmchs->data[i+1];
     *((uint8_t *) &v + 2) = mmchs->data[i+2];
@@ -123,13 +120,12 @@ handle_brr(void)
   if (mmchs->data == nil) {
     printf("%s->data == nil!\n", mmchs->name);
     return;
+  } else if (!(mmchs->regs->pstate & MMCHS_SD_PSTATE_BRE)) {
+    printf("%s pstate bad!\n", mmchs->name);
+    return;
   }
 
   for (i = 0; i < mmchs->data_len; i += 4) {
-    while (!(mmchs->regs->pstate & MMCHS_SD_PSTATE_BRE)) {
-      printf("%s pstate bad!\n", mmchs->name);
-    }
-
     v = mmchs->regs->data;
 
     mmchs->data[i] = *((uint8_t *) &v);
@@ -463,12 +459,14 @@ cardqueryvolttype(void)
 
   if (!mmchssendappcmd(&cmd)) {
     /* mmc cards should fall into here. */
-    printf("%s is a mmc card\n", mmchs->name);
+    printf("%s is a mmc card, do reset\n", mmchs->name);
     mmchs->regs->stat = 0xffffffff; /* clear stat */
     mmchs->regs->sysctl |= MMCHS_SD_SYSCTL_SRC;
-    while (mmchs->regs->sysctl & MMCHS_SD_SYSCTL_SRC)
-      sleep(0);
+    do {
+      sleep(1);
+    } while (mmchs->regs->sysctl & MMCHS_SD_SYSCTL_SRC);
 
+    printf("%s send_op_cond\n", mmchs->name);
     cmd.cmd = MMC_SEND_OP_COND;
     while (!(cmd.resp[0] & MMC_OCR_MEM_READY)) {
       if (!mmchssendcmd(&cmd)) {
@@ -570,12 +568,11 @@ cardinit(void)
   }
 
   mmchs->regs->sysctl |= MMCHS_SD_SYSCTL_SRC;
-  printf("%s wait for reset to start\n", mmchs->name);
-  while (!(mmchs->regs->sysctl & MMCHS_SD_SYSCTL_SRC));
-
   printf("%s wait for reset to end\n", mmchs->name);
-  while (mmchs->regs->sysctl & MMCHS_SD_SYSCTL_SRC)
+  do {
     sleep(1);
+  } while (mmchs->regs->sysctl & MMCHS_SD_SYSCTL_SRC);
+
   printf("%s ready to move on\n", mmchs->name);
 
   if (!cardqueryvolttype()) {
@@ -609,22 +606,22 @@ cardinit(void)
 static void
 bopen(struct request *req, struct response *resp)
 {
-  printf("%s opened\n");
-  resp->ret = ENOIMPL;
+  printf("%s opened\n", mmchs->name);
+  resp->ret = OK;
 }
 
 static void
 bclose(struct request *req, struct response *resp)
 {
-  printf("%s close\n");
-  resp->ret = ENOIMPL;
+  printf("%s close\n", mmchs->name);
+  resp->ret = OK;
 }
 
 static void
 bread(struct request *req, struct response *resp)
 {
-  printf("%s read\n");
-  resp->ret = ENOIMPL;
+  printf("%s read\n", mmchs->name);
+  resp->ret = ERR;
 
   readblock(0, nil);
 }
@@ -632,85 +629,19 @@ bread(struct request *req, struct response *resp)
 static void
 bwrite(struct request *req, struct response *resp)
 {
-  printf("%s write\n");
+  printf("%s write\n", mmchs->name);
   resp->ret = ENOIMPL;
 }
 
-static void
-handlereq(struct request *req, struct response *resp)
-{
-  switch (req->type) {
-  case REQ_open:
-    bopen(req, resp);
-    break;
-  case REQ_close:
-    bclose(req, resp);
-    break;
-  case REQ_read:
-    bread(req, resp);
-    break;
-  case REQ_write:
-    bwrite(req, resp);
-    break;
-  default:
-    resp->ret = ENOIMPL;
-    break;
-  }
-}
-
-static int
-mmchsmountloop(int in, int out)
-{
-  uint8_t buf[1024];
-  size_t reqsize, respsize;
-  struct request req;
-  struct response resp;
-
-  reqsize = sizeof(req.rid)
-    + sizeof(req.type)
-    + sizeof(req.fid)
-    + sizeof(req.lbuf);
-
-  respsize = sizeof(resp.rid)
-    + sizeof(resp.ret)
-    + sizeof(resp.lbuf);
-  
-  req.buf = buf;
-	
-  while (true) {
-    if (read(in, &req, reqsize) != reqsize)
-      break;
-
-    resp.rid = req.rid;
-    resp.lbuf = 0;
-    resp.ret = OK;
-		
-    if (req.lbuf > 1024) {
-      resp.ret = ENOMEM;
-    } else if (req.lbuf > 0) {
-      if (read(in, req.buf, req.lbuf) != req.lbuf) {
-	break;
-      }
-    }
-		
-    if (resp.ret == OK) {
-      handlereq(&req, &resp);
-    }
-		
-    if (write(out, &resp, respsize) != respsize)
-      break;
-		
-    if (resp.lbuf > 0) {
-      if (write(out, resp.buf, resp.lbuf) != resp.lbuf) {
-	break;
-      }
-
-      free(resp.buf);
-    }
-  }
-
-  return 0; 
-}
+static struct fsmount mount = {
+  &bopen,
+  &bclose,
+  nil,
+  &bread,
+  &bwrite,
+  nil,
+  nil,
+};
 
 static int
 mmchsproc(char *name, void *addr, int intr)
@@ -787,7 +718,7 @@ mmchsproc(char *name, void *addr, int intr)
   close(p1[1]);
   close(p2[0]);
 
-  return mmchsmountloop(p1[0], p2[1]);
+  return fsmountloop(p1[0], p2[1], &mount);
 }
 
 int
@@ -809,6 +740,7 @@ mmc(void)
     printf("mmchs failed to fork for mmc1\n");
   }
 
+  printf("mmc procs spawned. exiting...\n");
   return 0;
 }
 

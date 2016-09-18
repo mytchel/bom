@@ -46,7 +46,7 @@ printint(char *str, size_t max, unsigned int i, unsigned int base)
 size_t
 vsnprintf(char *str, size_t max, const char *fmt, va_list ap)
 {
-	size_t i;
+	int i;
 	unsigned int ind, u;
 	char *s;
 	
@@ -69,7 +69,7 @@ vsnprintf(char *str, size_t max, const char *fmt, va_list ap)
 				i = -i;
 			}
 
-			if (ind == max)
+			if (ind >= max)
 				break;
 
 			ind += printint(str + ind, max - ind,

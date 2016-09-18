@@ -68,7 +68,7 @@ pfile_open(void)
   printf("write to stdout a few times\n");
   for (i = 0; i < 5; i++) {
     write(stdout, str2, sizeof(uint8_t) * strlen(str2));
-    sleep(700);
+    sleep(100);
   }
 
   printf("open /tmp/test\n");
