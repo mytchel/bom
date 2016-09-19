@@ -35,6 +35,7 @@
 .global mmuenable
 .global mmudisable
 .global mmuinvalidate
+.global testandset
 
 _start:
 	cpsid if
@@ -183,4 +184,24 @@ mmudisable:
 	bic r1, r1, #1
 	mcr p15, 0, r1, c1, c0, 0
 	pop {r1, pc}
+
+
+testandset:
+	ldrex r2, [r0]
+	cmp r2, #0
+	beq 1f
+
+	strex r1, r2, [r0]
+	teq r1, #0
+	bne testandset
+
+	mov r0, #0
+	bx lr
+
+1:	mov r2, #1
+	strex r1, r2, [r0]
+	cmp r1, #0
+	bne testandset
+	mov r0, #1
+	bx lr
 

@@ -27,9 +27,15 @@
 #define debug(...) {}
 #endif
 
+struct lock {
+  int lock, listlock;
+  struct proc *waiting;
+};
+  
 struct page {
   void *pa, *va;
   size_t size;
+  bool cachable;
   struct page *next;
   struct page *from;
 };
@@ -46,7 +52,7 @@ enum { CHAN_pipe, CHAN_file, CHAN_max };
 
 struct chan {
   int refs;
-  int lock;
+  struct lock lock;
 	
   int type;
   int mode;
@@ -68,14 +74,14 @@ struct path {
 
 struct fgroup {
   int refs;
-  int lock;
+  struct lock lock;
   struct chan **chans;
   size_t nchans;
 };
 
 struct binding {
   int refs;
-  int lock;
+  struct lock lock;
 	
   struct path *path;
   struct chan *in, *out;
@@ -93,7 +99,7 @@ struct binding_list {
 
 struct ngroup {
   int refs;
-  int lock;
+  struct lock lock;
   struct binding_list *bindings;
 };
 
@@ -151,6 +157,14 @@ initheap(void *, size_t);
 
 /****** General Functions ******/
 
+void
+initlock(struct lock *);
+
+void
+lock(struct lock *);
+
+void
+unlock(struct lock *);
 
 /* Procs */
 
@@ -372,16 +386,16 @@ bool
 procwaitintr(struct proc *, int);
 
 void
-lock(int *);
-
-void
-unlock(int *);
-
-void
 disableintr(void);
 
 void
 enableintr(void);
+
+/* If address contains 0, store 1 and return 1,
+ * else return 0.
+ */
+bool
+testandset(int *addr);
 
 
 /****** Global Variables ******/

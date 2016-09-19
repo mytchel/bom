@@ -29,7 +29,6 @@ struct proc *current = &procs[1];
 void
 schedule(void)
 {
-  /* gotolabel will enable on switch. */
   disableintr();
 	
   if (setlabel(&current->label)) {

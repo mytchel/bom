@@ -60,14 +60,21 @@ mmuswitch(struct proc *p)
 }
 
 void
-imap(void *start, void *end, int ap)
+imap(void *start, void *end, int ap, bool cachable)
 {
   uint32_t x = (uint32_t) start & ~((1 << 20) - 1);
-	
+  uint32_t mask = (ap << 10) | L1_SECTION;
+
+  if (cachable) {
+    mask |= (6 << 12) | (1 << 3) | (0 << 2);
+  } else {
+    mask |= (0 << 12) | (0 << 3) | (0 << 2);
+  }
+ 	
   while (x < (uint32_t) end) {
     /* Map section so everybody can see it.
      * This wil change. */
-    ttb[L1X(x)] = x | (ap << 10) | L1_SECTION;
+    ttb[L1X(x)] = x | mask;
     x += 1 << 20;
   }
 }
@@ -87,7 +94,8 @@ void
 mmuputpage(struct page *p, bool rw)
 {
   struct page *pg;
-  uint32_t i, ap;
+  uint32_t i;
+  uint32_t s, tex, ap, c, b;
   uint32_t *l1, *l2;
 
   uint32_t x = (uint32_t) p->va;
@@ -114,7 +122,19 @@ mmuputpage(struct page *p, bool rw)
   else
     ap = AP_RW_RO;
 
-  l2[L2X(x)] = ((uint32_t) p->pa) | (ap << 4) | L2_SMALL;
+  s = 0;
+  if (p->cachable) {
+    tex = 6;
+    c = 1;
+    b = 0;
+  } else {
+    tex = 0;
+    c = 0;
+    b = 0;
+  }
+  
+  l2[L2X(x)] = ((uint32_t) p->pa) | L2_SMALL | 
+    (s << 10) | (tex << 6) | (ap << 4) | (c << 3) | (b << 2);
 	
   mmuinvalidate();
 }

@@ -21,181 +21,181 @@
 struct segment *
 newseg(int type)
 {
-	struct segment *s;
-	
-	s = malloc(sizeof(struct segment));
-	if (s == nil) {
-		return nil;
-	}
+  struct segment *s;
 
-	s->refs = 1;	
-	s->type = type;
-	s->pages = nil;
-	
-	return s;
+  s = malloc(sizeof(struct segment));
+  if (s == nil) {
+    return nil;
+  }
+
+  s->refs = 1;	
+  s->type = type;
+  s->pages = nil;
+
+  return s;
 }
 
 void
 freeseg(struct segment *s)
 {
-	struct page *p, *pp;
+  struct page *p, *pp;
 	
-	s->refs--;
-	if (s->refs > 0)
-		return;
+  s->refs--;
+  if (s->refs > 0)
+    return;
 	
-	p = s->pages;
-	while (p != nil) {
-		pp = p;
-		p = p->next;
-		freepage(pp);
-	}
+  p = s->pages;
+  while (p != nil) {
+    pp = p;
+    p = p->next;
+    freepage(pp);
+  }
 	
-	free(s);
+  free(s);
 }
 
 struct segment *
 copyseg(struct segment *s, bool copy)
 {
-	struct segment *n;
-	struct page *sp, *np;
+  struct segment *n;
+  struct page *sp, *np;
 
-	if (s->type == SEG_ro || !copy) {
-		/* No need to actually copy. */
-		s->refs++;
-		n = s;
-	} else {
-		/* Gets new pages and copies the data from old. */
-		n = newseg(s->type);
-		if (n == nil)
-			return nil;
+  if (s->type == SEG_ro || !copy) {
+    /* No need to actually copy. */
+    s->refs++;
+    n = s;
+  } else {
+    /* Gets new pages and copies the data from old. */
+    n = newseg(s->type);
+    if (n == nil)
+      return nil;
 
-		sp = s->pages;
-		if (sp == nil)
-			return n;
+    sp = s->pages;
+    if (sp == nil)
+      return n;
 
-		n->pages = newpage(sp->va);
-		np = n->pages;
-		while (sp != nil) {
-			memmove(np->pa, sp->pa, sp->size);
-			if (sp->next == nil)
-				break;
+    n->pages = newpage(sp->va);
+    np = n->pages;
+    while (sp != nil) {
+      memmove(np->pa, sp->pa, sp->size);
+      if (sp->next == nil)
+	break;
 			
-			sp = sp->next;
-			np->next = newpage(sp->va);
-			np = np->next;
-		}
-	}
+      sp = sp->next;
+      np->next = newpage(sp->va);
+      np = np->next;
+    }
+  }
 	
-	return n;
+  return n;
 }
 
 static struct page *
 findpage(struct proc *p, void *addr, struct segment **seg)
 {
-	struct segment *s;
-	struct page *pg;
-	int i;
+  struct segment *s;
+  struct page *pg;
+  int i;
 
-	for (i = 0; i < Smax; i++) {
-		s = p->segs[i];
-		for (pg = s->pages; pg != nil; pg = pg->next) {
-			if (pg->va <= addr && pg->va + pg->size > addr) {
-				*seg = s;
-				return pg;
-			}
-		}
-	}
+  for (i = 0; i < Smax; i++) {
+    s = p->segs[i];
+    for (pg = s->pages; pg != nil; pg = pg->next) {
+      if (pg->va <= addr && pg->va + pg->size > addr) {
+	*seg = s;
+	return pg;
+      }
+    }
+  }
 	
-	return nil;
+  return nil;
 }
 
 bool
 fixfault(void *addr)
 {
-	struct segment *s;
-	struct page *pg;
+  struct segment *s;
+  struct page *pg;
 	
-	pg = findpage(current, addr, &s);
-	if (pg == nil) return false;
+  pg = findpage(current, addr, &s);
+  if (pg == nil) return false;
 	
-	mmuputpage(pg, s->type == SEG_rw);
-	current->faults++;
+  mmuputpage(pg, s->type == SEG_rw);
+  current->faults++;
 	
-	return true;
+  return true;
 }
 
 void *
 kaddr(struct proc *p, void *addr)
 {
-	struct segment *s;
-	struct page *pg;
+  struct segment *s;
+  struct page *pg;
 	
-	pg = findpage(p, addr, &s);
-	if (pg == nil) return nil;
+  pg = findpage(p, addr, &s);
+  if (pg == nil) return nil;
 
-	return pg->pa + (addr - pg->va);
+  return pg->pa + (addr - pg->va);
 }
 
 struct page *
 newpage(void *va)
 {
-	struct page *p;
+  struct page *p;
 
-	p = pages.next;
-	if (p == nil) {
-		printf("No free pages!\n");
-		return nil;
-	}
+  p = pages.next;
+  if (p == nil) {
+    printf("No free pages!\n");
+    return nil;
+  }
 
-	pages.next = p->next;
-	p->next = nil;
-	p->va = va;
-	return p;
+  pages.next = p->next;
+  p->next = nil;
+  p->va = va;
+  return p;
 }
 
 struct page *
 getpages(struct page *pages, void *pa, size_t *size)
 {
-	struct page *start, *p, *pp;
-	size_t s;
+  struct page *start, *p, *pp;
+  size_t s;
 	
-	pp = pages;
-	for (p = pp->next; p != nil; pp = p, p = p->next) {
-		if (p->pa == pa) {
-			break;
-		}
-	}
+  pp = pages;
+  for (p = pp->next; p != nil; pp = p, p = p->next) {
+    if (p->pa == pa) {
+      break;
+    }
+  }
 	
-	if (p == nil)
-		return nil;
+  if (p == nil)
+    return nil;
 	
-	start = p;
-	s = 0;
-	while (p != nil) {
-		s += p->size;
-		if (s >= *size) {
-			break;
-		} else {
-			p = p->next;
-		}
-	}
+  start = p;
+  s = 0;
+  while (p != nil) {
+    s += p->size;
+    if (s >= *size) {
+      break;
+    } else {
+      p = p->next;
+    }
+  }
 
-	if (p != nil) {
-		pp->next = p->next;
-		p->next = nil;
-	} else {
-		pp->next = nil;
-	}
+  if (p != nil) {
+    pp->next = p->next;
+    p->next = nil;
+  } else {
+    pp->next = nil;
+  }
 	
-	*size = s;	
-	return start;
+  *size = s;	
+  return start;
 }
 
 void
 freepage(struct page *p)
 {
-	p->next = p->from->next;
-	p->from->next = p;
+  p->next = p->from->next;
+  p->from->next = p;
 }
 

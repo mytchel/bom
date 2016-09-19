@@ -29,7 +29,7 @@ newngroup(void)
 	}
 
 	n->refs = 1;
-	n->lock = 0;
+	initlock(&n->lock);
 
 	n->bindings = malloc(sizeof(struct binding_list));
 	if (n->bindings == nil) {
@@ -113,7 +113,7 @@ copyngroup(struct ngroup *o)
 	}
 	
 	n->refs = 1;
-	n->lock = 0;
+	initlock(&n->lock);
 	unlock(&o->lock);
 	return n;
 }

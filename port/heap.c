@@ -24,12 +24,12 @@ struct block {
 };
 
 static struct block *heap;
-static int heaplock;
+static struct lock heaplock;
 
 void
 initheap(void *start, size_t size)
 {
-  heaplock = 0;
+  initlock(&heaplock);
   heap = (struct block *) start;
   heap->size = size - sizeof(size_t);
   heap->next = nil;

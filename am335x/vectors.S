@@ -94,6 +94,8 @@ switch:
 	mrs r1, spsr
 	mov r2, sp
 	mov r3, lr
+
+	clrex
 	
 	cps #MODE_SVC
 	sub sp, sp, #(4 * 3)

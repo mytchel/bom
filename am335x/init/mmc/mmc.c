@@ -121,8 +121,6 @@ handle_brr(void)
   size_t i;
   uint32_t v;
 
-  printf("%s brr\n", mmchs->name);
-  
   if (mmchs->data == nil) {
     printf("%s->data == nil!\n", mmchs->name);
     return;
@@ -224,12 +222,9 @@ mmchssendcmd(struct mmc_command *c)
     cmd |= MMCHS_SD_CMD_DDIR_WRITE;
   }
 
-  printf("%s send raw\n", mmchs->name);
   r = mmchssendrawcmd(cmd, c->arg);
-  printf("%s got %i from raw\n", mmchs->name, r);
 
   if (r && (c->read || c->write)) {
-  printf("%s wait for transfer\n", mmchs->name);
     if (!mmchswaitintr(MMCHS_SD_IE_TC)) {
       printf("%s wait for transfer complete failed!\n", mmchs->name);
       return false;
@@ -613,8 +608,8 @@ bclose(struct request *req, struct response *resp)
 static void
 bread(struct request *req, struct response *resp)
 {
-  uint32_t offset, len, blk, nblk, i;
-  uint8_t *buf;
+  uint32_t offset, len, out, blk, nblk, i;
+  uint8_t *buf, tmpbuf[512];
 
   printf("%s read\n", mmchs->name);
 
@@ -623,8 +618,7 @@ bread(struct request *req, struct response *resp)
   buf += sizeof(uint32_t);
   memmove(&len, buf, sizeof(uint32_t));
 
-
-  blk = 1 + offset / 512;
+  blk = offset / 512;
   nblk = len / 512;
   if (len % 512 != 0) {
     nblk++;
@@ -633,14 +627,27 @@ bread(struct request *req, struct response *resp)
   printf("%s read %i blocks from %i\n", mmchs->name, nblk, blk);
 
   resp->buf = malloc(nblk * 512);
+  printf("%s resp->buf = 0x%h\n", mmchs->name, resp->buf);
   if (resp->buf == nil) {
     resp->ret = ENOMEM;
     return;
   }
 
+  buf = resp->buf;
+
+  out = offset % 512;
+  printf("%s out by %i\n", mmchs->name, out);
+  if (out != 0) {
+    printf("%s read blk %i\n", mmchs->name, blk);
+    readblock(blk++, tmpbuf);
+    memmove(buf, tmpbuf + out, 512 - out);
+    buf += out;
+  }
+
   for (i = 0; i < nblk; i++) {
-    printf("%s read %i\n", mmchs->name, blk + i);
-    readblock(blk + i, &resp->buf[i * 512]);
+    printf("%s read blk %i\n", mmchs->name, blk + i);
+    readblock(blk + i, buf);
+    buf += 512;
   }
 
   if (i == nblk) {

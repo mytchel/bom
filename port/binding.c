@@ -28,7 +28,7 @@ newbinding(struct path *path, struct chan *out, struct chan *in)
 		return nil;
 	
 	b->refs = 1;
-	b->lock = 0;
+	initlock(&b->lock);
 
 	b->path = path;
 	b->in = in;

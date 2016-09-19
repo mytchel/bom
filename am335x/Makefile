@@ -60,7 +60,6 @@ C_SRC := \
         init/initcode.c         \
         main.c                  \
         trap.c                  \
-        lock.c                  \
         uart.c                  \
         timer.c                 \
         mem.c                   \
@@ -71,6 +70,7 @@ C_SRC := \
 P_SRC := \
         ../port/com.c           \
         ../port/proc.c          \
+        ../port/lock.c          \
         ../port/segment.c       \
         ../port/fgroup.c        \
         ../port/ngroup.c        \

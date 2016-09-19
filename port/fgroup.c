@@ -37,7 +37,7 @@ newfgroup(void)
   f->chans[0] = nil;
   f->nchans = 1;
   f->refs = 1;
-  f->lock = 0;
+  initlock(&f->lock);
 	
   return f;
 }
@@ -93,7 +93,7 @@ copyfgroup(struct fgroup *fo)
   }
 	
   f->refs = 1;
-  f->lock = 0;
+  initlock(&f->lock);
 
   unlock(&fo->lock);
   return f;

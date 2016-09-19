@@ -200,11 +200,8 @@ trap(struct ureg *ureg)
     fsr = fsrstatus() & 0xf;
     fixed = false;
 
-    debug("%i data abort 0x%h\n", current->pid, addr);
-
     switch (fsr) {
     case 0x0: /* vector */
-      break;
     case 0x1: /* alignment */
     case 0x3: /* also alignment */
     case 0x2: /* terminal */
@@ -230,8 +227,9 @@ trap(struct ureg *ureg)
       break;
     }
 
-    if (!fixed) {
-      printf("%i data abort on 0x%h\n", current->pid, addr);
+    if (DEBUG == 1 || !fixed) {
+      printf("%i data abort 0x%h (type 0x%h)\n",
+	     current->pid, addr, fsr);
     }
 		
     break;

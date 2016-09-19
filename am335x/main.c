@@ -38,8 +38,12 @@ kmain(void)
   inittimers();
   initwatchdog();
 
+  debug("init initial procs\n");
+  
   initnullproc();
+  debug("init root\n");
   initroot();
+  debug("init main\n");
   initmainproc();
 
   debug("\nStarting procs\n");
@@ -120,7 +124,8 @@ initmainproc(void)
 int
 nullproc(void *arg)
 {
-  while (true);
+  while (true)
+    printf("null\n");
   return 0;
 }
 
@@ -128,15 +133,19 @@ void
 initnullproc(void)
 {
   struct proc *p;
-	
+
+  debug("create proc\n");
   p = newproc();
   if (p == nil) {
     printf("Failed to create null proc\n");
     return;
   }
 	
+  debug("init proc\n");
   initproc(p);
+  debug("fork func\n");
   forkfunc(p, &nullproc, nil);
+  debug("ready\n");
   procready(p);
 
   debug("null proc on pid %i\n", p->pid);

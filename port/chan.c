@@ -33,8 +33,8 @@ newchan(int type, int mode, struct path *p)
 		return nil;
 	}
 
+	initlock(&c->lock);
 	c->refs = 1;
-	c->lock = 0;
 	c->type = type;
 	c->mode = mode;
 	c->path = p;
