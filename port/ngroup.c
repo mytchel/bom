@@ -40,9 +40,7 @@ newngroup(void)
 	n->bindings->binding = rootbinding;
 	n->bindings->next = nil;
 
-	lock(&rootbinding->lock);
-	rootbinding->refs++;
-	unlock(&rootbinding->lock);
+	atomicinc(&rootbinding->refs);
 	
 	return n;
 }
@@ -52,14 +50,11 @@ freengroup(struct ngroup *n)
 {
 	struct binding_list *b, *bb;
 	
-	lock(&n->lock);
-	
-	n->refs--;
-	if (n->refs > 0) {
-		unlock(&n->lock);
+	if (atomicdec(&n->refs) > 0) {
 		return;
 	}
 		
+	lock(&n->lock);
 	b = n->bindings;
 	while (b != nil) {
 		bb = b;
@@ -97,7 +92,7 @@ copyngroup(struct ngroup *o)
 		lock(&bo->binding->lock);
 		
 		bn->binding = bo->binding;
-		bn->binding->refs++;
+		atomicinc(&bn->binding->refs);
 			
 		bo = bo->next;
 		unlock(&bo->binding->lock);

@@ -238,7 +238,7 @@ static void
 bopen(struct request *req, struct response *resp)
 {
   struct file_list *fl;
-	
+
   fl = findfile(req->fid);
   if (fl == nil) {
     resp->ret = ENOFILE;
@@ -323,7 +323,7 @@ bcreate(struct request *req, struct response *resp)
   struct file_list *fl;
   struct dir *d;
   uint8_t *buf;
-	
+
   buf = req->buf;
   memmove(&attr, buf, sizeof(uint32_t));
   buf += sizeof(uint32_t);
@@ -356,7 +356,7 @@ bremove(struct request *req, struct response *resp)
 {
   struct file_list *fl, *fp;
   struct dir_list *d, *dt;
-	
+
   fl = findfile(req->fid);
   if (fl == nil) {
     resp->ret = ENOFILE;
@@ -413,7 +413,7 @@ struct fsmount fsmount = {
 int
 tmpmount(char *path)
 {
-  int f, p1[2], p2[2];
+  int f, fd, p1[2], p2[2];
   
   if (pipe(p1) == ERR) {
     return -4;
@@ -421,8 +421,8 @@ tmpmount(char *path)
     return -5;
   }
 
-  f = open(path, O_WRONLY|O_CREATE, ATTR_wr|ATTR_rd|ATTR_dir);
-  if (f < 0) {
+  fd = open(path, O_WRONLY|O_CREATE, ATTR_wr|ATTR_rd|ATTR_dir);
+  if (fd < 0) {
     return -3;
   }
 
@@ -437,12 +437,12 @@ tmpmount(char *path)
   if (f < 0) {
     return -1;
   } else if (!f) {
-    sleep(10); /* Give time for parent to close pipes */
     return fsmountloop(p1[0], p2[1], &fsmount);
   }
 	
   close(p1[0]);
   close(p2[1]);
-
+  close(fd);
+  
   return f;
 }

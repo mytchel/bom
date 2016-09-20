@@ -40,8 +40,7 @@
 
 _start:
 	bl main
-	b exit
-
+	@ fall through to exit
 exit:
 	push {r0}
 	mov r0, #SYSCALL_EXIT
@@ -160,5 +159,3 @@ waitintr:
 	add sp, sp, #4
 	pop {pc}
 	
-
-

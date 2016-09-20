@@ -56,8 +56,8 @@ initroot(void)
     panic("initroot: newbinding failed!\n");
   }
 
-  c[1]->refs--;
-  c[2]->refs--;
+  atomicdec(&c[1]->refs);
+  atomicdec(&c[2]->refs);
   
   pr = newproc();
   if (pr == nil) {

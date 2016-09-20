@@ -43,7 +43,7 @@ readblock(const char *name)
 }
 
 int
-pfile_open(void)
+filetest(void)
 {
   int i;
   int fd;

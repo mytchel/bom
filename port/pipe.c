@@ -56,7 +56,7 @@ newpipe(struct chan **c0, struct chan **c1)
   p->c0 = *c0;
   p->c1 = *c1;
   p->waiting = false;
-	
+
   return true;	
 }
 
@@ -67,8 +67,9 @@ piperead(struct chan *c, uint8_t *buf, size_t n)
 	
   p = (struct pipe *) c->aux;
 
-  if (p->c0 == nil || p->c1 == nil)
+  if (p->c0 == nil || p->c1 == nil) {
     return ELINK;
+  }
 
   p->waiting = true;
   p->proc = current;
@@ -93,13 +94,15 @@ pipewrite(struct chan *c, uint8_t *buf, size_t n)
 	
   p = (struct pipe *) c->aux;
 
-  if (p->c0 == nil || p->c1 == nil)
+  if (p->c0 == nil || p->c1 == nil) {
     return ELINK;
-	
+  }
+
   t = 0;
   while (t < n) {
-    while (!p->waiting && p->c0 != nil && p->c1 != nil)
+    while (!p->waiting && p->c0 != nil && p->c1 != nil) {
       schedule();
+    }
 
     if (p->c0 == nil || p->c1 == nil) {
       return t;
@@ -111,13 +114,13 @@ pipewrite(struct chan *c, uint8_t *buf, size_t n)
     t += l;
     buf += l;
 		
-    if (l < p->n) {
-      p->n -= l;
-      p->buf += l;
-    } else {
+    if (l == p->n) {
       p->n = 0;
       p->waiting = false;
       procready(p->proc);
+    } else {
+      p->n -= l;
+      p->buf += l;
     }
   }
 	
@@ -130,7 +133,7 @@ pipeclose(struct chan *c)
   struct pipe *p;
 	
   p = (struct pipe *) c->aux;
-	
+
   if (c == p->c0) {
     p->c0 = nil;
   } else {
@@ -143,7 +146,6 @@ pipeclose(struct chan *c)
   }
 
   if (p->c0 == nil && p->c1 == nil) {
-    printf("pipe freeing\n");
     free(p);
   }
 	

@@ -33,7 +33,7 @@ struct uart_struct {
   uint32_t lsr;
 };
 
-static volatile struct uart_struct *uart;
+static volatile struct uart_struct *uart = nil;
 
 bool
 uartinit(void)
@@ -69,7 +69,7 @@ puts(uint8_t *s, size_t len)
 {
   size_t i;
 	
-  for (i = 0; i < len; i++) {
+  for (i = 0; i < len && s[i]; i++) {
     if (s[i] == '\n') {
       while ((uart->lsr & (1 << 5)) == 0)
 	;
@@ -84,6 +84,23 @@ puts(uint8_t *s, size_t len)
   return i;
 }
 
+void
+dprintf(const char *fmt, ...)
+{
+  char str[128];
+  size_t i;
+  va_list ap;
+
+  va_start(ap, fmt);
+  i = vsnprintf(str, 128, fmt, ap);
+  va_end(ap);
+
+  if (i > 0) {
+    puts((uint8_t *) str, i);
+  }
+}
+
+
 static void
 comopen(struct request *req, struct response *resp)
 {
@@ -97,12 +114,6 @@ comclose(struct request *req, struct response *resp)
 }
 
 static void
-comwalk(struct request *req, struct response *resp)
-{
-  resp->ret = ENOIMPL;
-}
-
-static void
 comread(struct request *req, struct response *resp)
 {
   uint32_t offset, len;
@@ -113,17 +124,20 @@ comread(struct request *req, struct response *resp)
   buf += sizeof(uint32_t);
   memmove(&len, buf, sizeof(uint32_t));
 
-  resp->ret = OK;
   resp->buf = malloc(sizeof(uint8_t) * len);
-  resp->lbuf = len;
-
-  gets(resp->buf, len);
+  if (resp->buf == nil) {
+    resp->lbuf = 0;
+    resp->ret = ENOMEM;
+  } else {
+    resp->lbuf = gets(resp->buf, len);
+    resp->ret = OK;
+  }
 }
 
 static void
 comwrite(struct request *req, struct response *resp)
 {
-  uint32_t offset, len, n;
+  uint32_t offset, len;
   uint8_t *buf;
 
   buf = req->buf;
@@ -132,40 +146,31 @@ comwrite(struct request *req, struct response *resp)
   memmove(&len, buf, sizeof(uint32_t));
   buf += sizeof(uint32_t);
 
-  n = puts(buf, len);
-
-  resp->lbuf = sizeof(uint32_t);
   resp->buf = malloc(sizeof(uint32_t));
-  memmove(resp->buf, &n, sizeof(uint32_t));
-  resp->ret = OK;
-}
-
-static void
-comremove(struct request *req, struct response *resp)
-{
-  resp->ret = ENOIMPL;
-}
-
-static void
-comcreate(struct request *req, struct response *resp)
-{
-  resp->ret = ENOIMPL;
+  if (resp->buf == nil) {
+    resp->lbuf = 0;
+    resp->ret = ENOMEM;
+  } else {
+    resp->lbuf = sizeof(uint32_t);
+    resp->ret = OK;
+    *(resp->buf) = puts(buf, len);
+  }
 }
 
 static struct fsmount mount = {
   &comopen,
   &comclose,
-  &comwalk,
+  nil,
   &comread,
   &comwrite,
-  &comremove,
-  &comcreate,
+  nil,
+  nil,
 };
 
 int
 commount(char *path)
 {
-  int f, p1[2], p2[2];
+  int f, fd, p1[2], p2[2];
 
   if (pipe(p1) == ERR) {
     return -2;
@@ -173,8 +178,8 @@ commount(char *path)
     return -3;
   }
 
-  f = open(path, O_WRONLY|O_CREATE, ATTR_wr|ATTR_rd);
-  if (f < 0) {
+  fd = open(path, O_WRONLY|O_CREATE, ATTR_wr|ATTR_rd);
+  if (fd < 0) {
     return -4;
   }
   
@@ -191,12 +196,12 @@ commount(char *path)
       return -1;
     }
 
-    sleep(10); /* Give time for parent to close pipes */
     return fsmountloop(p1[0], p2[1], &mount);
   }
 
   close(p1[0]);
   close(p2[1]);
+  close(fd);
 
   return f;
 }
@@ -207,7 +212,7 @@ printf(const char *fmt, ...)
   char str[128];
   size_t i;
   va_list ap;
-	
+
   va_start(ap, fmt);
   i = vsnprintf(str, 128, fmt, ap);
   va_end(ap);
@@ -216,4 +221,3 @@ printf(const char *fmt, ...)
     write(stdout, str, i);
   }
 }
-

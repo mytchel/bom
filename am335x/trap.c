@@ -147,9 +147,9 @@ irqhandler(void)
     for (p = intrwait; p != nil; pp = p, p = p->wnext) {
       if (p->waiting.intr == irq) {
 	if (pp != nil) {
-	  pp->next = p->next;
+	  pp->wnext = p->wnext;
 	} else {
-	  intrwait = p->next;
+	  intrwait = p->wnext;
 	}
 	
 	procready(p);
@@ -181,11 +181,8 @@ trap(struct ureg *ureg)
   else
     ureg->pc -= 4;
 
-  debug("%i trapped (type %i)\n", current->pid, ureg->type);
-	
   switch(ureg->type) {
   case ABORT_INTERRUPT:
-    debug("handle irq\n");
     rsch = irqhandler();
     break;
   case ABORT_INSTRUCTION:
@@ -223,7 +220,7 @@ trap(struct ureg *ureg)
     case 0xd: /* section permission */
     case 0xf: /* page permission */
       printf("%i page permission error for 0x%h\n",
-	     current, addr);
+	     current->pid, addr);
       break;
     }
 

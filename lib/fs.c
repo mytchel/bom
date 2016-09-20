@@ -108,6 +108,7 @@ fsmountloop(int in, int out, struct fsmount *mount)
   size_t reqsize, respsize;
   struct request req;
   struct response resp;
+  int pid = getpid();
 
   reqsize = sizeof(req.rid)
     + sizeof(req.type)
@@ -121,11 +122,11 @@ fsmountloop(int in, int out, struct fsmount *mount)
   req.buf = buf;
 
   if (debugfs)
-    printf("fs start mount loop.\n");
+    printf("fs %i start mount loop.\n", pid);
 
   while (true) {
     if (debugfs)
-      printf("fs wait for request.\n");
+      printf("fs %i wait for request.\n", pid);
 
     if (read(in, &req, reqsize) != reqsize)
       goto err;
@@ -135,15 +136,15 @@ fsmountloop(int in, int out, struct fsmount *mount)
     resp.ret = ENOIMPL;
 
     if (debugfs)
-      printf("fs got request rid = %i, lbuf = %i, type = %i\n",
-	     req.rid, req.lbuf, req.type);
+      printf("fs %i got request rid = %i, lbuf = %i, type = %i\n",
+	     pid, req.rid, req.lbuf, req.type);
 
     if (req.lbuf > 0 && read(in, req.buf, req.lbuf) != req.lbuf) {
       goto err;
     }
 
     if (debugfs)
-      printf("fs process request %i\n", req.rid);
+      printf("fs %i process request %i\n", pid, req.rid);
 
     switch (req.type) {
     case REQ_open:
@@ -177,7 +178,7 @@ fsmountloop(int in, int out, struct fsmount *mount)
     }
 
     if (debugfs)
-      printf("fs hand over response for %i\n", req.rid);
+      printf("fs %i hand over response for %i\n", pid, req.rid);
 
     if (write(out, &resp, respsize) != respsize)
       goto err;
@@ -195,10 +196,11 @@ fsmountloop(int in, int out, struct fsmount *mount)
 
  err:
 
+  if (debugfs)
+    printf("fs %i errored.\n", pid);
+
   if (resp.lbuf > 0)
     free(resp.buf);
-
-  free(buf);
 
   return -1;
 }

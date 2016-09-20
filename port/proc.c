@@ -24,7 +24,7 @@ nextproc(void);
 static uint32_t nextpid = 1;
 static struct proc procs[MAX_PROCS] = {{0}};
 
-struct proc *current = &procs[1];
+struct proc *current = &procs[0];
 
 void
 schedule(void)
@@ -36,7 +36,6 @@ schedule(void)
   }
 	
   current = nextproc();
-  debug("schedule %i\n", current->pid);
   mmuswitch(current);
   setsystick(current->quanta);
   gotolabel(&current->label);
@@ -64,7 +63,7 @@ nextproc(void)
   do {
     p = p->next;
     if (p == nil) {
-      p = procs->next->next;
+      p = procs->next;
     }
 		
     if (p->state == PROC_ready) {
@@ -73,7 +72,7 @@ nextproc(void)
   } while (p != current);
 
   if (p->state != PROC_ready) {
-    debug("No procs to run\n");
+    printf("No procs to run\n");
     return procs->next;
   } else {
     return p;
@@ -118,7 +117,7 @@ void
 initproc(struct proc *p)
 {
   p->dot = nil;
-  p->quanta = 100;
+  p->quanta = 5;
 	
   p->segs[Sstack] = newseg(SEG_rw);
   p->segs[Stext] = newseg(SEG_ro);
@@ -134,8 +133,6 @@ procremove(struct proc *p)
 {
   struct proc *pp;
   int i;
-
-  debug("proc %i remove\n", p->pid);
 
   disableintr();
   /* Remove proc from list. */
@@ -160,14 +157,12 @@ procremove(struct proc *p)
 void
 procready(struct proc *p)
 {
-  debug("proc %i ready\n", p->pid);
   p->state = PROC_ready;
 }
 
 void
 procsleep(struct proc *p, uint32_t ms)
 {
-  debug("proc %i sleep\n", p->pid);
   p->state = PROC_sleeping;
   p->sleep = mstoticks(ms);
 	
@@ -178,13 +173,11 @@ procsleep(struct proc *p, uint32_t ms)
 void
 procsuspend(struct proc *p)
 {
-  debug("proc %i suspend\n", p->pid);
   p->state = PROC_suspend;
 }
 
 void
 procwait(struct proc *p)
 {
-  debug("proc %i wait\n", p->pid);
   p->state = PROC_waiting;
 }

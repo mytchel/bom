@@ -65,7 +65,7 @@ mmchswaitintr(uint32_t mask)
   mmchs->regs->ie = v;
   mmchs->regs->ie = 0xffffffff;
 
-  while (true) {/*waitintr(mmchs->intr) != ERR) {*/
+  while (waitintr(mmchs->intr) != ERR) {
     while ((v = mmchs->regs->stat) != 0) {
       if (v & MMCHS_SD_STAT_BRR) {
 	handle_brr();
@@ -777,7 +777,9 @@ int
 mmc(void)
 {
   int p;
-	
+
+  printf("Spawning procs for mmc0, mmc1\n");
+  
   p = fork(FORK_sngroup);
   if (p == 0) {
     return mmchsproc("mmc0", (void *) MMCHS0, MMC0_intr);

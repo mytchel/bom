@@ -39,9 +39,9 @@ makereq(struct binding *b, struct request *req)
     + sizeof(req->fid)
     + sizeof(req->lbuf);
 
-  if (pipewrite(b->out, (void *) req, s) != s
-      || (req->lbuf > 0 && pipewrite(b->out, req->buf, req->lbuf)
-	  != req->lbuf)) {
+  if (pipewrite(b->out, (void *) req, s) != s || 
+      (req->lbuf > 0 &&
+       pipewrite(b->out, req->buf, req->lbuf) != req->lbuf)) {
     unlock(&b->lock);
     return nil;
   }
@@ -50,9 +50,11 @@ makereq(struct binding *b, struct request *req)
   current->wnext = b->waiting;
   b->waiting = current;
 
+  disableintr();
   unlock(&b->lock);
   procwait(current);
   schedule();
+  enableintr();
 
   return (struct response *) current->aux;
 }
@@ -286,9 +288,7 @@ fileopen(struct path *path, uint32_t mode, uint32_t cmode, int *err)
 	
   c->aux = cfile;
 	
-  lock(&b->lock);
-  b->refs++;
-  unlock(&b->lock);
+  atomicinc(&b->refs);
 	
   cfile->fid = req.fid;
   cfile->binding = b;
@@ -405,19 +405,20 @@ filewrite(struct chan *c, uint8_t *buf, size_t n)
 	
   req.type = REQ_write;
   req.fid = cfile->fid;
-  req.lbuf = sizeof(uint32_t) * 2 + sizeof(uint8_t) * n;
-  req.buf = b = malloc(req.lbuf);
+  req.lbuf = sizeof(uint32_t) * 2 + n;
 
+  req.buf = malloc(req.lbuf);
   if (req.buf == nil) {
     return ENOMEM;
   }
-	
+
+  b = req.buf;
   memmove(b, &cfile->offset, sizeof(uint32_t));
   b += sizeof(uint32_t);
   memmove(b, &n, sizeof(uint32_t));
   b += sizeof(uint32_t);
   /* Should change this to write strait into the pipe. */
-  memmove(b, buf, sizeof(uint8_t) * n);
+  memmove(b, buf, n);
 
   resp = makereq(cfile->binding, &req);
 
@@ -428,8 +429,7 @@ filewrite(struct chan *c, uint8_t *buf, size_t n)
   } if (resp->ret != OK) {
     err = resp->ret;
   } else if (resp->lbuf == sizeof(uint32_t)) {
-    memmove(&n, resp->buf, sizeof(uint32_t));
-    cfile->offset += n;
+    cfile->offset += *resp->buf;
     err = n;
   } else {
     err = ELINK;
@@ -467,10 +467,8 @@ fileclose(struct chan *c)
   free(resp);
 
   if (err == OK) {	
-    lock(&cfile->binding->lock);
-    cfile->binding->refs--;
-    unlock(&cfile->binding->lock);
-		
+    atomicdec(&cfile->binding->refs);
+
     free(cfile);
   }
 	

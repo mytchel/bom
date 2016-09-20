@@ -40,8 +40,7 @@ freeseg(struct segment *s)
 {
   struct page *p, *pp;
 	
-  s->refs--;
-  if (s->refs > 0)
+  if (atomicdec(&s->refs) > 0)
     return;
 	
   p = s->pages;
@@ -62,7 +61,7 @@ copyseg(struct segment *s, bool copy)
 
   if (s->type == SEG_ro || !copy) {
     /* No need to actually copy. */
-    s->refs++;
+    atomicinc(&s->refs);
     n = s;
   } else {
     /* Gets new pages and copies the data from old. */

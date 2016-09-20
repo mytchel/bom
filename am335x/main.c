@@ -124,8 +124,9 @@ initmainproc(void)
 int
 nullproc(void *arg)
 {
-  while (true)
-    printf("null\n");
+  while (true) {
+  }
+
   return 0;
 }
 
@@ -134,18 +135,14 @@ initnullproc(void)
 {
   struct proc *p;
 
-  debug("create proc\n");
   p = newproc();
   if (p == nil) {
     printf("Failed to create null proc\n");
     return;
   }
 	
-  debug("init proc\n");
   initproc(p);
-  debug("fork func\n");
   forkfunc(p, &nullproc, nil);
-  debug("ready\n");
   procready(p);
 
   debug("null proc on pid %i\n", p->pid);

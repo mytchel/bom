@@ -23,7 +23,7 @@ sysexit(va_list args)
 {
   int code = va_arg(args, int);
 
-  debug("pid %i exited with status %i\n", 
+  printf("pid %i exited with status %i\n", 
 	 current->pid, code);
 
   procremove(current);
@@ -77,14 +77,14 @@ sysfork(va_list args)
 	
   if (flags & FORK_sfgroup) {
     p->fgroup = current->fgroup;
-    p->fgroup->refs++;
+    atomicinc(&p->fgroup->refs);
   } else {
     p->fgroup = copyfgroup(current->fgroup);
   }
 	
   if (flags & FORK_sngroup) {
     p->ngroup = current->ngroup;
-    p->ngroup->refs++;
+    atomicinc(&p->ngroup->refs);
   } else {
     p->ngroup = copyngroup(current->ngroup);
   }
@@ -93,6 +93,12 @@ sysfork(va_list args)
   procready(p);
 
   return p->pid;
+}
+
+int
+getpid(void)
+{
+  return current->pid;
 }
 
 reg_t

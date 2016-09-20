@@ -21,43 +21,38 @@
 struct binding *
 newbinding(struct path *path, struct chan *out, struct chan *in)
 {
-	struct binding *b;
+  struct binding *b;
 	
-	b = malloc(sizeof(struct binding));
-	if (b == nil)
-		return nil;
+  b = malloc(sizeof(struct binding));
+  if (b == nil)
+    return nil;
 	
-	b->refs = 1;
-	initlock(&b->lock);
+  b->refs = 1;
+  initlock(&b->lock);
 
-	b->path = path;
-	b->in = in;
-	b->out = out;
-	b->rootfid = ROOTFID;
-	
-	in->refs++;
-	out->refs++;
+  b->path = path;
+  b->in = in;
+  b->out = out;
+  b->rootfid = ROOTFID;
 
-	b->waiting = nil;
-	b->nreqid = 0;
+  atomicinc(&in->refs);
+  atomicinc(&out->refs);
+
+  b->waiting = nil;
+  b->nreqid = 0;
 	
-	return b;
+  return b;
 }
 
 void
 freebinding(struct binding *b)
 {
-	lock(&b->lock);
-	
-	b->refs--;
-	
-	unlock(&b->lock);
-	
-	/* 
-	 * Doesnt need to do any freeing
-	 * when mountproc sees that refs <=0
-	 * it will do freeing.
-	 */
+  atomicdec(&b->refs);
+  /* 
+   * Doesnt need to do any freeing
+   * when mountproc sees that refs <=0
+   * it will do freeing.
+   */
 }
 
 /*
@@ -68,39 +63,39 @@ freebinding(struct binding *b)
 struct binding *
 findbinding(struct ngroup *ngroup, struct path *path, int depth)
 {
-	struct binding_list *bl;
-	struct path *pp, *bp;
-	struct binding *best;
-	int d, bestd;
+  struct binding_list *bl;
+  struct path *pp, *bp;
+  struct binding *best;
+  int d, bestd;
 	
-	lock(&ngroup->lock);
+  lock(&ngroup->lock);
 
-	best = nil;
-	bestd = -1;
-	for (bl = ngroup->bindings; bl != nil; bl = bl->next) {
-		d = 0;
-		pp = path;
-		lock(&bl->binding->lock);
-		bp = bl->binding->path;
-		while (d < depth && pp != nil && bp != nil) {
-			if (!strcmp(pp->s, bp->s)) {
-				break;
-			}
+  best = nil;
+  bestd = -1;
+  for (bl = ngroup->bindings; bl != nil; bl = bl->next) {
+    d = 0;
+    pp = path;
+    lock(&bl->binding->lock);
+    bp = bl->binding->path;
+    while (d < depth && pp != nil && bp != nil) {
+      if (!strcmp(pp->s, bp->s)) {
+	break;
+      }
 			
-			d++;
-			pp = pp->next;
-			bp = bp->next;
-		}
+      d++;
+      pp = pp->next;
+      bp = bp->next;
+    }
 		
-		if (bp == nil && d > bestd) {
-			bestd = d;
-			best = bl->binding;
-		}
+    if (bp == nil && d > bestd) {
+      bestd = d;
+      best = bl->binding;
+    }
 		
-		unlock(&bl->binding->lock);
-	}
+    unlock(&bl->binding->lock);
+  }
 	
-	unlock(&ngroup->lock);
+  unlock(&ngroup->lock);
 	
-	return best;
+  return best;
 }

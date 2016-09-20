@@ -32,12 +32,12 @@ respread(struct chan *c, struct response *resp)
   if (resp->lbuf > 0) {
     resp->buf = malloc(resp->lbuf);
     if (resp->buf == nil) {
-      printf("kproc mount : error allocating resp buf\n");
+      printf("kproc mount: error allocating resp buf\n");
       return false;
     }
 
     if (piperead(c, resp->buf, resp->lbuf) != resp->lbuf) {
-      printf("kproc mount : Error reading resp buf\n");
+      printf("kproc mount: Error reading resp buf\n");
       return false;
     }
   }
@@ -52,18 +52,17 @@ mountproc(void *arg)
   struct proc *p, *pp;
   struct response *resp;
   bool found;
+  char *pathstr;
 
-  #if DEBUG == 1
-  char *str = (char *) pathtostr(b->path, nil);
-  debug("kmountproc for '%s' on pid %i\n",
-	str, current->pid);
-  free(str);
-  #endif
+  pathstr = (char *) pathtostr(b->path, nil);
+
+  debug("kproc mount: '/%s' on pid %i\n",
+	pathstr, current->pid);
 	
   while (b->refs > 0) {
     resp = malloc(sizeof(struct response));
     if (resp == nil) {
-      printf("kproc mount : error allocating response.\n");
+      printf("kproc mount: error allocating response.\n");
       break;
     }
 
@@ -91,23 +90,29 @@ mountproc(void *arg)
     }
 
     if (!found) {
-      printf("%i mounted proc is being bad.\n", current->pid);
+      printf("%i mounted proc is being bad and replying without a request (%i).\n",
+	     current->pid, resp->rid);
       if (resp->lbuf > 0)
 	free(resp->buf);
       free(resp);
-      break;
     }
     
     unlock(&b->lock);
   }
-	
-  printf("kproc mount : an error occured\n");
-  printf("free chans\n");	
+
+  printf("kproc mount: an error occured with binding '/%s'\n",
+	pathstr);
+		
+  debug("kproc mount: lock binding\n");	
   lock(&b->lock);
+  debug("kproc mount: free chans\n");	
+
   freechan(b->in);
   freechan(b->out);
+  debug("kproc mount: unlock binding\n");	
   unlock(&b->lock);
-	
+
+  debug("kproc mount: wait for bindings refs to go to zero.\n");
   while (true) {
     lock(&b->lock);
     if (b->refs == 0)
@@ -116,27 +121,29 @@ mountproc(void *arg)
     schedule();
   }
 	
-  printf("No longer bound\n");
+  debug("kproc mount: no longer bound\n");
 
   /* Free binding and exit. */
 
-  printf("wake waiters\n");
+  debug("kproc mount: lock\n");
+  lock(&b->lock);	
+
+  debug("kproc mount: wake waiters\n");
 	
   /* Wake up any waiting processes so they can error. */
   for (p = b->waiting; p != nil; p = p->wnext) {
+    printf("kproc mount: wake up %i\n", p->pid);
     p->aux = nil;
     procready(p);
   }
 	
-  printf("lock\n");
-  lock(&b->lock);	
-
-  printf("free path\n");
+  debug("kproc mount: free path\n");
   freepath(b->path);
-	
   free(b);
 	
-  printf("return\n");
+  printf("kproc mount: '/%s' finished.\n", pathstr);
+
+  free(pathstr);
 	
   return 0;
 }

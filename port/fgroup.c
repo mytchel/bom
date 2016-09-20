@@ -47,13 +47,11 @@ freefgroup(struct fgroup *f)
 {
   int i;
 	
-  lock(&f->lock);
-	
-  f->refs--;
-  if (f->refs > 0) {
-    unlock(&f->lock);
+  if (atomicdec(&f->refs) > 0) {
     return;
   }
+
+  lock(&f->lock);
 
   for (i = 0; i < f->nchans; i++) {
     if (f->chans[i] != nil)
@@ -88,8 +86,9 @@ copyfgroup(struct fgroup *fo)
   f->nchans = fo->nchans;
   for (i = 0; i < f->nchans; i++) {
     f->chans[i] = fo->chans[i];
-    if (f->chans[i] != nil)
-      f->chans[i]->refs++;
+    if (f->chans[i] != nil) {
+      atomicinc(&f->chans[i]->refs);
+    }
   }
 	
   f->refs = 1;
@@ -155,5 +154,6 @@ fdtochan(struct fgroup *f, int fd)
     c = f->chans[fd];
 	
   unlock(&f->lock);
+
   return c;
 }

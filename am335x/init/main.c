@@ -27,7 +27,7 @@ int
 ppipe1(int fd);
 
 int
-pfile_open(void);
+filetest(void);
 
 int
 commount(char *path);
@@ -38,16 +38,15 @@ tmpmount(char *path);
 int
 mmc(void);
 
-extern struct fsmount fsmount;
 int stdin, stdout, stderr;
 
 int
 main(void)
 {
-  int f, fds[2];
+  int f, fd, fds[2];
 
-  f = open("/dev", O_WRONLY|O_CREATE, ATTR_wr|ATTR_rd|ATTR_dir);
-  if (f < 0) {
+  fd = open("/dev", O_WRONLY|O_CREATE, ATTR_wr|ATTR_rd|ATTR_dir);
+  if (fd < 0) {
     return -1;
   }
 
@@ -55,6 +54,8 @@ main(void)
   if (f < 0) {
     return -1;
   }
+
+  close(fd);
 
   stdin = open("/dev/com", O_RDONLY);
   stdout = open("/dev/com", O_WRONLY);
@@ -65,56 +66,54 @@ main(void)
   if (stderr < 0) return -3;
 
   printf("/dev/com mounted pid %i\n", f);
-
+  printf("std in = %i, out = %i, err = %i\n",
+	 stdin, stdout, stderr);
+  
   f = tmpmount("/tmp");
   if (f < 0) {
     return -1;
   }
 
   printf("/tmp mounted on pid %i\n", f);
-  
-   f = fork(FORK_sngroup);
+
+  if (pipe(fds) == ERR) {
+    return -3;
+  }
+
+  f = fork(FORK_sngroup);
   if (f < 0) {
-    return -6;
+    return -1;
   } else if (!f) {
-    printf("mmc on %i\n", getpid());
+    close(fds[1]);
+    return ppipe0(fds[0]);
+  }
+	
+  f = fork(FORK_sngroup);
+  if (f < 0) {
+    return -1;
+  } else if (!f) {
+    close(fds[0]);
+    return ppipe1(fds[1]);
+  }
+
+  close(fds[0]);
+  close(fds[1]);
+
+  f = fork(FORK_sngroup);
+  if (f < 0) {
+    return -1;
+  } else if (!f) {
     return mmc();
   }
 
   f = fork(FORK_sngroup);
   if (f < 0) {
-    return -2;
+    return -1;
   } else if (!f) {
-    printf("pfile_open on %i\n", getpid());
-    return pfile_open();
+    return filetest();
   }
-
-  if (pipe(fds) == ERR) {
-    return -3;
-  }
-	
-  f = fork(FORK_sngroup);
-  if (f < 0) {
-    return -4;
-  } else if (!f) {
-    printf("ppipe0 on %i\n", getpid());
-    close(fds[1]);
-    return ppipe0(fds[0]);
-  }
-	
-  close(fds[0]);
-	
-  f = fork(FORK_sngroup);
-  if (f < 0) {
-    return -5;
-  } else if (!f) {
-    printf("ppipe1 on %i\n", getpid());
-    return ppipe1(fds[1]);
-  }
-
-  close(fds[1]);
 
   printf("Init completed. Exiting...\n");
-  
+
   return 0;
 }

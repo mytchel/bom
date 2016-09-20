@@ -21,45 +21,45 @@
 int
 ppipe0(int fd)
 {
-	int i, n, pid = getpid();
+  int i, n, pid = getpid();
 	
-	printf("%i: ppipe0 started with fd %i\n", pid, fd);
-	while (true) {
-		sleep(0);
-		printf("%i: wait for write\n", pid);
-		n = read(fd, (void *) &i, sizeof(int));
-		if (n != sizeof(int)) {
-			printf("%i: failed to read. %i\n", pid, n);
-			break;
-		}
+  printf("%i: ppipe0 started with fd %i\n", pid, fd);
+  while (true) {
+    sleep(0);
+    printf("%i: wait for write\n", pid);
+    n = read(fd, (void *) &i, sizeof(int));
+    if (n != sizeof(int)) {
+      printf("%i: failed to read. %i\n", pid, n);
+      break;
+    }
 		
-		sleep(0);
-		printf("%i: read %i\n", pid, i);
-	}
+    sleep(0);
+    printf("%i: read %i\n", pid, i);
+  }
 	
-	printf("%i: exiting\n", pid);
+  printf("%i: exiting\n", pid);
 
-	return 1;
+  return 1;
 }
 
 int
 ppipe1(int fd)
 {
-	int i, n, pid = getpid();
-	printf("%i: ppipe1 started with fd %i\n", pid, fd);
+  int i, n, pid = getpid();
+  printf("%i: ppipe1 started with fd %i\n", pid, fd);
 	
-	for (i = 0; i < 10; i++) {
-		sleep(0);
-		printf("%i: writing %i\n", pid, i);
+  for (i = 0; i < 10; i++) {
+    sleep(0);
+    printf("%i: writing %i\n", pid, i);
 
-		n = write(fd, (void *) &i, sizeof(int));
-		if (n != sizeof(int)) {
-			printf("%i: write failed. %i\n", pid, n);
-			break;
-		}
-	}
+    n = write(fd, (void *) &i, sizeof(int));
+    if (n != sizeof(int)) {
+      printf("%i: write failed. %i\n", pid, n);
+      break;
+    }
+  }
 	
-	printf("%i: exiting\n", pid);
+  printf("%i: exiting\n", pid);
 
-	return 2;
+  return 2;
 }

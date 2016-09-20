@@ -19,41 +19,38 @@
 #include "head.h"
 
 struct chantype *chantypes[CHAN_max] = {
-	[CHAN_pipe] = &devpipe,
-	[CHAN_file] = &devfile,
+  [CHAN_pipe] = &devpipe,
+  [CHAN_file] = &devfile,
 };
 
 struct chan *
 newchan(int type, int mode, struct path *p)
 {
-	struct chan *c;
+  struct chan *c;
 	
-	c = malloc(sizeof(struct chan));
-	if (c == nil) {
-		return nil;
-	}
+  c = malloc(sizeof(struct chan));
+  if (c == nil) {
+    return nil;
+  }
 
-	initlock(&c->lock);
-	c->refs = 1;
-	c->type = type;
-	c->mode = mode;
-	c->path = p;
+  initlock(&c->lock);
+  c->refs = 1;
+  c->type = type;
+  c->mode = mode;
+  c->path = p;
 	
-	return c;
+  return c;
 }
 
 void
 freechan(struct chan *c)
 {
-	lock(&c->lock);
-	
-	c->refs--;
-	if (c->refs > 0) {
-		unlock(&c->lock);
-		return;
-	}
+  if (atomicdec(&c->refs) > 0) {
+    return;
+  }
 
-	chantypes[c->type]->close(c);
-	freepath(c->path);
-	free(c);
+  lock(&c->lock);
+  chantypes[c->type]->close(c);
+  freepath(c->path);
+  free(c);
 }

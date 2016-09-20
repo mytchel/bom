@@ -140,7 +140,8 @@ free(void *ptr)
   }
 	
   if (p == nil) {
-    printf("Are you sure 0x%h is from the heap?\n", ptr);
+    printf("%i, Are you sure 0x%h is from the heap?\n",
+	   getpid(), ptr);
     return;
   } else if (p->next == nil) {
     /* b is at end of list, append. */

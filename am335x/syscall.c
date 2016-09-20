@@ -30,16 +30,15 @@ syscall(struct ureg *ureg)
   enableintr();
   
   sysnum = (unsigned int) ureg->regs[0];
-  debug("%i syscalled %i\n", current->pid, sysnum);
 
+  debug("%i syscall %i\n", current->pid, sysnum);
   if (sysnum < NSYSCALLS) {
     ureg->regs[0] = syscalltable[sysnum]((va_list) ureg->sp);
   } else {
     ureg->regs[0] = ERR;
   }
 
-  debug("%i out of syscall\n", current->pid);
-
+  debug("%i syscall %i done\n", current->pid, sysnum);
   current->inkernel = false;
 }
 

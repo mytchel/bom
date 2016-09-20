@@ -68,8 +68,6 @@ initmemory(void)
   addpages(&iopages, false, 0x481D8000, 0x481D9000); /* MMC1 */
   addpages(&iopages, false, 0x48200000, 0x48201000); /* INTCPS */
 
-  debug("init mmu\n");
-
   initmmu();
 
   /* Give kernel unmapped access to all of ram. */	
@@ -80,7 +78,7 @@ initmemory(void)
 	
   mmuenable();
 
-  debug("can still print!\n");
+  debug("mmu enabled and can still print!\n");
 }
 
 void

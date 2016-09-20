@@ -29,30 +29,26 @@ initlock(struct lock *l)
 void
 lock(struct lock *l)
 {
-  printf("%i locking\n", current->pid);
-  if (testandset(&(l->lock))) {
-    printf("got lock\n");
-    return;
-  } else {
-    printf("%i adding to a lock waiter\n", current->pid);
+  while (!testandset(&(l->lock)))
+    schedule();
+
+  return;
+  
+  if (!testandset(&(l->lock))) {
     while (!testandset(&(l->listlock)))
       schedule();
 
     if (testandset(&(l->lock))) {
-      printf("got lock in the end\n");
       l->listlock = 0;
     } else {
-      printf("waiting for lock\n");
-
       current->wnext = l->waiting;
       l->waiting = current;
 
       disableintr();
-      procwait(current);
       l->listlock = 0;
+      procwait(current);
       schedule();
       enableintr();
-      printf("%i back from lock wait\n", current->pid);
     }
   }
 }
@@ -60,14 +56,15 @@ lock(struct lock *l)
 void
 unlock(struct lock *l)
 {
-  printf("unlock, %i get list lock\n", current->pid);
+  struct proc *w;
+  
   while (!testandset(&(l->listlock)))
     schedule();
 
-  if (l->waiting != nil) {
-    printf("wake up first in list (%i)\n", l->waiting->pid);
-    procready(l->waiting);
-    l->waiting = l->waiting->next;
+  w = l->waiting;
+  if (w != nil) {
+    l->waiting = w->wnext;
+    procready(w);
   }
 
   l->listlock = 0;

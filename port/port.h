@@ -397,6 +397,11 @@ enableintr(void);
 bool
 testandset(int *addr);
 
+int
+atomicinc(int *addr);
+
+int
+atomicdec(int *addr);
 
 /****** Global Variables ******/
 
