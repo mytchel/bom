@@ -73,7 +73,8 @@ inittimers(void)
 
 	writel(0, TIMER2 + TIMER_TCLR); /* disable timer */
 	writel(1, TIMER2 + TIMER_IRQENABLE_SET); /* set irq */
- 	while (readl(TIMER2 + TIMER_TWPS)); /* Wait for writes to commit. */
+	/* Wait for writes to commit. */
+ 	while (readl(TIMER2 + TIMER_TWPS)); 
 
 	intcaddhandler(TINT2, &systickhandler);
 
@@ -81,7 +82,8 @@ inittimers(void)
 
 	writel(0, TIMER0 + TIMER_TCRR); /* set timer to 0 */
 	writel(1, TIMER0 + TIMER_TCLR); /* start timer */
- 	while (readl(TIMER0 + TIMER_TWPS)); /* Wait for writes to commit. */
+	/* Wait for writes to commit. */
+	while (readl(TIMER0 + TIMER_TWPS));
 }
 
 bool
@@ -93,7 +95,8 @@ systickhandler(uint32_t irqn)
 	writel(readl(TIMER2 + TIMER_IRQSTATUS), 
 		TIMER2 + TIMER_IRQSTATUS);
 
- 	while (readl(TIMER2 + TIMER_TWPS)); /* Wait for writes to commit. */
+	/* Wait for writes to commit. */
+ 	while (readl(TIMER2 + TIMER_TWPS)); 
  	
  	return true;
 }
@@ -104,7 +107,8 @@ setsystick(uint32_t ms)
 	uint32_t t = mstoticks(ms);
 	
 	writel(0, TIMER2 + TIMER_TCLR); /* disable timer */
- 	while (readl(TIMER2 + TIMER_TWPS)); /* Wait for writes to commit. */
+	/* Wait for writes to commit. */
+ 	while (readl(TIMER2 + TIMER_TWPS)); 
 	
 	writel(0, TIMER2 + TIMER_TCRR); /* set timer to 0 */
 	writel(t, TIMER2 + TIMER_TMAR); /* set compare value */
@@ -113,7 +117,8 @@ setsystick(uint32_t ms)
 	writel(readl(TIMER2 + TIMER_IRQSTATUS), 
 		TIMER2 + TIMER_IRQSTATUS);
 
- 	while (readl(TIMER2 + TIMER_TWPS)); /* Wait for writes to commit. */
+	/* Wait for writes to commit. */	
+ 	while (readl(TIMER2 + TIMER_TWPS)); 
 	
 	writel((1<<6) | 1, TIMER2 + TIMER_TCLR); /* start timer */
 }

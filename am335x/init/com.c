@@ -43,10 +43,7 @@ uartinit(void)
   uart = (struct uart_struct *)
     getmem(MEM_io, (void *) UART0, &size);
 
-  if (uart == nil)
-    return false;
-  else
-    return true;
+  return !(uart == nil);
 }
 
 static size_t
@@ -171,32 +168,36 @@ int
 commount(char *path)
 {
   int f, fd, p1[2], p2[2];
-
+ 
   if (pipe(p1) == ERR) {
-    return -2;
+    return -1;
   } else if (pipe(p2) == ERR) {
-    return -3;
+    return -1;
   }
 
   fd = open(path, O_WRONLY|O_CREATE, ATTR_wr|ATTR_rd);
   if (fd < 0) {
-    return -4;
+    return -2;
   }
   
   if (bind(p1[1], p2[0], path) == ERR) {
-    return -5;
+    return -3;
   }
 
   close(p1[1]);
   close(p2[0]);
 
   f = fork(FORK_sngroup);
-  if (!f) {
+  if (f < 0) {
+    return -4;
+  } else if (!f) {
     if (!uartinit()) {
       return -1;
     }
 
-    return fsmountloop(p1[0], p2[1], &mount);
+    f = fsmountloop(p1[0], p2[1], &mount);
+    dprintf("com mount at %s exiting!\n", path);
+    exit(f);
   }
 
   close(p1[0]);

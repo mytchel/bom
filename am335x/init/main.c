@@ -55,8 +55,6 @@ main(void)
     return -1;
   }
 
-  close(fd);
-
   stdin = open("/dev/com", O_RDONLY);
   stdout = open("/dev/com", O_WRONLY);
   stderr = open("/dev/com", O_WRONLY);
@@ -66,8 +64,6 @@ main(void)
   if (stderr < 0) return -3;
 
   printf("/dev/com mounted pid %i\n", f);
-  printf("std in = %i, out = %i, err = %i\n",
-	 stdin, stdout, stderr);
   
   f = tmpmount("/tmp");
   if (f < 0) {

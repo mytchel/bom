@@ -29,7 +29,7 @@ struct fstree *tree = nil;
 uint32_t nfid = 0;
 
 static int
-rootproc(void *arg);
+rootproc(void *);
 
 struct binding *rootbinding;
 
@@ -243,6 +243,7 @@ rootproc(void *arg)
   int in, out;
 
   c = (struct chan **) arg;
+  
   in = addchan(current->fgroup, c[0]);
   out = addchan(current->fgroup, c[3]);
 

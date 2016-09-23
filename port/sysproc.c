@@ -39,11 +39,12 @@ syssleep(va_list args)
   int ms;
 
   ms = va_arg(args, int);
-  if (ms <= 0) {
-    schedule();
-  } else {
-    procsleep(current, ms);
+  if (ms < 0) {
+    ms = 0;
   }
+
+  procsleep(current, ms);
+  schedule();
 		
   return 0;
 }
@@ -59,9 +60,11 @@ sysfork(va_list args)
   flags = va_arg(args, int);
 
   p = newproc();
-  if (p == nil)
-    return ERR;
+  if (p == nil) {
+    return ENOMEM;
+  }
 
+  p->inkernel = false;
   p->parent = current;
   p->quanta = current->quanta;
   p->dot = copypath(current->dot);
@@ -70,8 +73,7 @@ sysfork(va_list args)
   for (i = 0; i < Smax; i++) {
     p->segs[i] = copyseg(current->segs[i], copy || (i == Sstack));
     if (p->segs[i] == nil) {
-      /* Should do better cleaning up here. */
-      return ENOMEM;
+      goto err;
     }
   }
 	
@@ -80,6 +82,9 @@ sysfork(va_list args)
     atomicinc(&p->fgroup->refs);
   } else {
     p->fgroup = copyfgroup(current->fgroup);
+    if (p->fgroup == nil) {
+      goto err;
+    }
   }
 	
   if (flags & FORK_sngroup) {
@@ -87,12 +92,19 @@ sysfork(va_list args)
     atomicinc(&p->ngroup->refs);
   } else {
     p->ngroup = copyngroup(current->ngroup);
+    if (p->ngroup == nil) {
+      goto err;
+    }
   }
-	
+
   forkchild(p, current->ureg);
   procready(p);
 
   return p->pid;
+
+ err:
+  procremove(p);
+  return ENOMEM;
 }
 
 int
@@ -326,14 +338,13 @@ syswaitintr(va_list args)
 
   irqn = va_arg(args, int);
 
-  /*
   disableintr();
-  */
+
   if (procwaitintr(current, irqn)) {
     debug("%i waiting for irq %i\n", current->pid, irqn);
     procwait(current);
-    /* schedule enables interrupts */
     schedule();
+    enableintr();
     return OK;
   } else {
     debug("%i wait for irq %i failed\n", current->pid, irqn);

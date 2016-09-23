@@ -36,7 +36,7 @@ read(int fd, void *buf, size_t len)
   lock(&c->lock);
   r = chantypes[c->type]->read(c, buf, len);
   unlock(&c->lock);
-	
+
   return r;
 }
 

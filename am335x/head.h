@@ -16,8 +16,8 @@
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#ifndef __DAT_H
-#define __DAT_H
+#ifndef _HEAD_H_
+#define _HEAD_H_
 
 #include <types.h>
 

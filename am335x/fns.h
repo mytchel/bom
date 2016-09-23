@@ -16,8 +16,8 @@
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#ifndef __FNS_H
-#define __FNS_H
+#ifndef _FNS_H_
+#define _FNS_H_
 
 #include "trap.h"
 

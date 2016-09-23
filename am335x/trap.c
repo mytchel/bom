@@ -186,11 +186,17 @@ trap(struct ureg *ureg)
     rsch = irqhandler();
     break;
   case ABORT_INSTRUCTION:
-    debug("%i bad instruction at 0x%h\n", current->pid, ureg->pc);
+    fixed = false;
+    printf("%i bad instruction at 0x%h\n",
+	   current->pid, ureg->pc);
     break;
   case ABORT_PREFETCH:
-    debug("%i prefetch abort 0x%h\n", current->pid, ureg->pc);
     fixed = fixfault((void *) ureg->pc);
+    if (!fixed) {
+      printf("%i prefetch abort 0x%h\n",
+	     current->pid, ureg->pc);
+    }
+
     break;
   case ABORT_DATA:
     addr = faultaddr();
@@ -216,15 +222,12 @@ trap(struct ureg *ureg)
     case 0xb: /* domain page */
     case 0xc: /* external translation l1 */
     case 0xe: /* external translation l2 */
-      break;
     case 0xd: /* section permission */
     case 0xf: /* page permission */
-      printf("%i page permission error for 0x%h\n",
-	     current->pid, addr);
       break;
     }
 
-    if (DEBUG == 1 || !fixed) {
+    if (!fixed) {
       printf("%i data abort 0x%h (type 0x%h)\n",
 	     current->pid, addr, fsr);
     }

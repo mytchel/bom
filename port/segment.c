@@ -59,12 +59,12 @@ copyseg(struct segment *s, bool copy)
   struct segment *n;
   struct page *sp, *np;
 
-  if (s->type == SEG_ro || !copy) {
+  if (!copy || s->type == SEG_ro) {
     /* No need to actually copy. */
     atomicinc(&s->refs);
     n = s;
   } else {
-    /* Gets new pages and copies the data from old. */
+    /* Get new pages and copy the data from old. */
     n = newseg(s->type);
     if (n == nil)
       return nil;

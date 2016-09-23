@@ -30,10 +30,10 @@
 #define ROOTATTR	(ATTR_wr|ATTR_rd|ATTR_dir) /* Of / */
 
 enum {
-	REQ_open, REQ_close,
-	REQ_read, REQ_write,
-	REQ_walk, REQ_create,
-	REQ_remove, 
+  REQ_open, REQ_close,
+  REQ_read, REQ_write,
+  REQ_walk, REQ_create,
+  REQ_remove, 
 };
 
 /* 
@@ -42,39 +42,39 @@ enum {
  */
 
 struct request {
-	uint32_t rid;
-	uint32_t type;
-	uint32_t fid;
-
-	uint32_t lbuf;
-	uint8_t *buf;
+  uint32_t rid;
+  uint32_t type;
+  uint32_t fid;
+  uint32_t lbuf;
+  /* Followed by lbuf bytes of data for request */
+  uint8_t *buf;
 };
 
 struct request_read {
-	uint32_t offset;
-	uint32_t len;
+  uint32_t offset;
+  uint32_t len;
 };
 
 struct request_write {
-	uint32_t offset;
-	uint32_t len;
-	/* Followed by len bytes of data to write. */
-	uint8_t *buf;
+  uint32_t offset;
+  uint32_t len;
+  /* Followed by len bytes of data to write. */
+  uint8_t *buf;
 };
 
 struct request_create {
-	uint32_t attr;
-	uint32_t lname;
-	/* Followed by lname bytes of data for name. */
-	uint8_t *name;
+  uint32_t attr;
+  uint32_t lname;
+  /* Followed by lname bytes of data for name. */
+  uint8_t *name;
 };
 
 struct response {
-	uint32_t rid;
-	int32_t ret;
+  uint32_t rid;
+  int32_t ret;
 	
-	uint32_t lbuf;
-	uint8_t *buf;
+  uint32_t lbuf;
+  uint8_t *buf;
 };
 
 /* 
@@ -100,16 +100,16 @@ struct response {
  */
 
 struct file {
-	uint32_t fid;
-	uint32_t attr;
+  uint32_t fid;
+  uint32_t attr;
 	
-	uint32_t lname;
-	uint8_t *name;
+  uint32_t lname;
+  uint8_t *name;
 };
 
 struct dir {
-	uint32_t nfiles;
-	struct file **files;
+  uint32_t nfiles;
+  struct file **files;
 };
 
 uint8_t *

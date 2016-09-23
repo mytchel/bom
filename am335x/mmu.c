@@ -66,9 +66,9 @@ imap(void *start, void *end, int ap, bool cachable)
   uint32_t mask = (ap << 10) | L1_SECTION;
 
   if (cachable) {
-    mask |= (6 << 12) | (1 << 3) | (0 << 2);
+    mask |= (0 << 16) | (6 << 12) | (1 << 3) | (1 << 2);
   } else {
-    mask |= (0 << 12) | (0 << 3) | (0 << 2);
+    mask |= (0 << 16) | (0 << 12) | (0 << 3) | (0 << 2);
   }
  	
   while (x < (uint32_t) end) {
@@ -122,15 +122,15 @@ mmuputpage(struct page *p, bool rw)
   else
     ap = AP_RW_RO;
 
-  s = 0;
+  s = 1;
   if (p->cachable) {
-    tex = 6;
+    tex = 7;
     c = 1;
-    b = 0;
+    b = 1;
   } else {
     tex = 0;
     c = 0;
-    b = 0;
+    b = 1;
   }
   
   l2[L2X(x)] = ((uint32_t) p->pa) | L2_SMALL | 

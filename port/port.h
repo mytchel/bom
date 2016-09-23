@@ -116,10 +116,9 @@ enum { Sstack, Stext, Sdata, Sheap, Smax };
 struct proc {
   struct proc *next; /* Next in schedule queue */
 	
+  struct ureg *ureg;
   struct label label;
   uint8_t kstack[KSTACK];
-
-  struct ureg *ureg;
 
   bool inkernel;
   int state;
@@ -181,13 +180,13 @@ void
 procready(struct proc *);
 
 void
-procsleep(struct proc *, uint32_t);
-
-void
 procsuspend(struct proc *);
 
 void
 procwait(struct proc *);
+
+void
+procsleep(struct proc *, uint32_t);
 
 void
 schedule(void);

@@ -58,8 +58,9 @@ unlock(struct lock *l)
 {
   struct proc *w;
   
-  while (!testandset(&(l->listlock)))
+  while (!testandset(&(l->listlock))) {
     schedule();
+  }
 
   w = l->waiting;
   if (w != nil) {

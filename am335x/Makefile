@@ -20,7 +20,7 @@
 
 CLEAN = 
 
-all: am335x.list am335x.umg
+all: am335x.list am335x.umg copy
 
 loadaddr=0x82000000
 
@@ -130,3 +130,7 @@ clean:
 
 
 .PHONY: all clean 
+
+.PHONY: copy
+copy: am335x.umg
+	cp am335x.umg /var/ftpd/

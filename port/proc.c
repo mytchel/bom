@@ -29,15 +29,15 @@ struct proc *current = &procs[0];
 void
 schedule(void)
 {
-  disableintr();
-	
   if (setlabel(&current->label)) {
     return;
   }
 	
+  disableintr();
   current = nextproc();
-  mmuswitch(current);
+  debug("run %i\n", current->pid);
   setsystick(current->quanta);
+  mmuswitch(current);
   gotolabel(&current->label);
 }
 
@@ -58,21 +58,20 @@ nextproc(void)
       }
     }
   }
-	
+
   p = current;
   do {
     p = p->next;
     if (p == nil) {
       p = procs->next;
     }
-		
+
     if (p->state == PROC_ready) {
       break;
     }
   } while (p != current);
 
   if (p->state != PROC_ready) {
-    printf("No procs to run\n");
     return procs->next;
   } else {
     return p;
@@ -117,8 +116,8 @@ void
 initproc(struct proc *p)
 {
   p->dot = nil;
-  p->quanta = 5;
-	
+  p->quanta = 10;
+
   p->segs[Sstack] = newseg(SEG_rw);
   p->segs[Stext] = newseg(SEG_ro);
   p->segs[Sdata] = newseg(SEG_rw);
@@ -135,16 +134,19 @@ procremove(struct proc *p)
   int i;
 
   disableintr();
+
   /* Remove proc from list. */
   for (pp = procs; pp != nil && pp->next != p; pp = pp->next);
   if (pp == nil) /* Umm */
-    return;
+    panic("proc remove somehow didn't find previous proc!\n");
+  
   pp->next = p->next;
 
   enableintr();
 
   for (i = 0; i < Smax; i++) {
-    freeseg(p->segs[i]);
+    if (p->segs[i] != nil)
+      freeseg(p->segs[i]);
   }
 	
   freepath(p->dot);
@@ -165,9 +167,6 @@ procsleep(struct proc *p, uint32_t ms)
 {
   p->state = PROC_sleeping;
   p->sleep = mstoticks(ms);
-	
-  if (p == current)
-    schedule();
 }
 
 void

@@ -76,8 +76,10 @@ piperead(struct chan *c, uint8_t *buf, size_t n)
   p->buf = buf;
   p->n = n;
 
+  disableintr();
   procwait(current);
   schedule();
+  enableintr();
 
   if (p->n != 0) {
     return n - p->n;
@@ -107,9 +109,11 @@ pipewrite(struct chan *c, uint8_t *buf, size_t n)
     if (p->c0 == nil || p->c1 == nil) {
       return t;
     }
-		
+
+    disableintr();
     l = n - t < p->n ? n - t : p->n;
     memmove(p->buf, buf, l);
+    enableintr();
 		
     t += l;
     buf += l;

@@ -48,114 +48,102 @@ exit:
 
 
 fork:
-	push {lr}
 	push {r0}
 	mov r0, #SYSCALL_FORK
 	svc 0
 	add sp, sp, #4
-	pop {pc}
+	bx lr
 
 
 sleep:
-	push {lr}
 	push {r0}
 	mov r0, #SYSCALL_SLEEP
 	svc 0
 	add sp, sp, #4
-	pop {pc}
+	bx lr
 	
 	
 getpid:
-	push {lr}
 	mov r0, #SYSCALL_GETPID
 	svc 0
-	pop {pc}
+	bx lr
 
 
 getmem:
-	push {lr}
 	push {r0, r1, r2}
 	mov r0, #SYSCALL_GETMEM
 	svc 0
 	add sp, sp, #(4 * 3)
-	pop {pc}
+	bx lr
 
 
 rmmem:
-	push {lr}
 	push {r0, r1}
 	mov r0, #SYSCALL_RMMEM
 	svc 0
 	add sp, sp, #(4 * 2)
-	pop {pc}
+	bx lr
 			
 
 pipe:
-	push {lr}
 	push {r0}
 	mov r0, #SYSCALL_PIPE
 	svc 0
 	add sp, sp, #4
-	pop {pc}
+	bx lr
 
 
 read:
-	push {lr}
 	push {r0, r1, r2}
 	mov r0, #SYSCALL_READ
 	svc 0
 	add sp, sp, #(4 * 3)
-	pop {pc}
+	bx lr
 
 
 write:
-	push {lr}
 	push {r0, r1, r2}
 	mov r0, #SYSCALL_WRITE
 	svc 0 
 	add sp, sp, #(4 * 3)
-	pop {pc}
+	bx lr
 
 
 close:
-	push {lr}
 	push {r0}
 	mov r0, #SYSCALL_CLOSE
 	svc 0
 	add sp, sp, #4
-	pop {pc}
+	bx lr
 
 
 bind:
-	push {lr}
 	push {r0, r1,  r2}
 	mov r0, #SYSCALL_BIND
 	svc 0
 	add sp, sp, #(4 *3)
-	pop {pc}
+	bx lr
 
 open:
-	push {lr}
 	push {r0, r1, r2}
 	mov r0, #SYSCALL_OPEN
 	svc 0
 	add sp, sp, #(4 * 3)
-	pop {pc}
+	bx lr
 
 
 remove:
-	push {lr}
 	push {r0}
 	mov r0, #SYSCALL_REMOVE
 	svc 0
 	add sp, sp, #4
-	pop {pc}
+	bx lr
 
+	
 waitintr:
-	push {lr}
 	push {r0}
 	mov r0, #SYSCALL_WAITINTR
 	svc 0
 	add sp, sp, #4
-	pop {pc}
+	bx lr
 	

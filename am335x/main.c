@@ -125,6 +125,7 @@ int
 nullproc(void *arg)
 {
   while (true) {
+
   }
 
   return 0;

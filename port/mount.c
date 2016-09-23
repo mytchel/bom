@@ -48,11 +48,13 @@ respread(struct chan *c, struct response *resp)
 int
 mountproc(void *arg)
 {
-  struct binding *b = arg;
+  struct binding *b;
   struct proc *p, *pp;
   struct response *resp;
   bool found;
   char *pathstr;
+
+  b = (struct binding *) arg;
 
   pathstr = (char *) pathtostr(b->path, nil);
 

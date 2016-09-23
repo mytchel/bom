@@ -91,6 +91,8 @@ filetest(void)
     remove("/tmp/test");
   }
 
+  printf("main test done\n");
+
   readblock("/dev/mmc0");
   readblock("/dev/mmc1");
 

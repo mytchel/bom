@@ -16,8 +16,8 @@
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#ifndef __TRAP_H
-#define __TRAP_H
+#ifndef _TRAP_H_
+#define _TRAP_H_
 
 #define MODE_SVC		19
 #define MODE_FIQ		17
