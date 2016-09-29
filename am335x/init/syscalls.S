@@ -48,10 +48,13 @@
 _start:
 	bl main
 	@ fall through to exit
+
 exit:
 	push {r0}
 	mov r0, #SYSCALL_EXIT
 	svc 0
+	add sp, sp, #4
+	bx lr
 
 
 fork:

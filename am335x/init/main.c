@@ -74,13 +74,6 @@ main(void)
 
   printf("/dev/com mounted pid %i\n", f);
 
-  uint32_t i;
-  f = 0;
-  while (true) {
-    for (i = 0; i < 0x0; i++);
-    printf("this is a test %i\n", f++);
-  }
-  
   f = tmpmount("/tmp");
   if (f < 0) {
     return -1;

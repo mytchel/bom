@@ -123,23 +123,17 @@ sysclose(va_list args)
 	
   fd = va_arg(args, int);
 
-  debug("Close %i\n", fd);
-
   c = fdtochan(current->fgroup, fd);
   if (c == nil) {
     return ERR;
   }
-
-  debug("close got chan from fd %i\n", fd);
 
   /* Remove fd. */
   lock(&current->fgroup->lock);
   current->fgroup->chans[fd] = nil;
   unlock(&current->fgroup->lock);
 
-  debug("removed %i from fgroup\n", fd);
   freechan(c);
-  debug("chan freed\n");
   
   return OK;
 }

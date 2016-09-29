@@ -47,6 +47,7 @@ readblock(const char *name)
 	     buf[3], buf[4], buf[5], buf[6], buf[7]);
     }
 
+    printf("closing %s\n", name);
     close(fd);
   }
 }
@@ -73,7 +74,7 @@ filetest(void)
     write(fd, str3, strlen(str3));
     close(fd);
   }
-	
+
   printf("write to stdout a few times\n");
   for (i = 0; i < 5; i++) {
     write(stdout, str2, strlen(str2));
@@ -110,5 +111,5 @@ filetest(void)
   readblock("/dev/mmc0");
   readblock("/dev/mmc1");
 
-  return 0;
+  return 1;
 }

@@ -62,6 +62,7 @@ main(void)
 int
 mainproc(void *arg)
 {
+  disableintr();
   debug("Drop to user for inital proc (pid = %i)\n", current->pid);
   droptouser((void *) USTACK_TOP);
   return 0; /* Never reached. */

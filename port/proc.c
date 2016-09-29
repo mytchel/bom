@@ -43,7 +43,6 @@ schedule(void)
   }
 	
   current = nextproc();
-  debug("run %i\n", current->pid);
   setsystick(current->quanta);
   mmuswitch(current);
   gotolabel(&current->label);
@@ -148,8 +147,6 @@ procremove(struct proc *p)
   struct proc *pp;
   int i;
 
-  printf("removing %i from list\n", p->pid);
-  
   /* Remove proc from list. */
   for (pp = procs; pp != nil && pp->next != p; pp = pp->next);
   if (pp == nil) /* Umm */
@@ -170,8 +167,6 @@ procremove(struct proc *p)
     freengroup(p->ngroup);
 	
   p->state = PROC_unused;
-
-  printf("%i removed\n", p->pid);
 }
 
 void
