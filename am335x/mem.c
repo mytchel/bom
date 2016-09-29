@@ -1,26 +1,38 @@
 /*
- *   Copyright (C) 2016	Mytchel Hammond <mytchel@openmailbox.org>
  *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
+ * Copyright (c) 2016 Mytchel Hammond <mytchel@openmailbox.org>
+ * 
+ * Permission is hereby granted, free of charge, to any person
+ * obtaining a copy of this software and associated documentation
+ * files (the "Software"), to deal in the Software without
+ * restriction, including without limitation the rights to use,
+ * copy, modify, merge, publish, distribute, sublicense, and/or
+ * sell copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following
+ * conditions:
+ * 
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+ * OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+ * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+ * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+ * OTHER DEALINGS IN THE SOFTWARE.
  *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
 #include "head.h"
 #include "fns.h"
 
 static void
-addpages(struct page *, bool, uint32_t, uint32_t);
+addrampages(uint32_t, uint32_t);
+
+static void
+addiopages(uint32_t, uint32_t);
 
 extern uint32_t *_heap_start;
 extern uint32_t *_heap_end;
@@ -29,104 +41,115 @@ extern uint32_t *_ram_end;
 extern uint32_t *_kernel_start;
 extern uint32_t *_kernel_end;
 
-struct page pages = {0};
+
+struct page rampages = {0};
 struct page iopages = {0};
 
 void
 initmemory(void)
 {
-  uint32_t ram_size, heap_size;
+  uint32_t heap_size;
 
-  ram_size = (uint32_t) &_ram_end - (uint32_t) &_ram_start;
   heap_size = (uint32_t) &_heap_end - (uint32_t) &_heap_start;
-
-  printf("ram size\t\t= %i MB\n", ram_size / 1024 / 1024);
 
   initheap(&_heap_start, heap_size);
 
-  debug("adding ram pages\n");
-  addpages(&pages, true, PAGE_ALIGN((uint32_t) &_kernel_end), (uint32_t) &_ram_end);
-  addpages(&pages, true, (uint32_t) &_ram_start, PAGE_ALIGN((uint32_t) &_kernel_start));
+  addrampages(PAGE_ALIGN_UP((uint32_t) &_kernel_end),
+	   (uint32_t) &_ram_end);
+  
+  addrampages((uint32_t) &_ram_start,
+	   PAGE_ALIGN_DN((uint32_t) &_kernel_start));
 
-  debug("adding io pages\n");
-  addpages(&iopages, false, 0x47400000, 0x47404000); /* USB */
-  addpages(&iopages, false, 0x47810000, 0x47820000); /* MMCHS2 */
-  addpages(&iopages, false, 0x50000000, 0x51000000); /* GPMC */
-  addpages(&iopages, false, 0x44E05000, 0x44E06000); /* DMTimer0 */
-  addpages(&iopages, false, 0x44E07000, 0x44E08000); /* GPIO0 */
-  addpages(&iopages, false, 0x44E09000, 0x44E0A000); /* UART0 */
-  addpages(&iopages, false, 0x44E31000, 0x44E32000); /* DMTimer1 */
-  addpages(&iopages, false, 0x44E35000, 0x44E36000); /* Watchdog */
-  addpages(&iopages, false, 0x48022000, 0x48023000); /* UART1 */
-  addpages(&iopages, false, 0x48024000, 0x48025000); /* UART2 */
-  addpages(&iopages, false, 0x48040000, 0x48041000); /* DMTIMER2 */
-  addpages(&iopages, false, 0x48042000, 0x48043000); /* DMTIMER3 */
-  addpages(&iopages, false, 0x4804c000, 0x4804d000); /* GPIO1 */
-  addpages(&iopages, false, 0x48060000, 0x48061000); /* MMCHS0 */
-  addpages(&iopages, false, 0x481ac000, 0x481ad000); /* GPIO2 */
-  addpages(&iopages, false, 0x481AE000, 0x481AF000); /* GPIO3 */
-  addpages(&iopages, false, 0x481D8000, 0x481D9000); /* MMC1 */
-  addpages(&iopages, false, 0x48200000, 0x48201000); /* INTCPS */
+  addiopages(0x47400000, 0x47404000); /* USB */
+  addiopages(0x44E31000, 0x44E32000); /* DMTimer1 */
+  addiopages(0x48042000, 0x48043000); /* DMTIMER3 */
+  addiopages(0x48022000, 0x48023000); /* UART1 */
+  addiopages(0x48024000, 0x48025000); /* UART2 */
+  addiopages(0x44E07000, 0x44E08000); /* GPIO0 */
+  addiopages(0x4804c000, 0x4804d000); /* GPIO1 */
+  addiopages(0x481ac000, 0x481ad000); /* GPIO2 */
+  addiopages(0x481AE000, 0x481AF000); /* GPIO3 */
+  addiopages(0x44E09000, 0x44E0A000); /* UART0 */
+  addiopages(0x48060000, 0x48061000); /* MMCHS0 */
+  addiopages(0x481D8000, 0x481D9000); /* MMC1 */
+  addiopages(0x47810000, 0x47820000); /* MMCHS2 */
 
   initmmu();
 
   /* Give kernel unmapped access to all of ram. */	
   imap(&_ram_start, &_ram_end, AP_RW_NO, true);
 
-  /* Give kernel access to most IO, hope it doesnt touch it. */
-  imap((void *) 0x44000000, (void *) 0x50000000, AP_RW_NO, false);
-	
-  mmuenable();
+  /* UART0 is given to both kernel and possibly users. This may change */
+  /* UART0 */
+  imap((void *) 0x44E09000, (void *) 0x44E0A000, AP_RW_NO, false);
+  /* Watchdog */
+  imap((void *) 0x44E35000, (void *) 0x44E36000, AP_RW_NO, false);
+  /* DMTimer0 */
+  imap((void *) 0x44E05000, (void *) 0x44E06000, AP_RW_NO, false);
+  /* DMTIMER2 */
+  imap((void *) 0x48040000, (void *) 0x48041000, AP_RW_NO, false);
+  /* INTCPS */
+  imap((void *) 0x48200000, (void *) 0x48201000, AP_RW_NO, false);
 
-  debug("mmu enabled and can still print!\n");
+  mmuenable();
+}
+
+static void
+initpages(struct page *p, struct page *from, size_t npages,
+	  uint32_t start, uint32_t psize)
+{
+  size_t i;
+  
+  for (i = 0; i < npages; i++) {
+    p[i].pa = (void *) start;
+    p[i].va = 0;
+    p[i].size = psize;
+    p[i].from = from;
+    p[i].next = &p[i+1];
+    start += psize;
+  }
+
+  p[i-1].next = from->next;
+  from->next = p;
 }
 
 void
-addpages(struct page *pages, bool cachable,
-	 uint32_t start, uint32_t end)
+addrampages(uint32_t start, uint32_t end)
 {
   struct page *p;
-  uint32_t i, npages;
-	
-  while (start < end) {
-    npages = PAGE_SIZE / sizeof(struct page);
-    if (npages * PAGE_SIZE > end - start) {
-      npages = (uint32_t) (end - start) / PAGE_SIZE;
-    }
+  uint32_t npages, size;
 
-    p = malloc(sizeof(struct page) * npages);
-    if (p == nil) {
-      printf("Failed to allocate pages for 0x%h to 0x%h\n",
-	     start, end);
-      break;
-    }
-		
-    for (i = 0; i < npages - 1; i++) {
-      p[i].pa = (void *) start;
-      p[i].va = 0;
-      p[i].size = PAGE_SIZE;
-      p[i].cachable = cachable;
-      p[i].next = &p[i+1];
-      p[i].from = pages;
-      start += PAGE_SIZE;
-    }
-		
-    p[i].pa = (void *) start;
-    p[i].va = 0;
-    p[i].size = PAGE_SIZE;
-    p[i].cachable = cachable;
-    p[i].next = pages->next;
-    p[i].from = pages;
-		
-    pages->next = p;
+  size = end - start;
+  npages = 0;
 
-    start += PAGE_SIZE;
+  while (size > (PAGE_ALIGN_UP(sizeof(struct page) * npages)
+		 + PAGE_SIZE * npages)) {
+    npages++;
   }
+
+  p = (struct page *) start;
+  start += sizeof(struct page) * npages;
+  start = PAGE_ALIGN_UP(start);
+
+  initpages(p, &rampages, npages, start, PAGE_SIZE);
 }
 
+void
+addiopages(uint32_t start, uint32_t end)
+{
+  struct page *p;
+  size_t npages;
+
+  npages = (end - start) / PAGE_SIZE;
+
+  p = malloc(sizeof(struct page) * npages);
+
+  initpages(p, &iopages, npages, start, PAGE_SIZE);
+}
+ 
 void *
 pagealign(void *addr)
 {
   uint32_t x = (uint32_t) addr;
-  return (void *) PAGE_ALIGN(x);
+  return (void *) PAGE_ALIGN_UP(x);
 }

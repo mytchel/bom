@@ -1,19 +1,26 @@
 #
-#    Copyright (C) 2016	Mytchel Hammond <mytchel@openmailbox.org>
-#
-#    This program is free software; you can redistribute it and/or modify
-#    it under the terms of the GNU General Public License as published by
-#    the Free Software Foundation; either version 2 of the License, or
-#    (at your option) any later version.
-#
-#    This program is distributed in the hope that it will be useful,
-#    but WITHOUT ANY WARRANTY; without even the implied warranty of
-#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU General Public License for more details.
-#
-#    You should have received a copy of the GNU General Public License
-#    along with this program; if not, write to the Free Software
-#    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+#  Copyright (c) <2016> Mytchel Hammond <mytchel@openmailbox.org>
+#  
+#  Permission is hereby granted, free of charge, to any person
+#  obtaining a copy of this software and associated documentation
+#  files (the "Software"), to deal in the Software without
+#  restriction, including without limitation the rights to use,
+#  copy, modify, merge, publish, distribute, sublicense, and/or
+#  sell copies of the Software, and to permit persons to whom the
+#  Software is furnished to do so, subject to the following
+#  conditions:
+#  
+#  The above copyright notice and this permission notice shall be
+#  included in all copies or substantial portions of the Software.
+#  
+#  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+#  EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+#  OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+#  NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+#  HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+#  WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+#  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+#  OTHER DEALINGS IN THE SOFTWARE
 #
 
 #include "trap.h"
@@ -63,60 +70,70 @@ swi_ex:
 	mov r0, sp
 
 	bl syscall
-	b uregret
+	b userreturn 
 	
 
 irq_ex:
-	push {r0 - r4}
+	stmfd sp, {r0 - r4}
 	mov r0, #ABORT_INTERRUPT
 	b switch
 	
 
 undefined_instruction:
-	push {r0 - r4}
+	stmfd sp, {r0 - r4}
 	mov r0, #ABORT_INSTRUCTION
 	b switch
 
 
 prefetch_abort:
-	push {r0 - r4}
+	stmfd sp, {r0 - r4}
 	mov r0, #ABORT_PREFETCH
 	b switch
 
 
 data_abort:
-	push {r0 - r4}
+	stmfd sp, {r0 - r4}
 	mov r0, #ABORT_DATA
 	b switch
 
 
 switch:
 	mrs r1, spsr
-	mov r2, sp
-	mov r3, lr
-
+	mov r2, lr
+	sub r3, sp, #(4 * 5)
+	
 	clrex
 	
 	cps #MODE_SVC
-	sub sp, sp, #(4 * 3)
-	stmia sp, {r0, r1, r3}
-	sub r0, sp, #(4 * 2)
 
-	ands r3, r1, #0xf
+	@ store interrupted type, spsr, lr
+
+	sub r4, sp, #(4 * 3)
+	stmia r4, {r0, r1, r2}
+
+	@ skip sp, lr, and store r5 - r12
+	sub r0, r4, #(4 * 10)
+	stmia r0, {r5 - r12}
+
+	@ store r0 - r4
+	sub r0, r0, #(4 * 5)
+	ldmfd r3, {r2 - r6}
+	stmia r0, {r2 - r6}
+	add r0, r0, #(4 * 13)
+
+	ands r2, r1, #0xf
+	cmp r2, #0
 	beq _user
 
 	@ kernel mode interrupted
-	
-	add sp, sp, #(4 * 3)
+
+	@ store ksp, lr
 	stmia r0, {sp, lr}
 
-	sub r0, r0, #(4 * 8)
-	stmia r0, {r5 - r12}
-	sub r0, r0, #(4 * 5)
-	ldmfd r2, {r1 - r5}
-	stmia r0, {r1 - r5}
-
+	@ set up arg and sp
+	sub r0, r0, #(4 * 13)
 	mov sp, r0
+
 	bl trap
 
 	add sp, sp, #(4 * 15)
@@ -132,16 +149,11 @@ _user:  @ user mode interrupted
 	cps #MODE_SYS
 	stmia r0, {sp, lr}
 	cps #MODE_SVC
-	
-	sub r0, r0, #(4 * 8)
-	stmia r0, {r5 - r12}
-	sub r0, r0, #(4 * 5)
-	ldmfd r2, {r1 - r5}
-	stmia r0, {r1 - r5}
 
+	sub r0, r0, #(4 * 13)
 	mov sp, r0
 	bl trap
-	b uregret
+	b userreturn
 
 
 @ Not used. But just in case kick and scream.

@@ -1,19 +1,28 @@
 /*
- *   Copyright (C) 2016	Mytchel Hammond <mytchel@openmailbox.org>
  *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
+ * Copyright (c) 2016 Mytchel Hammond <mytchel@openmailbox.org>
+ * 
+ * Permission is hereby granted, free of charge, to any person
+ * obtaining a copy of this software and associated documentation
+ * files (the "Software"), to deal in the Software without
+ * restriction, including without limitation the rights to use,
+ * copy, modify, merge, publish, distribute, sublicense, and/or
+ * sell copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following
+ * conditions:
+ * 
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+ * OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+ * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+ * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+ * OTHER DEALINGS IN THE SOFTWARE.
  *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
 #include "head.h"
@@ -40,7 +49,7 @@ growheap(struct block *prev)
 {
   struct page *pg;
   struct block *b;
-	
+
   pg = newpage(0);
   if (pg == nil) {
     return nil;
@@ -55,19 +64,6 @@ growheap(struct block *prev)
   return b;
 }
 
-static void *
-roundtoptr(void *p)
-{
-  reg_t x, r;
-  x = (reg_t) p;
-  r = x % sizeof(void *);
-  if (r == 0) {
-    return p;
-  } else {
-    return (void *) (x + sizeof(void *) - r);
-  }
-}
-
 void *
 malloc(size_t size)
 {
@@ -77,7 +73,7 @@ malloc(size_t size)
   if (size == 0)
     return nil;
 
-  size = (size_t) roundtoptr((void *) size);
+  size = roundptr(size);
 
   lock(&heaplock);
   
@@ -116,7 +112,7 @@ malloc(size_t size)
   } else {
     p->next = n;
   }
-	
+
   unlock(&heaplock);
   return block;
 }
@@ -126,7 +122,7 @@ free(void *ptr)
 {
   struct block *b, *p;
   bool palign, nalign;
-	
+
   if (ptr == nil)
     return;
 

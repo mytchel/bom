@@ -1,19 +1,28 @@
 /*
- *   Copyright (C) 2016	Mytchel Hammond <mytchel@openmailbox.org>
  *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
+ * Copyright (c) 2016 Mytchel Hammond <mytchel@openmailbox.org>
+ * 
+ * Permission is hereby granted, free of charge, to any person
+ * obtaining a copy of this software and associated documentation
+ * files (the "Software"), to deal in the Software without
+ * restriction, including without limitation the rights to use,
+ * copy, modify, merge, publish, distribute, sublicense, and/or
+ * sell copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following
+ * conditions:
+ * 
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+ * OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+ * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+ * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+ * OTHER DEALINGS IN THE SOFTWARE.
  *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
 #include "head.h"
@@ -25,13 +34,13 @@ struct fstree {
   struct fstree *next;
 };
 
-struct fstree *tree = nil;
-uint32_t nfid = 0;
+static struct fstree *tree = nil;
+static uint32_t nfid = 0;
+
+struct binding *rootbinding;
 
 static int
 rootproc(void *);
-
-struct binding *rootbinding;
 
 void
 initroot(void)
@@ -83,11 +92,6 @@ initroot(void)
 	
   procready(pr);
   procready(ps);
-
-#if DEBUG == 1
-  /* Can go here as debugfs will be shared for all kernel procs. */
-  debugfs = true;
-#endif
 }
 
 static struct fstree *
@@ -126,7 +130,7 @@ bclose(struct request *req, struct response *resp)
     resp->ret = ENOFILE;
   } else {
     resp->ret = OK;
-    tree->open--;
+    t->open--;
   }
 }
 
@@ -156,7 +160,7 @@ static void
 bcreate(struct request *req, struct response *resp)
 {
   uint32_t attr, lname;
-  struct fstree *t, *p;
+  struct fstree *t, *p, *tp;
   struct file **files;
   uint8_t *buf;
   int i;
@@ -175,12 +179,25 @@ bcreate(struct request *req, struct response *resp)
   }
 
   t = malloc(sizeof(struct fstree));
-  tree->open = 0;
+  if (t == nil) {
+    resp->ret = ENOMEM;
+    return;
+  }
+  
+  t->next = nil;
+  t->open = 0;
   t->file.fid = ++nfid;
   t->file.attr = attr;
+
   t->file.lname = lname;
-  t->file.name = malloc(sizeof(uint8_t) * lname);
-  memmove(t->file.name, buf, sizeof(uint8_t) * lname);
+  t->file.name = malloc(lname);
+  if (t->file.name == nil) {
+    resp->ret = ENOMEM;
+    free(t);
+    return;
+  }
+  
+  memmove(t->file.name, buf, lname);
 
   if ((attr & ATTR_dir) == ATTR_dir) {
     t->dir = malloc(sizeof(struct dir));
@@ -210,18 +227,20 @@ bcreate(struct request *req, struct response *resp)
   p->dir->nfiles++;
   p->dir->files = files;
 
-  t->next = tree;
-  tree = t;
+  resp->buf = malloc(sizeof(uint32_t));
+  if (resp->buf == nil) {
+    resp->ret = ENOMEM;
+    if (t->dir) free(t->dir);
+    free(t->file.name);
+    free(t);
+    return;
+  }
 
   resp->ret = OK;
   resp->lbuf = sizeof(uint32_t);
 
-  resp->buf = malloc(sizeof(uint32_t));
-  if (resp->buf == nil) {
-    /* Should to free stuff but cant be bothered. */
-    resp->ret = ERR;
-    return;
-  }
+  for (tp = tree; tp != nil && tp->next != nil; tp = tp->next);
+  tp->next = t;
 
   memmove(resp->buf, &t->file.fid, sizeof(uint32_t));
 }
@@ -254,7 +273,8 @@ rootproc(void *arg)
     panic("root tree malloc failed!\n");
   }
 
-  tree->open = 0;
+  tree->open = 1;
+  tree->next = nil;
   
   tree->file.fid = ROOTFID;
   tree->file.attr = ATTR_wr|ATTR_rd|ATTR_dir;
@@ -268,8 +288,6 @@ rootproc(void *arg)
 
   tree->dir->nfiles = 0;
   tree->dir->files = 0;
-
-  tree->next = nil;
 
   return fsmountloop(in, out, &mount);
 }

@@ -1,19 +1,28 @@
 /*
- *   Copyright (C) 2016	Mytchel Hammond <mytchel@openmailbox.org>
  *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
+ * Copyright (c) 2016 Mytchel Hammond <mytchel@openmailbox.org>
+ * 
+ * Permission is hereby granted, free of charge, to any person
+ * obtaining a copy of this software and associated documentation
+ * files (the "Software"), to deal in the Software without
+ * restriction, including without limitation the rights to use,
+ * copy, modify, merge, publish, distribute, sublicense, and/or
+ * sell copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following
+ * conditions:
+ * 
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+ * OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+ * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+ * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+ * OTHER DEALINGS IN THE SOFTWARE.
  *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
 #include "head.h"
@@ -66,11 +75,11 @@ imap(void *start, void *end, int ap, bool cachable)
   uint32_t mask = (ap << 10) | L1_SECTION;
 
   if (cachable) {
-    mask |= (0 << 16) | (6 << 12) | (1 << 3) | (1 << 2);
+    mask |= (0 << 16) | (6 << 12) | (1 << 3) | (0 << 2);
   } else {
-    mask |= (0 << 16) | (0 << 12) | (0 << 3) | (0 << 2);
+    mask |= (0 << 16) | (0 << 12) | (0 << 3) | (1 << 2);
   }
- 	
+  
   while (x < (uint32_t) end) {
     /* Map section so everybody can see it.
      * This wil change. */
@@ -91,7 +100,7 @@ mmuempty1(void)
 }
 
 void
-mmuputpage(struct page *p, bool rw)
+mmuputpage(struct page *p, bool rw, bool cachable)
 {
   struct page *pg;
   uint32_t i;
@@ -122,11 +131,11 @@ mmuputpage(struct page *p, bool rw)
   else
     ap = AP_RW_RO;
 
-  s = 1;
-  if (p->cachable) {
-    tex = 7;
+  s = 0;
+  if (cachable) {
+    tex = 6;
     c = 1;
-    b = 1;
+    b = 0;
   } else {
     tex = 0;
     c = 0;

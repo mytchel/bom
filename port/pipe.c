@@ -1,24 +1,35 @@
 /*
- *   Copyright (C) 2016	Mytchel Hammond <mytchel@openmailbox.org>
  *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
+ * Copyright (c) 2016 Mytchel Hammond <mytchel@openmailbox.org>
+ * 
+ * Permission is hereby granted, free of charge, to any person
+ * obtaining a copy of this software and associated documentation
+ * files (the "Software"), to deal in the Software without
+ * restriction, including without limitation the rights to use,
+ * copy, modify, merge, publish, distribute, sublicense, and/or
+ * sell copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following
+ * conditions:
+ * 
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+ * OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+ * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+ * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+ * OTHER DEALINGS IN THE SOFTWARE.
  *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
 #include "head.h"
 
 struct pipe {
+  struct lock lock;
+  
   struct chan *c0, *c1;
 
   bool waiting;	
@@ -57,7 +68,54 @@ newpipe(struct chan **c0, struct chan **c1)
   p->c1 = *c1;
   p->waiting = false;
 
+  initlock(&p->lock);
+
   return true;	
+}
+
+static int
+pipedocopy(struct pipe *p, uint8_t *buf, size_t n, bool writing)
+{
+  int r;
+
+  lock(&p->lock);
+
+  if (p->c0 == nil || p->c1 == nil) {
+    r = ELINK;
+    unlock(&p->lock);
+  } else if (p->waiting) {
+    /* Do copy now */
+
+    r = n > p->n ? p->n : n;
+    if (writing) {
+       memmove(p->buf, buf, r);
+    } else {
+      memmove(buf, p->buf, r);
+    }
+
+    p->proc->aux = (void *) r;
+    p->waiting = false;
+
+    procready(p->proc);
+    unlock(&p->lock);
+  } else {
+    /* Wait for other end to do copy */
+    
+    p->proc = current;
+    p->buf = buf;
+    p->n = n;
+    p->waiting = true;
+
+    disableintr();
+    procwait(current);
+    unlock(&p->lock);
+    schedule();
+    enableintr();
+
+    r = (int) current->aux;
+  }
+
+  return r;
 }
 
 int
@@ -67,68 +125,17 @@ piperead(struct chan *c, uint8_t *buf, size_t n)
 	
   p = (struct pipe *) c->aux;
 
-  if (p->c0 == nil || p->c1 == nil) {
-    return ELINK;
-  }
-
-  p->waiting = true;
-  p->proc = current;
-  p->buf = buf;
-  p->n = n;
-
-  disableintr();
-  procwait(current);
-  schedule();
-  enableintr();
-
-  if (p->n != 0) {
-    return n - p->n;
-  } else {
-    return n;
-  }
+  return pipedocopy(p, buf, n, false);
 }
 
 int
 pipewrite(struct chan *c, uint8_t *buf, size_t n)
 {
-  size_t l, t;
   struct pipe *p;
 	
   p = (struct pipe *) c->aux;
 
-  if (p->c0 == nil || p->c1 == nil) {
-    return ELINK;
-  }
-
-  t = 0;
-  while (t < n) {
-    while (!p->waiting && p->c0 != nil && p->c1 != nil) {
-      schedule();
-    }
-
-    if (p->c0 == nil || p->c1 == nil) {
-      return t;
-    }
-
-    disableintr();
-    l = n - t < p->n ? n - t : p->n;
-    memmove(p->buf, buf, l);
-    enableintr();
-		
-    t += l;
-    buf += l;
-		
-    if (l == p->n) {
-      p->n = 0;
-      p->waiting = false;
-      procready(p->proc);
-    } else {
-      p->n -= l;
-      p->buf += l;
-    }
-  }
-	
-  return t;
+  return pipedocopy(p, buf, n, true);
 }
 
 int
@@ -138,6 +145,8 @@ pipeclose(struct chan *c)
 	
   p = (struct pipe *) c->aux;
 
+  lock(&p->lock);
+
   if (c == p->c0) {
     p->c0 = nil;
   } else {
@@ -145,12 +154,16 @@ pipeclose(struct chan *c)
   }
 	
   if (p->waiting) {
-    procready(p->proc);
     p->waiting = false;
+    disableintr();
+    procready(p->proc);
+    enableintr();
   }
 
   if (p->c0 == nil && p->c1 == nil) {
     free(p);
+  } else {
+    unlock(&p->lock);
   }
 	
   return 0;

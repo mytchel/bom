@@ -611,8 +611,6 @@ bread(struct request *req, struct response *resp)
   uint32_t offset, len, out, blk, nblk, i;
   uint8_t *buf, tmpbuf[512];
 
-  printf("%s read\n", mmchs->name);
-
   buf = req->buf;
   memmove(&offset, buf, sizeof(uint32_t));
   buf += sizeof(uint32_t);
@@ -624,10 +622,7 @@ bread(struct request *req, struct response *resp)
     nblk++;
   }
 
-  printf("%s read %i blocks from %i\n", mmchs->name, nblk, blk);
-
   resp->buf = malloc(nblk * 512);
-  printf("%s resp->buf = 0x%h\n", mmchs->name, resp->buf);
   if (resp->buf == nil) {
     resp->ret = ENOMEM;
     return;
@@ -636,16 +631,13 @@ bread(struct request *req, struct response *resp)
   buf = resp->buf;
 
   out = offset % 512;
-  printf("%s out by %i\n", mmchs->name, out);
   if (out != 0) {
-    printf("%s read blk %i\n", mmchs->name, blk);
     readblock(blk++, tmpbuf);
     memmove(buf, tmpbuf + out, 512 - out);
     buf += out;
   }
 
   for (i = 0; i < nblk; i++) {
-    printf("%s read blk %i\n", mmchs->name, blk + i);
     readblock(blk + i, buf);
     buf += 512;
   }
@@ -747,12 +739,6 @@ mmchsproc(char *name, void *addr, int intr)
 
   */
   
-  if (pipe(p1) == ERR) {
-    return -4;
-  } else if (pipe(p2) == ERR) {
-    return -5;
-  }
-
   snprintf(filename, sizeof(filename), "/dev/%s", mmchs->name);
 
   printf("%s binding to %s\n", mmchs->name, filename);
@@ -762,7 +748,13 @@ mmchsproc(char *name, void *addr, int intr)
     printf("%s failed to create %s.\n", mmchs->name, filename);
     return -6;
   }
-  
+
+  if (pipe(p1) == ERR) {
+    return -4;
+  } else if (pipe(p2) == ERR) {
+    return -5;
+  }
+
   if (bind(p1[1], p2[0], filename) == ERR) {
     return -7;
   }
@@ -778,8 +770,6 @@ mmc(void)
 {
   int p;
 
-  printf("Spawning procs for mmc0, mmc1\n");
-  
   p = fork(FORK_sngroup);
   if (p == 0) {
     return mmchsproc("mmc0", (void *) MMCHS0, MMC0_intr);
@@ -794,7 +784,6 @@ mmc(void)
     printf("mmchs failed to fork for mmc1\n");
   }
 
-  printf("mmc procs spawned. exiting...\n");
   return 0;
 }
 

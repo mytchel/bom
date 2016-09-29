@@ -1,19 +1,28 @@
 /*
- *   Copyright (C) 2016	Mytchel Hammond <mytchel@openmailbox.org>
  *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
+ * Copyright (c) <2016> Mytchel Hammond <mytchel@openmailbox.org>
+ * 
+ * Permission is hereby granted, free of charge, to any person
+ * obtaining a copy of this software and associated documentation
+ * files (the "Software"), to deal in the Software without
+ * restriction, including without limitation the rights to use,
+ * copy, modify, merge, publish, distribute, sublicense, and/or
+ * sell copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following
+ * conditions:
+ * 
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+ * OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+ * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+ * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+ * OTHER DEALINGS IN THE SOFTWARE.
  *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
 #include <libc.h>
@@ -86,7 +95,7 @@ tmpwrite(struct file_list *fl, uint8_t *buf, uint32_t offset,
   uint32_t i;
 	
   if (offset + len >= fl->len) {
-    bbuf = malloc(sizeof(uint8_t) * (offset + len));
+    bbuf = malloc(offset + len);
     if (bbuf == nil) {
       *err = ENOMEM;
       return 0;
@@ -283,7 +292,7 @@ bread(struct request *req, struct response *resp)
   }
 
   resp->ret = OK;
-  resp->buf = malloc(sizeof(uint8_t) * len);
+  resp->buf = malloc(len);
   resp->lbuf = tmpread(fl, resp->buf, offset, len, &resp->ret);
   if (resp->lbuf == 0)
     free(resp->buf);
@@ -292,14 +301,12 @@ bread(struct request *req, struct response *resp)
 static void
 bwrite(struct request *req, struct response *resp)
 {
-  uint32_t offset, len, n;
+  uint32_t offset, n;
   struct file_list *fl;
   uint8_t *buf;
 	
   buf = req->buf;
   memmove(&offset, buf, sizeof(uint32_t));
-  buf += sizeof(uint32_t);
-  memmove(&len, buf, sizeof(uint32_t));
   buf += sizeof(uint32_t);
 
   fl = findfile(req->fid);
@@ -308,12 +315,16 @@ bwrite(struct request *req, struct response *resp)
     return;
   }
 
-  n = tmpwrite(fl, buf, offset, len, &resp->ret);
-	
-  resp->ret = OK;
-  resp->lbuf = sizeof(uint32_t);
-  resp->buf = malloc(sizeof(uint32_t));
-  memmove(resp->buf, &n, sizeof(uint32_t));
+  n = tmpwrite(fl, buf, offset,
+	       req->lbuf - sizeof(uint32_t), &resp->ret);
+
+  if (resp->ret == OK) {
+    resp->lbuf = sizeof(uint32_t);
+    resp->buf = malloc(sizeof(uint32_t));
+    memmove(resp->buf, &n, sizeof(uint32_t));
+  } else {
+      resp->lbuf = 0;
+  }
 }
 
 static void

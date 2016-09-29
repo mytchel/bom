@@ -1,19 +1,28 @@
 /*
- *   Copyright (C) 2016	Mytchel Hammond <mytchel@openmailbox.org>
  *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
+ * Copyright (c) 2016 Mytchel Hammond <mytchel@openmailbox.org>
+ * 
+ * Permission is hereby granted, free of charge, to any person
+ * obtaining a copy of this software and associated documentation
+ * files (the "Software"), to deal in the Software without
+ * restriction, including without limitation the rights to use,
+ * copy, modify, merge, publish, distribute, sublicense, and/or
+ * sell copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following
+ * conditions:
+ * 
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+ * OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+ * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+ * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+ * OTHER DEALINGS IN THE SOFTWARE.
  *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
 #include "head.h"
@@ -33,7 +42,6 @@ schedule(void)
     return;
   }
 	
-  disableintr();
   current = nextproc();
   debug("run %i\n", current->pid);
   setsystick(current->quanta);
@@ -51,7 +59,7 @@ nextproc(void)
 	
   for (p = procs->next; p != nil; p = p->next) {
     if (p->state == PROC_sleeping) {
-      if (t > p->sleep) {
+      if (t >= p->sleep) {
 	p->state = PROC_ready;
       } else {
 	p->sleep -= t;
@@ -69,13 +77,14 @@ nextproc(void)
     if (p->state == PROC_ready) {
       break;
     }
+
   } while (p != current);
 
   if (p->state != PROC_ready) {
-    return procs->next;
-  } else {
-    return p;
+    panic("No process to run!\n");
   }
+
+  return p;
 }
 	
 struct proc *
@@ -84,20 +93,22 @@ newproc(void)
   int i;
   struct proc *p, *pp;
 	
-  disableintr();
   p = nil;
+
+  disableintr();
   for (i = 1; i < MAX_PROCS; i++) {
     if (procs[i].state == PROC_unused) {
       p = &procs[i];
+      p->state = PROC_suspend;
       break;
     }
   }
+
   enableintr();
 
   if (p == nil)
     return nil;
 	
-  p->state = PROC_suspend;
   p->pid = nextpid++;
   p->faults = 0;
   p->ureg = nil;
@@ -105,9 +116,13 @@ newproc(void)
   p->mmu = nil;
   p->inkernel = true;
 
+  disableintr();
+
   for (pp = procs; pp->next; pp = pp->next);
   pp->next = p;
   p->next = nil;
+
+  enableintr();
 		
   return p;
 }
@@ -116,7 +131,7 @@ void
 initproc(struct proc *p)
 {
   p->dot = nil;
-  p->quanta = 10;
+  p->quanta = 15;
 
   p->segs[Sstack] = newseg(SEG_rw);
   p->segs[Stext] = newseg(SEG_ro);
@@ -133,8 +148,8 @@ procremove(struct proc *p)
   struct proc *pp;
   int i;
 
-  disableintr();
-
+  printf("removing %i from list\n", p->pid);
+  
   /* Remove proc from list. */
   for (pp = procs; pp != nil && pp->next != p; pp = pp->next);
   if (pp == nil) /* Umm */
@@ -142,18 +157,21 @@ procremove(struct proc *p)
   
   pp->next = p->next;
 
-  enableintr();
-
   for (i = 0; i < Smax; i++) {
     if (p->segs[i] != nil)
       freeseg(p->segs[i]);
   }
 	
   freepath(p->dot);
-  freefgroup(p->fgroup);
-  freengroup(p->ngroup);
+  if (p->fgroup != nil)
+    freefgroup(p->fgroup);
+
+  if (p->ngroup != nil)
+    freengroup(p->ngroup);
 	
   p->state = PROC_unused;
+
+  printf("%i removed\n", p->pid);
 }
 
 void

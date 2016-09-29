@@ -1,19 +1,28 @@
 /*
- *   Copyright (C) 2016	Mytchel Hammond <mytchel@openmailbox.org>
  *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
+ * Copyright (c) 2016 Mytchel Hammond <mytchel@openmailbox.org>
+ * 
+ * Permission is hereby granted, free of charge, to any person
+ * obtaining a copy of this software and associated documentation
+ * files (the "Software"), to deal in the Software without
+ * restriction, including without limitation the rights to use,
+ * copy, modify, merge, publish, distribute, sublicense, and/or
+ * sell copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following
+ * conditions:
+ * 
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+ * OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+ * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+ * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+ * OTHER DEALINGS IN THE SOFTWARE.
  *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
 #include "head.h"
@@ -23,7 +32,6 @@
 #define TIMER2 0x48040000
 
 #define TINT0 66
-#define TINT1 67
 #define TINT2 68
 
 #define TIMER_IRQSTATUS		0x28
@@ -49,100 +57,91 @@ static bool systickhandler(uint32_t);
 void
 initwatchdog(void)
 {
-	size_t s = 0x1000;
-	
-	/* Dont let user processes get this. */
-	getpages(&iopages, (void *) WDT_1, &s);
-	
-	/* Disable watchdog timer. */
-	writel(0x0000AAAA, WDT_1 + WDT_WSPR);
-	while (readl(WDT_1 + WDT_WWPS) & (1<<4));
-	writel(0x00005555, WDT_1 + WDT_WSPR);
-	while (readl(WDT_1 + WDT_WWPS) & (1<<4));
+  /* Disable watchdog timer. */
+  writel(0x0000AAAA, WDT_1 + WDT_WSPR);
+  while (readl(WDT_1 + WDT_WWPS) & (1<<4));
+  writel(0x00005555, WDT_1 + WDT_WSPR);
+  while (readl(WDT_1 + WDT_WWPS) & (1<<4));
 }
 
 void
 inittimers(void)
 {
-	size_t s = 0x1000;
-	getpages(&iopages, (void *) TIMER0, &s);
-	getpages(&iopages, (void *) TIMER2, &s);
-	
-	/* Select 32KHz clock for timer 2 */
- 	writel(2, CM_DPLL + CLK_SEL2);
+  /* Select 32KHz clock for timer 2 */
+  writel(2, CM_DPLL + CLK_SEL2);
 
-	writel(0, TIMER2 + TIMER_TCLR); /* disable timer */
-	writel(1, TIMER2 + TIMER_IRQENABLE_SET); /* set irq */
-	/* Wait for writes to commit. */
- 	while (readl(TIMER2 + TIMER_TWPS)); 
+  writel(0, TIMER2 + TIMER_TCLR); /* disable timer */
+  writel(1, TIMER2 + TIMER_IRQENABLE_SET); /* set irq */
+  /* Wait for writes to commit. */
+  while (readl(TIMER2 + TIMER_TWPS)); 
 
-	intcaddhandler(TINT2, &systickhandler);
+  intcaddhandler(TINT2, &systickhandler);
 
- 	/* Set up tick timer on timer 0. */
+  /* Set up tick timer on timer 0. */
 
-	writel(0, TIMER0 + TIMER_TCRR); /* set timer to 0 */
-	writel(1, TIMER0 + TIMER_TCLR); /* start timer */
-	/* Wait for writes to commit. */
-	while (readl(TIMER0 + TIMER_TWPS));
+  writel(0, TIMER0 + TIMER_TCRR); /* set timer to 0 */
+  writel(1, TIMER0 + TIMER_TCLR); /* start timer */
+  /* Wait for writes to commit. */
+  while (readl(TIMER0 + TIMER_TWPS));
 }
 
 bool
 systickhandler(uint32_t irqn)
 {
-	writel(0, TIMER2 + TIMER_TCLR); /* disable timer */
+  /* Clear irq status. */
+  writel(readl(TIMER2 + TIMER_IRQSTATUS), 
+	 TIMER2 + TIMER_IRQSTATUS);
 
-	/* Clear irq status. */
-	writel(readl(TIMER2 + TIMER_IRQSTATUS), 
-		TIMER2 + TIMER_IRQSTATUS);
+  writel(0, TIMER2 + TIMER_TCLR); /* disable timer */
 
-	/* Wait for writes to commit. */
- 	while (readl(TIMER2 + TIMER_TWPS)); 
- 	
- 	return true;
+  /* Wait for writes to commit. */
+  while (readl(TIMER2 + TIMER_TWPS)); 
+	
+  return true;
 }
 
 void
 setsystick(uint32_t ms)
 {
-	uint32_t t = mstoticks(ms);
+  uint32_t t = mstoticks(ms);
 	
-	writel(0, TIMER2 + TIMER_TCLR); /* disable timer */
-	/* Wait for writes to commit. */
- 	while (readl(TIMER2 + TIMER_TWPS)); 
+  writel(0, TIMER2 + TIMER_TCLR); /* disable timer */
+  /* Wait for writes to commit. */
+  while (readl(TIMER2 + TIMER_TWPS)); 
 	
-	writel(0, TIMER2 + TIMER_TCRR); /* set timer to 0 */
-	writel(t, TIMER2 + TIMER_TMAR); /* set compare value */
+  writel(0, TIMER2 + TIMER_TCRR); /* set timer to 0 */
+  writel(t, TIMER2 + TIMER_TMAR); /* set compare value */
 
-	/* Clear irq status if it is set. */
-	writel(readl(TIMER2 + TIMER_IRQSTATUS), 
-		TIMER2 + TIMER_IRQSTATUS);
+  /* Clear irq status if it is set. */
+  writel(readl(TIMER2 + TIMER_IRQSTATUS), 
+	 TIMER2 + TIMER_IRQSTATUS);
 
-	/* Wait for writes to commit. */	
- 	while (readl(TIMER2 + TIMER_TWPS)); 
+  /* Wait for writes to commit. */	
+  while (readl(TIMER2 + TIMER_TWPS)); 
 	
-	writel((1<<6) | 1, TIMER2 + TIMER_TCLR); /* start timer */
+  writel((1<<6) | 1, TIMER2 + TIMER_TCLR); /* start timer */
 }
 
 uint32_t
 ticks(void)
 {
-	uint32_t t;
+  uint32_t t;
 
-	t = readl(TIMER0 + TIMER_TCRR);
-	writel(0, TIMER0 + TIMER_TCRR); /* reset timer */
+  t = readl(TIMER0 + TIMER_TCRR);
+  writel(0, TIMER0 + TIMER_TCRR); /* reset timer */
 
-	return t;
+  return t;
 }
 
 uint32_t
 mstoticks(uint32_t ms)
 {
-	return ms * 32;
+  return ms * 32;
 }
 
 uint32_t
 tickstoms(uint32_t t)
 {
-	return t / 32;
+  return t / 32;
 }
 

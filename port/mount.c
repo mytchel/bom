@@ -1,19 +1,28 @@
 /*
- *   Copyright (C) 2016	Mytchel Hammond <mytchel@openmailbox.org>
  *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
+ * Copyright (c) 2016 Mytchel Hammond <mytchel@openmailbox.org>
+ * 
+ * Permission is hereby granted, free of charge, to any person
+ * obtaining a copy of this software and associated documentation
+ * files (the "Software"), to deal in the Software without
+ * restriction, including without limitation the rights to use,
+ * copy, modify, merge, publish, distribute, sublicense, and/or
+ * sell copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following
+ * conditions:
+ * 
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+ * OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+ * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+ * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+ * OTHER DEALINGS IN THE SOFTWARE.
  *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
 #include "head.h"
@@ -27,7 +36,9 @@ respread(struct chan *c, struct response *resp)
     + sizeof(resp->ret)
     + sizeof(resp->lbuf);
   
-  if (piperead(c, (void *) resp, size) != size) return false;
+  if (piperead(c, (void *) resp, size) != size) {
+    return false;
+  }
 
   if (resp->lbuf > 0) {
     resp->buf = malloc(resp->lbuf);
@@ -49,7 +60,7 @@ int
 mountproc(void *arg)
 {
   struct binding *b;
-  struct proc *p, *pp;
+  struct proc *p, *pp, *pn;
   struct response *resp;
   bool found;
   char *pathstr;
@@ -79,14 +90,19 @@ mountproc(void *arg)
     pp = nil;
     for (p = b->waiting; p != nil; pp = p, p = p->wnext) {
       if (p->waiting.rid == resp->rid) {
-	found = true;
-	p->aux = (void *) resp;
-	procready(p);
+	disableintr();
+
 	if (pp == nil) {
 	  b->waiting = p->wnext;
 	} else {
 	  pp->wnext = p->wnext;
 	}
+
+	found = true;
+	p->aux = (void *) resp;
+	procready(p);
+
+	enableintr();
 	break;
       }
     }
@@ -115,13 +131,16 @@ mountproc(void *arg)
   unlock(&b->lock);
 
   debug("kproc mount: wait for bindings refs to go to zero.\n");
+
+  disableintr();
   while (true) {
-    lock(&b->lock);
     if (b->refs == 0)
       break;
-    unlock(&b->lock);
+
     schedule();
   }
+
+  enableintr();
 	
   debug("kproc mount: no longer bound\n");
 
@@ -131,12 +150,19 @@ mountproc(void *arg)
   lock(&b->lock);	
 
   debug("kproc mount: wake waiters\n");
-	
+
   /* Wake up any waiting processes so they can error. */
-  for (p = b->waiting; p != nil; p = p->wnext) {
+
+  p = b->waiting;
+  while (p != nil) {
+    pn = p->wnext;
+
     printf("kproc mount: wake up %i\n", p->pid);
     p->aux = nil;
+    p->wnext = nil;
     procready(p);
+
+    p = pn;
   }
 	
   debug("kproc mount: free path\n");

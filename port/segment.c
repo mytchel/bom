@@ -1,19 +1,28 @@
 /*
- *   Copyright (C) 2016	Mytchel Hammond <mytchel@openmailbox.org>
  *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
+ * Copyright (c) 2016 Mytchel Hammond <mytchel@openmailbox.org>
+ * 
+ * Permission is hereby granted, free of charge, to any person
+ * obtaining a copy of this software and associated documentation
+ * files (the "Software"), to deal in the Software without
+ * restriction, including without limitation the rights to use,
+ * copy, modify, merge, publish, distribute, sublicense, and/or
+ * sell copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following
+ * conditions:
+ * 
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+ * OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+ * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+ * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+ * OTHER DEALINGS IN THE SOFTWARE.
  *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
 #include "head.h"
@@ -118,22 +127,45 @@ fixfault(void *addr)
   pg = findpage(current, addr, &s);
   if (pg == nil) return false;
 	
-  mmuputpage(pg, s->type == SEG_rw);
+  mmuputpage(pg, s->type == SEG_rw, pg->from != &iopages);
   current->faults++;
 	
   return true;
 }
 
 void *
-kaddr(struct proc *p, void *addr)
+kaddr(struct proc *p, void *addr, size_t len)
 {
   struct segment *s;
-  struct page *pg;
+  struct page *pg, *pn;
+  uint32_t offset;
 	
   pg = findpage(p, addr, &s);
   if (pg == nil) return nil;
 
-  return pg->pa + (addr - pg->va);
+  offset = (uint32_t) addr - (uint32_t) pg->va;
+
+  if (offset + len >= pg->size) {
+    len -= pg->size - offset;
+    pn = pg;
+    while (pn != nil) {
+      if (pn->next == nil) {
+	return nil;
+      }
+      
+      if (pn->va + pn->size != pn->next->va) {
+	return nil;
+      } else {
+	len -= pn->size;
+	pn = pn->next;
+	if (len < pn->size) {
+	  break;
+	}
+      }
+    }
+  }
+  
+  return pg->pa + offset;
 }
 
 struct page *
@@ -141,15 +173,16 @@ newpage(void *va)
 {
   struct page *p;
 
-  p = pages.next;
+  p = rampages.next;
   if (p == nil) {
     printf("No free pages!\n");
     return nil;
   }
 
-  pages.next = p->next;
+  rampages.next = p->next;
   p->next = nil;
   p->va = va;
+
   return p;
 }
 

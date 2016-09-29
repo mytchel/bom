@@ -1,19 +1,26 @@
 #
-#    Copyright (C) 2016	Mytchel Hammond <mytchel@openmailbox.org>
-#
-#    This program is free software; you can redistribute it and/or modify
-#    it under the terms of the GNU General Public License as published by
-#    the Free Software Foundation; either version 2 of the License, or
-#    (at your option) any later version.
-#
-#    This program is distributed in the hope that it will be useful,
-#    but WITHOUT ANY WARRANTY; without even the implied warranty of
-#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU General Public License for more details.
-#
-#    You should have received a copy of the GNU General Public License
-#    along with this program; if not, write to the Free Software
-#    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+#  Copyright (c) <2016> Mytchel Hammond <mytchel@openmailbox.org>
+#  
+#  Permission is hereby granted, free of charge, to any person
+#  obtaining a copy of this software and associated documentation
+#  files (the "Software"), to deal in the Software without
+#  restriction, including without limitation the rights to use,
+#  copy, modify, merge, publish, distribute, sublicense, and/or
+#  sell copies of the Software, and to permit persons to whom the
+#  Software is furnished to do so, subject to the following
+#  conditions:
+#  
+#  The above copyright notice and this permission notice shall be
+#  included in all copies or substantial portions of the Software.
+#  
+#  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+#  EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+#  OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+#  NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+#  HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+#  WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+#  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+#  OTHER DEALINGS IN THE SOFTWARE
 #
 
 #include "trap.h"
@@ -23,11 +30,9 @@
 .global _start
 .global setlabel
 .global gotolabel
-.global disableintr
-.global enableintr
 .global forkfunc_preloader
 .global forkfunc_loader
-.global uregret
+.global userreturn 
 .global droptouser
 .global fsrstatus
 .global faultaddr
@@ -59,17 +64,17 @@ _start:
 	mcr p15, 0, r0, c1, c0, 0
 	
 	cps #MODE_IRQ
-	ldr sp, =_irq_stack_top
+	ldr sp, =_ex_stack_top
 	cps #MODE_ABORT
-	ldr sp, =_abort_stack_top
+	ldr sp, =_ex_stack_top
 	cps #MODE_UND
-	ldr sp, =_undef_stack_top
+	ldr sp, =_ex_stack_top
 	cps #MODE_SVC
-	ldr sp, =_svc_stack_top
+	ldr sp, =_ex_stack_top
 	
 	bl vectortableinit
 
-	b kmain
+	b main
 
 
 setlabel:
@@ -86,16 +91,6 @@ gotolabel:
 	mov pc, lr
 
 
-disableintr:
-	cpsid i
-	bx lr
-
-
-enableintr:
-	cpsie i
-	bx lr
-	
-	
 forkfunc_preloader:
 	stmfd r0!, {r1, r2}
 	bx lr
@@ -104,14 +99,14 @@ forkfunc_preloader:
 forkfunc_loader:
 	ldr lr, =1f	
 	pop {r0, pc}
-
 1:
 	ldr r0, =current
+	cpsid i
 	bl procremove
 	bl schedule
 	
 
-uregret:
+userreturn:
 	mov r0, sp
 	add sp, sp, #(4 * 15)
 	ldmia sp!, {r1, r2, lr}
@@ -127,7 +122,9 @@ droptouser:
 	cps #MODE_SYS
 	mov sp, r0
 	mov lr, #0
+
 	cps #MODE_SVC
+
 	mov r1, #MODE_USR
 	msr spsr, r1
 	
@@ -208,7 +205,6 @@ testandset:
 	mov r0, #1
 	pop {r1, r2, pc}
 	
-
 
 atomicinc:
 	push {r1, r2, lr}
