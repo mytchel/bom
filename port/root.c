@@ -27,14 +27,21 @@
 
 #include "head.h"
 
-struct fstree {
-  struct file file;
-  struct dir *dir;
+struct file {
+  uint32_t fid;
+
+  uint8_t lname;
+  char name[FS_LNAME_MAX];
+
+  struct stat stat;
   uint32_t open;
-  struct fstree *next;
+
+  struct file *cnext;
+  struct file *parent;
+  struct file *children;
 };
 
-static struct fstree *tree = nil;
+static struct file *root = nil;
 static uint32_t nfid = 0;
 
 struct binding *rootbinding;
@@ -45,7 +52,6 @@ rootproc(void *);
 void
 initroot(void)
 {
-
   struct chan **c;
   struct proc *pr, *ps;
 
@@ -73,7 +79,6 @@ initroot(void)
     panic("initroot: newproc failed!\n");
   }
 
-  initproc(pr);
   forkfunc(pr, &rootproc, (void *) c);
 
   pr->fgroup = newfgroup();
@@ -85,7 +90,6 @@ initroot(void)
     panic("initroot: newproc failed!\n");
   }
 
-  initproc(ps);
   forkfunc(ps, &mountproc, (void *) rootbinding);
 	
   rootbinding->srv = ps;
@@ -94,60 +98,120 @@ initroot(void)
   procready(ps);
 }
 
-static struct fstree *
-findtree(struct fstree *t, uint32_t fid)
+static struct file *
+findfile(struct file *t, uint32_t fid)
 {
+  struct file *c;
+
   if (t == nil) {
     return nil;
-  } else if (t->file.fid == fid) {
+  } else if (t->fid == fid) {
     return t;
   } else {
-    return findtree(t->next, fid);
+    c = findfile(t->cnext, fid);
+    if (c != nil) {
+      return c;
+    }
+
+    return findfile(t->children, fid);
   }
 }
 
 static void
 bopen(struct request *req, struct response *resp)
 {
-  struct fstree *t;
+  struct file *f;
 
-  t = findtree(tree, req->fid);
-  if (t == nil) {
+  f = findfile(root, req->fid);
+  if (f == nil) {
     resp->ret = ENOFILE;
   } else {
     resp->ret = OK;
-    t->open++;
+    f->open++;
   }
 }
 
 static void
 bclose(struct request *req, struct response *resp)
 {
-  struct fstree *t;
+  struct file *f;
 
-  t = findtree(tree, req->fid);
-  if (t == nil) {
+  f = findfile(root, req->fid);
+  if (f == nil) {
     resp->ret = ENOFILE;
   } else {
     resp->ret = OK;
-    t->open--;
+    f->open--;
   }
 }
 
 static void
-bwalk(struct request *req, struct response *resp)
+bstat(struct request *req, struct response *resp)
 {
-  struct fstree *t;
+  struct file *f;
 
-  t = findtree(tree, req->fid);
-  if (t == nil) {
+  f = findfile(root, req->fid);
+  if (f == nil) {
     resp->ret = ENOFILE;
-  } else if (t->dir == nil) {
-    resp->ret = EMODE;
+    return;
+  }
+
+  resp->buf = malloc(sizeof(struct stat));
+  if (resp->buf == nil) {
+    resp->ret = ENOMEM;
   } else {
     resp->ret = OK;
-    resp->buf = dirtowalkresponse(t->dir, &resp->lbuf);
+    resp->lbuf = sizeof(struct stat);
+    memmove(resp->buf, &f->stat, sizeof(struct stat));
   }
+}
+
+static void
+bread(struct request *req, struct response *resp)
+{
+  struct file *f, *c;
+  uint32_t offset;
+  uint8_t *buf;
+
+  memmove(&offset, req->buf, sizeof(uint32_t));
+
+  f = findfile(root, req->fid);
+  if (f == nil) {
+    resp->ret = ENOFILE;
+    return;
+  } else if ((f->stat.attr & ATTR_dir) == 0) {
+    resp->ret = ENOIMPL;
+    return;
+  } else if (offset >= f->stat.size) {
+    resp->ret = EOF;
+    return;
+  }
+
+  for (c = f->children; c != nil; c = c->cnext) {
+    if (offset == 0) {
+      break;
+    } else {
+      offset--;
+    }
+  }
+
+
+  resp->lbuf = sizeof(uint32_t) + sizeof(uint8_t) * (1 + c->lname);
+  resp->buf = malloc(resp->lbuf);
+  if (resp->buf == nil) {
+    resp->lbuf = 0;
+    resp->ret = ENOMEM;
+    return;
+  }
+
+  buf = resp->buf;
+  memmove(buf, &c->fid, sizeof(uint32_t));
+  buf += sizeof(uint32_t);
+  memmove(buf, &c->lname, sizeof(uint8_t));
+  buf += sizeof(uint8_t);
+  memmove(buf, &c->name, sizeof(uint8_t) * c->lname);
+
+  resp->ret = OK;
 }
 
 static void
@@ -159,97 +223,63 @@ bremove(struct request *req, struct response *resp)
 static void
 bcreate(struct request *req, struct response *resp)
 {
-  uint32_t attr, lname;
-  struct fstree *t, *p, *tp;
-  struct file **files;
-  uint8_t *buf;
-  int i;
+  uint32_t attr;
+  struct file *p, *new;
+  uint8_t *buf, lname;
 
   buf = req->buf;
   memmove(&attr, buf, sizeof(uint32_t));
   buf += sizeof(uint32_t);
-  memmove(&lname, buf, sizeof(uint32_t));
-  buf += sizeof(uint32_t);
+  memmove(&lname, buf, sizeof(uint8_t));
+  buf += sizeof(uint8_t);
 
-  p = findtree(tree, req->fid);
+  p = findfile(root, req->fid);
   
-  if (p == nil || p->dir == nil) {
+  if (p == nil || (p->stat.attr & ATTR_dir) == 0) {
     resp->ret = ENOFILE;
     return;
   }
 
-  t = malloc(sizeof(struct fstree));
-  if (t == nil) {
+  new = malloc(sizeof(struct file));
+  if (new == nil) {
     resp->ret = ENOMEM;
     return;
   }
-  
-  t->next = nil;
-  t->open = 0;
-  t->file.fid = ++nfid;
-  t->file.attr = attr;
 
-  t->file.lname = lname;
-  t->file.name = malloc(lname);
-  if (t->file.name == nil) {
-    resp->ret = ENOMEM;
-    free(t);
-    return;
-  }
-  
-  memmove(t->file.name, buf, lname);
+  new->stat.attr = attr;
+  new->stat.size = 0;
+  new->fid = ++nfid;
+  new->open = 0;
+  new->parent = p;
+  new->children = nil;
 
-  if ((attr & ATTR_dir) == ATTR_dir) {
-    t->dir = malloc(sizeof(struct dir));
-    t->dir->nfiles = 0;
-    t->dir->files = nil;
-  } else {
-    t->dir = nil;
-  }
-
-  files = malloc(sizeof(struct file *) * (p->dir->nfiles + 1));
-  if (!files) {
-    resp->ret = ENOMEM;
-    if (t->dir) free(t->dir);
-    free(t->file.name);
-    free(t);
-    return;
-  }
-
-  for (i = 0; i < p->dir->nfiles; i++)
-    files[i] = p->dir->files[i];
-
-  files[i] = &(t->file);
-
-  if (p->dir->nfiles > 0)
-    free(p->dir->files);
-
-  p->dir->nfiles++;
-  p->dir->files = files;
+  new->lname = lname;
+  memmove(new->name, buf, lname);
+  new->name[lname] = 0;
 
   resp->buf = malloc(sizeof(uint32_t));
   if (resp->buf == nil) {
     resp->ret = ENOMEM;
-    if (t->dir) free(t->dir);
-    free(t->file.name);
-    free(t);
+    free(new);
     return;
   }
 
+  p->stat.size++;
+  new->cnext = p->children;
+  p->children = new;
+  
   resp->ret = OK;
   resp->lbuf = sizeof(uint32_t);
 
-  for (tp = tree; tp != nil && tp->next != nil; tp = tp->next);
-  tp->next = t;
-
-  memmove(resp->buf, &t->file.fid, sizeof(uint32_t));
+  memmove(resp->buf, &new->fid, sizeof(uint32_t));
 }
 
 static struct fsmount mount = {
   &bopen,
   &bclose,
-  &bwalk,
+  &bstat,
   nil,
+  &bread,
   nil,
   &bremove,
   &bcreate
@@ -268,26 +298,20 @@ rootproc(void *arg)
 
   free(c);
 
-  tree = malloc(sizeof(struct fstree));
-  if (tree == nil) {
+  root = malloc(sizeof(struct file));
+  if (root == nil) {
     panic("root tree malloc failed!\n");
   }
 
-  tree->open = 1;
-  tree->next = nil;
-  
-  tree->file.fid = ROOTFID;
-  tree->file.attr = ATTR_wr|ATTR_rd|ATTR_dir;
-  tree->file.name = nil;
-  tree->file.lname = 0;
+  root->fid = ROOTFID;
+  root->lname = 0;
 
-  tree->dir = malloc(sizeof(struct dir));
-  if (tree->dir == nil) {
-    panic("root tree dir malloc failed!\n");
-  }
-
-  tree->dir->nfiles = 0;
-  tree->dir->files = 0;
+  root->stat.attr = ATTR_rd|ATTR_wr|ATTR_dir;
+  root->stat.size = 0;
+  root->open = 0;
+  root->cnext = nil;
+  root->parent = nil;
+  root->children = nil;
 
   return fsmountloop(in, out, &mount);
 }

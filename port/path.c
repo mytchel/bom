@@ -28,7 +28,7 @@
 #include "head.h"
 
 static struct path *
-strtopathh(struct path *prev, const uint8_t *str)
+strtopathh(struct path *prev, const char *str)
 {
   struct path *p;
   int i, j;
@@ -38,6 +38,8 @@ strtopathh(struct path *prev, const uint8_t *str)
     return strtopathh(prev, str + 1);
   } else if (i == 0) {
     return nil;
+  } else if (i > FS_LNAME_MAX) {
+    return nil;
   }
 	
   p = malloc(sizeof(struct path));
@@ -46,7 +48,6 @@ strtopathh(struct path *prev, const uint8_t *str)
    * (or end of the path).
    */
 	
-  p->s = malloc(i + 1);
   for (j = 0; j < i; j++)
     p->s[j] = str[j];
   p->s[j] = 0;
@@ -57,15 +58,15 @@ strtopathh(struct path *prev, const uint8_t *str)
 }
 
 struct path *
-strtopath(const uint8_t *str)
+strtopath(const char *str)
 {
   return strtopathh(nil, str);
 }
 
-uint8_t *
+char *
 pathtostr(struct path *p, int *n)
 {
-  uint8_t *str;
+  char *str;
   size_t len, i;
   struct path *pp;
 	
@@ -100,7 +101,7 @@ pathtostr(struct path *p, int *n)
 }
 
 struct path *
-realpath(struct path *po, const uint8_t *str)
+realpath(struct path *po, const char *str)
 {
   struct path *pstr, *pp, *pt, *path;
 
@@ -117,7 +118,7 @@ realpath(struct path *po, const uint8_t *str)
 	
   pp = path;
   while (pp != nil) {
-    if (strcmp(pp->s, (const uint8_t *) "..")) {
+    if (strcmp(pp->s, "..")) {
       /* Remove current and previous part */
       pt = pp->prev;
       if (pt == nil) {
@@ -147,7 +148,7 @@ realpath(struct path *po, const uint8_t *str)
 	free(pt->s);
 	free(pt);
       }	
-    } else if (strcmp(pp->s, (const uint8_t *) ".")) {
+    } else if (strcmp(pp->s, ".")) {
       /* Remove current part */
       pt = pp;
 			
@@ -187,7 +188,6 @@ copypath(struct path *o)
 	
   while (o != nil) {
     l = strlen(o->s) + 1;
-    nn->s = malloc(l);
     memmove(nn->s, o->s, l);
 
     o = o->next;

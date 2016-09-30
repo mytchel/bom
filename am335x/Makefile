@@ -78,7 +78,7 @@ P_SRC := \
         ../port/com.c           \
         ../port/proc.c          \
         ../port/lock.c          \
-        ../port/segment.c       \
+        ../port/page.c          \
         ../port/fgroup.c        \
         ../port/ngroup.c        \
         ../port/binding.c       \

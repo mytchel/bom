@@ -38,12 +38,6 @@
 #define writew(v, a)	(*(volatile uint16_t*)(a) = (uint16_t)(v))
 #define writeb(v, a)	(*(volatile uint8_t*)(a) = (uint8_t)(v))
 
-#define PAGE_SHIFT 	 12
-#define PAGE_SIZE	 (1UL << PAGE_SHIFT)
-#define PAGE_MASK	 (~(PAGE_SIZE - 1))
-#define PAGE_ALIGN_UP(x) (((x) + PAGE_SIZE - 1) & PAGE_MASK)
-#define PAGE_ALIGN_DN(x) (((x) - PAGE_SIZE + 1) & PAGE_MASK)
-
 #define AP_NO_NO	0
 #define AP_RW_NO	1
 #define AP_RW_RO	2

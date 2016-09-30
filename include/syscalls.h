@@ -36,18 +36,19 @@
 #define SYSCALL_PIPE	        5	
 #define SYSCALL_READ	        6	
 #define SYSCALL_WRITE	        7	
-#define SYSCALL_CLOSE	        8	
+#define SYSCALL_SEEK	        8	
+#define SYSCALL_CLOSE	        9	
 
-#define SYSCALL_OPEN            9
-#define SYSCALL_REMOVE	       10
-#define SYSCALL_BIND           11
+#define SYSCALL_OPEN           10 
+#define SYSCALL_REMOVE	       11
+#define SYSCALL_BIND           12
 
-#define SYSCALL_GETMEM         12
-#define SYSCALL_RMMEM          13
+#define SYSCALL_GETMEM         13
+#define SYSCALL_RMMEM          14
 
-#define SYSCALL_WAITINTR       14
+#define SYSCALL_WAITINTR       15
 
-#define NSYSCALLS              15
+#define NSYSCALLS              16
 
 #define OK		0
 /* General error */
@@ -75,5 +76,9 @@
 #define O_WRONLY	(1<<1)
 #define O_RDWR		(O_RDONLY|O_WRONLY)
 #define O_CREATE	(1<<2)
+
+#define SEEK_SET        1
+#define SEEK_CUR        2
+#define SEEK_END        3
 
 #endif

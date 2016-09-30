@@ -28,21 +28,20 @@
 #ifndef _FS_H_
 #define _FS_H_
 
-#define FS_MAX_BUF_LEN  (1024*1024)
-#define FS_MAX_NAME_LEN 255
+/* File names must be null terminated */
+#define FS_LNAME_MAX    255
 
 #define ATTR_rd		(1<<0)
 #define ATTR_wr		(1<<1)
 #define ATTR_dir	(1<<2)
 
 #define ROOTFID		0 /* Of any binding. */
-#define ROOTATTR	(ATTR_wr|ATTR_rd|ATTR_dir) /* Of / */
 
 enum {
   REQ_open, REQ_close,
+  REQ_stat, REQ_flush,
+  REQ_create, REQ_remove,
   REQ_read, REQ_write,
-  REQ_walk, REQ_create,
-  REQ_remove, 
 };
 
 /* 
@@ -72,10 +71,12 @@ struct request_write {
 
 struct request_create {
   uint32_t attr;
-  uint32_t lname;
+  uint8_t lname;
   /* Followed by lname bytes of data for name. */
   uint8_t *name;
 };
+
+/* Requests for open, flush, and remove have no buffer. */
 
 struct response {
   uint32_t rid;
@@ -85,50 +86,45 @@ struct response {
   uint8_t *buf;
 };
 
-/* 
- * Response for walk is dir but is ordered as:
- * 	file1
- * 	filename1
- * 	file2
- * 	filename2
- * 	...
- * through to nfiles.
- *
+struct stat {
+  uint32_t attr;
+
+  /* If file is a directory then size is the number of 
+   * files it contains. Else it is the size of the file in memory/on 
+   * disk.
+   */
+  uint32_t size;
+};
+
+/*
  * Response to write has ret as err or OK. If OK then
  * buf contains the number of bytes that were written.
  * 
  * Response to read has ret as err or OK. If OK then 
  * buf contains the bytes that were read.
+ * If the file is a directory then the result should 
+ * be in the format 
+ *    fid
+ *    name length [1, FS_LNAME_MAX-1]
+ *    name... (If reading from userspace you should exspect this to be
+ *             up to FS_LNAME_MAX bytes.)
+ * for each offset, for each file in the directory. You will only get
+ * one response for each read.
  *
+ * Respose for stat should be a stat structure for the fid.
+ * 
  * Response to create has ret as err or OK. If OK then
  * buf contains the fid of the new file.
  *
- * Response to remove, open, close have no buf and
+ * Response to remove, open, close, and flush have no buf and
  * ret is an error or OK.
  */
-
-struct file {
-  uint32_t fid;
-  uint32_t attr;
-	
-  uint32_t lname;
-  uint8_t *name;
-};
-
-struct dir {
-  uint32_t nfiles;
-  struct file **files;
-};
-
-uint8_t *
-dirtowalkresponse(struct dir *dir, uint32_t *size);
-struct dir *
-walkresponsetodir(uint8_t *buf, uint32_t len);
 
 struct fsmount {
   void (*open)(struct request *, struct response *);
   void (*close)(struct request *, struct response *);
-  void (*walk)(struct request *, struct response *);
+  void (*stat)(struct request *, struct response *);
+  void (*flush)(struct request *, struct response *);
   void (*read)(struct request *, struct response *);
   void (*write)(struct request *, struct response *);
   void (*remove)(struct request *, struct response *);

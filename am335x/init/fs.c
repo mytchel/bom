@@ -27,30 +27,8 @@
 
 #include <libc.h>
 #include <fs.h>
-
-static void
-readblock(const char *name)
-{
-  uint8_t buf[8];
-  int i, fd;
-  
-  printf("open %s\n", name);
-  fd = open(name, O_RDONLY);
-  if (fd < 0) {
-    printf("failed to open %s\n", name);
-  } else {
-    for (i = 0; i < 32; i++) {
-      if (read(fd, buf, sizeof(buf)) != sizeof(buf))
-	break;
-
-      printf("%h%h  %h%h  %h%h  %h%h\n", buf[0], buf[1], buf[2],
-	     buf[3], buf[4], buf[5], buf[6], buf[7]);
-    }
-
-    printf("closing %s\n", name);
-    close(fd);
-  }
-}
+#include <stdarg.h>
+#include <string.h>
 
 int
 filetest(void)
@@ -58,9 +36,9 @@ filetest(void)
   int i;
   int fd;
   uint8_t c;
-  uint8_t *str1 = (uint8_t *) "Hello, World\n";
-  uint8_t *str2 = (uint8_t *) "How are you?\n";
-  uint8_t *str3 = (uint8_t *) "This is just a test";
+  char *str1 = "Hello, World\n";
+  char *str2 = "How are you?\n";
+  char *str3 = "This is just a test";
 
   write(stdout, str1, strlen(str1));
 	
@@ -105,11 +83,6 @@ filetest(void)
       printf("/tmp/test removed\n");
     }
   }
-
-  printf("main test done\n");
-
-  readblock("/dev/mmc0");
-  readblock("/dev/mmc1");
 
   return 1;
 }

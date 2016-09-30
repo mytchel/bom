@@ -41,11 +41,13 @@ filetest(void);
 int
 commount(char *path);
 
+/*
 int
 tmpmount(char *path);
+*/
 
 int
-mmc(void);
+initmmcs(void);
 
 int stdin, stdout, stderr;
 
@@ -54,7 +56,8 @@ main(void)
 {
   int f, fd, fds[2];
 
-  fd = open("/dev", O_WRONLY|O_CREATE, ATTR_wr|ATTR_rd|ATTR_dir);
+  fd = open("/dev", O_WRONLY|O_CREATE,
+	    ATTR_wr|ATTR_rd|ATTR_dir);
   if (fd < 0) {
     return -1;
   }
@@ -74,17 +77,22 @@ main(void)
 
   printf("/dev/com mounted pid %i\n", f);
 
+  /*
   f = tmpmount("/tmp");
   if (f < 0) {
     return -1;
   }
-
+  
   printf("/tmp mounted on pid %i\n", f);
+  */
 
+  printf("init make pipes for pipetest\n");
+  
   if (pipe(fds) == ERR) {
     return -3;
   }
 
+  printf("fork for pipe 0\n");
   f = fork(FORK_sngroup);
   if (f < 0) {
     return -1;
@@ -93,6 +101,7 @@ main(void)
     return ppipe0(fds[0]);
   }
 	
+  printf("fork for pipe 1\n");
   f = fork(FORK_sngroup);
   if (f < 0) {
     return -1;
@@ -101,14 +110,16 @@ main(void)
     return ppipe1(fds[1]);
   }
 
+  printf("close pipes\n");
   close(fds[0]);
   close(fds[1]);
 
+  /*
   f = fork(FORK_sngroup);
   if (f < 0) {
     return -1;
   } else if (!f) {
-    return mmc();
+    return initmmcs();
   }
 
   f = fork(FORK_sngroup);
@@ -117,7 +128,7 @@ main(void)
   } else if (!f) {
     return filetest();
   }
-
+  */
   printf("Init completed. Exiting...\n");
 
   return 0;

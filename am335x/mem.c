@@ -96,17 +96,18 @@ initmemory(void)
 
 static void
 initpages(struct page *p, struct page *from, size_t npages,
-	  uint32_t start, uint32_t psize)
+	  uint32_t start, int type)
 {
   size_t i;
   
   for (i = 0; i < npages; i++) {
     p[i].pa = (void *) start;
     p[i].va = 0;
-    p[i].size = psize;
     p[i].from = from;
+    p[i].type = type;
     p[i].next = &p[i+1];
-    start += psize;
+    initlock(&p[i].lock);
+    start += PAGE_SIZE;
   }
 
   p[i-1].next = from->next;
@@ -131,7 +132,7 @@ addrampages(uint32_t start, uint32_t end)
   start += sizeof(struct page) * npages;
   start = PAGE_ALIGN_UP(start);
 
-  initpages(p, &rampages, npages, start, PAGE_SIZE);
+  initpages(p, &rampages, npages, start, PAGE_rw);
 }
 
 void
@@ -144,7 +145,7 @@ addiopages(uint32_t start, uint32_t end)
 
   p = malloc(sizeof(struct page) * npages);
 
-  initpages(p, &iopages, npages, start, PAGE_SIZE);
+  initpages(p, &iopages, npages, start, PAGE_rws);
 }
  
 void *

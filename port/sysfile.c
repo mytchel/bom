@@ -63,8 +63,8 @@ sysread(va_list args)
   kbuf = kaddr(current, buf, len);
 
   if (kbuf == nil) {
-    printf("%i being naughty and trying to use memory it shouldn't\n",
-	   current->pid);
+    printf("%i being naughty and trying to use memory it shouldn't (0x%h %i)\n",
+	   current->pid, buf, len);
      return ERR;
   } else {
     return read(fd, kbuf, len);
@@ -107,14 +107,45 @@ syswrite(va_list args)
   kbuf = kaddr(current, buf, len);
 
   if (kbuf == nil) {
-    printf("%i being naughty and trying to use memory it shouldn't\n",
-	   current->pid);
+    printf("%i being naughty and trying to use memory it shouldn't (0x%h %i)\n",
+	   current->pid, buf, len);
     return ERR;
   } else {
     return write(fd, kbuf, len);
   }
 }
 
+int
+seek(int fd, size_t offset, int whence)
+{
+  struct chan *c;
+  int r;
+
+  c = fdtochan(current->fgroup, fd);
+  if (c == nil) {
+    return ERR;
+  }
+	
+  lock(&c->lock);
+  r = chantypes[c->type]->seek(c, offset, whence);
+  unlock(&c->lock);
+	
+  return r;
+}
+
+reg_t
+sysseek(va_list args)
+{
+  int fd, whence;
+  size_t offset;
+	
+  fd = va_arg(args, int);
+  offset = va_arg(args, size_t);
+  whence = va_arg(args, int);
+
+  return seek(fd, offset, whence);
+}
+     
 reg_t
 sysclose(va_list args)
 {
@@ -139,82 +170,6 @@ sysclose(va_list args)
 }
 
 reg_t
-sysbind(va_list args)
-{
-  int infd, outfd;
-  const char *upath;
-  struct proc *p;
-  struct path *path;
-  struct chan *in, *out;
-  struct binding_list *bl;
-	
-  outfd = va_arg(args, int);
-  infd = va_arg(args, int);
-  upath = va_arg(args, const char *);
-
-  out = fdtochan(current->fgroup, outfd);
-  if (out == nil) {
-    return ERR;
-  } else if (!(out->mode & O_WRONLY)) {
-    return EMODE;
-  }
-
-  in = fdtochan(current->fgroup, infd);
-  if (in == nil) {
-    return ERR;
-  } else if  (!(in->mode & O_RDONLY)) {
-    return EMODE;
-  }
-	
-  lock(&current->ngroup->lock);
-
-  path = realpath(current->dot, (uint8_t *) upath);
-
-#if DEBUG == 1
-  char *str = (char *) pathtostr(path, nil);
-  printf("Binding %i to '%s'\n", current->pid, upath);
-  free(str);
-#endif
-  
-  bl = malloc(sizeof(struct binding_list));
-  if (bl == nil) {
-    freepath(path);
-    unlock(&current->ngroup->lock);
-    return ENOMEM;
-  }
-		
-  bl->binding = newbinding(path, out, in);
-  if (bl->binding == nil) {
-    free(bl);
-    freepath(path);
-    unlock(&current->ngroup->lock);
-    return ENOMEM;
-  }
-		
-  p = newproc();
-  if (p == nil) {
-    freebinding(bl->binding);
-    free(bl);
-    unlock(&current->ngroup->lock);
-    return ENOMEM;
-  }
-
-  bl->next = current->ngroup->bindings;
-  current->ngroup->bindings = bl;
-	
-  initproc(p);
-  forkfunc(p, &mountproc, (void *) bl->binding);
-	
-  bl->binding->srv = p;
-	
-  procready(p);
-	
-  unlock(&current->ngroup->lock);
-
-  return OK;
-}
-
-reg_t
 sysopen(va_list args)
 {
   int err;
@@ -232,7 +187,7 @@ sysopen(va_list args)
     cmode = 0;
   }
 
-  path = realpath(current->dot, (uint8_t *) upath);
+  path = realpath(current->dot, upath);
 
   c = fileopen(path, mode, cmode, &err);
 	
@@ -270,7 +225,83 @@ sysremove(va_list args)
 	
   upath = va_arg(args, const char *);
 
-  path = realpath(current->dot, (uint8_t *) upath);
+  path = realpath(current->dot, upath);
 
   return fileremove(path);
 }
+
+reg_t
+sysbind(va_list args)
+{
+  int infd, outfd;
+  const char *upath;
+  struct proc *p;
+  struct path *path;
+  struct chan *in, *out;
+  struct binding_list *bl;
+	
+  outfd = va_arg(args, int);
+  infd = va_arg(args, int);
+  upath = va_arg(args, const char *);
+
+  out = fdtochan(current->fgroup, outfd);
+  if (out == nil) {
+    return ERR;
+  } else if (!(out->mode & O_WRONLY)) {
+    return EMODE;
+  }
+
+  in = fdtochan(current->fgroup, infd);
+  if (in == nil) {
+    return ERR;
+  } else if  (!(in->mode & O_RDONLY)) {
+    return EMODE;
+  }
+	
+  lock(&current->ngroup->lock);
+
+  path = realpath(current->dot, upath);
+
+#if DEBUG == 1
+  char *str = (char *) pathtostr(path, nil);
+  printf("Binding %i to '%s'\n", current->pid, upath);
+  free(str);
+#endif
+  
+  bl = malloc(sizeof(struct binding_list));
+  if (bl == nil) {
+    freepath(path);
+    unlock(&current->ngroup->lock);
+    return ENOMEM;
+  }
+		
+  bl->binding = newbinding(path, out, in);
+  if (bl->binding == nil) {
+    free(bl);
+    freepath(path);
+    unlock(&current->ngroup->lock);
+    return ENOMEM;
+  }
+		
+  p = newproc();
+  if (p == nil) {
+    freebinding(bl->binding);
+    free(bl);
+    unlock(&current->ngroup->lock);
+    return ENOMEM;
+  }
+
+  bl->next = current->ngroup->bindings;
+  current->ngroup->bindings = bl;
+	
+  forkfunc(p, &mountproc, (void *) bl->binding);
+	
+  bl->binding->srv = p;
+	
+  procready(p);
+	
+  unlock(&current->ngroup->lock);
+
+  return OK;
+}
+

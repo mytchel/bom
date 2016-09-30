@@ -24,6 +24,7 @@
 #include "sdmmcreg.h"
 #include "sdhcreg.h"
 #include "omap_mmc.h"
+#include "mmc.h"
 
 #define MMCHS0	0x48060000 /* sd */
 #define MMC1	0x481D8000 /* mmc */
@@ -33,19 +34,9 @@
 #define MMC1_intr 28
 #define MMC2_intr 29
 
-enum { RESP_NO, RESP_LEN_48, RESP_LEN_136 };
-
-struct mmc_command {
-  uint32_t cmd;
-  uint32_t arg;
-  int resp_type;
-  uint32_t resp[4];
-  bool read, write;
-  uint8_t *data;
-  uint32_t data_len;
-};
-
-static struct mmchs *mmchs;
+struct mmc mmc;
+size_t regsize = 4 * 1024;
+volatile struct mmchs_regs *regs;
 
 static void
 handle_brr(void);
@@ -61,12 +52,12 @@ mmchswaitintr(uint32_t mask)
 {
   uint32_t v;
 
-  v = mmchs->regs->ie;
-  mmchs->regs->ie = v;
-  mmchs->regs->ie = 0xffffffff;
+  v = regs->ie;
+  regs->ie = v;
+  regs->ie = 0xffffffff;
 
-  while (waitintr(mmchs->intr) != ERR) {
-    while ((v = mmchs->regs->stat) != 0) {
+  while (waitintr(mmc.intr) != ERR) {
+    while ((v = regs->stat) != 0) {
       if (v & MMCHS_SD_STAT_BRR) {
 	handle_brr();
 	continue;
@@ -81,7 +72,7 @@ mmchswaitintr(uint32_t mask)
 	return false;
       }
 
-      printf("%s unexpected interrupt 0b%b\n", mmchs->name, v);
+      printf("%s unexpected interrupt 0b%b\n", mmc.name, v);
     }
   }
 
@@ -94,25 +85,25 @@ handle_bwr(void)
   size_t i;
   uint32_t v;
 
-  if (mmchs->data == nil) {
-    printf("%s->data == nil!\n", mmchs->name);
+  if (mmc.data == nil) {
+    printf("%s->data == nil!\n", mmc.name);
     return;
-  } else if (!(mmchs->regs->pstate & MMCHS_SD_PSTATE_BWE)) {
-    printf("%s pstate bad!\n", mmchs->name);
+  } else if (!(regs->pstate & MMCHS_SD_PSTATE_BWE)) {
+    printf("%s pstate bad!\n", mmc.name);
     return;
   } 
 
-  for (i = 0; i < mmchs->data_len; i += 4) {
-    *((uint8_t *) &v) = mmchs->data[i];
-    *((uint8_t *) &v + 1) = mmchs->data[i+1];
-    *((uint8_t *) &v + 2) = mmchs->data[i+2];
-    *((uint8_t *) &v + 3) = mmchs->data[i+3];
+  for (i = 0; i < mmc.data_len; i += 4) {
+    *((uint8_t *) &v) = mmc.data[i];
+    *((uint8_t *) &v + 1) = mmc.data[i+1];
+    *((uint8_t *) &v + 2) = mmc.data[i+2];
+    *((uint8_t *) &v + 3) = mmc.data[i+3];
 
-    mmchs->regs->data = v;
+    regs->data = v;
   }
 
-  mmchs->regs->stat = MMCHS_SD_STAT_BWR;
-  mmchs->data = nil;
+  regs->stat = MMCHS_SD_STAT_BWR;
+  mmc.data = nil;
 }
 
 void
@@ -121,25 +112,25 @@ handle_brr(void)
   size_t i;
   uint32_t v;
 
-  if (mmchs->data == nil) {
-    printf("%s->data == nil!\n", mmchs->name);
+  if (mmc.data == nil) {
+    printf("%s->data == nil!\n", mmc.name);
     return;
-  } else if (!(mmchs->regs->pstate & MMCHS_SD_PSTATE_BRE)) {
-    printf("%s pstate bad!\n", mmchs->name);
+  } else if (!(regs->pstate & MMCHS_SD_PSTATE_BRE)) {
+    printf("%s pstate bad!\n", mmc.name);
     return;
   }
 
-  for (i = 0; i < mmchs->data_len; i += 4) {
-    v = mmchs->regs->data;
+  for (i = 0; i < mmc.data_len; i += 4) {
+    v = regs->data;
 
-    mmchs->data[i] = *((uint8_t *) &v);
-    mmchs->data[i+1] = *((uint8_t *) &v + 1);
-    mmchs->data[i+2] = *((uint8_t *) &v + 2);
-    mmchs->data[i+3] = *((uint8_t *) &v + 3);
+    mmc.data[i] = *((uint8_t *) &v);
+    mmc.data[i+1] = *((uint8_t *) &v + 1);
+    mmc.data[i+2] = *((uint8_t *) &v + 2);
+    mmc.data[i+3] = *((uint8_t *) &v + 3);
   }
 
-  mmchs->regs->stat = MMCHS_SD_STAT_BRR;
-  mmchs->data = nil;
+  regs->stat = MMCHS_SD_STAT_BRR;
+  mmc.data = nil;
 }
 
 static void
@@ -147,40 +138,40 @@ mmccmdreset(void)
 {
   int i = 100;
   
-  mmchs->regs->stat = 0xffffffff;
-  mmchs->regs->sysctl |= MMCHS_SD_SYSCTL_SRC;
+  regs->stat = 0xffffffff;
+  regs->sysctl |= MMCHS_SD_SYSCTL_SRC;
 
-  while (!(mmchs->regs->sysctl & MMCHS_SD_SYSCTL_SRC) && i-- > 0);
+  while (!(regs->sysctl & MMCHS_SD_SYSCTL_SRC) && i-- > 0);
 
   i = 100;
-  while ((mmchs->regs->sysctl & MMCHS_SD_SYSCTL_SRC) && i-- > 0)
+  while ((regs->sysctl & MMCHS_SD_SYSCTL_SRC) && i-- > 0)
     sleep(1);
 }
 
 static bool
 mmchssendrawcmd(uint32_t cmd, uint32_t arg)
 {
-  if (mmchs->regs->stat != 0) {
+  if (regs->stat != 0) {
     printf("%s stat in bad shape 0b%b\n",
-	   mmchs->name, mmchs->regs->stat);
+	   mmc.name, regs->stat);
     return false;
   }
 
-  mmchs->regs->arg = arg;
+  regs->arg = arg;
   sleep(0);
-  mmchs->regs->cmd = cmd;
+  regs->cmd = cmd;
 
   if (!mmchswaitintr(MMCHS_SD_STAT_CC)) {
-    mmchs->regs->stat = MMCHS_SD_STAT_CC;
+    regs->stat = MMCHS_SD_STAT_CC;
     return false;
   }
 
-  mmchs->regs->stat = MMCHS_SD_STAT_CC;
+  regs->stat = MMCHS_SD_STAT_CC;
 
   return true;
 }
 
-static bool
+bool
 mmchssendcmd(struct mmc_command *c)
 {
   uint32_t cmd;
@@ -206,11 +197,11 @@ mmchssendcmd(struct mmc_command *c)
     if (c->data == nil || c->data_len > 0xfff)
       return false;
     
-    mmchs->data = c->data;
-    mmchs->data_len = c->data_len;
+    mmc.data = c->data;
+    mmc.data_len = c->data_len;
 
-    mmchs->regs->blk &= ~MMCHS_SD_BLK_BLEN;
-    mmchs->regs->blk |= c->data_len;
+    regs->blk &= ~MMCHS_SD_BLK_BLEN;
+    regs->blk |= c->data_len;
 
     cmd |= MMCHS_SD_CMD_DP_DATA;
     cmd |= MMCHS_SD_CMD_MSBS_SINGLE;
@@ -226,20 +217,21 @@ mmchssendcmd(struct mmc_command *c)
 
   if (r && (c->read || c->write)) {
     if (!mmchswaitintr(MMCHS_SD_IE_TC)) {
-      printf("%s wait for transfer complete failed!\n", mmchs->name);
+      printf("%s wait for transfer complete failed!\n",
+	     mmc.name);
       return false;
     }
 
-    mmchs->regs->stat = MMCHS_SD_IE_TC;
+    regs->stat = MMCHS_SD_IE_TC;
   }
   
   switch (c->resp_type) {
   case RESP_LEN_48:
-    c->resp[0] = mmchs->regs->rsp10;
+    c->resp[0] = regs->rsp10;
   case RESP_LEN_136:
-    c->resp[1] = mmchs->regs->rsp32;
-    c->resp[2] = mmchs->regs->rsp54;
-    c->resp[3] = mmchs->regs->rsp76;
+    c->resp[1] = regs->rsp32;
+    c->resp[2] = regs->rsp54;
+    c->resp[3] = regs->rsp76;
     break;
   case RESP_NO:
     break;
@@ -254,7 +246,7 @@ mmchssendappcmd(struct mmc_command *c)
   struct mmc_command cmd;
 
   cmd.cmd = MMC_APP_CMD;
-  cmd.arg = mmchs->rca;
+  cmd.arg = mmc.rca;
   cmd.resp_type = RESP_LEN_48;
   cmd.read = false; cmd.write = false;
   cmd.data = nil;
@@ -272,12 +264,12 @@ mmchssoftreset(void)
 {
   int i = 100;
 
-  mmchs->regs->sysconfig |= MMCHS_SD_SYSCONFIG_SOFTRESET;
+  regs->sysconfig |= MMCHS_SD_SYSCONFIG_SOFTRESET;
 
-  while (!(mmchs->regs->sysstatus & MMCHS_SD_SYSSTATUS_RESETDONE)) {
+  while (!(regs->sysstatus & MMCHS_SD_SYSSTATUS_RESETDONE)) {
     sleep(1);
     if (i-- < 0) {
-      printf("%s: Failed to reset controller!\n", mmchs->name);
+      printf("%s: Failed to reset controller!\n", mmc.name);
       return false;
     }
   }
@@ -291,53 +283,53 @@ mmchsinit(void)
   int i;
 
   /* 1-bit mode */
-  mmchs->regs->con &= ~MMCHS_SD_CON_DW8;
+  regs->con &= ~MMCHS_SD_CON_DW8;
 
   /* set to 3.0V */
-  mmchs->regs->hctl = MMCHS_SD_HCTL_SDVS_VS30;
-  mmchs->regs->capa |= MMCHS_SD_CAPA_VS18 | MMCHS_SD_CAPA_VS30;
+  regs->hctl = MMCHS_SD_HCTL_SDVS_VS30;
+  regs->capa |= MMCHS_SD_CAPA_VS18 | MMCHS_SD_CAPA_VS30;
 
   /* Power on card */
-  mmchs->regs->hctl |= MMCHS_SD_HCTL_SDBP;
+  regs->hctl |= MMCHS_SD_HCTL_SDBP;
 
   i = 100;
-  while (!(mmchs->regs->hctl & MMCHS_SD_HCTL_SDBP)) {
+  while (!(regs->hctl & MMCHS_SD_HCTL_SDBP)) {
     sleep(1);
     if (i-- < 0) {
-      printf("%s: failed to power on card!\n", mmchs->name);
+      printf("%s: failed to power on card!\n", mmc.name);
       return false;
     }
   }
 
   /* enable internal clock and clock to card */
-  mmchs->regs->sysctl |= MMCHS_SD_SYSCTL_ICE;
+  regs->sysctl |= MMCHS_SD_SYSCTL_ICE;
 
   /* set clock frequence to 400kHz */
-  mmchs->regs->sysctl &= ~MMCHS_SD_SYSCTL_CLKD;
-  mmchs->regs->sysctl |= 0xf0 << 6;
+  regs->sysctl &= ~MMCHS_SD_SYSCTL_CLKD;
+  regs->sysctl |= 0xf0 << 6;
 
   /* enable clock */
-  mmchs->regs->sysctl |= MMCHS_SD_SYSCTL_CEN;
+  regs->sysctl |= MMCHS_SD_SYSCTL_CEN;
 
   i = 100;
   do {
     sleep(1);
     i--;
-  } while (i > 0 && !(mmchs->regs->sysctl & MMCHS_SD_SYSCTL_ICS));
+  } while (i > 0 && !(regs->sysctl & MMCHS_SD_SYSCTL_ICS));
 
   if (!i) {
-    printf("%s: mmchs clock not stable\n", mmchs->name);
+    printf("%s: mmchs clock not stable\n", mmc.name);
     return false;
   }
 
   /* Enable interrupts */
-  mmchs->regs->ie =
+  regs->ie =
     MMCHS_SD_IE_ERROR_MASK |
     MMCHS_SD_IE_CC | MMCHS_SD_IE_TC |
     MMCHS_SD_IE_BRR | MMCHS_SD_IE_BWR;
 
   /* enable send interrupts to intc */
-  mmchs->regs->ise = 0xffffffff;
+  regs->ise = 0xffffffff;
 
   return true;
 }
@@ -346,20 +338,20 @@ static bool
 mmchsinitstream(void)
 {
   /* send init signal */
-  mmchs->regs->con |= MMCHS_SD_CON_INIT;
+  regs->con |= MMCHS_SD_CON_INIT;
 
-  mmchs->regs->cmd = 0;
+  regs->cmd = 0;
   if (!mmchswaitintr(MMCHS_SD_STAT_CC)) {
-    printf("%s failed to send CMD0 (1)\n", mmchs->name);
+    printf("%s failed to send CMD0 (1)\n", mmc.name);
     return false;
   }
 
-  mmchs->regs->stat = MMCHS_SD_STAT_CC;
+  regs->stat = MMCHS_SD_STAT_CC;
 
   /* remove init */
-  mmchs->regs->con &= ~MMCHS_SD_CON_INIT;
+  regs->con &= ~MMCHS_SD_CON_INIT;
 
-  mmchs->regs->stat = 0xffffffff;
+  regs->stat = 0xffffffff;
 
   return true;
 }
@@ -396,7 +388,7 @@ cardidentification(void)
   if (cmd.resp[0] !=
       (MMCHS_SD_ARG_CMD8_VHS | MMCHS_SD_ARG_CMD8_CHECK_PATTERN)) {
     printf("%s check pattern check failed 0x%h\n",
-	   mmchs->name, cmd.resp);
+	   mmc.name, cmd.resp);
     return false;
   }
 
@@ -420,9 +412,9 @@ cardqueryvolttype(void)
 
   r = mmchssendappcmd(&cmd);
 
-  if (!r && (mmchs->regs->stat & MMCHS_SD_STAT_CTO)) {
+  if (!r && (regs->stat & MMCHS_SD_STAT_CTO)) {
     /* eMMC cards here. */
-    printf("%s is a mmc card\n", mmchs->name);
+    printf("%s is a mmc card\n", mmc.name);
     mmccmdreset();
 
     cmd.cmd = MMC_SEND_OP_COND;
@@ -434,7 +426,7 @@ cardqueryvolttype(void)
    
   } else if (r) {
     /* SD cards here. */
-    printf("%s is a sd card\n", mmchs->name);
+    printf("%s is a sd card\n", mmc.name);
     while (!(cmd.resp[0] & MMC_OCR_MEM_READY)) {
       if (!mmchssendappcmd(&cmd)) {
 	return false;
@@ -442,7 +434,7 @@ cardqueryvolttype(void)
     }
   } else {
     printf("%s failed to determine card type for voltage query.\n",
-	   mmchs->name);
+	   mmc.name);
     return false;
   }
 
@@ -471,7 +463,7 @@ cardidentify(void)
     return false;
   }
 
-  mmchs->rca = 0;/*SD_R6_RCA(cmd.resp);*/
+  mmc.rca = 0;/*SD_R6_RCA(cmd.resp);*/
 
   return true;
 }
@@ -485,7 +477,7 @@ cardselect(void)
   cmd.resp_type = RESP_LEN_48;
   cmd.read = cmd.write = false;
   cmd.data = nil;
-  cmd.arg = MMC_ARG_RCA(mmchs->rca);
+  cmd.arg = MMC_ARG_RCA(mmc.rca);
 
   return mmchssendcmd(&cmd);
 }
@@ -499,18 +491,18 @@ cardcsd(void)
   cmd.resp_type = RESP_LEN_136;
   cmd.read = cmd.write = false;
   cmd.data = nil;
-  cmd.arg = MMC_ARG_RCA(mmchs->rca);
+  cmd.arg = MMC_ARG_RCA(mmc.rca);
 
   if (!mmchssendcmd(&cmd)) {
     printf("%s csd failed, stat = 0b%b\n",
-	   mmchs->name, mmchs->regs->stat);
+	   mmc.name, regs->stat);
     return false;
   }
 
-  mmchs->csd[0] = cmd.resp[0];
-  mmchs->csd[1] = cmd.resp[1];
-  mmchs->csd[2] = cmd.resp[2];
-  mmchs->csd[3] = cmd.resp[3];
+  mmc.csd[0] = cmd.resp[0];
+  mmc.csd[1] = cmd.resp[1];
+  mmc.csd[2] = cmd.resp[2];
+  mmc.csd[3] = cmd.resp[3];
 
   return true;
 }
@@ -519,45 +511,45 @@ static bool
 cardinit(void)
 {
   if (!cardgotoidle()) {
-    printf("%s failed to goto idle state!\n", mmchs->name);
+    printf("%s failed to goto idle state!\n", mmc.name);
     return false;
   }
 
   if (!cardidentification()) {
-    printf("%s failed to do card identification\n", mmchs->name);
-    printf("%s cmd reset\n", mmchs->name);
+    printf("%s failed to do card identification\n", mmc.name);
+    printf("%s cmd reset\n", mmc.name);
     mmccmdreset();
   }
 
   if (!cardqueryvolttype()) {
-    printf("%s failed to query voltage and type!\n", mmchs->name);
+    printf("%s failed to query voltage and type!\n", mmc.name);
     return false;
   }
 
   if (!cardidentify()) {
-    printf("%s identify card failed!\n", mmchs->name);
+    printf("%s identify card failed!\n", mmc.name);
     return false;
   }
 
   if (!cardcsd()) {
-    printf("%s get card csd failed!\n", mmchs->name);
+    printf("%s get card csd failed!\n", mmc.name);
     return false;
   }
 
   if (!cardselect()) {
-    printf("%s select card failed!\n", mmchs->name);
+    printf("%s select card failed!\n", mmc.name);
     return false;
   }
 
-  if (SD_CSD_READ_BL_LEN(mmchs->csd) != 0x09) {
-    printf("%s block length is not 512!\n", mmchs->name);
+  if (SD_CSD_READ_BL_LEN(mmc.csd) != 0x09) {
+    printf("%s block length is not 512!\n", mmc.name);
     return false;
   }
 
   return true;
 }
 
-static bool
+bool
 readblock(uint32_t blk, uint8_t *buf)
 {
   struct mmc_command cmd;
@@ -573,10 +565,9 @@ readblock(uint32_t blk, uint8_t *buf)
   return mmchssendcmd(&cmd);
 }
 
-/*
-  static bool
-  writeblock(struct mmchs *mmchs, uint32_t blk, uint32_t *buf)
-  {
+bool
+writeblock(uint32_t blk, uint8_t *buf)
+{
   struct mmc_command cmd;
 
   cmd.cmd = MMC_WRITE_BLOCK_SINGLE;
@@ -588,185 +579,74 @@ readblock(uint32_t blk, uint8_t *buf)
   cmd.data_len = 512;
 
   return mmchssendcmd(&cmd);
-  }
-*/
-
-static void
-bopen(struct request *req, struct response *resp)
-{
-  printf("%s opened\n", mmchs->name);
-  resp->ret = OK;
 }
-
-static void
-bclose(struct request *req, struct response *resp)
-{
-  printf("%s close\n", mmchs->name);
-  resp->ret = OK;
-}
-
-static void
-bread(struct request *req, struct response *resp)
-{
-  uint32_t offset, len, out, blk, nblk, i;
-  uint8_t *buf, tmpbuf[512];
-
-  buf = req->buf;
-  memmove(&offset, buf, sizeof(uint32_t));
-  buf += sizeof(uint32_t);
-  memmove(&len, buf, sizeof(uint32_t));
-
-  blk = offset / 512;
-  nblk = len / 512;
-  if (len % 512 != 0) {
-    nblk++;
-  }
-
-  resp->buf = malloc(nblk * 512);
-  if (resp->buf == nil) {
-    resp->ret = ENOMEM;
-    return;
-  }
-
-  buf = resp->buf;
-
-  out = offset % 512;
-  if (out != 0) {
-    readblock(blk++, tmpbuf);
-    memmove(buf, tmpbuf + out, 512 - out);
-    buf += out;
-  }
-
-  for (i = 0; i < nblk; i++) {
-    readblock(blk + i, buf);
-    buf += 512;
-  }
-
-  if (i == nblk) {
-    /* Use given len so they dont get more than they asked for. */
-    resp->lbuf = len;
-  } else {
-    resp->lbuf = i * 512;
-  }
-  
-  resp->ret = OK;
-}
-
-static void
-bwrite(struct request *req, struct response *resp)
-{
-  printf("%s write\n", mmchs->name);
-  resp->ret = ENOIMPL;
-}
-
-static void
-bremove(struct request *req, struct response *resp)
-{
-  printf("%s remove, should exit.\n", mmchs->name);
-  resp->ret = ENOIMPL;
-}
-
-static struct fsmount mount = {
-  &bopen,
-  &bclose,
-  nil,
-  &bread,
-  &bwrite,
-  &bremove,
-  nil,
-};
 
 static int
-mmchsproc(char *name, void *addr, int intr)
+mmchsproc(char *nname, void *addr, int intr)
 {
-  size_t size = 4 * 1024;
   char filename[256];
-  int fd, p1[2], p2[2];
 
-  printf("%s running in proc %i\n", name, getpid());
-  
-  mmchs = malloc(sizeof(struct mmchs));
-  if (!mmchs) {
-    printf("%s malloc failed!\n", name);
-    return -1;
-  }
+  memmove(mmc.name, nname, strlen(nname) + 1);
 
-  mmchs->intr = intr;
-  mmchs->name = name;
-  mmchs->regs = (struct mmchs_regs *) getmem(MEM_io, addr, &size);
-  if (!mmchs->regs) {
-    printf("%s failed to map register space!\n", mmchs->name);
+  printf("%s running in proc %i\n", mmc.name, getpid());
+
+  printf("%s mapping registers\n", mmc.name);
+  mmc.intr = intr;
+  regs = (struct mmchs_regs *) getmem(MEM_io, addr, &regsize);
+  if (regs == nil) {
+    printf("%s failed to map register space!\n", mmc.name);
     return -2;
   }
 
+  printf("%s set up controler\n", mmc.name);
+
   if (!mmchssoftreset()) {
-    printf("%s failed to reset host!\n", mmchs->name);
+    printf("%s failed to reset host!\n", mmc.name);
     return -2;
   }
   
   if (!mmchsinit()) {
-    printf("%s failed to init host!\n", mmchs->name);
+    printf("%s failed to init host!\n", mmc.name);
     return -2;
   }
 
   if (!mmchsinitstream()) {
-    printf("%s failed to init host stream!\n", mmchs->name);
+    printf("%s failed to init host stream!\n", mmc.name);
     return -2;
   }
 
+  printf("%s set up card\n", mmc.name);
+
   if (!cardinit()) {
-    printf("%s failed to init card!\n", mmchs->name);
+    printf("%s failed to init card!\n", mmc.name);
     return -3;
   }
-  /*
-  switch (SD_CSD_CSDVER(mmchs->csd)) {
+
+  switch (SD_CSD_CSDVER(mmc.csd)) {
   case 0:
-    mmchs->size = SD_CSD_CAPACITY(mmchs->csd) * 512;
+    mmc.size = SD_CSD_CAPACITY(mmc.csd) * 512;
     break;
   case 2:
-    mmchs->size = SD_CSD_V2_CAPACITY(mmchs->csd) * 512;
+    mmc.size = SD_CSD_V2_CAPACITY(mmc.csd) * 512;
     break;
   case 3:
-    mmchs->size = MMC_CSD_CAPACITY(mmchs->csd) * 512;
+    mmc.size = MMC_CSD_CAPACITY(mmc.csd) * 512;
     break;
   default:
-    printf("%s has unknown csd version %i\n", mmchs->name,
-	   SD_CSD_CSDVER(mmchs->csd));
+    printf("%s has unknown csd version %i\n", mmc.name,
+	   SD_CSD_CSDVER(mmc.csd));
   }
 
-  printf("%s is of size %i Mb\n", mmchs->name,
-	 mmchs->size / 1024 / 1024);
+  printf("%s is of size %i Mb\n", mmc.name,
+	 mmc.size / 1024 / 1024);
 
-  */
-  
-  snprintf(filename, sizeof(filename), "/dev/%s", mmchs->name);
+  snprintf(filename, sizeof(filename), "/dev/%sraw", mmc.name);
 
-  printf("%s binding to %s\n", mmchs->name, filename);
-  
-  fd = open(filename, O_WRONLY|O_CREATE, ATTR_wr|ATTR_rd);
-  if (fd < 0) {
-    printf("%s failed to create %s.\n", mmchs->name, filename);
-    return -6;
-  }
-
-  if (pipe(p1) == ERR) {
-    return -4;
-  } else if (pipe(p2) == ERR) {
-    return -5;
-  }
-
-  if (bind(p1[1], p2[0], filename) == ERR) {
-    return -7;
-  }
-
-  close(p1[1]);
-  close(p2[0]);
-
-  return fsmountloop(p1[0], p2[1], &mount);
+  return mmcmount(filename);
 }
 
 int
-mmc(void)
+initmmcs(void)
 {
   int p;
 

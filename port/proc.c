@@ -108,12 +108,21 @@ newproc(void)
   if (p == nil)
     return nil;
 	
-  p->pid = nextpid++;
   p->faults = 0;
   p->ureg = nil;
   p->wnext = nil;
-  p->mmu = nil;
   p->inkernel = true;
+
+  p->stack = nil;
+  p->pages = nil;
+  p->mmu = nil;
+
+  p->pid = nextpid++;
+  p->quanta = 15;
+  p->parent = nil;
+  p->dot = nil;
+  p->fgroup = nil;
+  p->ngroup = nil;
 
   disableintr();
 
@@ -127,25 +136,10 @@ newproc(void)
 }
 
 void
-initproc(struct proc *p)
-{
-  p->dot = nil;
-  p->quanta = 15;
-
-  p->segs[Sstack] = newseg(SEG_rw);
-  p->segs[Stext] = newseg(SEG_ro);
-  p->segs[Sdata] = newseg(SEG_rw);
-  p->segs[Sheap] = newseg(SEG_rw);
-	
-  p->fgroup = nil;
-  p->ngroup = nil;
-}
-
-void
 procremove(struct proc *p)
 {
   struct proc *pp;
-  int i;
+  struct page *pg, *pgn;
 
   /* Remove proc from list. */
   for (pp = procs; pp != nil && pp->next != p; pp = pp->next);
@@ -154,12 +148,29 @@ procremove(struct proc *p)
   
   pp->next = p->next;
 
-  for (i = 0; i < Smax; i++) {
-    if (p->segs[i] != nil)
-      freeseg(p->segs[i]);
+  pg = p->stack;
+  while (pg != nil) {
+    pgn = pg->next;
+    freepage(pg);
+    pg = pgn;
   }
-	
+
+  pg = p->pages;
+  while (pg != nil) {
+    pgn = pg->next;
+    freepage(pg);
+    pg = pgn;
+  }
+
+  pg = p->mmu;
+  while (pg != nil) {
+    pgn = pg->next;
+    freepage(pg);
+    pg = pgn;
+  }
+
   freepath(p->dot);
+
   if (p->fgroup != nil)
     freefgroup(p->fgroup);
 

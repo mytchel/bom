@@ -64,10 +64,9 @@ syssleep(va_list args)
 reg_t
 sysfork(va_list args)
 {
-  int i;
   struct proc *p;
   int flags;
-  bool copy;
+  bool share;
 	
   flags = va_arg(args, int);
 
@@ -81,13 +80,9 @@ sysfork(va_list args)
   p->quanta = current->quanta;
   p->dot = copypath(current->dot);
 
-  copy = !(flags & FORK_smem);
-  for (i = 0; i < Smax; i++) {
-    p->segs[i] = copyseg(current->segs[i], copy || (i == Sstack));
-    if (p->segs[i] == nil) {
-      goto err;
-    }
-  }
+  share = (flags & FORK_smem);
+  p->stack = copypages(current->stack, false);
+  p->pages = copypages(current->pages, share);
 	
   if (flags & FORK_sfgroup) {
     p->fgroup = current->fgroup;
@@ -150,15 +145,16 @@ getnewpages(size_t *size)
   struct page *pages, *p, *pt;
   size_t s;
 	
-  pages = newpage(0);
+  pages = newrampage();
   if (pages == nil) {
     return nil;
   }
 	
   p = pages;
-  s = pages->size;
+  s = PAGE_SIZE;
   while (s < *size) {
-    p->next = newpage(p->va + p->size);
+    p->next = newrampage();
+    p->next->va = p->va + PAGE_SIZE;
     if (p->next == nil) {
       p = pages;
       while (p != nil) {
@@ -170,32 +166,11 @@ getnewpages(size_t *size)
     }
 		
     p = p->next;
-    s += p->size;
+    s += PAGE_SIZE;
   }
 	
   *size = s;
   return pages;	
-}
-
-static void *
-startofheap(void)
-{
-  struct page *p;
-  void *addr = nil;
-
-  for (p = current->segs[Stext]->pages;
-       p != nil;
-       p = p->next)
-    if ((uint8_t *) p->va + p->size > (uint8_t *) addr)
-      addr = (uint8_t *) p->va + p->size;
-
-  for (p = current->segs[Sdata]->pages;
-       p != nil;
-       p = p->next)
-    if ((uint8_t *) p->va + p->size > (uint8_t *) addr)
-      addr = (uint8_t *) p->va + p->size;
-
-  return addr;
 }
 
 static void *
@@ -206,15 +181,12 @@ insertpages(struct page *pages, void *addr, size_t size)
 
   fix = (addr == nil);
 
-  if (fix)
-    addr = startofheap();
-
   pp = nil;
-  for (p = current->segs[Sheap]->pages;
+  for (p = current->pages;
        p != nil; pp = p, p = p->next) {
 		
     if (fix && pp != nil) 
-      addr = (uint8_t *) pp->va + pp->size;
+      addr = (uint8_t *) pp->va + PAGE_SIZE;
 		
     if ((size_t) (p->va - addr) > size) {
       /* Pages fit in here */
@@ -223,45 +195,54 @@ insertpages(struct page *pages, void *addr, size_t size)
   }
 	
   if (pp != nil) {
-    if (fix) addr = (uint8_t *) pp->va + pp->size;
+    if (fix) addr = (uint8_t *) pp->va + PAGE_SIZE;
     fixpages(pages, (reg_t) addr, p);
     pp->next = pages;
   } else {
-    /* First page on heap. */
+    /* First page */
     fixpages(pages, (reg_t) addr, p);
-    current->segs[Sheap]->pages = pages;
+    current->pages = pages;
   }
 
   return addr;
 }
 
 static bool
-addrsinuse(void *start, size_t size)
+addrinpages(struct page *p, void *start, size_t size)
 {
-  struct page *p;
-  int i;
   void *end = (uint8_t *) start + size;
 	
-  for (i = 0; i < Smax; i++) {
-    for (p = current->segs[i]->pages; p != nil; p = p->next) {
-      if (p->va == start) {
-	return true;
-      } else if (p->va < start 
-		 && start < (void *) ((uint8_t *) p->va + p->size)) {
-	/* Start of block in page */
-	return true;
-      } else if (p->va < end 
-		 && end < (void *) ((uint8_t *) p->va + p->size)) {
-	/* End of block in page */
-	return true;
-      } else if (start <= p->va && p->va <= end) {
-	/* Block encompases page */
-	return true;
-      }
+  while (p != nil) {
+    if (p->va == start) {
+      return true;
+    } else if (p->va < start 
+	       && start < (void *) ((uint8_t *) p->va + PAGE_SIZE)) {
+      /* Start of block in page */
+      return true;
+    } else if (p->va < end 
+	       && end < (void *) ((uint8_t *) p->va + PAGE_SIZE)) {
+      /* End of block in page */
+      return true;
+    } else if (start <= p->va && p->va <= end) {
+      /* Block encompases page */
+      return true;
     }
+
+    p = p->next;
   }
 	
   return false;
+}
+
+static bool
+addrsinuse(void *start, size_t size)
+{
+  bool r;
+
+  r = addrinpages(current->stack, start, size);
+  if (r) return true;
+  r = addrinpages(current->pages, start, size);
+  return r;
 }
 
 reg_t
@@ -319,16 +300,16 @@ sysrmmem(va_list args)
   debug("Should unmap 0x%h of len %i from %i\n", addr, size, current->pid);
 	
   pp = nil;
-  p = current->segs[Sheap]->pages; 
+  p = current->pages; 
   while (p != nil && size > 0) {
     if (p->va == addr) {
-      addr = (uint8_t *) p->va + p->size;
-      size -= p->size;
+      addr = p->va + PAGE_SIZE;
+      size -= PAGE_SIZE;
 			
       if (pp != nil) {
 	pp->next = p->next;
       } else {
-	current->segs[Sheap]->pages = p->next;
+	current->pages = p->next;
       }
 			
       pt = p->next;
@@ -353,13 +334,11 @@ syswaitintr(va_list args)
   disableintr();
 
   if (procwaitintr(current, irqn)) {
-    debug("%i waiting for irq %i\n", current->pid, irqn);
     procwait(current);
     schedule();
     enableintr();
     return OK;
   } else {
-    debug("%i wait for irq %i failed\n", current->pid, irqn);
     enableintr();
     return ERR;
   }

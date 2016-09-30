@@ -106,7 +106,6 @@ dprintf(const char *fmt, ...)
   }
 }
 
-
 static void
 comopen(struct request *req, struct response *resp)
 {
@@ -116,6 +115,25 @@ comopen(struct request *req, struct response *resp)
 static void
 comclose(struct request *req, struct response *resp)
 {
+  resp->ret = OK;
+}
+
+static void
+comstat(struct request *req, struct response *resp)
+{
+  struct stat stat;
+  stat.attr = ATTR_wr|ATTR_rd;
+  stat.size = 0;
+
+  resp->buf = malloc(sizeof(struct stat));
+  if (resp->buf == nil) {
+    resp->lbuf = 0;
+    resp->ret = ENOMEM;
+    return;
+  }
+  
+  resp->lbuf = sizeof(struct stat);
+  memmove(resp->buf, &stat, sizeof(struct stat));
   resp->ret = OK;
 }
 
@@ -143,7 +161,7 @@ comread(struct request *req, struct response *resp)
 static void
 comwrite(struct request *req, struct response *resp)
 {
-  uint32_t offset;
+  uint32_t offset, n;
   uint8_t *buf;
 
   buf = req->buf;
@@ -156,14 +174,16 @@ comwrite(struct request *req, struct response *resp)
     resp->ret = ENOMEM;
   } else {
     resp->lbuf = sizeof(uint32_t);
+    n = puts(buf, req->lbuf - sizeof(uint32_t));
+    memmove(resp->buf, &n, sizeof(uint32_t));
     resp->ret = OK;
-    *(resp->buf) = puts(buf, req->lbuf - sizeof(uint32_t));
   }
 }
 
 static struct fsmount mount = {
   &comopen,
   &comclose,
+  &comstat,
   nil,
   &comread,
   &comwrite,

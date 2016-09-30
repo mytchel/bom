@@ -30,6 +30,8 @@
 
 bool debugfs = false;
 
+#if 0
+
 struct dir *
 walkresponsetodir(uint8_t *buf, uint32_t len)
 {
@@ -58,7 +60,7 @@ walkresponsetodir(uint8_t *buf, uint32_t len)
     i += sizeof(struct file);
 
     if (i >= len) return nil;
-    d->files[fi]->name = &buf[i];
+    d->files[fi]->name = (char *) &buf[i];
     i += d->files[fi]->lname;
   }
 	
@@ -107,6 +109,8 @@ dirtowalkresponse(struct dir *dir, uint32_t *size)
 	
   return buf;
 }
+
+#endif
 
 int
 fsmountloop(int in, int out, struct fsmount *mount)
@@ -162,9 +166,13 @@ fsmountloop(int in, int out, struct fsmount *mount)
       if (mount->close)
 	mount->close(&req, &resp);
       break;
-    case REQ_walk:
-      if (mount->walk)
-	mount->walk(&req, &resp);
+    case REQ_stat:
+      if (mount->stat)
+	mount->stat(&req, &resp);
+      break;
+    case REQ_flush:
+      if (mount->flush)
+	mount->flush(&req, &resp);
       break;
     case REQ_read:
       if (mount->read)
@@ -174,13 +182,13 @@ fsmountloop(int in, int out, struct fsmount *mount)
       if (mount->write)
 	mount->write(&req, &resp);
       break;
-    case REQ_remove:
-      if (mount->remove)
-	mount->remove(&req, &resp);
-      break;
     case REQ_create:
       if (mount->create)
 	mount->create(&req, &resp);
+      break;
+    case REQ_remove:
+      if (mount->remove)
+	mount->remove(&req, &resp);
       break;
     }
 

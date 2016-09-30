@@ -30,6 +30,12 @@
 
 #include <types.h>
 
+#define PAGE_SHIFT 	 12
+#define PAGE_SIZE	 (1UL << PAGE_SHIFT)
+#define PAGE_MASK	 (~(PAGE_SIZE - 1))
+#define PAGE_ALIGN_UP(x) (((x) + PAGE_SIZE - 1) & PAGE_MASK)
+#define PAGE_ALIGN_DN(x) (((x) - PAGE_SIZE + 1) & PAGE_MASK)
+
 #define disableintr()   __asm__("cpsid i")
 #define enableintr()    __asm__("cpsie i")
 

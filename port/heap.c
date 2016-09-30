@@ -50,7 +50,7 @@ growheap(struct block *prev)
   struct page *pg;
   struct block *b;
 
-  pg = newpage(0);
+  pg = newrampage();
   if (pg == nil) {
     return nil;
   } else if (prev == nil) {
@@ -59,7 +59,7 @@ growheap(struct block *prev)
     b = prev->next = (struct block *) pg->pa;
   }
 	
-  b->size = pg->size - sizeof(size_t);
+  b->size = PAGE_SIZE - sizeof(size_t);
   b->next = nil;
   return b;
 }

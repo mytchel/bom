@@ -41,20 +41,20 @@ struct lock {
   struct proc *holder;
   struct proc *waiting;
 };
+
+/* Read only pages are always shared,
+ * Read write pages can be shared or copied,
+ * Read write share are always shared.
+ */
+enum { PAGE_ro, PAGE_rw, PAGE_rws };
   
 struct page {
+  int refs;
+  struct lock lock;
+  int type;
   void *pa, *va;
-  size_t size;
   struct page *next;
   struct page *from;
-};
-
-enum { SEG_rw, SEG_ro };
-
-struct segment {
-  int refs;
-  int type;
-  struct page *pages;
 };
 
 enum { CHAN_pipe, CHAN_file, CHAN_max };
@@ -73,11 +73,12 @@ struct chan {
 struct chantype {
   int (*read)(struct chan *, uint8_t *, size_t);
   int (*write)(struct chan *, uint8_t *, size_t);
+  int (*seek)(struct chan *, size_t, int);
   int (*close)(struct chan *);
 };
 
 struct path {
-  uint8_t *s;
+  char s[FS_LNAME_MAX];
   struct path *prev, *next;
 };
 
@@ -120,8 +121,6 @@ enum {
   PROC_waiting,
 };
 
-enum { Sstack, Stext, Sdata, Sheap, Smax };
-
 struct proc {
   struct proc *next; /* Next in schedule queue */
 	
@@ -129,22 +128,21 @@ struct proc {
   struct label label;
   uint8_t kstack[KSTACK];
 
+  uint32_t pid;
   bool inkernel;
   int state;
-  int pid;
   struct proc *parent;
   struct path *dot;
-	
-  int faults;
-  uint32_t quanta;
-  uint32_t sleep; /* in ticks */
 
   struct fgroup *fgroup;
   struct ngroup *ngroup;
 
-  struct segment *segs[Smax];
-  struct page *mmu;
+  uint32_t faults;
+  uint32_t quanta;
+
+  struct page *mmu, *stack, *pages;
 	
+  uint32_t sleep; /* in ticks */
   struct proc *wnext; /* Next in wait queue */
   void *aux;
   union {
@@ -179,9 +177,6 @@ unlock(struct lock *);
 struct proc *
 newproc(void);
 
-void
-initproc(struct proc *);
-
 /* These should all be called with interrupts disabled */
 
 void
@@ -204,16 +199,15 @@ procsleep(struct proc *, uint32_t);
 void
 schedule(void);
 
-/* Segments / Proc Memory */
-
-struct segment *
-newseg(int);
+/* Get an unused page. */
+struct page *
+newrampage(void);
 
 void
-freeseg(struct segment *);
+freepage(struct page *);
 
-struct segment *
-copyseg(struct segment *, bool);
+struct page *
+copypages(struct page *pages, bool share);
 
 bool
 fixfault(void *);
@@ -221,16 +215,10 @@ fixfault(void *);
 void *
 kaddr(struct proc *, void *, size_t);
 
-/* Get an unused page. */
-struct page *
-newpage(void *);
-
 /* Get specific pages from page list. */
 struct page *
 getpages(struct page *, void *, size_t *);
 
-void
-freepage(struct page *);
 
 /* Channels */
 
@@ -243,13 +231,13 @@ freechan(struct chan *);
 /* Paths */
 
 struct path *
-strtopath(const uint8_t *);
+strtopath(const char *);
 
-uint8_t *
+char *
 pathtostr(struct path *, int *);
 
 struct path *
-realpath(struct path *, const uint8_t *);
+realpath(struct path *, const char *);
 
 struct path *
 copypath(struct path *);
@@ -339,6 +327,7 @@ reg_t syswaitintr(va_list);
 reg_t syspipe(va_list);
 reg_t sysread(va_list);
 reg_t syswrite(va_list);
+reg_t sysseek(va_list);
 reg_t sysclose(va_list);
 reg_t sysbind(va_list);
 reg_t sysopen(va_list);

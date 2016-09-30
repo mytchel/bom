@@ -27,12 +27,8 @@
 
 #include <libc.h>
 #include <fs.h>
-
-struct dir_list {
-  uint32_t fid;
-  struct dir dir;
-  struct dir_list *next;
-};
+#include <stdarg.h>
+#include <string.h>
 
 struct file_list {
   struct dir *parent;
@@ -40,13 +36,9 @@ struct file_list {
   struct file file;
   size_t len;
   uint8_t *buf;
+  struct file_list *children;
   struct file_list *next;
-};
-
-struct dir_list rootdir = {
-  ROOTFID,
-  { 0, nil },
-  nil
+  struct file_list *cnext;
 };
 
 struct file_list rootfile = {
@@ -55,16 +47,18 @@ struct file_list rootfile = {
   {
     ROOTFID,
     ATTR_rd|ATTR_dir,
-    1,
-    (uint8_t *) ""
+    0,
+    0,
+    ""
   },
   0,
+  nil,
+  nil,
   nil,
   nil
 };
 
 static int nfid = 1;
-static struct dir_list *dir_list = &rootdir;
 static struct file_list *file_list = &rootfile;
 
 static uint32_t
@@ -119,7 +113,7 @@ tmpwrite(struct file_list *fl, uint8_t *buf, uint32_t offset,
 }
 
 static struct file_list *
-newfile(uint32_t attr, uint8_t *name)
+newfile(uint32_t attr, char *name)
 {
   struct file_list *fl;
 	
@@ -347,7 +341,7 @@ bcreate(struct request *req, struct response *resp)
     return;
   }
 	
-  fl = newfile(attr, buf);
+  fl = newfile(attr, (char *) buf);
 
   fl->parent = d;
   diraddfile(d, &fl->file);

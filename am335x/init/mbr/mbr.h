@@ -25,22 +25,9 @@
  *
  */
 
-#ifndef _STRING_H_
-#define _STRING_H_
+#define MBR_part_len 16
+#define MBR_part1    0x1be
+#define MBR_part2    0x1ce
+#define MBR_part3    0x1de
+#define MBR_part4    0x1ee
 
-bool
-strncmp(const char *s1, const char *s2, size_t len);
-
-bool
-strcmp(const char *s1, const char *s2);
-
-size_t
-strlen(const char *s);
-
-size_t
-vsnprintf(char *str, size_t max, const char *fmt, va_list ap);
-
-size_t
-snprintf(char *str, size_t max, const char *fmt, ...);
-
-#endif

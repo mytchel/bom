@@ -113,7 +113,8 @@ mmuputpage(struct page *p, bool rw, bool cachable)
 	
   /* Add a l1 page if needed. */
   if (*l1  == L1_FAULT) {
-    pg = newpage((void *) (x & ~((1 << 20) - 1)));
+    pg = newrampage();
+    pg->va = (void *) (x & ~((1 << 20) - 1));
 
     for (i = 0; i < 256; i++)
       ((uint32_t *) pg->pa)[i] = L2_FAULT;

@@ -3,8 +3,9 @@
  * /minix/drivers/storage/mmc/omap_mmc.h
  * with some changes.
  */
-#ifndef _OMAP_MMC_H
-#define _OMAP_MMC_H
+
+#ifndef _OMAP_MMC_H_
+#define _OMAP_MMC_H_
 
 struct mmchs_regs {
   uint32_t pad[68];
@@ -42,19 +43,6 @@ struct mmchs_regs {
   uint32_t admasah;
   uint32_t pad5[39];
   uint32_t rev;
-};
-
-struct mmchs {
-  volatile struct mmchs_regs *regs;
-  int intr;
-  char *name;
-  uint8_t *data;
-  size_t data_len;
-
-  /* Not the best place for this but it should suffice */
-  uint32_t rca;
-  uint32_t csd[4];
-  uint32_t size;
 };
 
 #define MMCHS_SD_SYSCONFIG_AUTOIDLE                    (0x1 << 0)  /* Internal clock gating strategy */

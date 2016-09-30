@@ -29,6 +29,44 @@
 #include <stdarg.h>
 #include <string.h>
 
+bool
+strncmp(const char *s1, const char *s2, size_t len)
+{
+  while (len-- > 0) {
+    if (*s1++ != *s2++) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+bool
+strcmp(const char *s1, const char *s2)
+{
+  size_t l1, l2;
+
+  l1 = strlen(s1);
+  l2 = strlen(s2);
+
+  if (l1 == l2) {
+    return strncmp(s1, s2, l1);
+  } else {
+    return false;
+  }
+}
+
+size_t
+strlen(const char *s)
+{
+  size_t len = 0;
+	
+  while (*s++)
+    len++;
+	
+  return len;
+}
+
 static size_t
 printint(char *str, size_t max, unsigned int i, unsigned int base)
 {

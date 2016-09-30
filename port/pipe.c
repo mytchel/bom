@@ -169,8 +169,15 @@ pipeclose(struct chan *c)
   return 0;
 }
 
+int
+pipeseek(struct chan *c, size_t offset, int whence)
+{
+  return ENOIMPL;
+}
+
 struct chantype devpipe = {
   &piperead,
   &pipewrite,
+  &pipeseek,
   &pipeclose,
 };

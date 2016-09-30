@@ -81,6 +81,9 @@ int
 write(int fd, void *buf, size_t len);
 
 int
+seek(int fd, size_t offset, int whence);
+
+int
 close(int fd);
 
 int
@@ -103,12 +106,6 @@ memmove(void *dest, const void *src, size_t len);
 
 void *
 memset(void *dest, int c, size_t len);
-
-bool
-strcmp(const uint8_t *s1, const uint8_t *s2);
-
-size_t
-strlen(const uint8_t *s);
 
 void
 printf(const char *, ...);

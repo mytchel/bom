@@ -48,22 +48,18 @@ lock(struct lock *l)
 
   return;
 
-  printf("%i lock 0x%h\n", current->pid, l);
-  if (!testandset(&l->lock)) {
-    printf("%i failed to get 0x%h\n", current->pid, l);
+  /* Need to get this working properly */
 
+  if (!testandset(&l->lock)) {
     disableintr();
     while (!testandset(&l->listlock)) {
-      printf("%i failed to get 0x%h list lock\n", current->pid, l);
       schedule();
     }
 
     if (testandset(&l->lock)) {
-      printf("%i ended up getting 0x%h\n", current->pid, l);
       l->listlock = 0;
     } else {
-      printf("%i adding self to 0x%h wlist\n", current->pid, l);
-      for (p = l->waiting; p != nil && p->next != nil; p = p->wnext);
+      for (p = l->waiting; p != nil && p->wnext != nil; p = p->wnext);
       if (p == nil) {
 	l->waiting = current;
       } else {
@@ -71,40 +67,35 @@ lock(struct lock *l)
       }
       current->wnext = nil;
 
-      printf("%i sleep\n", current->pid, l);
+      printf("%i waiting on lock 0x%h\n", current->pid, l);
       l->listlock = 0;
       procwait(current);
       schedule();
     }
     enableintr();
   }
+
+  l->holder = current;
 }
 
 void
 unlock(struct lock *l)
 {
   struct proc *p;
-
   l->lock = 0;
-  return;
-  
-  printf("%i unlock 0x%h\n", current->pid, l);
-  disableintr();
-  while (!testandset(&l->listlock)) {
-    printf("%i failed to get 0x%h listlock\n", current->pid, l);
-    schedule();
-  }
 
-  printf("%i unlocking 0x%h \n", current->pid, l);
+  return;
+
+  /* Need to get this working. Not sure why it doesnt */
+  
+
   p = l->waiting;
   if (p != nil) {
-    printf("%i wake %i \n", current->pid, p->pid);
     l->waiting = p->wnext;
     procready(p);
   }
 
-  printf("%i unlocked \n", current->pid);
-
+  l->holder = nil;
   l->listlock = 0;
   l->lock = 0;
   enableintr();

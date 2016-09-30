@@ -69,14 +69,14 @@ mainproc(void *arg)
 }
 
 static struct page *
-copysegment(struct segment *s, char **buf, size_t len)
+copysegment(struct page *pg, int type, char **buf, size_t len)
 {
-  struct page *pg;
   size_t i, l;
 	
   i = 0;
-  pg = s->pages;
   while (true) {
+    pg->type = type;
+    
     l = len > PAGE_SIZE ? PAGE_SIZE : len;
 		
     memmove(pg->pa, (uint8_t *) buf + i, l);
@@ -85,7 +85,8 @@ copysegment(struct segment *s, char **buf, size_t len)
     i += l;
 		
     if (len > 0) {
-      pg->next = newpage(pg->va + pg->size);
+      pg->next = newrampage();
+      pg->next->va = pg->va + PAGE_SIZE;
       pg = pg->next;
     } else {
       pg->next = nil;
@@ -108,17 +109,18 @@ initmainproc(void)
     return;
   }
 	
-  initproc(p);
   forkfunc(p, &mainproc, nil);
 
-  p->segs[Sstack]->pages =
-    newpage((void *) (USTACK_TOP - USTACK_SIZE));
+  p->stack = newrampage();
+  p->stack->va = (void *) (USTACK_TOP - USTACK_SIZE);
 
-  p->segs[Stext]->pages = newpage((void *) UTEXT);
-  pg = copysegment(p->segs[Stext], &initcodetext, initcodetextlen);
+  p->pages = newrampage();
+  p->pages->va = (void *) UTEXT;
+  pg = copysegment(p->pages, PAGE_ro, &initcodetext, initcodetextlen);
 
-  p->segs[Sdata]->pages = newpage(pg->va + pg->size);
-  copysegment(p->segs[Sdata], &initcodedata, initcodedatalen);
+  pg->next = newrampage();
+  pg->next->va = pg->va + PAGE_SIZE;
+  copysegment(pg->next, PAGE_rw, &initcodedata, initcodedatalen);
 	
   p->fgroup = newfgroup();
   p->ngroup = newngroup();
@@ -148,7 +150,6 @@ initnullproc(void)
     return;
   }
 	
-  initproc(p);
   forkfunc(p, &nullproc, nil);
   procready(p);
 }

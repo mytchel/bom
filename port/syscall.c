@@ -40,6 +40,7 @@ reg_t (*syscalltable[NSYSCALLS])(va_list) = {
 	[SYSCALL_PIPE]		= syspipe,
 	[SYSCALL_READ]		= sysread,
 	[SYSCALL_WRITE]		= syswrite,
+	[SYSCALL_SEEK]		= sysseek,
 	[SYSCALL_CLOSE]		= sysclose,
 	
 	[SYSCALL_BIND]		= sysbind,

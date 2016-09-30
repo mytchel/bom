@@ -37,6 +37,7 @@
 .global pipe
 .global read
 .global write
+.global seek
 .global close
 .global bind
 .global open
@@ -114,6 +115,14 @@ read:
 write:
 	push {r0, r1, r2}
 	mov r0, #SYSCALL_WRITE
+	svc 0 
+	add sp, sp, #(4 * 3)
+	bx lr
+
+
+seek:
+	push {r0, r1, r2}
+	mov r0, #SYSCALL_SEEK
 	svc 0 
 	add sp, sp, #(4 * 3)
 	bx lr

@@ -54,27 +54,3 @@ memset(void *dest, int c, size_t len)
 		
   return dest;
 }
-
-bool
-strcmp(const uint8_t *s1, const uint8_t *s2)
-{
-  while (*s1 && *s2)
-    if (*s1++ != *s2++)
-      return false;
-	
-  if (*s1 == 0 && *s2 == 0)
-    return true;
-  else
-    return false;
-}
-
-size_t
-strlen(const uint8_t *s)
-{
-  size_t len = 0;
-	
-  while (*s++)
-    len++;
-	
-  return len;
-}
