@@ -30,6 +30,7 @@
 
 /* File names must be null terminated */
 #define FS_LNAME_MAX    255
+#define FS_LBUF_MAX     1024
 
 #define ATTR_rd		(1<<0)
 #define ATTR_wr		(1<<1)
@@ -38,10 +39,11 @@
 #define ROOTFID		0 /* Of any binding. */
 
 enum {
+  REQ_fid, REQ_stat,
   REQ_open, REQ_close,
-  REQ_stat, REQ_flush,
   REQ_create, REQ_remove,
   REQ_read, REQ_write,
+  REQ_flush,
 };
 
 /* 
@@ -58,6 +60,18 @@ struct request {
   uint8_t *buf;
 };
 
+struct request_fid {
+  uint8_t *name;
+  /* Of length lbuf for request */
+};
+
+struct request_create {
+  uint32_t attr;
+  uint8_t lname;
+  /* Followed by lname bytes of data for name. */
+  uint8_t *name;
+};
+
 struct request_read {
   uint32_t offset;
   uint32_t len;
@@ -67,13 +81,6 @@ struct request_write {
   uint32_t offset;
   /* Followed by (lbuf - sizeof(uint32_t)) bytes of data to write. */
   uint8_t *buf;
-};
-
-struct request_create {
-  uint32_t attr;
-  uint8_t lname;
-  /* Followed by lname bytes of data for name. */
-  uint8_t *name;
 };
 
 /* Requests for open, flush, and remove have no buffer. */
@@ -104,11 +111,10 @@ struct stat {
  * buf contains the bytes that were read.
  * If the file is a directory then the result should 
  * be in the format 
- *    fid
- *    name length [1, FS_LNAME_MAX-1]
- *    name... (If reading from userspace you should exspect this to be
+ *    uint8_t name length [0, FS_LNAME_MAX-1]
+ *    uint8_t *name... (If reading from userspace you should exspect this to be
  *             up to FS_LNAME_MAX bytes.)
- * for each offset, for each file in the directory. You will only get
+ * for each file in the directory. You will only get
  * one response for each read.
  *
  * Respose for stat should be a stat structure for the fid.
@@ -121,14 +127,15 @@ struct stat {
  */
 
 struct fsmount {
+  void (*fid)(struct request *, struct response *);
+  void (*stat)(struct request *, struct response *);
   void (*open)(struct request *, struct response *);
   void (*close)(struct request *, struct response *);
-  void (*stat)(struct request *, struct response *);
-  void (*flush)(struct request *, struct response *);
+  void (*create)(struct request *, struct response *);
+  void (*remove)(struct request *, struct response *);
   void (*read)(struct request *, struct response *);
   void (*write)(struct request *, struct response *);
-  void (*remove)(struct request *, struct response *);
-  void (*create)(struct request *, struct response *);
+  void (*flush)(struct request *, struct response *);
 };
 
 int

@@ -27,122 +27,173 @@
 
 #include "head.h"
 
-struct page *
-newrampage(void)
-{
-  struct page *p;
-
-  p = rampages.next;
-  if (p == nil) {
-    printf("No free pages!\n");
-    return nil;
-  }
-
-  rampages.next = p->next;
-  p->next = nil;
-  p->refs = 1;
-
-  return p;
-}
-
 void
 freepage(struct page *p)
 {
-  atomicdec(&p->refs);
-
-  if (p->refs > 0) {
+  if (atomicdec(&p->refs) > 0) {
     return;
   }
 
-  lock(&p->lock);
-  lock(&p->from->lock);
-
-  p->next = p->from->next;
-  p->from->next = p;
-
-  unlock(&p->from->lock);
+  p->next = *p->from;
+  *(p->from) = p;
 }
 
-struct page *
-copypages(struct page *pages, bool share)
+void
+freepagel(struct pagel *p)
 {
-  struct page *npages, *p, *pp, *op;
+  if (p == nil) {
+    return;
+  } else {
+    freepage(p->p);
+    freepagel(p->next);
+    free(p);
+  }
+}
 
-  pp = nil;
-  npages = nil;
-  for (op = pages; op != nil; op = op->next) {
-    if (!share && op->type == PAGE_rw) {
-      p = newrampage();
-      if (p == nil) {
+void
+freemgroup(struct mgroup *m)
+{
+  if (atomicdec(&m->refs) > 0) {
+    return;
+  }
+
+  freepagel(m->pages);
+  free(m);
+}
+
+struct mgroup *
+newmgroup(void)
+{
+  struct mgroup *new;
+
+  new = malloc(sizeof(struct mgroup));
+  if (new == nil) {
+    return nil;
+  }
+
+  new->refs = 1;
+  new->pages = nil;
+  initlock(&new->lock);
+
+  return new;
+}
+
+struct mgroup *
+copymgroup(struct mgroup *old)
+{
+  struct mgroup *new;
+  new = newmgroup();
+  if (new == nil) {
+    return nil;
+  }
+  
+  lock(&old->lock);
+  new->pages = copypagel(old->pages);
+  unlock(&old->lock);
+  
+  return new;
+}
+
+struct pagel *
+copypagel(struct pagel *po)
+{
+  struct pagel *new, *pn, *pp;
+  struct page *pg;
+
+  new = pp = nil;
+  
+  for (; po != nil; po = po->next) {
+    if (po->p->forceshare || !po->rw) {
+      pg = po->p;
+      atomicinc(&pg->refs);
+    } else {
+      pg = getrampage();
+      if (pg == nil) {
 	goto err;
       }
 
-      p->va = op->va;
-      memmove(p->pa, op->pa, PAGE_SIZE);
-    } else {
-      p = op;
-      atomicinc(&op->refs);
+      memmove(pg->pa, po->p->pa, PAGE_SIZE);
+    }
+
+    pn = wrappage(pg, po->va, po->rw, po->c);
+    if (pn == nil) {
+      goto err;
     }
 
     if (pp == nil) {
-      npages = p;
+      new = pn;
     } else {
-      pp->next = p;
+      pp->next = pn;
     }
 
-    pp = p;
+    pp = pn;
   }
 
-  return npages;
+  return new;
 
 err:
-  p = npages;
-  while (p != nil) {
-    pp = p->next;
-    freepage(p);
-    p = pp;
-  }
+  freepagel(new);
 
   return nil;
 }
 
-static struct page *
-findpageinlist(struct page *p, void *addr)
+struct pagel *
+wrappage(struct page *p, void *va, bool rw, bool c)
 {
-  printf("findpageinlist 0x%h\n", addr);
+  struct pagel *pl;
+
+  pl = malloc(sizeof(struct pagel));
+  if (pl == nil) {
+    return nil;
+  }
+
+  pl->p = p;
+  pl->va = va;
+  pl->rw = rw;
+  pl->c = c;
+  pl->next = nil;
+
+  return pl;
+}
+
+static struct pagel *
+findpagelinlist(struct pagel *p, void *addr)
+{
   while (p != nil) {
-    printf("findpageinlist 0x%h in 0x%h to 0x%h\n", addr, p->va, (uint32_t) p->va + PAGE_SIZE);
     if (p->va <= addr && p->va + PAGE_SIZE > addr) {
       return p;
+    } else {
+      p = p->next;
     }
-    p = p->next;
   }
 	
   return nil;
 }
 
-static struct page *
-findpage(struct proc *p, void *addr)
+static struct pagel *
+findpagel(struct proc *p, void *addr)
 {
-  struct page *pg;
+  struct pagel *pl;
 
-  pg = findpageinlist(current->pages, addr);
-  if (pg == nil)
-    pg = findpageinlist(current->stack, addr);
-  return pg;
+  pl = findpagelinlist(current->mgroup->pages, addr);
+  if (pl != nil) return pl;
+  pl = findpagelinlist(current->stack, addr);
+  if (pl != nil) return pl;
+
+  return nil;
 }
 
 bool
 fixfault(void *addr)
 {
-  struct page *pg;
-	
-  pg = findpage(current, addr);
-  if (pg == nil) {
+  struct pagel *pl;
+
+  pl = findpagel(current, addr);
+  if (pl == nil) {
     return false;
   }
 	
-  mmuputpage(pg, pg->type != PAGE_ro, pg->type != PAGE_rws);
+  mmuputpage(pl);
   current->faults++;
 	
   return true;
@@ -151,29 +202,25 @@ fixfault(void *addr)
 void *
 kaddr(struct proc *p, void *addr, size_t len)
 {
-  struct page *pg, *pn;
+  struct pagel *pl, *pn;
   uint32_t offset;
 
-  printf("kaddr %i find 0x%h\n", p->pid, addr);
-  pg = findpage(p, addr);
-  if (pg == nil) {
-    printf("kaddr couldnt find 0x%h for %i\n", addr, p->pid);
+  pl = findpagel(p, addr);
+  if (pl == nil) {
     return nil;
   }
 
-  offset = (uint32_t) addr - (uint32_t) pg->va;
+  offset = (uint32_t) addr - (uint32_t) pl->va;
 
   if (offset + len >= PAGE_SIZE) {
     len -= PAGE_SIZE - offset;
-    pn = pg;
+    pn = pl;
     while (pn != nil && len >= PAGE_SIZE) {
       if (pn->next == nil) {
-	printf("%i 0x%h to %i not in range\n", p->pid, addr, len);
 	return nil;
       }
       
       if (pn->va + PAGE_SIZE != pn->next->va) {
-	printf("%i 0x%h to %i not in range\n", p->pid, addr, len);
 	return nil;
       } else {
 	len -= PAGE_SIZE;
@@ -182,44 +229,6 @@ kaddr(struct proc *p, void *addr, size_t len)
     }
   }
   
-  return pg->pa + offset;
-}
-
-struct page *
-getpages(struct page *pages, void *pa, size_t *size)
-{
-  struct page *start, *p, *pp;
-  size_t s;
-	
-  pp = pages;
-  for (p = pp->next; p != nil; pp = p, p = p->next) {
-    if (p->pa == pa) {
-      break;
-    }
-  }
-	
-  if (p == nil)
-    return nil;
-	
-  start = p;
-  s = 0;
-  while (p != nil) {
-    s += PAGE_SIZE;
-    if (s >= *size) {
-      break;
-    } else {
-      p = p->next;
-    }
-  }
-
-  if (p != nil) {
-    pp->next = p->next;
-    p->next = nil;
-  } else {
-    pp->next = nil;
-  }
-	
-  *size = s;	
-  return start;
+  return pl->p->pa + offset;
 }
 

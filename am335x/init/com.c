@@ -44,6 +44,11 @@ struct uart_struct {
 
 static volatile struct uart_struct *uart = nil;
 
+static struct stat comstatstruct = {
+  ATTR_wr|ATTR_rd,
+  0
+};
+
 bool
 uartinit(void)
 {
@@ -107,6 +112,14 @@ dprintf(const char *fmt, ...)
 }
 
 static void
+comstat(struct request *req, struct response *resp)
+{
+  resp->buf = (uint8_t *) &comstatstruct;
+  resp->lbuf = sizeof(struct stat);
+  resp->ret = OK;
+}
+
+static void
 comopen(struct request *req, struct response *resp)
 {
   resp->ret = OK;
@@ -115,25 +128,6 @@ comopen(struct request *req, struct response *resp)
 static void
 comclose(struct request *req, struct response *resp)
 {
-  resp->ret = OK;
-}
-
-static void
-comstat(struct request *req, struct response *resp)
-{
-  struct stat stat;
-  stat.attr = ATTR_wr|ATTR_rd;
-  stat.size = 0;
-
-  resp->buf = malloc(sizeof(struct stat));
-  if (resp->buf == nil) {
-    resp->lbuf = 0;
-    resp->ret = ENOMEM;
-    return;
-  }
-  
-  resp->lbuf = sizeof(struct stat);
-  memmove(resp->buf, &stat, sizeof(struct stat));
   resp->ret = OK;
 }
 
@@ -181,13 +175,14 @@ comwrite(struct request *req, struct response *resp)
 }
 
 static struct fsmount mount = {
+  nil,
+  &comstat,
   &comopen,
   &comclose,
-  &comstat,
+  nil,
   nil,
   &comread,
   &comwrite,
-  nil,
   nil,
 };
 
@@ -195,7 +190,7 @@ int
 commount(char *path)
 {
   int f, fd, p1[2], p2[2];
- 
+
   if (pipe(p1) == ERR) {
     return -1;
   } else if (pipe(p2) == ERR) {
@@ -215,11 +210,9 @@ commount(char *path)
   close(p2[0]);
 
   f = fork(FORK_sngroup);
-  if (f < 0) {
-    return -4;
-  } else if (!f) {
+  if (f == 0) {
     if (!uartinit()) {
-      return -1;
+      return -111;
     }
 
     f = fsmountloop(p1[0], p2[1], &mount);

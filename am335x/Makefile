@@ -43,7 +43,7 @@ OBJDUMP := $(CROSS_COMPILE)objdump
 CLEAN += am335x.*
 
 CFLAGS :=-mcpu=cortex-a8 \
-        -Wall -Werror -O0 \
+        -Wall -Werror -O2 \
         -nostdinc -ffreestanding \
         -std=c89 \
         -D_AM335X_ -DDEBUG=${DEBUG} \

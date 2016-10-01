@@ -68,39 +68,52 @@ mainproc(void *arg)
   return 0; /* Never reached. */
 }
 
-static struct page *
-copysegment(struct page *pg, int type, char **buf, size_t len)
+static struct pagel *
+copysegment(void *start, bool rw, bool c, char **buf, size_t len)
 {
+  struct pagel *pl, *pp, *pages;
+  struct page *pg;
   size_t i, l;
-	
+
+  pp = nil;
+  pages = nil;
+
   i = 0;
-  while (true) {
-    pg->type = type;
+  while (len > 0) {
+    pg = getrampage();
+    if (pg == nil)
+      panic("copy segment ran out of pages!\n");
+
+    pl = wrappage(pg, start, rw, c);
+    if (pl == nil)
+      panic("copy segment failed to wrap page!\n");
     
     l = len > PAGE_SIZE ? PAGE_SIZE : len;
-		
+
     memmove(pg->pa, (uint8_t *) buf + i, l);
 		
     len -= l;	
     i += l;
 		
-    if (len > 0) {
-      pg->next = newrampage();
-      pg->next->va = pg->va + PAGE_SIZE;
-      pg = pg->next;
+    start += PAGE_SIZE;
+
+    if (pp == nil) {
+      pages = pl;
     } else {
-      pg->next = nil;
-      break;
+      pp->next = pl;
     }
+
+    pp = pl;
   }
 	
-  return pg;
+  return pages;
 }
 
 void
 initmainproc(void)
 {
   struct proc *p;
+  struct pagel *pl;
   struct page *pg;
 		
   p = newproc();
@@ -111,16 +124,22 @@ initmainproc(void)
 	
   forkfunc(p, &mainproc, nil);
 
-  p->stack = newrampage();
-  p->stack->va = (void *) (USTACK_TOP - USTACK_SIZE);
+  pg = getrampage();
+  p->stack = wrappage(pg, (void *) (USTACK_TOP - PAGE_SIZE),
+		      true, true);
 
-  p->pages = newrampage();
-  p->pages->va = (void *) UTEXT;
-  pg = copysegment(p->pages, PAGE_ro, &initcodetext, initcodetextlen);
+  p->mgroup = newmgroup();
+  p->mgroup->pages = copysegment((void *) 0, false, true,
+				 &initcodetext, initcodetextlen);
 
-  pg->next = newrampage();
-  pg->next->va = pg->va + PAGE_SIZE;
-  copysegment(pg->next, PAGE_rw, &initcodedata, initcodedatalen);
+  for (pl = p->mgroup->pages; pl != nil; pl = pl->next) {
+    if (pl->next == nil) {
+      break;
+    }
+  }
+
+  pl->next = copysegment((void *) ((uint32_t) pl->va + PAGE_SIZE),
+	      true, true, &initcodedata, initcodedatalen);
 	
   p->fgroup = newfgroup();
   p->ngroup = newngroup();

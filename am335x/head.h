@@ -43,12 +43,9 @@
 #define KSTACK		4028
 
 #define USTACK_TOP	(0x20000000 & PAGE_MASK)
-#define USTACK_SIZE	PAGE_SIZE
 #define UTEXT		0
 
 #define CHUNK_POWER_MAX 10
-
-#define MAX_MEM_SIZE	1024 * 1024 * 32
 
 struct label {
   uint32_t psr;

@@ -63,7 +63,6 @@ freengroup(struct ngroup *n)
     return;
   }
 		
-  lock(&n->lock);
   b = n->bindings;
   while (b != nil) {
     bb = b;

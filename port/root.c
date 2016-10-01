@@ -42,7 +42,7 @@ struct file {
 };
 
 static struct file *root = nil;
-static uint32_t nfid = 0;
+static uint32_t nfid = ROOTFID;
 
 struct binding *rootbinding;
 
@@ -118,6 +118,61 @@ findfile(struct file *t, uint32_t fid)
 }
 
 static void
+bfid(struct request *req, struct response *resp)
+{
+  struct file *f, *c;
+
+  f = findfile(root, req->fid);
+  if (f == nil) {
+    resp->ret = ENOFILE;
+    return;
+  }
+
+  for (c = f->children; c != nil; c = c->cnext) {
+    if (c->lname != req->lbuf) continue;
+    if (strncmp(c->name, (char *) req->buf, c->lname)) {
+      break;
+    }
+  }
+
+  if (c == nil) {
+    resp->ret = ENOCHILD;
+    return;
+  }
+
+  resp->buf = malloc(sizeof(uint32_t));
+  if (resp->buf == nil) {
+    resp->ret = ENOMEM;
+    return;
+  }
+  
+  resp->lbuf = sizeof(uint32_t);
+  memmove(resp->buf, &c->fid, sizeof(uint32_t));
+  resp->ret = OK;
+}
+
+static void
+bstat(struct request *req, struct response *resp)
+{
+  struct file *f;
+
+  f = findfile(root, req->fid);
+  if (f == nil) {
+    resp->ret = ENOFILE;
+    return;
+  }
+
+  resp->buf = malloc(sizeof(struct stat));
+  if (resp->buf == nil) {
+    resp->ret = ENOMEM;
+  } else {
+    resp->ret = OK;
+    resp->lbuf = sizeof(struct stat);
+    memmove(resp->buf, &f->stat, sizeof(struct stat));
+  }
+}
+
+static void
 bopen(struct request *req, struct response *resp)
 {
   struct file *f;
@@ -146,81 +201,6 @@ bclose(struct request *req, struct response *resp)
 }
 
 static void
-bstat(struct request *req, struct response *resp)
-{
-  struct file *f;
-
-  f = findfile(root, req->fid);
-  if (f == nil) {
-    resp->ret = ENOFILE;
-    return;
-  }
-
-  resp->buf = malloc(sizeof(struct stat));
-  if (resp->buf == nil) {
-    resp->ret = ENOMEM;
-  } else {
-    resp->ret = OK;
-    resp->lbuf = sizeof(struct stat);
-    memmove(resp->buf, &f->stat, sizeof(struct stat));
-  }
-}
-
-static void
-bread(struct request *req, struct response *resp)
-{
-  struct file *f, *c;
-  uint32_t offset;
-  uint8_t *buf;
-
-  memmove(&offset, req->buf, sizeof(uint32_t));
-
-  f = findfile(root, req->fid);
-  if (f == nil) {
-    resp->ret = ENOFILE;
-    return;
-  } else if ((f->stat.attr & ATTR_dir) == 0) {
-    resp->ret = ENOIMPL;
-    return;
-  } else if (offset >= f->stat.size) {
-    resp->ret = EOF;
-    return;
-  }
-
-  for (c = f->children; c != nil; c = c->cnext) {
-    if (offset == 0) {
-      break;
-    } else {
-      offset--;
-    }
-  }
-
-
-  resp->lbuf = sizeof(uint32_t) + sizeof(uint8_t) * (1 + c->lname);
-  resp->buf = malloc(resp->lbuf);
-  if (resp->buf == nil) {
-    resp->lbuf = 0;
-    resp->ret = ENOMEM;
-    return;
-  }
-
-  buf = resp->buf;
-  memmove(buf, &c->fid, sizeof(uint32_t));
-  buf += sizeof(uint32_t);
-  memmove(buf, &c->lname, sizeof(uint8_t));
-  buf += sizeof(uint8_t);
-  memmove(buf, &c->name, sizeof(uint8_t) * c->lname);
-
-  resp->ret = OK;
-}
-
-static void
-bremove(struct request *req, struct response *resp)
-{
-  resp->ret = ENOIMPL;
-}
-
-static void
 bcreate(struct request *req, struct response *resp)
 {
   uint32_t attr;
@@ -235,7 +215,7 @@ bcreate(struct request *req, struct response *resp)
 
   p = findfile(root, req->fid);
   
-  if (p == nil || (p->stat.attr & ATTR_dir) == 0) {
+  if (p == nil || !(p->stat.attr & ATTR_dir)) {
     resp->ret = ENOFILE;
     return;
   }
@@ -248,7 +228,7 @@ bcreate(struct request *req, struct response *resp)
 
   new->stat.attr = attr;
   new->stat.size = 0;
-  new->fid = ++nfid;
+  new->fid = nfid++;
   new->open = 0;
   new->parent = p;
   new->children = nil;
@@ -264,7 +244,7 @@ bcreate(struct request *req, struct response *resp)
     return;
   }
 
-  p->stat.size++;
+  p->stat.size += sizeof(uint8_t) + lname;
   new->cnext = p->children;
   p->children = new;
   
@@ -274,15 +254,68 @@ bcreate(struct request *req, struct response *resp)
   memmove(resp->buf, &new->fid, sizeof(uint32_t));
 }
 
+static void
+bremove(struct request *req, struct response *resp)
+{
+  resp->ret = ENOIMPL;
+}
+
+static void
+bread(struct request *req, struct response *resp)
+{
+  struct file *f, *c;
+  uint32_t offset, len;
+  uint8_t *buf;
+
+  buf = req->buf;
+  memmove(&offset, buf, sizeof(uint32_t));
+  buf += sizeof(uint32_t);
+  memmove(&len, buf, sizeof(uint32_t));
+  buf += sizeof(uint32_t);
+
+  f = findfile(root, req->fid);
+  if (f == nil) {
+    resp->ret = ENOFILE;
+    return;
+  } else if (!(f->stat.attr & ATTR_dir)) {
+    resp->ret = ENOIMPL;
+    return;
+  } else if (offset >= f->stat.size) {
+    resp->ret = EOF;
+    return;
+  }
+
+  buf = malloc(f->stat.size);
+  if (buf == nil) {
+    resp->ret = ENOMEM;
+    return;
+  }
+
+  resp->buf = buf;
+  for (c = f->children; c != nil; c = c->cnext) {
+    memmove(buf, &c->lname, sizeof(uint8_t));
+    buf += sizeof(uint8_t);
+    memmove(buf, c->name, sizeof(uint8_t) * c->lname);
+    buf += sizeof(uint8_t) * c->lname;
+  }
+
+  buf = resp->buf;
+  resp->buf = buf + offset;
+  resp->lbuf = len;
+  resp->ret = OK;
+}
+
+
 static struct fsmount mount = {
+  &bfid,
+  &bstat,
   &bopen,
   &bclose,
-  &bstat,
-  nil,
+  &bcreate,
+  &bremove,
   &bread,
   nil,
-  &bremove,
-  &bcreate
+  nil,
 };
 
 static int
@@ -303,7 +336,7 @@ rootproc(void *arg)
     panic("root tree malloc failed!\n");
   }
 
-  root->fid = ROOTFID;
+  root->fid = nfid++;
   root->lname = 0;
 
   root->stat.attr = ATTR_rd|ATTR_wr|ATTR_dir;

@@ -42,19 +42,28 @@ struct lock {
   struct proc *waiting;
 };
 
-/* Read only pages are always shared,
- * Read write pages can be shared or copied,
- * Read write share are always shared.
- */
-enum { PAGE_ro, PAGE_rw, PAGE_rws };
   
 struct page {
   int refs;
-  struct lock lock;
-  int type;
-  void *pa, *va;
+  /* Not generally usable */
   struct page *next;
-  struct page *from;
+  /* Not changable */
+  void *pa;
+  bool forceshare;
+  struct page **from;
+};
+
+struct pagel {
+  void *va;
+  bool rw, c;
+  struct page *p;
+  struct pagel *next;
+};
+
+struct mgroup {
+  int refs;
+  struct lock lock;
+  struct pagel *pages;
 };
 
 enum { CHAN_pipe, CHAN_file, CHAN_max };
@@ -128,20 +137,21 @@ struct proc {
   struct label label;
   uint8_t kstack[KSTACK];
 
-  uint32_t pid;
-  bool inkernel;
   int state;
+  bool inkernel;
+  uint32_t pid;
   struct proc *parent;
   struct path *dot;
-
-  struct fgroup *fgroup;
-  struct ngroup *ngroup;
 
   uint32_t faults;
   uint32_t quanta;
 
-  struct page *mmu, *stack, *pages;
-	
+  struct pagel *mmu, *stack;
+
+  struct mgroup *mgroup;
+  struct fgroup *fgroup;
+  struct ngroup *ngroup;
+
   uint32_t sleep; /* in ticks */
   struct proc *wnext; /* Next in wait queue */
   void *aux;
@@ -199,26 +209,36 @@ procsleep(struct proc *, uint32_t);
 void
 schedule(void);
 
-/* Get an unused page. */
-struct page *
-newrampage(void);
-
 void
 freepage(struct page *);
 
-struct page *
-copypages(struct page *pages, bool share);
+void
+freepagel(struct pagel *);
+
+struct pagel *
+copypagel(struct pagel *);
+
+struct pagel *
+wrappage(struct page *p, void *va, bool rw, bool c);
+
+struct mgroup *
+newmgroup(void);
+
+struct mgroup *
+copymgroup(struct mgroup *old);
+
+void
+addtomgroup(struct mgroup *m, struct page *p,
+	    void *va, bool rw, bool c);
+
+void
+freemgroup(struct mgroup *m);
 
 bool
 fixfault(void *);
 
 void *
 kaddr(struct proc *, void *, size_t);
-
-/* Get specific pages from page list. */
-struct page *
-getpages(struct page *, void *, size_t *);
-
 
 /* Channels */
 
@@ -316,7 +336,6 @@ panic(const char *, ...);
 
 /****** Syscalls ******/
 
-
 reg_t sysexit(va_list);
 reg_t sysfork(va_list);
 reg_t syssleep(va_list);
@@ -378,13 +397,19 @@ void
 mmudisable(void);
 
 void
-mmuputpage(struct page *, bool rw, bool cachable);
+mmuputpage(struct pagel *);
 
 void *
 pagealign(void *);
 
 bool
 procwaitintr(struct proc *, int);
+
+struct page *
+getrampage(void);
+
+struct page *
+getiopage(void *addr);
 
 /* 
 
@@ -418,7 +443,5 @@ extern struct proc *current;
 extern reg_t (*syscalltable[NSYSCALLS])(va_list);
 
 extern struct chantype *chantypes[CHAN_max];
-
-extern struct page rampages, iopages;
 
 extern struct binding *rootbinding;

@@ -47,7 +47,7 @@ getpid(void);
 
 /* Memory system calls */
 
-enum { MEM_heap, MEM_io };
+enum { MEM_ram, MEM_io };
 
 /* 
  * Maps a number of pages necessary to contain size and 

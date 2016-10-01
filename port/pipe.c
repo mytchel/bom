@@ -154,8 +154,9 @@ pipeclose(struct chan *c)
   }
 	
   if (p->waiting) {
-    p->waiting = false;
+    p->proc->aux = (void *) ELINK;
     disableintr();
+    p->waiting = false;
     procready(p->proc);
     enableintr();
   }

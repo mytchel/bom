@@ -77,7 +77,7 @@ filetest(void)
     close(fd);
     printf("remove /tmp/test\n");
     fd = remove("/tmp/test");
-    if (fd < 0) {
+    if (fd != OK) {
       printf("/tmp/test remove failed!\n");
     } else {
       printf("/tmp/test removed\n");

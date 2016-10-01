@@ -65,6 +65,10 @@
 #define ENOMEM		-6
 /* End of file */
 #define EOF		-7
+/* For file systems, no child with that name found. */
+#define ENOCHILD        -8
+/* Directory not empty */
+#define ENOTEMPTY       -9
 
 /* Should processor aspects be shared with the child
  * rather than copied. */

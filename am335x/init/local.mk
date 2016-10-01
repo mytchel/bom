@@ -26,7 +26,7 @@
 init_src := \
 	init/main.c init/heap.c \
 	init/pipe.c init/fs.c  \
-	init/com.c \
+	init/com.c init/tmp.c \
 	init/mmc/mmc.c init/mmc/mmcmount.c init/mmc/misc.c \
 	init/mbr/mbr.c \
 	../lib/fs.c ../lib/misc.c ../lib/string.c

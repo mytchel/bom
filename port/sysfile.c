@@ -89,7 +89,7 @@ write(int fd, void *buf, size_t len)
   lock(&c->lock);
   r = chantypes[c->type]->write(c, buf, len);
   unlock(&c->lock);
-	
+
   return r;
 }
 
@@ -151,7 +151,7 @@ sysclose(va_list args)
 {
   int fd;
   struct chan *c;
-	
+
   fd = va_arg(args, int);
 
   c = fdtochan(current->fgroup, fd);
@@ -190,7 +190,7 @@ sysopen(va_list args)
   path = realpath(current->dot, upath);
 
   c = fileopen(path, mode, cmode, &err);
-	
+
   if (c == nil) {
     freepath(path);
     return err;

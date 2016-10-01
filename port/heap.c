@@ -50,7 +50,7 @@ growheap(struct block *prev)
   struct page *pg;
   struct block *b;
 
-  pg = newrampage();
+  pg = getrampage();
   if (pg == nil) {
     return nil;
   } else if (prev == nil) {
@@ -128,6 +128,9 @@ free(void *ptr)
 
   b = (struct block *) ((reg_t) ptr - sizeof(size_t));
 
+  /* FIX ME ! */
+  return;
+  
   lock(&heaplock);
   
   if (b < heap) {
@@ -187,6 +190,8 @@ free(void *ptr)
     b->next = p->next;
     p->next = b;
   }
+
+  printf("free 0x%h finished\n", ptr);
 
   unlock(&heaplock);
 }

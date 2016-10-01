@@ -60,8 +60,6 @@ freefgroup(struct fgroup *f)
     return;
   }
 
-  lock(&f->lock);
-
   for (i = 0; i < f->nchans; i++) {
     if (f->chans[i] != nil)
       freechan(f->chans[i]);

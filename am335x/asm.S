@@ -222,7 +222,7 @@ atomicdec:
 	push {r1, r2, lr}
 1:	
 	ldrex r2, [r0]
-	add r2, r2, #1
+	sub r2, r2, #1
 	strex r1, r2, [r0]
 	cmp r1, #0
 	bne 1b

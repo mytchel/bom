@@ -113,14 +113,16 @@ newproc(void)
   p->wnext = nil;
   p->inkernel = true;
 
-  p->stack = nil;
-  p->pages = nil;
-  p->mmu = nil;
+  p->quanta = 10;
 
   p->pid = nextpid++;
-  p->quanta = 15;
   p->parent = nil;
   p->dot = nil;
+
+  p->stack = nil;
+  p->mmu = nil;
+
+  p->mgroup = nil;
   p->fgroup = nil;
   p->ngroup = nil;
 
@@ -139,7 +141,6 @@ void
 procremove(struct proc *p)
 {
   struct proc *pp;
-  struct page *pg, *pgn;
 
   /* Remove proc from list. */
   for (pp = procs; pp != nil && pp->next != p; pp = pp->next);
@@ -148,28 +149,13 @@ procremove(struct proc *p)
   
   pp->next = p->next;
 
-  pg = p->stack;
-  while (pg != nil) {
-    pgn = pg->next;
-    freepage(pg);
-    pg = pgn;
-  }
-
-  pg = p->pages;
-  while (pg != nil) {
-    pgn = pg->next;
-    freepage(pg);
-    pg = pgn;
-  }
-
-  pg = p->mmu;
-  while (pg != nil) {
-    pgn = pg->next;
-    freepage(pg);
-    pg = pgn;
-  }
-
   freepath(p->dot);
+
+  freepagel(p->stack);
+  freepagel(p->mmu);
+
+  if (p->mgroup != nil)
+    freemgroup(p->mgroup);
 
   if (p->fgroup != nil)
     freefgroup(p->fgroup);

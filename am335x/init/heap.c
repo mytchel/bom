@@ -25,8 +25,9 @@
  *
  */
 
-#include "head.h"
+#include <libc.h>
 
+#define CHUNK_POWER_MAX 11
 #define CHUNK_POWER_MIN 2
 
 struct fixedblk {
@@ -94,9 +95,9 @@ growchunk(int power)
   void *blk;
   size_t size;
 
-  size = (1 << power) * 100;
+  size = (1 << CHUNK_POWER_MAX) + sizeof(struct fixedblk);
 
-  blk = getmem(MEM_heap, nil, &size);
+  blk = getmem(MEM_ram, nil, &size);
 
   addchunk(power, blk, size);
 }
@@ -123,7 +124,6 @@ getchunk(int power)
     }
   }
 
-  printf("Not chunk for %i found\n", 1 << power);
   growchunk(power);
   return getchunk(power);
 }
@@ -139,7 +139,7 @@ malloc(size_t size)
 
   ptr = nil;
   for (p = CHUNK_POWER_MIN; p <= CHUNK_POWER_MAX; p++) {
-    if (size < (1 << p)) {
+    if (size <= (1 << p)) {
       ptr = getchunk(p);
       break;
     }

@@ -56,13 +56,13 @@ initmmu(void)
 void
 mmuswitch(struct proc *p)
 {
-  struct page *pg;
+  struct pagel *pl;
 
   mmuempty1();
 
-  for (pg = p->mmu; pg != nil; pg = pg->next) {
-    ttb[L1X((uint32_t) pg->va)] 
-      = ((uint32_t) pg->pa) | L1_COARSE;
+  for (pl = p->mmu; pl != nil; pl = pl->next) {
+    ttb[L1X((uint32_t) pl->va)] 
+      = ((uint32_t) pl->p->pa) | L1_COARSE;
   }
 	
   mmuinvalidate();
@@ -75,9 +75,9 @@ imap(void *start, void *end, int ap, bool cachable)
   uint32_t mask = (ap << 10) | L1_SECTION;
 
   if (cachable) {
-    mask |= (0 << 16) | (6 << 12) | (1 << 3) | (0 << 2);
+    mask |= (7 << 12) | (1 << 3) | (1 << 2);
   } else {
-    mask |= (0 << 16) | (0 << 12) | (0 << 3) | (1 << 2);
+    mask |= (0 << 12) | (0 << 3) | (1 << 2);
   }
   
   while (x < (uint32_t) end) {
@@ -100,11 +100,12 @@ mmuempty1(void)
 }
 
 void
-mmuputpage(struct page *p, bool rw, bool cachable)
+mmuputpage(struct pagel *p)
 {
+  struct pagel *pn;
   struct page *pg;
   uint32_t i;
-  uint32_t s, tex, ap, c, b;
+  uint32_t tex, ap, c, b;
   uint32_t *l1, *l2;
 
   uint32_t x = (uint32_t) p->va;
@@ -113,38 +114,46 @@ mmuputpage(struct page *p, bool rw, bool cachable)
 	
   /* Add a l1 page if needed. */
   if (*l1  == L1_FAULT) {
-    pg = newrampage();
-    pg->va = (void *) (x & ~((1 << 20) - 1));
+    pg = getrampage();
+    if (pg == nil) {
+      panic("mmu failed to get page\n");
+    }
+    
+    pn = wrappage(pg, (void *) (x & ~((1 << 20) - 1)),
+		  true, true);
+    if (pn == nil) {
+      panic("mmu failed to wrap page\n");
+    }
+ 
+    pn->next = current->mmu;
+    current->mmu = pn;
 
     for (i = 0; i < 256; i++)
       ((uint32_t *) pg->pa)[i] = L2_FAULT;
-
-    pg->next = current->mmu;
-    current->mmu = pg;
-		
+	
     *l1 = ((uint32_t) pg->pa) | L1_COARSE;
   }
 	
   l2 = (uint32_t *) (*l1 & ~((1 << 10) - 1));
 
-  if (rw)
+  if (p->rw) {
     ap = AP_RW_RW;
-  else
+  } else {
     ap = AP_RW_RO;
-
-  s = 0;
-  if (cachable) {
-    tex = 6;
+  }
+  
+  if (p->c) {
+    tex = 7;
     c = 1;
-    b = 0;
+    b = 1;
   } else {
     tex = 0;
     c = 0;
     b = 1;
   }
   
-  l2[L2X(x)] = ((uint32_t) p->pa) | L2_SMALL | 
-    (s << 10) | (tex << 6) | (ap << 4) | (c << 3) | (b << 2);
+  l2[L2X(x)] = ((uint32_t) p->p->pa) | L2_SMALL | 
+    (tex << 6) | (ap << 4) | (c << 3) | (b << 2);
 	
   mmuinvalidate();
 }

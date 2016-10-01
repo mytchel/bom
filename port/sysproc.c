@@ -66,7 +66,6 @@ sysfork(va_list args)
 {
   struct proc *p;
   int flags;
-  bool share;
 	
   flags = va_arg(args, int);
 
@@ -80,10 +79,15 @@ sysfork(va_list args)
   p->quanta = current->quanta;
   p->dot = copypath(current->dot);
 
-  share = (flags & FORK_smem);
-  p->stack = copypages(current->stack, false);
-  p->pages = copypages(current->pages, share);
-	
+  p->stack = copypagel(current->stack);
+
+  if (flags & FORK_smem) {
+    p->mgroup = current->mgroup;
+    atomicinc(&current->mgroup->refs);
+  } else {
+    p->mgroup = copymgroup(current->mgroup);
+  }
+
   if (flags & FORK_sfgroup) {
     p->fgroup = current->fgroup;
     atomicinc(&p->fgroup->refs);
@@ -126,204 +130,6 @@ sysgetpid(va_list args)
   return current->pid;
 }
 
-static void
-fixpages(struct page *pg, reg_t offset, struct page *next)
-{
-  struct page *p, *pp;
-
-  pp = nil;
-  for (p = pg; p != nil; pp = p, p = p->next)
-    p->va = (uint8_t *) p->va + offset;
-	
-  if (pp != nil) /* Should never be nil. */
-    pp->next = next;
-}
-
-static struct page *
-getnewpages(size_t *size)
-{
-  struct page *pages, *p, *pt;
-  size_t s;
-	
-  pages = newrampage();
-  if (pages == nil) {
-    return nil;
-  }
-	
-  p = pages;
-  s = PAGE_SIZE;
-  while (s < *size) {
-    p->next = newrampage();
-    p->next->va = p->va + PAGE_SIZE;
-    if (p->next == nil) {
-      p = pages;
-      while (p != nil) {
-	pt = p->next;
-	freepage(p);
-	p = pt;
-      }
-      return nil;
-    }
-		
-    p = p->next;
-    s += PAGE_SIZE;
-  }
-	
-  *size = s;
-  return pages;	
-}
-
-static void *
-insertpages(struct page *pages, void *addr, size_t size)
-{
-  struct page *p, *pp;
-  bool fix;
-
-  fix = (addr == nil);
-
-  pp = nil;
-  for (p = current->pages;
-       p != nil; pp = p, p = p->next) {
-		
-    if (fix && pp != nil) 
-      addr = (uint8_t *) pp->va + PAGE_SIZE;
-		
-    if ((size_t) (p->va - addr) > size) {
-      /* Pages fit in here */
-      break;
-    }
-  }
-	
-  if (pp != nil) {
-    if (fix) addr = (uint8_t *) pp->va + PAGE_SIZE;
-    fixpages(pages, (reg_t) addr, p);
-    pp->next = pages;
-  } else {
-    /* First page */
-    fixpages(pages, (reg_t) addr, p);
-    current->pages = pages;
-  }
-
-  return addr;
-}
-
-static bool
-addrinpages(struct page *p, void *start, size_t size)
-{
-  void *end = (uint8_t *) start + size;
-	
-  while (p != nil) {
-    if (p->va == start) {
-      return true;
-    } else if (p->va < start 
-	       && start < (void *) ((uint8_t *) p->va + PAGE_SIZE)) {
-      /* Start of block in page */
-      return true;
-    } else if (p->va < end 
-	       && end < (void *) ((uint8_t *) p->va + PAGE_SIZE)) {
-      /* End of block in page */
-      return true;
-    } else if (start <= p->va && p->va <= end) {
-      /* Block encompases page */
-      return true;
-    }
-
-    p = p->next;
-  }
-	
-  return false;
-}
-
-static bool
-addrsinuse(void *start, size_t size)
-{
-  bool r;
-
-  r = addrinpages(current->stack, start, size);
-  if (r) return true;
-  r = addrinpages(current->pages, start, size);
-  return r;
-}
-
-reg_t
-sysgetmem(va_list args)
-{
-  struct page *pages = nil;
-  void *addr;
-  size_t *size;
-  int type;
-	
-  type = va_arg(args, int);
-  addr = va_arg(args, void *);
-  size = va_arg(args, size_t *);
-
-  debug("getmem 0x%h, %i\n", addr, *size);
-  
-  if (*size > MAX_MEM_SIZE) {
-    return nil;
-  }
-	
-  if (addr != nil && addrsinuse(addr, *size)) {
-    return nil;
-  }
-
-  switch (type) {
-  case MEM_heap:
-    pages = getnewpages(size);
-    break;
-  case MEM_io:
-    pages = getpages(&iopages, addr, size);
-    addr = nil;
-    break;
-  }
-	
-  if (pages == nil) {
-    return nil;
-  }
-
-  addr = insertpages(pages, addr, *size);
-
-  debug("getmem success, put %i bytes at 0x%h\n", *size, addr);
-  return (reg_t) addr;
-}
-
-reg_t
-sysrmmem(va_list args)
-{
-  struct page *p, *pt, *pp;
-  void *addr;
-  size_t size;
-
-  addr = va_arg(args, void *);
-  size = va_arg(args, size_t);
-	
-  debug("Should unmap 0x%h of len %i from %i\n", addr, size, current->pid);
-	
-  pp = nil;
-  p = current->pages; 
-  while (p != nil && size > 0) {
-    if (p->va == addr) {
-      addr = p->va + PAGE_SIZE;
-      size -= PAGE_SIZE;
-			
-      if (pp != nil) {
-	pp->next = p->next;
-      } else {
-	current->pages = p->next;
-      }
-			
-      pt = p->next;
-      freepage(p);
-      p = pt;
-    } else {
-      pp = p;
-      p = p->next;
-    }
-  }
-	
-  return ENOIMPL;
-}
-
 reg_t
 syswaitintr(va_list args)
 {
@@ -343,3 +149,186 @@ syswaitintr(va_list args)
     return ERR;
   }
 }
+
+static void
+fixpagel(struct pagel *p, reg_t offset, struct pagel *next)
+{
+  struct pagel *pp;
+
+  pp = nil;
+  while (p != nil) {
+    p->va = (uint8_t *) p->va + offset;
+    pp = p;
+    p = p->next;
+  }
+	
+  if (pp != nil) /* Should never be nil. */
+    pp->next = next;
+}
+
+static void *
+insertpages(struct pagel *pagel, void *addr, size_t size)
+{
+  struct pagel *p, *pp;
+  bool fix;
+
+  fix = (addr == nil);
+
+  pp = nil;
+  for (p = current->mgroup->pages; p != nil; pp = p, p = p->next) {
+    if (fix && pp != nil) {
+      addr = (uint8_t *) pp->va + PAGE_SIZE;
+    }
+		
+    if ((size_t) (p->va - addr) > size) {
+      /* Pages fit in here */
+      break;
+    }
+  }
+	
+  if (pp != nil) {
+    if (fix) {
+      addr = (uint8_t *) pp->va + PAGE_SIZE;
+    }
+    
+    fixpagel(pagel, (reg_t) addr, p);
+    pp->next = pagel;
+  } else {
+    /* First page */
+    fixpagel(pagel, (reg_t) addr, p);
+    current->mgroup->pages = pagel;
+  }
+
+  return addr;
+}
+
+reg_t
+sysgetmem(va_list args)
+{
+  struct pagel *pagel, *pp, *pl;
+  struct page *pg;
+  size_t *size, csize;
+  void *addr, *caddr, *paddr;
+  bool rw, c;
+  int type;
+	
+  type = va_arg(args, int);
+  addr = va_arg(args, void *);
+  size = va_arg(args, size_t *);
+
+  printf("%i getmem %i 0x%h %i\n", current->pid, type, addr, *size);
+  
+  switch (type) {
+  case MEM_ram:
+    rw = true;
+    c = true;
+    paddr = nil;
+    caddr = addr;
+    break;
+  case MEM_io:
+    rw = true;
+    c = false;
+    paddr = addr;
+    addr = nil;
+    caddr = nil;
+    break;
+  default:
+    return ERR;
+  }
+
+  pg = nil;
+  pp = pagel = nil;
+  csize = 0;
+
+  while (csize < *size) {
+    switch (type) {
+    case MEM_ram:
+      pg = getrampage();
+      break;
+    case MEM_io:
+      pg = getiopage(paddr);
+      paddr += PAGE_SIZE;
+      break;
+    }
+
+    if (pg == nil) {
+      freepage(pg);
+      freepagel(pagel);
+      return ERR;
+    }
+    
+    pl = wrappage(pg, caddr, rw, c);
+    if (pl == nil) {
+      freepagel(pagel);
+      return ERR;
+    }
+
+    if (pp == nil) {
+      pagel = pl;
+    } else {
+      pp->next = pl;
+    }
+
+    caddr += PAGE_SIZE;
+    csize += PAGE_SIZE;
+  }
+	
+  if (pagel == nil) {
+    return nil;
+  }
+
+  *size = csize;
+
+  lock(&current->mgroup->lock);
+  addr = insertpages(pagel, addr, csize);
+  unlock(&current->mgroup->lock);
+
+  printf("mapped for %i 0x%h %i\n", current->pid, addr, csize);
+  return (reg_t) addr;
+}
+
+reg_t
+sysrmmem(va_list args)
+{
+  struct pagel *p, *pt, *pp;
+  void *addr;
+  size_t size;
+
+  addr = va_arg(args, void *);
+  size = va_arg(args, size_t);
+	
+  printf("unmap 0x%h of len %i from %i\n", addr, size, current->pid);
+
+  lock(&current->mgroup->lock);
+  
+  pp = nil;
+  p = current->mgroup->pages; 
+  while (p != nil && size > 0) {
+    if (p->va == addr) {
+      printf("removing page at 0x%h\n", p->va);
+      addr += PAGE_SIZE;
+      size -= PAGE_SIZE;
+			
+      if (pp != nil) {
+	pp->next = p->next;
+      } else {
+	current->mgroup->pages = p->next;
+      }
+			
+      pt = p->next;
+
+      freepage(p->p);
+      free(p);
+
+      p = pt;
+    } else {
+      pp = p;
+      p = p->next;
+    }
+  }
+	
+  unlock(&current->mgroup->lock);
+
+  return OK;
+}
+
