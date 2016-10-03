@@ -1,4 +1,5 @@
 /*
+ *
  * Copyright (c) 2016 Mytchel Hammond <mytchel@openmailbox.org>
  * 
  * Permission is hereby granted, free of charge, to any person
@@ -24,35 +25,22 @@
  *
  */
 
-#include <types.h>
+#include <libc.h>
+#include <stdarg.h>
+#include <string.h>
 
-int
-__bitfield(uint32_t *src, int start, int len)
+void
+printf(const char *fmt, ...)
 {
-	uint8_t *sp;
-	uint32_t dst, mask;
-	int shift, bs, bc;
+  char str[128];
+  size_t i;
+  va_list ap;
 
-	if (start < 0 || len < 0 || len > 32)
-		return 0;
+  va_start(ap, fmt);
+  i = vsnprintf(str, 128, fmt, ap);
+  va_end(ap);
 
-	dst = 0;
-	mask = len % 32 ? UINT_MAX >> (32 - (len % 32)) : UINT_MAX;
-	shift = 0;
-
-	while (len > 0) {
-		sp = (uint8_t *)src + start / 8;
-		bs = start % 8;
-		bc = 8 - bs;
-		if (bc > len)
-			bc = len;
-		dst |= (*sp >> bs) << shift;
-		shift += bc;
-		start += bc;
-		len -= bc;
-	}
-
-	dst &= mask;
-	return (int)dst;
+  if (i > 0) {
+    write(stdout, str, i);
+  }
 }
-

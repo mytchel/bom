@@ -25,7 +25,8 @@
 
 .SUFFIXES: .S .c .h .o .elf .bin .list .umg
 
-all: am335x.list am335x.umg copy
+.PHONY: all
+all: am335x.list init.list am335x.umg copy
 
 CLEAN = 
 DEBUG ?= 0
@@ -55,16 +56,43 @@ LGCC := -L/usr/local/lib/gcc/arm-none-eabi/4.9.3/ -lgcc
 HOST_CFLAGS := -Wall -Werror -std=c89
 HOST_LDFLAGS :=
 
-include mkuboot/local.mk
-include bintoarray/local.mk
-include init/local.mk
+include ../tools/mkuboot/local.mk
+include ../tools/bintoarray/local.mk
 
-A_SRC := \
+ISRC_A := \
+	init/syscalls.S		\
+
+ISRC_C := \
+	init/com.c              \
+	init/mmc/mmc.c          \
+        init/mmc/misc.c
+
+ISRC_P := \
+        ../init/main.c          \
+        ../init/printf.c        \
+        ../init/heap.c          \
+        ../init/tmp.c           \
+        ../init/mbr.c           \
+        ../init/shell.c         \
+        ../lib/fs.c             \
+        ../lib/misc.c           \
+        ../lib/string.c
+
+
+IOBJECTS := \
+	$(ISRC_A:%.S=%.o) \
+	$(ISRC_C:%.c=%.o) \
+	$(ISRC_P:%.c=%.o)
+
+CLEAN += $(IOBJECTS)
+
+
+KSRC_A := \
         asm.S                   \
         vectors.S
 
-C_SRC := \
-        init/initcode.c         \
+KSRC_C := \
+        initcode.c              \
         main.c                  \
         trap.c                  \
         uart.c                  \
@@ -74,7 +102,7 @@ C_SRC := \
         syscall.c               \
         mmu.c
 
-P_SRC := \
+KSRC_P := \
         ../port/com.c           \
         ../port/proc.c          \
         ../port/lock.c          \
@@ -97,12 +125,13 @@ P_SRC := \
 	../lib/misc.c
 
 
-OBJECTS := \
-	$(A_SRC:%.S=%.o) \
-	$(C_SRC:%.c=%.o) \
-	$(P_SRC:%.c=%.o)
+KOBJECTS := \
+	$(KSRC_A:%.S=%.o) \
+	$(KSRC_C:%.c=%.o) \
+	$(KSRC_P:%.c=%.o)
 
-CLEAN += $(OBJECTS)
+CLEAN += $(KOBJECTS)
+
 
 .c.o .S.o:
 	@echo CC $<
@@ -119,25 +148,50 @@ CLEAN += $(OBJECTS)
 	@$(OBJDUMP) -S $< > $@
 
 
-am335x.elf: linker.ld $(OBJECTS)
+CLEAN += am335x.elf am335x.list
+am335x.elf: linker.ld $(KOBJECTS)
 	@echo LD $@
 	@$(LD) $(LDFLAGS) -T linker.ld -o $@ \
-		$(OBJECTS) \
+		$(KOBJECTS) \
 		$(LGCC)
 
-am335x.umg: am335x.bin mkuboot/mkuboot
+
+CLEAN += init.elf init.list
+init.elf: init/linker.ld $(IOBJECTS)
+	@echo LD $@
+	@$(LD) $(LDFLAGS) -T init/linker.ld -o $@ \
+		$(IOBJECTS) \
+		$(LGCC)
+
+
+CLEAN += initcode.c
+initcode.c: init.elf ../tools/bintoarray/bintoarray
+	@echo Generate initcode.c
+	@$(OBJCOPY) init.elf /dev/null \
+		--dump-section .text=/dev/stdout | \
+		../tools/bintoarray/bintoarray initcodetext \
+			> initcode.c
+	@$(OBJCOPY) init.elf /dev/null \
+		--dump-section .data=/dev/stdout | \
+		../tools/bintoarray/bintoarray initcodedata \
+			>> initcode.c
+
+
+CLEAN += am335x.umg
+am335x.umg: am335x.bin ../tools/mkuboot/mkuboot
 	@echo MKUBOOT $@
-	@./mkuboot/mkuboot -a arm \
+	@../tools/mkuboot/mkuboot -a arm \
 		-e ${loadaddr} -l ${loadaddr} -o linux \
 		am335x.bin am335x.umg
 
+
+.PHONY: clean 
 clean: 
 	@echo cleaning
 	@rm -f $(CLEAN)
 
 
-.PHONY: all clean 
-
 .PHONY: copy
 copy: am335x.umg
 	cp am335x.umg /var/ftpd/
+

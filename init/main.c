@@ -1,6 +1,6 @@
 /*
  *
- * Copyright (c) <2016> Mytchel Hammond <mytchel@openmailbox.org>
+ * Copyright (c) 2016 Mytchel Hammond <mytchel@openmailbox.org>
  * 
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -26,45 +26,66 @@
  */
 
 #include <libc.h>
+#include <fs.h>
+#include <stdarg.h>
 
 int
-ppipe0(int fd)
-{
-  int i, n, pid = getpid();
-	
-  printf("ppipe0 %i: ppipe0 started with fd %i\n", pid, fd);
-  while (true) {
-    n = read(fd, (void *) &i, sizeof(int));
-    if (n != sizeof(int)) {
-      printf("ppipe0 %i: failed to read. %i\n", pid, n);
-      break;
-    }
-		
-    printf("ppipe0 %i: read %i\n", pid, i);
-  }
-	
-  printf("ppipe0 %i: exiting\n", pid);
-
-  return 1;
-}
+commount(char *path);
 
 int
-ppipe1(int fd)
+tmpmount(char *path);
+
+int
+initblockdevs(void);
+
+int
+shell(void);
+
+int stdin, stdout, stderr;
+
+int
+main(void)
 {
-  int i, n, pid = getpid();
-  printf("ppipe1 %i: ppipe1 started with fd %i\n", pid, fd);
-	
-  for (i = 0; i < 10; i++) {
-    printf("ppipe1 %i: writing %i\n", pid, i);
+  int f, fd, fds[2];
 
-    n = write(fd, (void *) &i, sizeof(int));
-    if (n != sizeof(int)) {
-      printf("ppipe1 %i: write failed. %i\n", pid, n);
-      break;
-    }
+  fd = open("/dev", O_WRONLY|O_CREATE,
+	    ATTR_wr|ATTR_rd|ATTR_dir);
+  if (fd < 0) {
+    return -1;
   }
-	
-  printf("ppipe1 %i: exiting\n", pid);
 
-  return 2;
+  f = commount("/dev/com");
+  if (f < 0) {
+    return -1;
+  }
+
+  stdin = open("/dev/com", O_RDONLY);
+  stdout = open("/dev/com", O_WRONLY);
+  stderr = open("/dev/com", O_WRONLY);
+
+  if (stdin < 0) return -2;
+  if (stdout < 0) return -3;
+  if (stderr < 0) return -3;
+
+  printf("/dev/com mounted pid %i\n", f);
+
+  f = tmpmount("/tmp");
+  if (f < 0) {
+    return -1;
+  }
+  
+  printf("/tmp mounted on pid %i\n", f);
+
+  if (pipe(fds) == ERR) {
+    return -3;
+  }
+
+  f = initblockdevs();
+  if (f < 0) {
+    return -1;
+  }
+
+  f = shell();
+
+  return f;
 }

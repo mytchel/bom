@@ -24,35 +24,48 @@
  *
  */
 
-#include <types.h>
+#include <libc.h>
 
-int
-__bitfield(uint32_t *src, int start, int len)
+#define LINE_MAX 512
+
+static int
+readline(uint8_t *data, size_t max)
 {
-	uint8_t *sp;
-	uint32_t dst, mask;
-	int shift, bs, bc;
+  size_t i;
+  char c;
 
-	if (start < 0 || len < 0 || len > 32)
-		return 0;
+  i = 0;
+  while (i < max) {
+    if (read(stdin, &c, sizeof(char)) < 0) {
+      return -1;
+    } else if (c == '\n') {
+      data[i] = '\0';
+      return i;
+    } else {
+      data[i++] = c;
+    }
+  }
 
-	dst = 0;
-	mask = len % 32 ? UINT_MAX >> (32 - (len % 32)) : UINT_MAX;
-	shift = 0;
-
-	while (len > 0) {
-		sp = (uint8_t *)src + start / 8;
-		bs = start % 8;
-		bc = 8 - bs;
-		if (bc > len)
-			bc = len;
-		dst |= (*sp >> bs) << shift;
-		shift += bc;
-		start += bc;
-		len -= bc;
-	}
-
-	dst &= mask;
-	return (int)dst;
+  data[i-1] = 0;
+  return i;
 }
 
+static void
+processline(uint8_t *data)
+{
+  printf("Still need to impliment this\n");
+}
+
+int
+shell(void)
+{
+  uint8_t line[LINE_MAX];
+
+  while (true) {
+    printf("%% ");
+    readline(line, LINE_MAX);
+    processline(line);
+  }
+
+  return 0;
+}

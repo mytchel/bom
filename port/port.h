@@ -423,18 +423,6 @@ enableintr(void);
 
 */
 
-/* If address contains 0, store 1 and return 1,
- * else return 0.
- */
-bool
-testandset(int *addr);
-
-int
-atomicinc(int *addr);
-
-int
-atomicdec(int *addr);
-
 /****** Global Variables ******/
 
 

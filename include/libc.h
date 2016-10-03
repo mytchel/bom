@@ -71,6 +71,7 @@ rmmem(void *addr, size_t size);
 int
 waitintr(int intr);
 
+/* Writes to fds[1] can be read from fds[0] */
 int
 pipe(int fds[2]);
 
@@ -113,5 +114,17 @@ printf(const char *, ...);
 #define roundptr(x) (x % sizeof(void *) != 0 ? \
 		     x + sizeof(void *) - (x % sizeof(void *)) : \
 		     x)
+
+/* If address contains 0, store 1 and return 1,
+ * else return 0.
+ */
+bool
+testandset(int *addr);
+
+int
+atomicinc(int *addr);
+
+int
+atomicdec(int *addr);
 
 #endif

@@ -216,8 +216,6 @@ sysgetmem(va_list args)
   addr = va_arg(args, void *);
   size = va_arg(args, size_t *);
 
-  printf("%i getmem %i 0x%h %i\n", current->pid, type, addr, *size);
-  
   switch (type) {
   case MEM_ram:
     rw = true;
@@ -283,7 +281,6 @@ sysgetmem(va_list args)
   addr = insertpages(pagel, addr, csize);
   unlock(&current->mgroup->lock);
 
-  printf("mapped for %i 0x%h %i\n", current->pid, addr, csize);
   return (reg_t) addr;
 }
 
@@ -297,15 +294,12 @@ sysrmmem(va_list args)
   addr = va_arg(args, void *);
   size = va_arg(args, size_t);
 	
-  printf("unmap 0x%h of len %i from %i\n", addr, size, current->pid);
-
   lock(&current->mgroup->lock);
   
   pp = nil;
   p = current->mgroup->pages; 
   while (p != nil && size > 0) {
     if (p->va == addr) {
-      printf("removing page at 0x%h\n", p->va);
       addr += PAGE_SIZE;
       size -= PAGE_SIZE;
 			

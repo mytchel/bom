@@ -44,6 +44,10 @@
 .global remove
 .global waitintr
 
+.global  testandset
+.global atomicinc
+.global atomicdec
+
 .word 0x0
 
 _start:
@@ -165,4 +169,48 @@ waitintr:
 	svc 0
 	add sp, sp, #4
 	bx lr
+
+
+@ this is horrible but i cant get anything
+@ nicer to work
+testandset:
+	push {r1, r2, lr}
+2:	ldrex r2, [r0]
+	cmp r2, #0
+	beq 1f
+	strex r1, r2, [r0]
+	cmp r1, #0
+	bne 2b
+	mov r0, #0
+	pop {r1, r2, pc}
+
+1:	mov r2, #1
+	strex r1, r2, [r0]
+	cmp r1, #0
+	bne 2b
+	mov r0, #1
+	pop {r1, r2, pc}
 	
+
+atomicinc:
+	push {r1, r2, lr}
+1:
+	ldrex r2, [r0]
+	add r2, r2, #1
+	strex r1, r2, [r0]
+	cmp r1, #0
+	bne 1b
+	mov r0, r2
+	pop {r1, r2, pc}
+
+	
+atomicdec:
+	push {r1, r2, lr}
+1:	
+	ldrex r2, [r0]
+	sub r2, r2, #1
+	strex r1, r2, [r0]
+	cmp r1, #0
+	bne 1b
+	mov r0, r2
+	pop {r1, r2, pc}
