@@ -460,7 +460,7 @@ cardidentify(struct mmc *mmc)
     return false;
   }
 
-  mmc->rca = 0;/*SD_R6_RCA(cmd.resp);*/
+  mmc->rca = SD_R6_RCA(cmd.resp);
 
   return true;
 }
