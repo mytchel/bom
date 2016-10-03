@@ -32,6 +32,8 @@ struct mmc_command {
 };
 
 struct mmc {
+  volatile struct mmchs_regs *regs;
+  
   uint8_t *data;
   size_t data_len;
 
@@ -39,29 +41,19 @@ struct mmc {
   
   uint32_t rca;
   uint32_t csd[4];
-  uint32_t size;
+  uint32_t nblk;
 
-  char name[256];
+  char *name;
   int mbrpid;
 };
 
-extern struct mmc mmc;
-extern size_t regsize;
-extern volatile struct mmchs_regs *regs;
-
-int
-mbrmount(char *device, char *name);
-
-int
-mmcmount(char *filename);
+bool
+mmchssendcmd(struct mmc *mmc, struct mmc_command *c);
 
 bool
-mmchssendcmd(struct mmc_command *c);
+readblock(void *aux, uint32_t blk, uint8_t *buf);
 
 bool
-readblock(uint32_t blk, uint8_t *buf);
-
-bool
-writeblock(uint32_t blk, uint8_t *buf);
+writeblock(void *aux, uint32_t blk, uint8_t *buf);
 
 #endif

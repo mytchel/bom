@@ -25,9 +25,18 @@
  *
  */
 
-#define MBR_part_len 16
-#define MBR_part1    0x1be
-#define MBR_part2    0x1ce
-#define MBR_part3    0x1de
-#define MBR_part4    0x1ee
+#ifndef _BLOCK_H_
+#define _BLOCK_H_
 
+struct blkdevice {
+  char *name;
+  bool (*read)(void *aux, uint32_t blk, uint8_t *buf);
+  bool (*write)(void *aux, uint32_t blk, uint8_t *buf);
+  uint32_t nblk;
+  void *aux;
+};
+
+int
+mbrmountthread(struct blkdevice *, uint8_t *dir);
+
+#endif

@@ -105,14 +105,13 @@ main(void)
   close(fds[0]);
   close(fds[1]);
 
-  /*
   f = fork(FORK_sngroup);
   if (f < 0) {
     return -1;
   } else if (!f) {
     return initmmcs();
   }
-  */
+
   f = fork(FORK_sngroup);
   if (f < 0) {
     return -1;
