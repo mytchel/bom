@@ -6,58 +6,41 @@
 
 So far it doesn't do much.
 
-It currently has one program that (called init, not that it initialized anything)
-that is compiled then converted into an array of bytes, which is then compiled and
-linked into the kernel. The kernel copies this into the pages for the first process
-and it get run as in user mode with its on virtual address space.
+It is a micro kernel that makes extensive use of virtual file systems
+for IPC.
 
-All this program does is print a little (it has direct access to the io address space,
-for now), fork a few times and the forked processes do something similar.
+It currently has one program that that is compiled then converted
+into an array of bytes, which is then compiled and linked into the
+kernel. The kernel copies this into the pages for the first process
+and runs it in user mode with its on virtual address space.
 
-Ports, feature additions and criticisms all welcome.
+So far this program spawns makes a /dev directory, spawns a file
+system that mounts itself on /dev/com and writes/reads UART0 when
+it is written to/read from. Then it spawns a temporary file system
+that stores files in ram and mounts it on /tmp.
+
+Next is spawns two processes for managing the mmc host controllers
+that (if they find cards) will mount themselves as directory's on
+/dev/mmcy (where y = 0, 1) with files raw (for the entire device),
+and a, b, c, and d for each of the mbr partitions if they exist.
+These files can only be read or written in 512 byte blocks.
+
+Then a shell is spawns that currently doesn't let you do much other
+than see what files exist.
 
 ## Build
 
 Just run make.
 
-This should give you the file am335x/am335x.umg which you can copy onto an sdcard and
-load on your beaglebone black.
+This should give you the file am335x/am335x.umg which you can copy
+onto an sdcard and load on your beaglebone black.
 
-U-Boot is a bit (very) finicky with the partitioning of your sdcard. You can look that
-up if you really want to but the easiest way is to just flash a beaglebone black
-linux or openbsd distro onto the sdcard the copy am335x/am335x.umg and am335x/uenv.txt
-onto the U-Boot fat partition. Then when U-Boot loads (if you have it in sdcard mode)
-it should run Bom.
+U-Boot is a bit (very) finicky with the partitioning of your sdcard.
+You can look that up if you really want to but the easiest way is to
+just flash a beaglebone black linux or openbsd distro onto the sdcard
+the copy am335x/am335x.umg onto the U-Boot fat partition. Then when
+U-Boot loads (if you have it in sdcard mode) it should run Bom.
 
-I should probably figure out how to load the kernel over uart. Because the sdcard slot
-is falling apart.
+## Misc
 
-### Working
-
-- Virtual memory
-- Multiple processes (preemptive)
-- 'Working' system calls so far
-	- fork
-	- sleep
-	- exit
-	- getpid
-	- pipe
-	- read
-	- write
-	- close
-	- bind
-	- open
-	- remove
-	- getmem
-	- rmmem
-
-As to what they do and how to use them, well, good luck.
-
-### Very Helpful Information
-
-- 9front omap port (maybe too helpful)
-- [Arm Reference](http://www.google.co.uk/url?sa=t&source=web&cd=1&ved=0CCAQFjAA&url=http%3A%2F%2Fwww.altera.com%2Fliterature%2Fthird-party%2Farchives%2Fddi0100e_arm_arm.pdf&ei=B1cwTtfHJMWmhAfh8qlI&usg=AFQjCNFqDeTfS2VR6oU93FbwBoE--ggJrA)
-- Cortex A Series Programmer Guide
-- Arm System Developers Guide
-- am335x guide
-- OpenBSD armv7 kernel.
+Ports, feature additions and criticisms all welcome.
