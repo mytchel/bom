@@ -144,7 +144,7 @@ initmainproc(void)
   p->fgroup = newfgroup();
   p->ngroup = newngroup();
   p->parent = nil;
-	
+
   procready(p);
 }
 

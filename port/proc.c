@@ -117,7 +117,9 @@ newproc(void)
 
   p->pid = nextpid++;
   p->parent = nil;
+
   p->dot = nil;
+  p->dotchan = nil;
 
   p->stack = nil;
   p->mmu = nil;

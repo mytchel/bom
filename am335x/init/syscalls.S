@@ -38,13 +38,16 @@
 .global read
 .global write
 .global seek
+.global stat 
+.global chdir
 .global close
 .global bind
 .global open
 .global remove
+.global cleanpath
 .global waitintr
 
-.global  testandset
+.global testandset
 .global atomicinc
 .global atomicdec
 
@@ -99,6 +102,13 @@ rmmem:
 	add sp, sp, #(4 * 2)
 	bx lr
 			
+chdir:
+	push {r0}
+	mov r0, #SYSCALL_CHDIR
+	svc 0
+	add sp, sp, #(4)
+	bx lr
+
 
 pipe:
 	push {r0}
@@ -131,6 +141,14 @@ seek:
 	add sp, sp, #(4 * 3)
 	bx lr
 
+	
+stat:
+	push {r0, r1}
+	mov r0, #SYSCALL_STAT
+	svc 0
+	add sp, sp, #(4 * 2)
+	bx lr
+
 
 close:
 	push {r0}
@@ -160,6 +178,14 @@ remove:
 	mov r0, #SYSCALL_REMOVE
 	svc 0
 	add sp, sp, #4
+	bx lr
+
+
+cleanpath:
+	push {r0, r1, r2}
+	mov r0, #SYSCALL_CLEANPATH
+	svc 0
+	add sp, sp, #(4 * 3)
 	bx lr
 
 	

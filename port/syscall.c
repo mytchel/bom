@@ -32,6 +32,8 @@ reg_t (*syscalltable[NSYSCALLS])(va_list) = {
 	[SYSCALL_FORK] 		= sysfork,
 	[SYSCALL_SLEEP]		= syssleep,
 	[SYSCALL_GETPID]	= sysgetpid,
+
+	[SYSCALL_CHDIR]	        = syschdir,
 	
 	[SYSCALL_GETMEM]	= sysgetmem,
 	[SYSCALL_RMMEM]		= sysrmmem,
@@ -43,7 +45,9 @@ reg_t (*syscalltable[NSYSCALLS])(va_list) = {
 	[SYSCALL_SEEK]		= sysseek,
 	[SYSCALL_CLOSE]		= sysclose,
 	
+	[SYSCALL_STAT]		= sysstat,
 	[SYSCALL_BIND]		= sysbind,
 	[SYSCALL_OPEN]		= sysopen,
 	[SYSCALL_REMOVE]	= sysremove,
+	[SYSCALL_CLEANPATH]	= syscleanpath,
 };

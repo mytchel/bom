@@ -27,6 +27,39 @@
 
 #include "head.h"
 
+/* Need to fix syscalls with path arguments so check if the
+ * path is a valid address in the processes memory.
+ */
+
+reg_t
+syschdir(va_list args)
+{
+  const char *upath;
+  struct path *path;
+  struct chan *c;
+  int err;
+  
+  upath = va_arg(args, const char *);
+  path = realpath(current->dot, upath);
+
+  c = fileopen(path, O_RDONLY, 0, &err);
+  if (err != OK) {
+    freepath(path);
+    return err;
+  }
+
+  freepath(current->dot);
+
+  if (current->dotchan != nil) {
+    freechan(current->dotchan);
+  }
+
+  current->dotchan = c;
+  current->dot = path;
+
+  return OK;
+}
+
 int
 read(int fd, void *buf, size_t len)
 {
@@ -63,9 +96,7 @@ sysread(va_list args)
   kbuf = kaddr(current, buf, len);
 
   if (kbuf == nil) {
-    printf("%i being naughty and trying to use memory it shouldn't (0x%h %i)\n",
-	   current->pid, buf, len);
-     return ERR;
+    return ERR;
   } else {
     return read(fd, kbuf, len);
   }
@@ -107,8 +138,6 @@ syswrite(va_list args)
   kbuf = kaddr(current, buf, len);
 
   if (kbuf == nil) {
-    printf("%i being naughty and trying to use memory it shouldn't (0x%h %i)\n",
-	   current->pid, buf, len);
     return ERR;
   } else {
     return write(fd, kbuf, len);
@@ -146,6 +175,28 @@ sysseek(va_list args)
   return seek(fd, offset, whence);
 }
      
+reg_t
+sysstat(va_list args)
+{
+  const char *upath;
+  struct stat *ustat, *stat;
+  struct path *path;
+	
+  upath = va_arg(args, const char *);
+  ustat = va_arg(args, struct stat *);
+
+  stat = (struct stat *) kaddr(current, (void *) ustat,
+			       sizeof(struct stat *));
+
+  if (stat == nil) {
+    return ERR;
+  }
+  
+  path = realpath(current->dot, upath);
+
+  return filestat(path, stat);
+}
+
 reg_t
 sysclose(va_list args)
 {
@@ -305,3 +356,32 @@ sysbind(va_list args)
   return OK;
 }
 
+reg_t
+syscleanpath(va_list args)
+{
+  char *opath, *cpath, *spath;
+  size_t cpathlen, l;
+  struct path *rpath;
+
+  opath = va_arg(args, char *);
+  cpath = va_arg(args, char *);
+  cpathlen = va_arg(args, size_t);
+
+  rpath = realpath(current->dot, opath);
+
+  spath = pathtostr(rpath, &l);
+
+  if (l + 1 > cpathlen) {
+    free(spath);
+    freepath(rpath);
+    return ERR;
+  }
+
+  memmove(cpath, spath, l);
+  cpath[l] = 0;
+  
+  free(spath);
+  freepath(rpath);
+
+  return l;
+}

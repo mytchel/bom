@@ -28,6 +28,7 @@
 #include <libc.h>
 #include <stdarg.h>
 #include <fs.h>
+#include <fssrv.h>
 #include <string.h>
 
 #if DEBUG == 1
@@ -87,7 +88,7 @@ struct chantype {
 };
 
 struct path {
-  char s[FS_LNAME_MAX];
+  char s[FS_NAME_MAX];
   struct path *prev, *next;
 };
 
@@ -141,7 +142,9 @@ struct proc {
   bool inkernel;
   uint32_t pid;
   struct proc *parent;
+
   struct path *dot;
+  struct chan *dotchan;
 
   uint32_t faults;
   uint32_t quanta;
@@ -254,7 +257,7 @@ struct path *
 strtopath(const char *);
 
 char *
-pathtostr(struct path *, int *);
+pathtostr(struct path *, size_t *);
 
 struct path *
 realpath(struct path *, const char *);
@@ -319,6 +322,9 @@ pipewrite(struct chan *, uint8_t *, size_t);
 int
 pipeclose(struct chan *);
 
+int
+filestat(struct path *, struct stat *stat);
+
 struct chan *
 fileopen(struct path *, uint32_t, uint32_t, int *);
 
@@ -343,14 +349,17 @@ reg_t sysgetpid(va_list);
 reg_t sysgetmem(va_list);
 reg_t sysrmmem(va_list);
 reg_t syswaitintr(va_list);
+reg_t syschdir(va_list);
 reg_t syspipe(va_list);
 reg_t sysread(va_list);
 reg_t syswrite(va_list);
 reg_t sysseek(va_list);
+reg_t sysstat(va_list);
 reg_t sysclose(va_list);
 reg_t sysbind(va_list);
 reg_t sysopen(va_list);
 reg_t sysremove(va_list);
+reg_t syscleanpath(va_list);
 
 
 /****** Machine Implimented ******/

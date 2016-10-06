@@ -74,7 +74,7 @@ ISRC_P := \
         ../init/tmp.c           \
         ../init/mbr.c           \
         ../init/shell.c         \
-        ../lib/fs.c             \
+        ../lib/fssrv.c          \
         ../lib/misc.c           \
         ../lib/string.c
 
@@ -120,7 +120,7 @@ KSRC_P := \
         ../port/sysproc.c       \
         ../port/sysfile.c       \
         ../port/syscall.c       \
-        ../lib/fs.c             \
+        ../lib/fssrv.c          \
         ../lib/string.c         \
 	../lib/misc.c
 

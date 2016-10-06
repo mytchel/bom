@@ -26,6 +26,7 @@
 
 #include <libc.h>
 #include <fs.h>
+#include <fssrv.h>
 #include <stdarg.h>
 #include <string.h>
 
@@ -33,13 +34,13 @@ struct file {
   uint32_t fid;
 
   uint8_t lname;
-  char name[FS_LNAME_MAX];
+  char name[FS_NAME_MAX];
 
   uint8_t *buf;
-  uint32_t usize;
+  size_t lbuf;
 
   struct stat stat;
-  uint32_t open;
+  unsigned int open;
 
   struct file *cnext;
   struct file *parent;
@@ -143,16 +144,92 @@ bclose(struct request *req, struct response *resp)
 {
   struct file *f;
 
-  printf("tmp close %i\n", req->fid);
-  
   f = findfile(root, req->fid);
   if (f == nil) {
     resp->ret = ENOFILE;
   } else {
-    printf("tmp closing %i, from open = %i\n", f->fid, f->open);
     resp->ret = OK;
     f->open--;
   }
+}
+
+static int
+addchild(struct file *p, struct file *c)
+{
+  uint8_t *buf, *tbuf;
+  
+  buf = malloc(p->lbuf + sizeof(uint8_t) + c->lname);
+  if (buf == nil) {
+    return ENOMEM;
+  }
+  
+  memmove(buf, p->buf, p->lbuf);
+  tbuf = buf + p->lbuf;
+  memmove(tbuf, &c->lname, sizeof(uint8_t));
+  tbuf += sizeof(uint8_t);
+  memmove(tbuf, c->name, sizeof(uint8_t) * c->lname);
+
+  if (p->lbuf > 0) {
+    free(p->buf);
+  }
+
+  p->buf = buf;
+  p->lbuf = p->lbuf + sizeof(uint8_t) + c->lname;
+  
+  p->stat.size++;
+
+  c->cnext = p->children;
+  p->children = c;
+
+  c->parent = p;
+
+  return OK;
+}
+
+static int
+removechild(struct file *p, struct file *f)
+{
+  struct file *c;
+  uint8_t *buf, *tbuf;
+
+  if ((f->stat.attr & ATTR_dir) && f->lbuf > 0) {
+    return ENOTEMPTY;
+  }
+
+  buf = malloc(p->lbuf - 1 - f->lname);
+  if (buf == nil) {
+    return ENOMEM;
+  }
+
+  /* Remove from parent */
+  for (c = p->children; c != nil && c->cnext != f; c = c->cnext)
+    ;
+
+  if (c == nil) {
+    p->children = f->cnext;
+  } else {
+    c->cnext = f->cnext;
+  }
+
+  tbuf = buf;
+  for (c = p->children; c != nil; c = c->cnext) {
+    memmove(tbuf, &c->lname, sizeof(uint8_t));
+    tbuf += sizeof(uint8_t);
+    memmove(tbuf, c->name, c->lname);
+    tbuf += c->lname;
+  }
+
+  p->buf = buf;
+  p->lbuf = p->lbuf - 1 - f->lname;
+  
+  p->stat.size--;
+
+  if (f->buf != nil) {
+    rmmem(f->buf, f->stat.size);
+  }
+
+  free(f);
+  return OK;
 }
 
 static void
@@ -182,12 +259,11 @@ bcreate(struct request *req, struct response *resp)
   }
 
   new->buf = 0;
-  new->usize = 0;
+  new->lbuf = 0;
   new->stat.attr = attr;
   new->stat.size = 0;
   new->fid = nfid++;
   new->open = 0;
-  new->parent = p;
   new->children = nil;
 
   new->lname = lname;
@@ -201,60 +277,34 @@ bcreate(struct request *req, struct response *resp)
     return;
   }
 
-  p->stat.size += sizeof(uint8_t) + (1 + lname);
-  new->cnext = p->children;
-  p->children = new;
-  
-  resp->ret = OK;
-  resp->lbuf = sizeof(uint32_t);
-
-  memmove(resp->buf, &new->fid, sizeof(uint32_t));
+  resp->ret = addchild(p, new);
+  if (resp->ret != OK) {
+    free(resp->buf);
+    free(new);
+  } else {
+    resp->lbuf = sizeof(uint32_t);
+    memmove(resp->buf, &new->fid, sizeof(uint32_t));
+  }
 }
 
 static void
 bremove(struct request *req, struct response *resp)
 {
-  struct file *f, *p, *c;
+  struct file *f;
 
-  printf("tmp remove %i\n", req->fid);
-  
   f = findfile(root, req->fid);
   if (f == nil) {
     resp->ret = ENOFILE;
     return;
   } else if (f->open > 0) {
-    printf("%i open, not removeing\n", req->fid);
     resp->ret = ERR;
     return;
   } else if (f->children != nil) {
-    printf("%i not empty\n", req->fid);
     resp->ret = ENOTEMPTY;
     return;
   }
 
-  p = f->parent;
-
-  /* Remove from parent */
-  for (c = p->children; c != nil && c->cnext != f; c = c->cnext)
-    ;
-
-  if (c == nil) {
-    p->children = f->cnext;
-  } else {
-    c->cnext = f->cnext;
-  }
-
-  p->stat.size -= sizeof(uint8_t) * (1 + f->lname);
-
-  if (f->buf != nil) {
-    printf("%i remove buf\n", req->fid);
-    rmmem(f->buf, f->stat.size);
-  }
-
-  printf("%i free\n", req->fid);
-  free(f);
-  
-  resp->ret = OK;
+  resp->ret = removechild(f->parent, f);
 }
 
 static void
@@ -262,25 +312,19 @@ breaddir(struct request *req, struct response *resp,
 	 struct file *file,
 	 uint32_t offset, uint32_t len)
 {
-  struct file *c;
-  uint8_t *buf;
+  printf("tmp read dir %s\n", file->name);
+
+  if (offset + len > file->lbuf) {
+    len = file->lbuf - offset;
+  }
   
-  buf = malloc(file->stat.size);
-  if (buf == nil) {
+  resp->buf = malloc(len);
+  if (resp->buf == nil) {
     resp->ret = ENOMEM;
     return;
   }
 
-  resp->buf = buf;
-  for (c = file->children; c != nil; c = c->cnext) {
-    memmove(buf, &c->lname, sizeof(uint8_t));
-    buf += sizeof(uint8_t);
-    memmove(buf, c->name, sizeof(uint8_t) * c->lname);
-    buf += sizeof(uint8_t) * c->lname;
-  }
-
-  buf = resp->buf;
-  resp->buf = buf + offset;
+  memmove(resp->buf, file->buf + offset, len);
   resp->lbuf = len;
   resp->ret = OK;
 }
@@ -292,13 +336,8 @@ breadfile(struct request *req, struct response *resp,
 {
   uint32_t rlen;
 
-  if (offset + len > file->usize) {
-    resp->ret = EOF;
-    return;
-  }
-  
-  if (len > file->stat.size) {
-    rlen = file->stat.size - offset;
+  if (offset + len >= file->lbuf) {
+    rlen = file->lbuf - offset;
   } else {
     rlen = len;
   }
@@ -331,7 +370,7 @@ bread(struct request *req, struct response *resp)
   f = findfile(root, req->fid);
   if (f == nil) {
     resp->ret = ENOFILE;
-  } else if (offset >= f->stat.size) {
+  } else if (offset >= f->lbuf) {
     resp->ret = EOF;
   } else if (f->stat.attr & ATTR_dir) {
     breaddir(req, resp, f, offset, len);
@@ -359,13 +398,6 @@ bwrite(struct request *req, struct response *resp)
     resp->ret = ENOFILE;
   }
 
-  resp->buf = malloc(sizeof(uint32_t));
-  if (resp->buf == nil) {
-    resp->ret = ENOMEM;
-    return;
-  }
-  resp->lbuf = sizeof(uint32_t);
-
   if (offset + len > f->stat.size) {
     nsize = offset + len;
     nbuf = getmem(MEM_ram, nil, &nsize);
@@ -378,18 +410,25 @@ bwrite(struct request *req, struct response *resp)
       memmove(nbuf, f->buf, f->stat.size);
       rmmem(f->buf, f->stat.size);
     }
-    
+
     f->stat.size = nsize;
     f->buf = nbuf;
   }
 
-  if (offset + len > f->usize) {
-    f->usize = offset + len;
+  if (offset + len > f->lbuf) {
+    f->lbuf = offset + len;
+  }
+
+  resp->buf = malloc(sizeof(uint32_t));
+  if (resp->buf == nil) {
+    resp->ret = ENOMEM;
+    return;
   }
 
   memmove(f->buf + offset, buf, len);
   memmove(resp->buf, &len, sizeof(uint32_t));
   resp->ret = OK;
+  resp->lbuf = sizeof(uint32_t);
 }
  
 static struct fsmount mount = {
@@ -436,6 +475,9 @@ tmpmount(char *path)
   root->fid = nfid++;
   root->lname = 0;
 
+  root->lbuf = 0;
+  root->buf = nil;
+  
   root->stat.attr = ATTR_rd|ATTR_wr|ATTR_dir;
   root->stat.size = 0;
   root->open = 0;

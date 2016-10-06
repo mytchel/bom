@@ -77,7 +77,10 @@ sysfork(va_list args)
   p->inkernel = false;
   p->parent = current;
   p->quanta = current->quanta;
+
   p->dot = copypath(current->dot);
+  p->dotchan = current->dotchan;
+  atomicinc(&p->dotchan->refs);
 
   p->stack = copypagel(current->stack);
 

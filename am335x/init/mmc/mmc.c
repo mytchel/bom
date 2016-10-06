@@ -521,8 +521,6 @@ cardinit(struct mmc *mmc)
   }
 
   if (!cardidentification(mmc)) {
-    printf("%s failed to do card identification\n", mmc->name);
-    printf("%s cmd reset\n", mmc->name);
     mmccmdreset(mmc);
   }
 
@@ -602,8 +600,6 @@ mmchsproc(char *name, void *addr, int intr)
     return -2;
   }
 
-  printf("%s set up controler\n", mmc.name);
-
   if (!mmchssoftreset(&mmc)) {
     printf("%s failed to reset host!\n", mmc.name);
     return -2;
@@ -618,8 +614,6 @@ mmchsproc(char *name, void *addr, int intr)
     printf("%s failed to init host stream!\n", mmc.name);
     return -2;
   }
-
-  printf("%s set up card\n", mmc.name);
 
   if (!cardinit(&mmc)) {
     printf("%s failed to init card!\n", mmc.name);

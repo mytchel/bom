@@ -25,8 +25,114 @@
  */
 
 #include <libc.h>
+#include <fs.h>
+#include <stdarg.h>
+#include <string.h>
 
 #define LINE_MAX 512
+
+static int ret = 0;
+static char pwd[FS_NAME_MAX * 10] = "/";
+
+static int cmdls(char *line);
+static int cmdcd(char *line);
+static int cmdpwd(char *line);
+
+struct cmd {
+  char *name;
+  int (*func)(char *);
+};
+
+struct cmd cmds[] = {
+  { "ls",     &cmdls },
+  { "cd",     &cmdcd },
+  { "pwd",    &cmdpwd },
+  { nil, nil },
+};
+
+int
+cmdls(char *line)
+{
+  uint8_t buf[FS_NAME_MAX+2], len;
+  struct stat s;
+  char *filename;
+  int r, fd;
+
+  filename = strtok(nil, " ");
+
+  if (filename == nil) {
+    filename = ".";
+  }
+
+  if (stat(filename, &s) != OK) {
+    printf("Error statting '%s'\n", filename);
+    return ERR;
+  }
+
+  if (!(s.attr & ATTR_dir)) {
+    printf("%b %u %s\n", s.attr, s.size, filename);
+    return OK;
+  }
+
+  if (chdir(filename) != OK) {
+    printf("Failed to descend into '%s'\n", filename);
+    return ERR;
+  }
+  
+  fd = open(".", O_RDONLY);
+  if (fd < 0) {
+    printf("Error opening '%s'\n", filename);
+    return ERR;
+  }
+
+  while ((r = read(fd, buf, FS_NAME_MAX)) > 0) {
+    len = buf[0];
+    buf[len+1] = 0;
+
+    r = seek(fd, -(r - len - 1), SEEK_CUR);
+
+    if (stat((const char *) &buf[1], &s) != OK) {
+      printf("stat error %s\n", &buf[1]);
+      continue;
+    }
+
+    printf("%b %u %s\n", s.attr, s.size, &buf[1]);
+  }
+
+  close(fd);
+
+  chdir(pwd);
+  
+  return OK;
+}
+
+int
+cmdcd(char *line)
+{
+  char *dir;
+
+  dir = strtok(nil, " ");
+  if (dir == nil) {
+    dir = "/";
+  }
+
+  if (chdir(dir) != OK) {
+    printf("Failed to change to '%s'\n", dir);
+    return ERR;
+  }
+
+  memmove(pwd, ".", 2);
+  cleanpath(pwd, pwd, sizeof(pwd));
+  
+  return 0;
+}
+
+int
+cmdpwd(char *line)
+{
+  printf("%s\n", pwd);
+  return OK;
+}
 
 static int
 readline(uint8_t *data, size_t max)
@@ -51,9 +157,26 @@ readline(uint8_t *data, size_t max)
 }
 
 static void
-processline(uint8_t *data)
+processline(char *line)
 {
-  printf("Still need to impliment this\n");
+  char *cmd;
+  int i;
+
+  cmd = strtok(line, " ");
+
+  i = 0;
+  while (cmds[i].name) {
+    if (strcmp(cmds[i].name, cmd)) {
+      ret = cmds[i].func(line);
+      break;
+    }
+
+    i++;
+  }
+
+  if (cmds[i].name == nil) {
+    printf("cmd not found: %s\n", cmd);
+  }
 }
 
 int
@@ -64,7 +187,7 @@ shell(void)
   while (true) {
     printf("%% ");
     readline(line, LINE_MAX);
-    processline(line);
+    processline((char *) line);
   }
 
   return 0;

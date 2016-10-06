@@ -71,7 +71,7 @@ makereq(struct binding *b, struct request *req)
 }
 
 static int
-filestat(struct binding *b, uint32_t fid, struct stat *stat)
+filestatfid(struct binding *b, uint32_t fid, struct stat *stat)
 {
   struct response *resp;
   struct request req;
@@ -109,7 +109,7 @@ findfileindir(struct binding *b, uint32_t fid, struct stat *stat,
   struct request req;
   uint32_t f;
 
-  *err = filestat(b, fid, stat);
+  *err = filestatfid(b, fid, stat);
   if (*err != OK) {
     return 0;
   } else if (!(stat->attr & ATTR_dir)) {
@@ -166,7 +166,7 @@ findfile(struct path *path,
   }
 
   if (path == nil) {
-    *err = filestat(b, b->rootfid, stat);
+    *err = filestatfid(b, b->rootfid, stat);
     if (*err != OK) {
       return nil;
     } else {
@@ -251,6 +251,22 @@ filecreate(struct binding *b, uint32_t pfid, char *name,
   return cfid;
 }
 
+int 
+filestat(struct path *path, struct stat *stat)
+{
+  struct stat pstat;
+  struct binding *b;
+  uint32_t fid;
+  int err;
+  
+  b = findfile(path, &fid, &pstat, &err);
+  if (err != OK) {
+    return err;
+  }
+
+  return filestatfid(b, fid, stat);
+}
+
 static bool
 checkmode(struct stat *stat, uint32_t mode)
 {
@@ -291,7 +307,7 @@ fileopen(struct path *path, uint32_t mode, uint32_t cmode, int *err)
     }
   }
 
-  *err = filestat(b, fid, &stat);
+  *err = filestatfid(b, fid, &stat);
   if (*err != OK) {
     return nil;
   }
@@ -496,7 +512,7 @@ fileseek(struct chan *c, size_t offset, int whence)
     return ERR;
   }
 
-  return OK;
+  return cfile->offset;
 }
 
 static int

@@ -27,6 +27,7 @@
 
 #include <libc.h>
 #include <fs.h>
+#include <fssrv.h>
 #include <stdarg.h>
 #include <string.h>
 #include <block.h>
@@ -56,7 +57,7 @@ struct partition {
   bool active;
   
   uint8_t lname;
-  uint8_t name[FS_LNAME_MAX+1];
+  uint8_t name[FS_NAME_MAX+1];
   
   uint32_t fid;
   struct stat stat;
@@ -71,9 +72,12 @@ static struct stat rootstat = {
   0,
 };
 
-static uint8_t *rootbuf;
+static uint8_t *rootbuf = nil;
+static size_t rootbuflen;
 
-static struct blkdevice *device;
+static uint32_t nfid = ROOTFID;
+
+static struct blkdevice *device = nil;
 
 static struct mbr mbr;
 struct partition parts[5]; /* 4 mbr parts + raw */
@@ -84,12 +88,12 @@ initparts(void)
   char c = 'a';
   int i;
 
-  snprintf((char *) parts[0].name, FS_LNAME_MAX,
-	   "%sraw", device->name);
+  snprintf((char *) parts[0].name, FS_NAME_MAX,
+	   "raw");
 
   parts[0].lname = strlen((char *) parts[0].name);
 
-  parts[0].fid = 1;
+  parts[0].fid = ++nfid;
   parts[0].active = true;
   parts[0].stat.size = device->nblk * 512;
   parts[0].stat.attr = ATTR_wr|ATTR_rd;
@@ -98,13 +102,15 @@ initparts(void)
   parts[0].mbr = nil;
 
   for (i = 1; i < 5; i++) {
-    parts[i].fid = i + 1;
+    parts[i].fid = ++nfid;
+    parts[i].mbr = &mbr.parts[i-1];
 
-    snprintf((char *) parts[i].name, FS_LNAME_MAX,
-	     "%s%c", device->name, c + i);
+    snprintf((char *) parts[i].name, FS_NAME_MAX,
+	     "%c", c++);
 
     parts[i].lname = strlen((char *) parts[i].name);
 
+    parts[i].stat.attr = ATTR_wr|ATTR_rd;
     parts[i].active = false;
   }
 }
@@ -115,27 +121,24 @@ updateparts(void)
   int i;
   uint8_t *buf;
 
-  rootstat.size = 1 + parts[0].lname;
+  rootbuflen = 1 + parts[0].lname;
+  rootstat.size = 1;
 
   for (i = 1; i < 5; i++) {
-    parts[i].mbr = &mbr.parts[i-1];
-   
     if (parts[i].mbr->type != 0) {
       parts[i].active = true;
-      
-      rootstat.size += sizeof(uint8_t)
+
+      rootstat.size++;
+      rootbuflen += sizeof(uint8_t)
 	* (1 + parts[i].lname);
 
-      memmove(&parts[i].lba, &mbr.parts[i].lba,
+      memmove(&parts[i].lba, &parts[i].mbr->lba,
 	      sizeof(uint32_t));
-      memmove(&parts[i].sectors, &mbr.parts[i].sectors,
+
+      memmove(&parts[i].sectors, &parts[i].mbr->sectors,
 	      sizeof(uint32_t));
 
       parts[i].stat.size = parts[i].sectors * 512;
-
-      parts[i].active = true;
-
-      rootstat.size += 1 + parts[i].lname;
     } else {
       parts[i].active = false;
     }
@@ -145,14 +148,16 @@ updateparts(void)
     free(rootbuf);
   }
   
-  rootbuf = malloc(rootstat.size);
+  rootbuf = malloc(rootbuflen);
   if (rootbuf == nil) {
-    printf("MBR failed to malloc rootbuf!\n");
+    printf("Failed to malloc mbr rootbuf!\n");
     exit(-1);
   }
 
   buf = rootbuf;
   for (i = 0; i < 5; i++) {
+    if (parts[i].active == false) continue;
+    
     memmove(buf, &parts[i].lname, sizeof(uint8_t));
     buf += sizeof(uint8_t);
     memmove(buf, &parts[i].name, sizeof(uint8_t) * parts[i].lname);
@@ -160,17 +165,15 @@ updateparts(void)
   }
 }
 
-static bool
+static void
 updatembr(void)
 {
   if (!(device->read(device->aux, 0, (uint8_t *) &mbr))) {
-    printf("read failed\n");
-    return false;
+    printf("mbr read failed\n");
+    exit(ERR);
   }
 
   updateparts();
-
-  return true;
 }
 
 static struct partition *
@@ -194,19 +197,23 @@ fidtopart(uint32_t fid)
 static void
 bfid(struct request *req, struct response *resp)
 {
+  struct partition *part = nil;
   int i;
 
+  req->buf[req->lbuf] = 0;
+  
   for (i = 0; i < 5; i++) {
     if (parts[i].active) {
       if (parts[i].lname != req->lbuf) continue;
       if (strncmp((char *) parts[i].name, (char *) req->buf,
 		  parts[i].lname)) {
+	part = &parts[i];
 	break;
       }
     }
   }
 
-  if (i == 4) {
+  if (part == nil) {
     resp->ret = ENOFILE;
     return;
   }
@@ -218,7 +225,7 @@ bfid(struct request *req, struct response *resp)
   }
 
   resp->lbuf = sizeof(uint32_t);
-  memmove(resp->buf, &parts[i].fid, sizeof(uint32_t));
+  memmove(resp->buf, &part->fid, sizeof(uint32_t));
   resp->ret = OK;
 }
 
@@ -227,8 +234,8 @@ bstat(struct request *req, struct response *resp)
 {
   struct partition *part;
   struct stat *s = nil;
-  
-  if (req->fid == 0) {
+
+  if (req->fid == ROOTFID) {
     s = &rootstat;
   }
 
@@ -249,14 +256,12 @@ bstat(struct request *req, struct response *resp)
 static void
 bopen(struct request *req, struct response *resp)
 {
-  printf("%s opened\n", device->name);
   resp->ret = OK;
 }
 
 static void
 bclose(struct request *req, struct response *resp)
 {
-  printf("%s close\n", device->name);
   resp->ret = OK;
 }
 
@@ -266,7 +271,11 @@ breadroot(struct request *req, struct response *resp,
 {
   uint32_t rlen;
 
-  rlen = offset + len > rootstat.size ? rootstat.size - offset : len;
+  if (offset + len > rootbuflen) {
+    rlen = rootbuflen - offset;
+  } else {
+    rlen = len;
+  }
   
   resp->buf = malloc(rlen);
   if (resp->buf == nil) {
@@ -322,7 +331,7 @@ bread(struct request *req, struct response *resp)
   memmove(&len, buf, sizeof(uint32_t));
   buf += sizeof(uint32_t);
   
-  if (req->fid == 0) {
+  if (req->fid == ROOTFID) {
     breadroot(req, resp, offset, len);
     return;
   } else if (len % 512 != 0 || offset % 512 != 0) {
@@ -370,11 +379,7 @@ mbrmountthread(struct blkdevice *d, uint8_t *dir)
   }
 
   initparts();
-  
-  if (!updatembr()) {
-    printf("%s failed to read mbr\n", device->name);
-    exit(-2);
-  }
+  updatembr();
 
   snprintf(filename, sizeof(filename), "%s/%s", dir, device->name);
 

@@ -27,6 +27,7 @@
 
 #include <libc.h>
 #include <fs.h>
+#include <fssrv.h>
 
 bool debugfs = false;
 

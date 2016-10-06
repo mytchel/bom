@@ -48,6 +48,8 @@ main(void)
 {
   int f, fd, fds[2];
 
+  chdir("/");
+
   fd = open("/dev", O_WRONLY|O_CREATE,
 	    ATTR_wr|ATTR_rd|ATTR_dir);
   if (fd < 0) {
@@ -67,15 +69,11 @@ main(void)
   if (stdout < 0) return -3;
   if (stderr < 0) return -3;
 
-  printf("/dev/com mounted pid %i\n", f);
-
   f = tmpmount("/tmp");
   if (f < 0) {
     return -1;
   }
   
-  printf("/tmp mounted on pid %i\n", f);
-
   if (pipe(fds) == ERR) {
     return -3;
   }

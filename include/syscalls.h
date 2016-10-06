@@ -28,27 +28,31 @@
 #ifndef _SYSCALLS_H_
 #define _SYSCALLS_H_
 
-#define SYSCALL_EXIT		1
-#define SYSCALL_FORK		2
-#define SYSCALL_SLEEP		3
-#define SYSCALL_GETPID		4
+#define SYSCALL_EXIT            1
+#define SYSCALL_FORK            2
+#define SYSCALL_SLEEP           3
+#define SYSCALL_GETPID          4
+#define SYSCALL_CHDIR           5
 
-#define SYSCALL_PIPE	        5	
-#define SYSCALL_READ	        6	
-#define SYSCALL_WRITE	        7	
-#define SYSCALL_SEEK	        8	
-#define SYSCALL_CLOSE	        9	
+#define SYSCALL_PIPE	        6	
 
-#define SYSCALL_OPEN           10 
-#define SYSCALL_REMOVE	       11
-#define SYSCALL_BIND           12
+#define SYSCALL_READ	        7	
+#define SYSCALL_WRITE	        8	
+#define SYSCALL_SEEK	        9	
+#define SYSCALL_CLOSE	       10	
 
-#define SYSCALL_GETMEM         13
-#define SYSCALL_RMMEM          14
+#define SYSCALL_STAT	       11	
+#define SYSCALL_OPEN           12 
+#define SYSCALL_REMOVE	       13
+#define SYSCALL_BIND           14
+#define SYSCALL_CLEANPATH      15
 
-#define SYSCALL_WAITINTR       15
+#define SYSCALL_GETMEM         16
+#define SYSCALL_RMMEM          17
 
-#define NSYSCALLS              16
+#define SYSCALL_WAITINTR       18
+
+#define NSYSCALLS              19
 
 #define OK		0
 /* General error */

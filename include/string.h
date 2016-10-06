@@ -43,4 +43,7 @@ vsnprintf(char *str, size_t max, const char *fmt, va_list ap);
 size_t
 snprintf(char *str, size_t max, const char *fmt, ...);
 
+char *
+strtok(char *str, const char *sep);
+
 #endif

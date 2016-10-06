@@ -29,9 +29,11 @@
 #include <stdarg.h>
 #include <string.h>
 #include <fs.h>
+#include <fssrv.h>
 
 #define UART0   	0x44E09000
 #define UART0_LEN   	0x1000
+#define UART0_INTR      72
 
 #define BUF_SIZE        512
 

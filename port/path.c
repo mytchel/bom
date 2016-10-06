@@ -38,7 +38,7 @@ strtopathh(struct path *prev, const char *str)
     return strtopathh(prev, str + 1);
   } else if (i == 0) {
     return nil;
-  } else if (i > FS_LNAME_MAX) {
+  } else if (i >= FS_NAME_MAX) {
     return nil;
   }
 	
@@ -51,9 +51,10 @@ strtopathh(struct path *prev, const char *str)
   for (j = 0; j < i; j++)
     p->s[j] = str[j];
   p->s[j] = 0;
-	
+
   p->prev = prev;
   p->next = strtopathh(p, str + i);
+
   return p;
 }
 
@@ -64,7 +65,7 @@ strtopath(const char *str)
 }
 
 char *
-pathtostr(struct path *p, int *n)
+pathtostr(struct path *p, size_t *n)
 {
   char *str;
   size_t len, i;
@@ -74,7 +75,7 @@ pathtostr(struct path *p, int *n)
   if (p == nil) {
     len = 1;
   }
-	
+
   for (pp = p; pp != nil; pp = pp->next)
     len += strlen(pp->s) + 1;
 
@@ -104,7 +105,7 @@ struct path *
 realpath(struct path *po, const char *str)
 {
   struct path *pstr, *pp, *pt, *path;
-
+  
   pstr = strtopath(str);
   if (str[0] == '/' || po == nil) {
     path = pstr;
@@ -112,41 +113,22 @@ realpath(struct path *po, const char *str)
     path = copypath(po);
 
     for (pp = path; pp != nil && pp->next != nil; pp = pp->next);
-
     pp->next = pstr;
+    if (pstr != nil) {
+      pstr->prev = pp;
+    }
   }
-	
+
   pp = path;
   while (pp != nil) {
     if (strcmp(pp->s, "..")) {
       /* Remove current and previous part */
-      pt = pp->prev;
-      if (pt == nil) {
-	path = pp->next;
-	if (pp->next != nil)
-	  pp->next->prev = nil;
-				
-	free(pp->s);
-	free(pp);
-	pp = path;
-      } else {
-	if (pt->prev != nil) {
-	  pt->prev->next = pp->next;
-	  if (pp->next != nil)
-	    pp->next->prev = pt->prev;
-	} else {
-	  path = pp->next;
-	  if (pp->next != nil)
-	    pp->next->prev = nil;
-	}
-				
-	free(pt->s);
-	free(pt);
 
-	pt = pp;
-	pp = pp->next;
-	free(pt->s);
-	free(pt);
+      memmove(pp->s, ".", 2);
+      pt = pp->prev;
+      if (pt != nil) {
+	memmove(pt->s, ".", 2);
+	pp = pt;
       }	
     } else if (strcmp(pp->s, ".")) {
       /* Remove current part */
@@ -158,18 +140,18 @@ realpath(struct path *po, const char *str)
 	path = pp->next;
       }
 			
-      if (pp->next != nil)
+      if (pp->next != nil) {
 	pp->next->prev = pp->prev;
+      }
 			
       pp = pp->next;
 			
-      free(pt->s);
       free(pt);
     } else {
       pp = pp->next;
     }
   }
-	
+
   return path;
 }
 
@@ -177,7 +159,6 @@ struct path *
 copypath(struct path *o)
 {
   struct path *n, *nn;
-  size_t l;
 	
   if (o == nil)
     return nil;
@@ -187,15 +168,14 @@ copypath(struct path *o)
   nn->prev = nil;
 	
   while (o != nil) {
-    l = strlen(o->s) + 1;
-    memmove(nn->s, o->s, l);
+    memmove(nn->s, o->s, FS_NAME_MAX);
 
     o = o->next;
     if (o != nil) {
       nn->next = malloc(sizeof(struct path));
       nn->next->prev = nn;
       nn = nn->next;
-    }
+    } 
   }
 	
   nn->next = nil;
@@ -211,6 +191,5 @@ freepath(struct path *p)
 		
   freepath(p->next);
 	
-  free(p->s);
   free(p);
 }

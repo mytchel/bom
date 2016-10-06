@@ -71,6 +71,9 @@ rmmem(void *addr, size_t size);
 int
 waitintr(int intr);
 
+int
+chdir(const char *dir);
+
 /* Writes to fds[1] can be read from fds[0] */
 int
 pipe(int fds[2]);
