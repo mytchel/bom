@@ -648,7 +648,7 @@ mmchsproc(char *name, void *addr, int intr)
     return mmc.mbrpid;
   } else {
     while (true)
-      sleep(100);
+      sleep(1000000);
   }
 
   return 0;

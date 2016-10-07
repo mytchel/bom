@@ -85,18 +85,19 @@ cmdls(char *line)
     return ERR;
   }
 
-  while ((r = read(fd, buf, FS_NAME_MAX)) > 0) {
-    len = buf[0];
-    buf[len+1] = 0;
+  while ((r = read(fd, &len, sizeof(len))) > 0) {
+    if (read(fd, buf, len) <= 0) {
+      break;
+    }
 
-    r = seek(fd, -(r - len - 1), SEEK_CUR);
+    buf[len] = 0;
 
-    if (stat((const char *) &buf[1], &s) != OK) {
-      printf("stat error %s\n", &buf[1]);
+    if (stat((const char *) buf, &s) != OK) {
+      printf("stat error %s\n", buf);
       continue;
     }
 
-    printf("%b %u %s\n", s.attr, s.size, &buf[1]);
+    printf("%b %u %s\n", s.attr, s.size, buf);
   }
 
   close(fd);
@@ -122,7 +123,8 @@ cmdcd(char *line)
   }
 
   memmove(pwd, ".", 2);
-  cleanpath(pwd, pwd, sizeof(pwd));
+  cleanpath(pwd, pwd+1, sizeof(pwd));
+  pwd[0] = '/';
   
   return 0;
 }
