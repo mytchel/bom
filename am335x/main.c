@@ -34,9 +34,6 @@ extern int initcodetextlen, initcodedatalen;
 static void
 initmainproc(void);
 
-static void
-initnullproc(void);
-
 int
 main(void)
 {
@@ -47,7 +44,8 @@ main(void)
   inittimers();
   initwatchdog();
 
-  initnullproc();
+  initscheduler();
+
   initroot();
   initmainproc();
 
@@ -116,7 +114,7 @@ initmainproc(void)
   struct pagel *pl;
   struct page *pg;
 		
-  p = newproc();
+  p = newproc(50);
   if (p == nil) {
     printf("Failed to create main proc\n");
     return;
@@ -149,7 +147,7 @@ initmainproc(void)
 }
 
 int
-nullproc(void *arg)
+nullprocfunc(void *arg)
 {
   while (true) {
 
@@ -158,17 +156,3 @@ nullproc(void *arg)
   return 0;
 }
 
-void
-initnullproc(void)
-{
-  struct proc *p;
-
-  p = newproc();
-  if (p == nil) {
-    printf("Failed to create null proc\n");
-    return;
-  }
-	
-  forkfunc(p, &nullproc, nil);
-  procready(p);
-}

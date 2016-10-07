@@ -27,94 +27,157 @@
 
 #include "head.h"
 
-static struct proc *
-nextproc(void);
+static void addtolist(struct proc **, struct proc *);
+static void removefromlist(struct proc **, struct proc *);
+
+struct priority_queue {
+  uint32_t quanta;
+  struct proc *ready;
+  struct proc *used;
+};
+
+struct proc *current = nil;
 
 static uint32_t nextpid = 1;
-static struct proc procs[MAX_PROCS] = {{0}};
 
-struct proc *current = &procs[0];
+static struct priority_queue priorities[MIN_PRIORITY + 2];
+
+static struct proc *sleeping = nil;
+static struct proc *suspended = nil;
+static struct proc *nullproc;
+
+void
+initscheduler(void)
+{
+  int i;
+
+  for (i = 1; i <= MIN_PRIORITY; i++) {
+    priorities[i].quanta = 300 - i;
+    priorities[i].ready = nil;
+    priorities[i].used = nil;
+  }
+
+  priorities[MIN_PRIORITY+1].quanta = 10;
+  priorities[MIN_PRIORITY+1].ready = nil;
+  priorities[MIN_PRIORITY+1].used = nil;
+
+  nullproc = newproc(MIN_PRIORITY+1);
+  if (nullproc == nil) {
+    panic("Failed to create null proc!\n");
+  }
+  
+  forkfunc(nullproc, &nullprocfunc, nil);
+  procready(nullproc);
+  current = nullproc;
+}
+
+static struct proc *
+nextproc()
+{
+  struct proc *p;
+  unsigned int i;
+
+  for (i = 1; i <= MIN_PRIORITY; i++) {
+    p = priorities[i].ready;
+    if (p != nil) {
+      priorities[i].ready = p->next;
+      p->list = nil;
+      return p;
+    }
+  }
+
+  for (i = 1; i <= MIN_PRIORITY; i++) {
+    priorities[i].ready = priorities[i].used;
+    priorities[i].used = nil;
+
+    p = priorities[i].ready;
+    if (p != nil) {
+      priorities[i].ready = p->next;
+      p->list = nil;
+      return p;
+    }
+  }
+
+  return nullproc;
+}
+
+static void
+updatesleeping(uint32_t t)
+{
+  struct proc *p, *pp, *pt;
+
+  pp = nil;
+  p = sleeping;
+  while (p != nil) {
+    if (t >= p->sleep) {
+      if (pp == nil) {
+	sleeping = p->next;
+      } else {
+	pp->next = p->next;
+      }
+
+      pt = p->next;
+
+      p->state = PROC_ready;
+      addtolist(&priorities[p->priority].ready, p);
+
+      p = pt;
+    } else {
+      p->sleep -= t;
+
+      pp = p;
+      p = p->next;
+    }
+  }
+}
 
 void
 schedule(void)
 {
+  uint32_t t;
+
   if (setlabel(&current->label)) {
     return;
   }
-	
-  current = nextproc();
-  setsystick(current->quanta);
-  mmuswitch(current);
-  gotolabel(&current->label);
-}
-
-struct proc *
-nextproc(void)
-{
-  struct proc *p;
-  uint32_t t;
 
   t = ticks();
+
+  current->timeused += t;
+  if (current->state == PROC_ready) {
+    if (current->timeused >= priorities[current->priority].quanta) {
+      current->timeused = 0;
+      addtolist(&priorities[current->priority].used, current);
+    } else {
+      addtolist(&priorities[current->priority].ready, current);
+    }
+  }
+
+  updatesleeping(t);
 	
-  for (p = procs->next; p != nil; p = p->next) {
-    if (p->state == PROC_sleeping) {
-      if (t >= p->sleep) {
-	p->state = PROC_ready;
-      } else {
-	p->sleep -= t;
-      }
-    }
-  }
-
-  p = current;
-  do {
-    p = p->next;
-    if (p == nil) {
-      p = procs->next;
-    }
-
-    if (p->state == PROC_ready) {
-      break;
-    }
-
-  } while (p != current);
-
-  if (p->state != PROC_ready) {
-    panic("No process to run!\n");
-  }
-
-  return p;
+  current = nextproc();
+  mmuswitch(current);
+  setsystick(priorities[current->priority].quanta - current->timeused);
+  gotolabel(&current->label);
 }
 	
 struct proc *
-newproc(void)
+newproc(unsigned int priority)
 {
-  int i;
-  struct proc *p, *pp;
+  struct proc *p;
 	
-  p = nil;
-
-  disableintr();
-  for (i = 1; i < MAX_PROCS; i++) {
-    if (procs[i].state == PROC_unused) {
-      p = &procs[i];
-      p->state = PROC_suspend;
-      break;
-    }
-  }
-
-  enableintr();
-
-  if (p == nil)
+  p = malloc(sizeof(struct proc));
+  if (p == nil) {
     return nil;
+  }
 	
+  p->priority = priority;
+  
   p->faults = 0;
   p->ureg = nil;
-  p->wnext = nil;
   p->inkernel = true;
 
-  p->quanta = 10;
-
+  p->timeused = 0;
+  
   p->pid = nextpid++;
   p->parent = nil;
 
@@ -128,29 +191,18 @@ newproc(void)
   p->fgroup = nil;
   p->ngroup = nil;
 
-  disableintr();
+  p->state = PROC_suspend;
+  addtolist(&suspended, p);
 
-  for (pp = procs; pp->next; pp = pp->next);
-  pp->next = p;
-  p->next = nil;
-
-  enableintr();
-		
   return p;
 }
 
 void
 procremove(struct proc *p)
 {
-  struct proc *pp;
+  removefromlist(p->list, p);
 
-  /* Remove proc from list. */
-  for (pp = procs; pp != nil && pp->next != p; pp = pp->next);
-  if (pp == nil) /* Umm */
-    panic("proc remove somehow didn't find previous proc!\n");
-  
-  pp->next = p->next;
-
+  freechan(p->dotchan);
   freepath(p->dot);
 
   freepagel(p->stack);
@@ -164,14 +216,27 @@ procremove(struct proc *p)
 
   if (p->ngroup != nil)
     freengroup(p->ngroup);
-	
-  p->state = PROC_unused;
+
+  free(p);
+}
+
+void
+procsetpriority(struct proc *p, unsigned int priority)
+{
+  p->priority = priority;
+  
+  if (p->state == PROC_ready) {
+    removefromlist(p->list, p);
+    addtolist(&priorities[p->priority].ready, p);
+  }
 }
 
 void
 procready(struct proc *p)
 {
   p->state = PROC_ready;
+  removefromlist(p->list, p);
+  addtolist(&priorities[p->priority].ready, p);
 }
 
 void
@@ -179,16 +244,53 @@ procsleep(struct proc *p, uint32_t ms)
 {
   p->state = PROC_sleeping;
   p->sleep = mstoticks(ms);
+
+  removefromlist(p->list, p);
+  addtolist(&sleeping, p);
 }
 
 void
 procsuspend(struct proc *p)
 {
   p->state = PROC_suspend;
+
+  removefromlist(p->list, p);
+  addtolist(&suspended, p);
 }
 
 void
-procwait(struct proc *p)
+procwait(struct proc *p, struct proc **wlist)
 {
   p->state = PROC_waiting;
+
+  removefromlist(p->list, p);
+  addtolist(wlist, p);
+}
+
+void
+addtolist(struct proc **l, struct proc *p)
+{
+  p->list = l;
+  p->next = *l;
+  *l = p;
+}
+
+void
+removefromlist(struct proc **l, struct proc *p)
+{
+  struct proc *pp, *pt;
+
+  if (l == nil) {
+    return;
+  }
+  
+  pp = nil;
+  for (pt = *l; pt != p; pp = pt, pt = pt->next)
+    ;
+
+  if (pp == nil) {
+    *l = p->next;
+  } else {
+    pp->next = p->next;
+  }
 }

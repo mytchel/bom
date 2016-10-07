@@ -60,7 +60,7 @@ int
 mountproc(void *arg)
 {
   struct binding *b;
-  struct proc *p, *pp, *pn;
+  struct proc *p, *pn;
   struct response *resp;
   bool found;
   char *pathstr;
@@ -87,21 +87,13 @@ mountproc(void *arg)
     lock(&b->lock);
 
     found = false;
-    pp = nil;
-    for (p = b->waiting; p != nil; pp = p, p = p->wnext) {
-      if (p->waiting.rid == resp->rid) {
-	disableintr();
-
-	if (pp == nil) {
-	  b->waiting = p->wnext;
-	} else {
-	  pp->wnext = p->wnext;
-	}
-
+    for (p = b->waiting; p != nil; p = p->next) {
+      if ((uint32_t) p->aux == resp->rid) {
 	found = true;
 	p->aux = (void *) resp;
-	procready(p);
 
+	disableintr();
+	procready(p);
 	enableintr();
 	break;
       }
@@ -155,11 +147,11 @@ mountproc(void *arg)
 
   p = b->waiting;
   while (p != nil) {
-    pn = p->wnext;
+    pn = p->next;
 
     printf("kproc mount: wake up %i\n", p->pid);
     p->aux = nil;
-    p->wnext = nil;
+    p->next = nil;
     procready(p);
 
     p = pn;

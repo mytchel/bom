@@ -312,13 +312,7 @@ sysbind(va_list args)
   lock(&current->ngroup->lock);
 
   path = realpath(current->dot, upath);
-
-#if DEBUG == 1
-  char *str = (char *) pathtostr(path, nil);
-  printf("Binding %i to '%s'\n", current->pid, upath);
-  free(str);
-#endif
-  
+ 
   bl = malloc(sizeof(struct binding_list));
   if (bl == nil) {
     freepath(path);
@@ -333,8 +327,8 @@ sysbind(va_list args)
     unlock(&current->ngroup->lock);
     return ENOMEM;
   }
-		
-  p = newproc();
+
+  p = newproc(30);
   if (p == nil) {
     freebinding(bl->binding);
     free(bl);
@@ -353,6 +347,13 @@ sysbind(va_list args)
 	
   unlock(&current->ngroup->lock);
 
+#if DEBUG == 1
+  char *str = (char *) pathtostr(path, nil);
+  printf("Binding %i to '%s', kproc %i\n", current->pid, upath,
+	 p->pid);
+  free(str);
+#endif
+ 
   return OK;
 }
 

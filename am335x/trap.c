@@ -119,15 +119,23 @@ procwaitintr(struct proc *p, int irqn)
     return false;
   }
 
-  for (pp = intrwait; pp != nil; pp = pp->next)
-    if (pp->waiting.intr == irqn)
+  disableintr();
+
+  for (pp = intrwait; pp != nil; pp = pp->next) {
+    if ((uint32_t) pp->aux == irqn) {
+      enableintr();
       return false;
+    }
+  }
   
-  p->waiting.intr = irqn;
-  p->wnext = intrwait;
-  intrwait = p;
+  procwait(p, &intrwait);
+  p->aux = (void *) irqn;
 	
   unmaskintr(irqn);
+
+  schedule();
+
+  enableintr();
 	
   return true;
 }
@@ -135,7 +143,7 @@ procwaitintr(struct proc *p, int irqn)
 static bool
 irqhandler(void)
 {
-  struct proc *p, *pp;
+  struct proc *p;
   uint32_t irq;
   bool r;
 	
@@ -147,15 +155,8 @@ irqhandler(void)
     r = handlers[irq](irq);
   } else {
     /* User proc handler */
-    pp = nil;
-    for (p = intrwait; p != nil; pp = p, p = p->wnext) {
-      if (p->waiting.intr == irq) {
-	if (pp != nil) {
-	  pp->wnext = p->wnext;
-	} else {
-	  intrwait = p->wnext;
-	}
-	
+    for (p = intrwait; p != nil; p = p->next) {
+      if ((uint32_t) p->aux == irq) {
 	procready(p);
 	maskintr(irq);
 	r = true;

@@ -55,15 +55,11 @@ makereq(struct binding *b, struct request *req)
     return nil;
   }
 
-  current->waiting.rid = req->rid;
-  current->wnext = b->waiting;
-  b->waiting = current;
-
+  current->aux = (void *) req->rid;
   disableintr();
 
+  procwait(current, &b->waiting);
   unlock(&b->lock);
-
-  procwait(current);
   schedule();
   enableintr();
 

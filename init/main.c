@@ -46,7 +46,7 @@ int stdin, stdout, stderr;
 int
 main(void)
 {
-  int f, fd, fds[2];
+  int f, fd;
 
   chdir("/");
 
@@ -69,20 +69,21 @@ main(void)
   if (stdout < 0) return -3;
   if (stderr < 0) return -3;
 
+  printf("/dev/com mounted\n");
+
   f = tmpmount("/tmp");
   if (f < 0) {
     return -1;
   }
   
-  if (pipe(fds) == ERR) {
-    return -3;
-  }
+  printf("/tmp mounted\n");
 
   f = initblockdevs();
   if (f < 0) {
     return -1;
   }
 
+  printf("Starting shell\n");
   f = shell();
 
   return f;

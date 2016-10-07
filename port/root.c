@@ -77,7 +77,7 @@ initroot(void)
   atomicdec(&c[1]->refs);
   atomicdec(&c[2]->refs);
   
-  pr = newproc();
+  pr = newproc(10);
   if (pr == nil) {
     panic("initroot: newproc failed!\n");
   }
@@ -88,7 +88,7 @@ initroot(void)
   pr->ngroup = nil;
   pr->parent = nil;
 	
-  ps = newproc();
+  ps = newproc(10);
   if (ps == nil) {
     panic("initroot: newproc failed!\n");
   }

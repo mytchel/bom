@@ -38,65 +38,15 @@ initlock(struct lock *l)
 void
 lock(struct lock *l)
 {
-  struct proc *p;
-
   while (!testandset(&l->lock)) {
     disableintr();
     schedule();
     enableintr();
   }
-
-  return;
-
-  /* Need to get this working properly */
-
-  if (!testandset(&l->lock)) {
-    disableintr();
-    while (!testandset(&l->listlock)) {
-      schedule();
-    }
-
-    if (testandset(&l->lock)) {
-      l->listlock = 0;
-    } else {
-      for (p = l->waiting; p != nil && p->wnext != nil; p = p->wnext);
-      if (p == nil) {
-	l->waiting = current;
-      } else {
-	p->wnext = current;
-      }
-      current->wnext = nil;
-
-      printf("%i waiting on lock 0x%h\n", current->pid, l);
-      l->listlock = 0;
-      procwait(current);
-      schedule();
-    }
-    enableintr();
-  }
-
-  l->holder = current;
 }
 
 void
 unlock(struct lock *l)
 {
-  struct proc *p;
   l->lock = 0;
-
-  return;
-
-  /* Need to get this working. Not sure why it doesnt */
-  
-
-  p = l->waiting;
-  if (p != nil) {
-    l->waiting = p->wnext;
-    procready(p);
-  }
-
-  l->holder = nil;
-  l->listlock = 0;
-  l->lock = 0;
-  enableintr();
 }

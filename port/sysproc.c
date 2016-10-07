@@ -54,8 +54,13 @@ syssleep(va_list args)
   }
 
   disableintr();
-  procsleep(current, ms);
-  schedule();
+  if (ms == 0) {
+    schedule();
+  } else {
+    procsleep(current, ms);
+    schedule();
+  }
+
   enableintr();
 		
   return 0;
@@ -69,14 +74,13 @@ sysfork(va_list args)
 	
   flags = va_arg(args, int);
 
-  p = newproc();
+  p = newproc(current->priority);
   if (p == nil) {
     return ENOMEM;
   }
 
   p->inkernel = false;
   p->parent = current;
-  p->quanta = current->quanta;
 
   p->dot = copypath(current->dot);
   p->dotchan = current->dotchan;
@@ -140,15 +144,9 @@ syswaitintr(va_list args)
 
   irqn = va_arg(args, int);
 
-  disableintr();
-
   if (procwaitintr(current, irqn)) {
-    procwait(current);
-    schedule();
-    enableintr();
     return OK;
   } else {
-    enableintr();
     return ERR;
   }
 }

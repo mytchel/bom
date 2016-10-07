@@ -124,16 +124,18 @@ struct ngroup {
 };
 
 enum {
-  PROC_unused, /* Not really a state */
   PROC_suspend,
   PROC_ready,
   PROC_sleeping,
   PROC_waiting,
 };
 
+#define MIN_PRIORITY 100
+
 struct proc {
-  struct proc *next; /* Next in schedule queue */
-	
+  struct proc *next; 
+  struct proc **list;
+  
   struct ureg *ureg;
   struct label label;
   uint8_t kstack[KSTACK];
@@ -147,7 +149,9 @@ struct proc {
   struct chan *dotchan;
 
   uint32_t faults;
-  uint32_t quanta;
+
+  int priority;
+  uint32_t timeused;
 
   struct pagel *mmu, *stack;
 
@@ -156,16 +160,14 @@ struct proc {
   struct ngroup *ngroup;
 
   uint32_t sleep; /* in ticks */
-  struct proc *wnext; /* Next in wait queue */
   void *aux;
-  union {
-    int rid;
-    int intr;
-  } waiting;
 };
 
 
 /****** Initialisation ******/
+
+void
+initscheduler(void);
 
 void
 initroot(void);
@@ -188,7 +190,7 @@ unlock(struct lock *);
 /* Procs */
 
 struct proc *
-newproc(void);
+newproc(unsigned int priority);
 
 /* These should all be called with interrupts disabled */
 
@@ -199,13 +201,16 @@ void
 procready(struct proc *);
 
 void
-procsuspend(struct proc *);
+procsuspend(struct proc *p);
 
 void
-procwait(struct proc *);
+procwait(struct proc *p, struct proc **wlist);
 
 void
-procsleep(struct proc *, uint32_t);
+procsleep(struct proc *p, uint32_t ms);
+
+void
+procsetpriority(struct proc *p, unsigned int priority);
 
 /* This MUST be called with interrupts disabled */
 
@@ -389,6 +394,9 @@ setlabel(struct label *);
 
 int
 gotolabel(struct label *);
+
+int
+nullprocfunc(void *);
 
 void
 forkfunc(struct proc *, int (*func)(void *), void *);

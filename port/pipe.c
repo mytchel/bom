@@ -101,13 +101,12 @@ pipedocopy(struct pipe *p, uint8_t *buf, size_t n, bool writing)
   } else {
     /* Wait for other end to do copy */
     
-    p->proc = current;
     p->buf = buf;
     p->n = n;
     p->waiting = true;
 
     disableintr();
-    procwait(current);
+    procwait(current, &p->proc);
     unlock(&p->lock);
     schedule();
     enableintr();
