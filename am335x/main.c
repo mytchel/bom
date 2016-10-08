@@ -57,15 +57,6 @@ main(void)
   return 0;
 }
 
-int
-mainproc(void *arg)
-{
-  disableintr();
-  debug("Drop to user for inital proc (pid = %i)\n", current->pid);
-  droptouser((void *) USTACK_TOP);
-  return 0; /* Never reached. */
-}
-
 static struct pagel *
 copysegment(void *start, bool rw, bool c, char **buf, size_t len)
 {
@@ -107,6 +98,15 @@ copysegment(void *start, bool rw, bool c, char **buf, size_t len)
   return pages;
 }
 
+static int
+mainproc(void *arg)
+{
+  disableintr();
+  debug("Drop to user for inital proc (pid = %i)\n", current->pid);
+  droptouser((void *) USTACK_TOP);
+  return 0; /* Never reached. */
+}
+
 void
 initmainproc(void)
 {
@@ -123,7 +123,7 @@ initmainproc(void)
   forkfunc(p, &mainproc, nil);
 
   pg = getrampage();
-  p->stack = wrappage(pg, (void *) (USTACK_TOP - PAGE_SIZE),
+  p->ustack = wrappage(pg, (void *) (USTACK_TOP - PAGE_SIZE),
 		      true, true);
 
   p->mgroup = newmgroup();

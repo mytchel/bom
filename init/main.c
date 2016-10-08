@@ -83,7 +83,6 @@ main(void)
     return -1;
   }
 
-  printf("Starting shell\n");
   f = shell();
 
   return f;

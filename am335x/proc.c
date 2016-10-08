@@ -32,8 +32,10 @@ void
 dumpregs(struct ureg *r)
 {
   int i;
-  for (i = 0; i < 13; i++)
+  for (i = 0; i < 13; i++) {
     printf("r%i  = 0x%h\n", i, r->regs[i]);
+  }
+  
   printf("sp   = 0x%h\n", r->sp);
   printf("lr   = 0x%h\n", r->lr);
   printf("type = %i\n", r->type);
@@ -53,7 +55,7 @@ forkfunc(struct proc *p, int (*func)(void *), void *arg)
   p->label.pc = (uint32_t) &forkfunc_loader;
   p->label.sp = (uint32_t)
     forkfunc_preloader((void *)
-		       (p->kstack + KSTACK),
+		       KSTACK_TOP,
 		       arg, func);
 }
 
@@ -72,8 +74,7 @@ forkchild(struct proc *p, struct ureg *ureg)
   p->label.psr = MODE_SVC | (1 << 7);
   p->label.pc = (uint32_t) &userreturn;
   p->label.sp = (uint32_t) 
-    (p->kstack + KSTACK)
-    - sizeof(struct ureg);
+    KSTACK_TOP - sizeof(struct ureg);
 	
   nreg = (struct ureg *) p->label.sp;
   memmove(nreg, ureg, sizeof(struct ureg));

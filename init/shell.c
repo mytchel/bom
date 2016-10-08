@@ -177,7 +177,7 @@ processline(char *line)
   }
 
   if (cmds[i].name == nil) {
-    printf("cmd not found: %s\n", cmd);
+    printf("%s: command not found\n", cmd);
   }
 }
 

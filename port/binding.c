@@ -44,8 +44,11 @@ newbinding(struct path *path, struct chan *out, struct chan *in)
   b->out = out;
   b->rootfid = ROOTFID;
 
-  atomicinc(&in->refs);
-  atomicinc(&out->refs);
+  if (in != nil)
+    atomicinc(&in->refs);
+
+  if (out != nil)
+    atomicinc(&out->refs);
 
   b->waiting = nil;
   b->nreqid = 0;

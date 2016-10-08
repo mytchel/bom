@@ -67,6 +67,7 @@ newpipe(struct chan **c0, struct chan **c1)
   p->c0 = *c0;
   p->c1 = *c1;
   p->waiting = false;
+  p->proc = nil;
 
   initlock(&p->lock);
 
@@ -88,7 +89,7 @@ pipedocopy(struct pipe *p, uint8_t *buf, size_t n, bool writing)
 
     r = n > p->n ? p->n : n;
     if (writing) {
-       memmove(p->buf, buf, r);
+      memmove(p->buf, buf, r);
     } else {
       memmove(buf, p->buf, r);
     }
@@ -96,8 +97,10 @@ pipedocopy(struct pipe *p, uint8_t *buf, size_t n, bool writing)
     p->proc->aux = (void *) r;
     p->waiting = false;
 
-    procready(p->proc);
+    disableintr();
     unlock(&p->lock);
+    procready(p->proc);
+    enableintr();
   } else {
     /* Wait for other end to do copy */
     
@@ -106,8 +109,8 @@ pipedocopy(struct pipe *p, uint8_t *buf, size_t n, bool writing)
     p->waiting = true;
 
     disableintr();
-    procwait(current, &p->proc);
     unlock(&p->lock);
+    procwait(current, &p->proc);
     schedule();
     enableintr();
 

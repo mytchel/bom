@@ -101,10 +101,8 @@ systickhandler(uint32_t irqn)
 }
 
 void
-setsystick(uint32_t ms)
+setsystick(uint32_t t)
 {
-  uint32_t t = mstoticks(ms);
-	
   writel(0, TIMER2 + TIMER_TCLR); /* disable timer */
   /* Wait for writes to commit. */
   while (readl(TIMER2 + TIMER_TWPS)); 

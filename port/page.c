@@ -173,14 +173,18 @@ findpagelinlist(struct pagel *p, void *addr)
 static struct pagel *
 findpagel(struct proc *p, void *addr)
 {
-  struct pagel *pl;
+  struct pagel *pl = nil;
 
-  pl = findpagelinlist(current->mgroup->pages, addr);
-  if (pl != nil) return pl;
-  pl = findpagelinlist(current->stack, addr);
-  if (pl != nil) return pl;
+  if (p->mgroup) {
+    pl = findpagelinlist(p->mgroup->pages, addr);
+    if (pl != nil) return pl;
+  }
 
-  return nil;
+  pl = findpagelinlist(p->ustack, addr);
+  if (pl != nil) return pl;
+  
+  pl = findpagelinlist(p->kstack, addr);
+  return pl;
 }
 
 bool
@@ -188,15 +192,15 @@ fixfault(void *addr)
 {
   struct pagel *pl;
 
+  printf("fix fault for %i, 0x%h\n", current->pid, addr);
+  
   pl = findpagel(current, addr);
   if (pl == nil) {
     return false;
+  } else {
+    mmuputpage(pl);
+    return true;
   }
-	
-  mmuputpage(pl);
-  current->faults++;
-	
-  return true;
 }
 
 void *

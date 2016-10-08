@@ -39,13 +39,9 @@
 #define disableintr()   __asm__("cpsid i")
 #define enableintr()    __asm__("cpsie i")
 
-#define MAX_PROCS	512
-#define KSTACK		4028
-
-#define USTACK_TOP	(0x20000000 & PAGE_MASK)
+#define KSTACK_TOP	0xffffffff
+#define USTACK_TOP	0x20000000
 #define UTEXT		0
-
-#define CHUNK_POWER_MAX 10
 
 struct label {
   uint32_t psr;

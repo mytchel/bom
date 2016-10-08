@@ -38,19 +38,18 @@
 #endif
 
 struct lock {
-  int lock, listlock;
+  int lock;
   struct proc *holder;
-  struct proc *waiting;
+  struct proc *wlist;
 };
 
   
 struct page {
   int refs;
-  /* Not generally usable */
-  struct page *next;
   /* Not changable */
   void *pa;
   bool forceshare;
+  struct page *next;
   struct page **from;
 };
 
@@ -124,6 +123,7 @@ struct ngroup {
 };
 
 enum {
+  PROC_oncpu,
   PROC_suspend,
   PROC_ready,
   PROC_sleeping,
@@ -138,7 +138,6 @@ struct proc {
   
   struct ureg *ureg;
   struct label label;
-  uint8_t kstack[KSTACK];
 
   int state;
   bool inkernel;
@@ -148,12 +147,10 @@ struct proc {
   struct path *dot;
   struct chan *dotchan;
 
-  uint32_t faults;
-
   int priority;
   uint32_t timeused;
 
-  struct pagel *mmu, *stack;
+  struct pagel *mmu, *kstack, *ustack;
 
   struct mgroup *mgroup;
   struct fgroup *fgroup;
@@ -208,6 +205,9 @@ procwait(struct proc *p, struct proc **wlist);
 
 void
 procsleep(struct proc *p, uint32_t ms);
+
+void
+procyield(struct proc *p);
 
 void
 procsetpriority(struct proc *p, unsigned int priority);
@@ -385,9 +385,8 @@ tickstoms(uint32_t);
 uint32_t
 mstoticks(uint32_t);
 
-/* Set systick interrupt to occur in ... ms */
 void
-setsystick(uint32_t);
+setsystick(uint32_t ticks);
 
 int
 setlabel(struct label *);

@@ -54,12 +54,14 @@ syssleep(va_list args)
   }
 
   disableintr();
+
   if (ms == 0) {
-    schedule();
+    procyield(current);
   } else {
     procsleep(current, ms);
-    schedule();
   }
+
+  schedule();
 
   enableintr();
 		
@@ -86,7 +88,7 @@ sysfork(va_list args)
   p->dotchan = current->dotchan;
   atomicinc(&p->dotchan->refs);
 
-  p->stack = copypagel(current->stack);
+  p->ustack = copypagel(current->ustack);
 
   if (flags & FORK_smem) {
     p->mgroup = current->mgroup;

@@ -31,22 +31,36 @@ void
 initlock(struct lock *l)
 {
   l->lock = 0;
-  l->listlock = 0;
-  l->waiting = nil;
+  l->wlist = nil;
+  l->holder = nil;
 }
 
 void
 lock(struct lock *l)
 {
-  while (!testandset(&l->lock)) {
+  if (!testandset(&l->lock)) {
     disableintr();
+    procwait(current, &l->wlist);
     schedule();
     enableintr();
+  } else {
+    l->holder = current;
   }
 }
 
 void
 unlock(struct lock *l)
 {
-  l->lock = 0;
+  struct proc *p;
+
+  p = l->wlist;
+  if (p != nil) {
+    disableintr();
+    procready(p);
+    enableintr();
+    l->holder = p;
+  } else {
+    l->lock = 0;
+    l->holder = nil;
+  }
 }

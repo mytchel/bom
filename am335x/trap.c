@@ -207,21 +207,19 @@ trap(struct ureg *ureg)
   case ABORT_DATA:
     addr = faultaddr();
     fsr = fsrstatus() & 0xf;
-    fixed = false;
 
     switch (fsr) {
+    case 0x5: /* section translation */
+    case 0x7: /* page translation */
+      /* Try add page */
+      fixed = fixfault(addr);
+      break;
     case 0x0: /* vector */
     case 0x1: /* alignment */
     case 0x3: /* also alignment */
     case 0x2: /* terminal */
     case 0x4: /* external linefetch section */
     case 0x6: /* external linefetch page */
-      break;
-    case 0x5: /* section translation */
-    case 0x7: /* page translation */
-      /* Try add page */
-      fixed = fixfault(addr);
-      break;
     case 0x8: /* external non linefetch section */
     case 0xa: /* external non linefetch page */
     case 0x9: /* domain section */
@@ -230,6 +228,8 @@ trap(struct ureg *ureg)
     case 0xe: /* external translation l2 */
     case 0xd: /* section permission */
     case 0xf: /* page permission */
+    default:
+      fixed = false;
       break;
     }
 
@@ -246,6 +246,7 @@ trap(struct ureg *ureg)
 	   current->pid);
     dumpregs(ureg);
     procremove(current);
+    printf("run another proc now\n");
     schedule();
   }
 	

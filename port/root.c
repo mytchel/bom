@@ -48,6 +48,7 @@ static struct file *root = nil;
 static uint32_t nfid = ROOTFID;
 
 struct binding *rootbinding;
+struct chan *rootin;
 
 static int
 rootproc(void *);
@@ -55,50 +56,26 @@ rootproc(void *);
 void
 initroot(void)
 {
-  struct chan **c;
-  struct proc *pr, *ps;
+  struct chan *out;
+  struct proc *pr;
 
-  c = malloc(sizeof(struct chan *) * 4);
-  if (c == nil) {
-    panic("initroot: malloc failed!\n");
-  }
-  
-  if (!newpipe(&(c[0]), &(c[1]))) {
-    panic("initroot: newpipe failed!\n");
-  } else if (!newpipe(&(c[2]), &(c[3]))) {
+  if (!newpipe(&(rootin), &(out))) {
     panic("initroot: newpipe failed!\n");
   }
 
-  rootbinding = newbinding(nil, c[1], c[2]);
+  rootbinding = newbinding(nil, out, nil);
   if (rootbinding == nil) {
     panic("initroot: newbinding failed!\n");
   }
 
-  atomicdec(&c[1]->refs);
-  atomicdec(&c[2]->refs);
-  
   pr = newproc(10);
   if (pr == nil) {
     panic("initroot: newproc failed!\n");
   }
 
-  forkfunc(pr, &rootproc, (void *) c);
+  forkfunc(pr, &rootproc, nil);
 
-  pr->fgroup = newfgroup();
-  pr->ngroup = nil;
-  pr->parent = nil;
-	
-  ps = newproc(10);
-  if (ps == nil) {
-    panic("initroot: newproc failed!\n");
-  }
-
-  forkfunc(ps, &mountproc, (void *) rootbinding);
-	
-  rootbinding->srv = ps;
-	
   procready(pr);
-  procready(ps);
 }
 
 static struct file *
@@ -124,6 +101,8 @@ static void
 bfid(struct request *req, struct response *resp)
 {
   struct file *f, *c;
+
+  printf("root fid %i\n", req->fid);
 
   f = findfile(root, req->fid);
   if (f == nil) {
@@ -160,6 +139,8 @@ bstat(struct request *req, struct response *resp)
 {
   struct file *f;
 
+  printf("root stat %i\n", req->fid);
+
   f = findfile(root, req->fid);
   if (f == nil) {
     resp->ret = ENOFILE;
@@ -181,6 +162,8 @@ bopen(struct request *req, struct response *resp)
 {
   struct file *f;
 
+  printf("root open %i\n", req->fid);
+
   f = findfile(root, req->fid);
   if (f == nil) {
     resp->ret = ENOFILE;
@@ -194,6 +177,8 @@ static void
 bclose(struct request *req, struct response *resp)
 {
   struct file *f;
+
+  printf("root close %i\n", req->fid);
 
   f = findfile(root, req->fid);
   if (f == nil) {
@@ -290,6 +275,8 @@ bcreate(struct request *req, struct response *resp)
   struct file *p, *new;
   uint8_t *buf, lname;
 
+  printf("root create %i\n", req->fid);
+
   buf = req->buf;
   memmove(&attr, buf, sizeof(uint32_t));
   buf += sizeof(uint32_t);
@@ -343,6 +330,7 @@ bremove(struct request *req, struct response *resp)
 {
   struct file *f;
 
+  printf("root bremove %i\n", req->fid);
   f = findfile(root, req->fid);
   if (f == nil) {
     resp->ret = ENOFILE;
@@ -363,6 +351,8 @@ breaddir(struct request *req, struct response *resp,
 	 struct file *file,
 	 uint32_t offset, uint32_t len)
 {
+  printf("root breaddir %i\n", req->fid);
+
   if (offset + len > file->lbuf) {
     len = file->lbuf - offset;
   }
@@ -402,32 +392,107 @@ bread(struct request *req, struct response *resp)
     resp->ret = ENOIMPL;
   }
 }
- 
-static struct fsmount mount = {
-  &bfid,
-  &bstat,
-  &bopen,
-  &bclose,
-  &bcreate,
-  &bremove,
-  &bread,
-  nil,
-  nil,
-};
+
+static int
+rootfsmountloop(struct chan *in, struct binding *b)
+{
+  struct request req;
+  struct response *resp;
+  struct proc *p;
+  size_t reqsize;
+  bool found;
+
+  reqsize = sizeof(req.rid)
+    + sizeof(req.type)
+    + sizeof(req.fid)
+    + sizeof(req.lbuf);
+
+  req.buf = malloc(FS_LBUF_MAX);
+  if (req.buf == nil) {
+    panic("Root request buf malloc failed!\n");
+  }
+
+  while (true) {
+    resp = malloc(sizeof(struct response));
+    if (resp == nil) {
+      goto err;
+    }
+
+    if (piperead(in, (void *) &req, reqsize) != reqsize) {
+      goto err;
+    }
+
+    resp->rid = req.rid;
+    resp->ret = ENOIMPL;
+    resp->lbuf = 0;
+
+    printf("root process request %i\n", resp->rid);
+
+    if (req.lbuf > 0 &&
+	piperead(in, req.buf, req.lbuf) != req.lbuf) {
+      goto err;
+    }
+
+    switch (req.type) {
+    case REQ_fid:
+      bfid(&req, resp);
+      break;
+    case REQ_stat:
+      bstat(&req, resp);
+      break;
+    case REQ_open:
+      bopen(&req, resp);
+      break;
+    case REQ_close:
+      bclose(&req, resp);
+      break;
+    case REQ_create:
+      bcreate(&req, resp);
+      break;
+    case REQ_remove:
+      bremove(&req, resp);
+      break;
+    case REQ_read:
+      bread(&req, resp);
+      break;
+    }
+
+    printf("root handing over response %i\n", resp->rid);
+    
+    lock(&b->lock);
+
+    found = false;
+    for (p = b->waiting; p != nil; p = p->next) {
+      if ((uint32_t) p->aux == resp->rid) {
+	found = true;
+	p->aux = (void *) resp;
+
+	disableintr();
+	procready(p);
+	enableintr();
+	break;
+      }
+    }
+
+    if (!found) {
+      panic("Error in root mount!\n");
+    }
+    
+    unlock(&b->lock);
+  }
+
+  return 0;
+
+ err:
+
+  panic("root mount errored!\n");
+
+  return -1;
+}
 
 static int
 rootproc(void *arg)
 {
-  struct chan **c;
-  int in, out;
-
-  c = (struct chan **) arg;
-  
-  in = addchan(current->fgroup, c[0]);
-  out = addchan(current->fgroup, c[3]);
-
-  free(c);
-
   root = malloc(sizeof(struct file));
   if (root == nil) {
     panic("root tree malloc failed!\n");
@@ -446,5 +511,5 @@ rootproc(void *arg)
   root->parent = nil;
   root->children = nil;
 
-  return fsmountloop(in, out, &mount);
+  return rootfsmountloop(rootin, rootbinding);
 }
