@@ -332,7 +332,7 @@ fileopen(struct path *path, uint32_t mode, uint32_t cmode, int *err)
     return nil;
   }
 
-  c = newchan(CHAN_file, mode, path);
+  c = newchan(CHAN_file, mode);
   if (c == nil) {
     return nil;
   }

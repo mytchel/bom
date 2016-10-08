@@ -48,13 +48,13 @@ newpipe(struct chan **c0, struct chan **c1)
     return false;
   }
 	
-  *c0 = newchan(CHAN_pipe, O_RDONLY, nil);
+  *c0 = newchan(CHAN_pipe, O_RDONLY);
   if (*c0 == nil) {
     free(p);
     return false;
   }
 	
-  *c1 = newchan(CHAN_pipe, O_WRONLY, nil);
+  *c1 = newchan(CHAN_pipe, O_WRONLY);
   if (*c1 == nil) {
     freechan(*c0);
     free(p);

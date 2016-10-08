@@ -66,15 +66,14 @@ struct mgroup {
   struct pagel *pages;
 };
 
-enum { CHAN_pipe, CHAN_file, CHAN_max };
+typedef enum { CHAN_pipe, CHAN_file, CHAN_max } chan_t;
 
 struct chan {
   int refs;
   struct lock lock;
 	
-  int type;
+  chan_t type;
   int mode;
-  struct path *path;
 	
   void *aux;
 };
@@ -122,13 +121,13 @@ struct ngroup {
   struct binding_list *bindings;
 };
 
-enum {
+typedef enum {
   PROC_oncpu,
   PROC_suspend,
   PROC_ready,
   PROC_sleeping,
   PROC_waiting,
-};
+} procstate_t;
 
 #define MIN_PRIORITY 100
 
@@ -139,7 +138,7 @@ struct proc {
   struct ureg *ureg;
   struct label label;
 
-  int state;
+  procstate_t state;
   bool inkernel;
   uint32_t pid;
   struct proc *parent;
@@ -189,7 +188,7 @@ unlock(struct lock *);
 struct proc *
 newproc(unsigned int priority);
 
-/* These should all be called with interrupts disabled */
+/* These must all be called with interrupts disabled */
 
 void
 procremove(struct proc *);
@@ -212,10 +211,10 @@ procyield(struct proc *p);
 void
 procsetpriority(struct proc *p, unsigned int priority);
 
-/* This MUST be called with interrupts disabled */
-
 void
 schedule(void);
+
+/* Pages and Mgroup */
 
 void
 freepage(struct page *);
@@ -242,6 +241,8 @@ addtomgroup(struct mgroup *m, struct page *p,
 void
 freemgroup(struct mgroup *m);
 
+/* Memory */
+
 bool
 fixfault(void *);
 
@@ -251,7 +252,7 @@ kaddr(struct proc *, void *, size_t);
 /* Channels */
 
 struct chan *
-newchan(int, int, struct path *);
+newchan(int, int);
 
 void
 freechan(struct chan *);
@@ -407,16 +408,7 @@ void
 mmuswitch(struct proc *);
 
 void
-mmuenable(void);
-
-void
-mmudisable(void);
-
-void
 mmuputpage(struct pagel *);
-
-void *
-pagealign(void *);
 
 bool
 procwaitintr(struct proc *, int);

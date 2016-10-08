@@ -35,7 +35,7 @@ struct chantype *chantypes[CHAN_max] = {
 };
 
 struct chan *
-newchan(int type, int mode, struct path *p)
+newchan(int type, int mode)
 {
   struct chan *c;
 	
@@ -48,7 +48,6 @@ newchan(int type, int mode, struct path *p)
   c->refs = 1;
   c->type = type;
   c->mode = mode;
-  c->path = p;
 	
   return c;
 }
@@ -60,8 +59,6 @@ freechan(struct chan *c)
     return;
   }
 
-  lock(&c->lock);
   chantypes[c->type]->close(c);
-  freepath(c->path);
   free(c);
 }

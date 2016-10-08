@@ -68,6 +68,12 @@ void
 mmuinvalidate(void);
 
 void
+mmuenable(void);
+
+void
+mmudisable(void);
+
+void
 imap(void *, void *, int, bool);
 	
 void

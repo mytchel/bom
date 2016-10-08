@@ -32,8 +32,9 @@ struct block {
   struct block *next;
 };
 
-static struct block *heap;
 static struct lock heaplock;
+static struct block *heap = nil;
+static struct pagel *pages = nil;
 
 void
 initheap(void *start, size_t size)
@@ -47,13 +48,25 @@ initheap(void *start, size_t size)
 struct block *
 growheap(struct block *prev)
 {
+  struct pagel *pl;
   struct page *pg;
   struct block *b;
 
   pg = getrampage();
   if (pg == nil) {
     return nil;
-  } else if (prev == nil) {
+  }
+
+  pl = wrappage(pg, (void *) 0, true, true);
+  if (pl == nil) {
+    freepage(pg);
+    return nil;
+  }
+
+  pl->next = pages;
+  pages = pl;
+
+  if (prev == nil) {
     b = heap = (struct block *) pg->pa;
   } else {
     b = prev->next = (struct block *) pg->pa;
@@ -61,6 +74,7 @@ growheap(struct block *prev)
 	
   b->size = PAGE_SIZE - sizeof(size_t);
   b->next = nil;
+
   return b;
 }
 
@@ -74,6 +88,12 @@ malloc(size_t size)
     return nil;
 
   size = roundptr(size);
+
+  if (size > PAGE_SIZE - sizeof(size_t)) {
+    printf("%i trying to malloc something too large %i\n",
+	   current->pid, size);
+    return nil;
+  }
 
   lock(&heaplock);
   
@@ -120,6 +140,7 @@ malloc(size_t size)
 void
 free(void *ptr)
 {
+  struct pagel *pl, *pp;
   struct block *b, *p;
   bool palign, nalign;
 
@@ -128,23 +149,23 @@ free(void *ptr)
 
   b = (struct block *) ((reg_t) ptr - sizeof(size_t));
 
-  /* FIX ME ! */
-  return;
-  
   lock(&heaplock);
   
   if (b < heap) {
+    printf("before start of heap\n");
     if ((reg_t) b + sizeof(size_t) + b->size == (reg_t) heap) {
       /* block lines up with start of heap. */
+      printf("lines up with start of heap\n");
       b->size += sizeof(size_t) + heap->size;
       b->next = heap->next;
     } else {
+      printf("doesnt line up with start of heap\n");
       b->next = heap;
     }
 		
     heap = b;
-    unlock(&heaplock);
-    return;
+
+    goto done;
   }
 
   for (p = heap; p != nil && p->next != nil; p = p->next) {
@@ -157,41 +178,67 @@ free(void *ptr)
     printf("Are you sure 0x%h is from the heap?\n", ptr);
     unlock(&heaplock);
     return;
-  } else if (p->next == nil) {
-    /* b is at end of list, append. */
-    b->next = nil;
-    p->next = b;
-    unlock(&heaplock);
-    return;
   }
 	
-  palign = (uint8_t *) p + p->size == (uint8_t *) b;
-  nalign = (uint8_t *) b + b->size == (uint8_t *) p->next;
+  palign = (reg_t) p + sizeof(size_t) + p->size == (reg_t) b;
+
+  if (p->next) {
+    nalign = (reg_t) b + sizeof(size_t) + b->size == (reg_t) p->next;
+  } else {
+    nalign = false;
+  }
 	
   if (palign && nalign) {
     /* b lines up with p and p->next, join them all. */
-		
+    printf("b lines up with prev and next\n");
+
     p->size += sizeof(size_t) * 2 + b->size + p->next->size;
     p->next = p->next->next;
+    b = p;
 		
   } else if (nalign) {
+    printf("b lines up with p->next\n");
     /* b lines up with p->next, join them. */
 		
     b->size += sizeof(size_t) + p->next->size;
     b->next = p->next->next;
     p->next = b;
-
+    
   } else if (palign) {
+    printf("b lines up with p\n");
     /* b lines up with end of p, join them. */
     p->size += sizeof(size_t) + b->size;
+    b = p;
 
   } else {
+    printf("b between p and p->next\n");
     /* b is somewhere between p and p->next. */
     b->next = p->next;
     p->next = b;
   }
 
+ done:
   printf("free 0x%h finished\n", ptr);
 
+  pp = nil;
+  for (pl = pages; pl != nil; pp = pl, pl = pl->next) {
+    if (pl->p->pa == (void *) b) {
+      if (b->size + sizeof(size_t) == PAGE_SIZE) {
+	printf("heap can free a page ! 0x%h\n", pl->p->pa);
+
+	if (pp == nil) {
+	  pages = pl->next;
+	} else {
+	  pp->next = pl->next;
+	}
+
+	freepage(pl->p);
+	free(pl);
+	break;
+      }
+    }
+  }
+
+  printf("heap pages checked\n");
   unlock(&heaplock);
 }

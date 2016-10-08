@@ -188,9 +188,7 @@ schedule(void)
   current = nextproc();
   current->state = PROC_oncpu;
 
-  if (current->pid != 1) {
-    printf("run %i\n", current->pid);
-  }
+  printf("run %i\n", current->pid);
   
   mmuswitch(current);
 
