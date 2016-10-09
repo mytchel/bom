@@ -39,7 +39,6 @@
 #define disableintr()   __asm__("cpsid i")
 #define enableintr()    __asm__("cpsie i")
 
-#define KSTACK_TOP	0xffffffff
 #define USTACK_TOP	0x20000000
 #define UTEXT		0
 

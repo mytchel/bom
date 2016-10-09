@@ -34,15 +34,21 @@
 reg_t
 syschdir(va_list args)
 {
-  const char *upath;
+  const char *upath, *kpath;
   struct path *path;
   struct chan *c;
   int err;
-  
-  upath = va_arg(args, const char *);
-  path = realpath(current->dot, upath);
 
-  c = fileopen(path, O_RDONLY, 0, &err);
+  upath = va_arg(args, const char *);
+
+  kpath = kaddr(current, (void *) upath, 0);
+  if (kpath == nil) {
+    return ERR;
+  }
+
+  path = realpath(current->dot, kpath);
+
+  c = fileopen(path, O_RDONLY|O_DIR, 0, &err);
   if (err != OK) {
     freepath(path);
     return err;
@@ -178,21 +184,23 @@ sysseek(va_list args)
 reg_t
 sysstat(va_list args)
 {
-  const char *upath;
+  const char *upath, *kpath;
   struct stat *ustat, *stat;
   struct path *path;
 	
   upath = va_arg(args, const char *);
   ustat = va_arg(args, struct stat *);
 
+  kpath = kaddr(current, (void *) upath, 0);
+  
   stat = (struct stat *) kaddr(current, (void *) ustat,
 			       sizeof(struct stat *));
 
-  if (stat == nil) {
+  if (stat == nil || kpath == nil) {
     return ERR;
   }
   
-  path = realpath(current->dot, upath);
+  path = realpath(current->dot, kpath);
 
   return filestat(path, stat);
 }
@@ -225,20 +233,25 @@ sysopen(va_list args)
 {
   int err;
   uint32_t mode, cmode;
-  const char *upath;
+  const char *upath, *kpath;
   struct chan *c;
   struct path *path;
 	
   upath = va_arg(args, const char *);
   mode = va_arg(args, uint32_t);
-	
+
+  kpath = kaddr(current, (void *) upath, 0);
+  if (kpath == nil) {
+    return ERR;
+  }
+  
   if (mode & O_CREATE) {
     cmode = va_arg(args, uint32_t);
   } else {
     cmode = 0;
   }
 
-  path = realpath(current->dot, upath);
+  path = realpath(current->dot, kpath);
 
   c = fileopen(path, mode, cmode, &err);
 
@@ -271,12 +284,17 @@ syspipe(va_list args)
 reg_t
 sysremove(va_list args)
 {
-  const char *upath;
+  const char *upath, *kpath;
   struct path *path;
 	
   upath = va_arg(args, const char *);
 
-  path = realpath(current->dot, upath);
+  kpath = kaddr(current, (void *) upath, 0);
+  if (kpath == nil) {
+    return nil;
+  }
+
+  path = realpath(current->dot, kpath);
 
   return fileremove(path);
 }
@@ -285,7 +303,7 @@ reg_t
 sysbind(va_list args)
 {
   int infd, outfd;
-  const char *upath;
+  const char *upath, *kpath;
   struct proc *p;
   struct path *path;
   struct chan *in, *out;
@@ -295,6 +313,11 @@ sysbind(va_list args)
   infd = va_arg(args, int);
   upath = va_arg(args, const char *);
 
+  kpath = kaddr(current, (void *) upath, 0);
+  if (kpath == nil) {
+    return ERR;
+  }
+  
   out = fdtochan(current->fgroup, outfd);
   if (out == nil) {
     return ERR;
@@ -311,7 +334,7 @@ sysbind(va_list args)
 	
   lock(&current->ngroup->lock);
 
-  path = realpath(current->dot, upath);
+  path = realpath(current->dot, kpath);
  
   bl = malloc(sizeof(struct binding_list));
   if (bl == nil) {
@@ -349,7 +372,7 @@ sysbind(va_list args)
 
 #if DEBUG == 1
   char *str = (char *) pathtostr(path, nil);
-  printf("Binding %i to '%s', kproc %i\n", current->pid, upath,
+  printf("Binding %i to '%s', kproc %i\n", current->pid, kpath,
 	 p->pid);
   free(str);
 #endif

@@ -98,9 +98,9 @@ pipedocopy(struct pipe *p, uint8_t *buf, size_t n, bool writing)
     p->waiting = false;
 
     disableintr();
-    unlock(&p->lock);
     procready(p->proc);
     enableintr();
+    unlock(&p->lock);
   } else {
     /* Wait for other end to do copy */
     

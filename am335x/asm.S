@@ -91,11 +91,6 @@ gotolabel:
 	mov pc, lr
 
 
-forkfunc_preloader:
-	stmfd r0!, {r1, r2}
-	bx lr
-
-
 forkfunc_loader:
 	ldr lr, =1f	
 	pop {r0, pc}

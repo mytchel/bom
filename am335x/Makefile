@@ -62,10 +62,12 @@ include ../tools/bintoarray/local.mk
 ISRC_A := \
 	init/syscalls.S		\
 
+
 ISRC_C := \
 	init/com.c              \
 	init/mmc/mmc.c          \
         init/mmc/misc.c
+
 
 ISRC_P := \
         ../init/main.c          \
@@ -84,12 +86,14 @@ IOBJECTS := \
 	$(ISRC_C:%.c=%.o) \
 	$(ISRC_P:%.c=%.o)
 
+
 CLEAN += $(IOBJECTS)
 
 
 KSRC_A := \
         asm.S                   \
         vectors.S
+
 
 KSRC_C := \
         initcode.c              \
@@ -101,6 +105,7 @@ KSRC_C := \
         proc.c                  \
         syscall.c               \
         mmu.c
+
 
 KSRC_P := \
         ../port/com.c           \
@@ -120,7 +125,6 @@ KSRC_P := \
         ../port/sysproc.c       \
         ../port/sysfile.c       \
         ../port/syscall.c       \
-        ../lib/fssrv.c          \
         ../lib/string.c         \
 	../lib/misc.c
 
@@ -129,6 +133,7 @@ KOBJECTS := \
 	$(KSRC_A:%.S=%.o) \
 	$(KSRC_C:%.c=%.o) \
 	$(KSRC_P:%.c=%.o)
+
 
 CLEAN += $(KOBJECTS)
 

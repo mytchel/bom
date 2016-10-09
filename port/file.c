@@ -37,29 +37,28 @@ struct cfile {
 static struct response *
 makereq(struct binding *b, struct request *req)
 {
-  size_t s;
+  size_t s = sizeof(req->rid)
+    + sizeof(req->type)
+    + sizeof(req->fid)
+    + sizeof(req->lbuf);
 
   lock(&b->lock);
 
   req->rid = b->nreqid++;
 
-  s = sizeof(req->rid)
-    + sizeof(req->type)
-    + sizeof(req->fid)
-    + sizeof(req->lbuf);
-
   if (pipewrite(b->out, (void *) req, s) != s || 
       (req->lbuf > 0 &&
        pipewrite(b->out, req->buf, req->lbuf) != req->lbuf)) {
-    unlock(&b->lock);
     return nil;
   }
 
   current->aux = (void *) req->rid;
+
   disableintr();
 
   procwait(current, &b->waiting);
   unlock(&b->lock);
+
   schedule();
   enableintr();
 
@@ -514,10 +513,9 @@ fileseek(struct chan *c, size_t offset, int whence)
 static int
 fileclose(struct chan *c)
 {
+  struct response *resp;
   struct cfile *cfile;
   struct request req;
-  struct response *resp;
-  int err;
 
   cfile = (struct cfile *) c->aux;
 
@@ -526,21 +524,18 @@ fileclose(struct chan *c)
   req.lbuf = 0;
 
   resp = makereq(cfile->binding, &req);
-  if (resp == nil) {
-    return ELINK;
+  if (resp != nil) {
+    if (resp->lbuf > 0) {
+      free(resp->buf);
+    }
+
+    free(resp);
   }
 
-  err = resp->ret;
-  if (resp->lbuf > 0)
-    free(resp->buf);
-  free(resp);
-
-  if (err == OK) {
-    atomicdec(&cfile->binding->refs);
-    free(cfile);
-  }
+  atomicdec(&cfile->binding->refs);
+  free(cfile);
 	
-  return err;
+  return OK;
 }
 
 struct chantype devfile = {

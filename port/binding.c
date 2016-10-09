@@ -37,6 +37,7 @@ newbinding(struct path *path, struct chan *out, struct chan *in)
     return nil;
 	
   b->refs = 1;
+
   initlock(&b->lock);
 
   b->path = path;
@@ -87,7 +88,7 @@ findbinding(struct ngroup *ngroup, struct path *path, int depth)
   for (bl = ngroup->bindings; bl != nil; bl = bl->next) {
     d = 0;
     pp = path;
-    lock(&bl->binding->lock);
+
     bp = bl->binding->path;
     while (d < depth && pp != nil && bp != nil) {
       if (!strcmp(pp->s, bp->s)) {
@@ -103,8 +104,6 @@ findbinding(struct ngroup *ngroup, struct path *path, int depth)
       bestd = d;
       best = bl->binding;
     }
-		
-    unlock(&bl->binding->lock);
   }
 	
   unlock(&ngroup->lock);

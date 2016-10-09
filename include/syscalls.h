@@ -84,6 +84,7 @@
 #define O_WRONLY	(1<<1)
 #define O_RDWR		(O_RDONLY|O_WRONLY)
 #define O_CREATE	(1<<2)
+#define O_DIR           (1<<3) /* File must be dir */
 
 #define SEEK_SET        1
 #define SEEK_CUR        2

@@ -181,9 +181,6 @@ findpagel(struct proc *p, void *addr)
   }
 
   pl = findpagelinlist(p->ustack, addr);
-  if (pl != nil) return pl;
-  
-  pl = findpagelinlist(p->kstack, addr);
   return pl;
 }
 
@@ -192,8 +189,6 @@ fixfault(void *addr)
 {
   struct pagel *pl;
 
-  printf("fix fault for %i, 0x%h\n", current->pid, addr);
-  
   pl = findpagel(current, addr);
   if (pl == nil) {
     return false;
@@ -203,10 +198,58 @@ fixfault(void *addr)
   }
 }
 
+bool
+nilbyteinrange(struct pagel *pl, reg_t offset)
+{
+  struct pagel *pn;
+
+  pn = pl;
+  while (pn != nil) {
+    while (offset < PAGE_SIZE) {
+      if (*((uint8_t *) pn->p->pa + offset) == 0) {
+	return true;
+      } else {
+	offset++;
+      }
+    }
+
+    if (pn->next == nil) {
+      return false;
+    } else if (pn->va + PAGE_SIZE != pn->next->va) {
+      return false;
+    } else {
+      offset = 0;
+    }
+  }
+
+  return false;
+}
+
+bool
+leninrange(struct pagel *pl, reg_t offset, size_t len)
+{
+  struct pagel *pn;
+
+  len -= PAGE_SIZE - offset;
+  pn = pl;
+  while (pn != nil && len >= PAGE_SIZE) {
+    if (pn->next == nil) {
+      return false;
+    } else if (pn->va + PAGE_SIZE != pn->next->va) {
+      return false;
+    } else {
+      len -= PAGE_SIZE;
+      pn = pn->next;
+    }
+  }
+
+  return true;
+}
+
 void *
 kaddr(struct proc *p, void *addr, size_t len)
 {
-  struct pagel *pl, *pn;
+  struct pagel *pl;
   uint32_t offset;
 
   pl = findpagel(p, addr);
@@ -216,20 +259,13 @@ kaddr(struct proc *p, void *addr, size_t len)
 
   offset = (uint32_t) addr - (uint32_t) pl->va;
 
-  if (offset + len >= PAGE_SIZE) {
-    len -= PAGE_SIZE - offset;
-    pn = pl;
-    while (pn != nil && len >= PAGE_SIZE) {
-      if (pn->next == nil) {
-	return nil;
-      }
-      
-      if (pn->va + PAGE_SIZE != pn->next->va) {
-	return nil;
-      } else {
-	len -= PAGE_SIZE;
-	pn = pn->next;
-      }
+  if (len == 0) {
+    if (!nilbyteinrange(pl, offset)) {
+      return nil;
+    }
+  } else if (offset + len >= PAGE_SIZE) {
+    if (!leninrange(pl, offset, len)) {
+      return nil;
     }
   }
   

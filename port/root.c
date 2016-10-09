@@ -102,8 +102,6 @@ bfid(struct request *req, struct response *resp)
 {
   struct file *f, *c;
 
-  printf("root fid %i\n", req->fid);
-
   f = findfile(root, req->fid);
   if (f == nil) {
     resp->ret = ENOFILE;
@@ -139,8 +137,6 @@ bstat(struct request *req, struct response *resp)
 {
   struct file *f;
 
-  printf("root stat %i\n", req->fid);
-
   f = findfile(root, req->fid);
   if (f == nil) {
     resp->ret = ENOFILE;
@@ -162,8 +158,6 @@ bopen(struct request *req, struct response *resp)
 {
   struct file *f;
 
-  printf("root open %i\n", req->fid);
-
   f = findfile(root, req->fid);
   if (f == nil) {
     resp->ret = ENOFILE;
@@ -177,8 +171,6 @@ static void
 bclose(struct request *req, struct response *resp)
 {
   struct file *f;
-
-  printf("root close %i\n", req->fid);
 
   f = findfile(root, req->fid);
   if (f == nil) {
@@ -275,8 +267,6 @@ bcreate(struct request *req, struct response *resp)
   struct file *p, *new;
   uint8_t *buf, lname;
 
-  printf("root create %i\n", req->fid);
-
   buf = req->buf;
   memmove(&attr, buf, sizeof(uint32_t));
   buf += sizeof(uint32_t);
@@ -330,7 +320,6 @@ bremove(struct request *req, struct response *resp)
 {
   struct file *f;
 
-  printf("root bremove %i\n", req->fid);
   f = findfile(root, req->fid);
   if (f == nil) {
     resp->ret = ENOFILE;
@@ -351,8 +340,6 @@ breaddir(struct request *req, struct response *resp,
 	 struct file *file,
 	 uint32_t offset, uint32_t len)
 {
-  printf("root breaddir %i\n", req->fid);
-
   if (offset + len > file->lbuf) {
     len = file->lbuf - offset;
   }
@@ -426,8 +413,6 @@ rootfsmountloop(struct chan *in, struct binding *b)
     resp->ret = ENOIMPL;
     resp->lbuf = 0;
 
-    printf("root process request %i\n", resp->rid);
-
     if (req.lbuf > 0 &&
 	piperead(in, req.buf, req.lbuf) != req.lbuf) {
       goto err;
@@ -456,8 +441,6 @@ rootfsmountloop(struct chan *in, struct binding *b)
       bread(&req, resp);
       break;
     }
-
-    printf("root handing over response %i\n", resp->rid);
     
     lock(&b->lock);
 
@@ -474,11 +457,16 @@ rootfsmountloop(struct chan *in, struct binding *b)
       }
     }
 
-    if (!found) {
-      panic("Error in root mount!\n");
-    }
-    
     unlock(&b->lock);
+
+    if (!found) {
+      printf("no proc waiting for request %i\n", resp->rid);
+      if (resp->lbuf > 0) {
+	free(resp->buf);
+      }
+
+      free(resp);
+    }
   }
 
   return 0;

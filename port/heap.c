@@ -103,7 +103,7 @@ malloc(size_t size)
       break;
     }
   }
-	
+
   if (b == nil) {
     b = growheap(p);
     if (b == nil) {
@@ -152,14 +152,11 @@ free(void *ptr)
   lock(&heaplock);
   
   if (b < heap) {
-    printf("before start of heap\n");
     if ((reg_t) b + sizeof(size_t) + b->size == (reg_t) heap) {
       /* block lines up with start of heap. */
-      printf("lines up with start of heap\n");
       b->size += sizeof(size_t) + heap->size;
       b->next = heap->next;
     } else {
-      printf("doesnt line up with start of heap\n");
       b->next = heap;
     }
 		
@@ -190,35 +187,28 @@ free(void *ptr)
 	
   if (palign && nalign) {
     /* b lines up with p and p->next, join them all. */
-    printf("b lines up with prev and next\n");
-
     p->size += sizeof(size_t) * 2 + b->size + p->next->size;
     p->next = p->next->next;
     b = p;
 		
   } else if (nalign) {
-    printf("b lines up with p->next\n");
     /* b lines up with p->next, join them. */
-		
     b->size += sizeof(size_t) + p->next->size;
     b->next = p->next->next;
     p->next = b;
     
   } else if (palign) {
-    printf("b lines up with p\n");
     /* b lines up with end of p, join them. */
     p->size += sizeof(size_t) + b->size;
     b = p;
 
   } else {
-    printf("b between p and p->next\n");
     /* b is somewhere between p and p->next. */
     b->next = p->next;
     p->next = b;
   }
 
  done:
-  printf("free 0x%h finished\n", ptr);
 
   pp = nil;
   for (pl = pages; pl != nil; pp = pl, pl = pl->next) {
@@ -239,6 +229,5 @@ free(void *ptr)
     }
   }
 
-  printf("heap pages checked\n");
   unlock(&heaplock);
 }

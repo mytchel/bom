@@ -97,14 +97,11 @@ copyngroup(struct ngroup *o)
   }
 	
   while (bo != nil) {
-    lock(&bo->binding->lock);
-		
     bn->binding = bo->binding;
     atomicinc(&bn->binding->refs);
 			
     bo = bo->next;
-    unlock(&bo->binding->lock);
-		
+
     if (bo == nil) {
       bn->next = nil;
     } else {

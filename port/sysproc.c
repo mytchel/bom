@@ -37,6 +37,7 @@ sysexit(va_list args)
 
   disableintr();
   procremove(current);
+  printf("removed, now schedule\n");
   schedule();
 	
   /* Never reached. */

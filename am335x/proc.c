@@ -53,10 +53,17 @@ forkfunc(struct proc *p, int (*func)(void *), void *arg)
 	
   p->label.psr = MODE_SVC;
   p->label.pc = (uint32_t) &forkfunc_loader;
-  p->label.sp = (uint32_t)
-    forkfunc_preloader((void *)
-		       KSTACK_TOP,
-		       arg, func);
+
+  p->label.sp = (uint32_t) p->kstack->pa
+    + PAGE_SIZE - sizeof(void *) * 2;
+
+  memmove((void *) ((uint32_t) p->kstack->pa
+		    + PAGE_SIZE - sizeof(void *)),
+	  &func, sizeof(void *));
+
+  memmove((void *) ((uint32_t) p->kstack->pa
+		    + PAGE_SIZE - sizeof(void *) * 2),
+	  &arg, sizeof(void *));
 }
 
 void
@@ -74,9 +81,10 @@ forkchild(struct proc *p, struct ureg *ureg)
   p->label.psr = MODE_SVC | (1 << 7);
   p->label.pc = (uint32_t) &userreturn;
   p->label.sp = (uint32_t) 
-    KSTACK_TOP - sizeof(struct ureg);
-	
+    p->kstack->pa + PAGE_SIZE - sizeof(struct ureg);
+
   nreg = (struct ureg *) p->label.sp;
   memmove(nreg, ureg, sizeof(struct ureg));
+
   nreg->regs[0] = 0;
 }

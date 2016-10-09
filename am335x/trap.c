@@ -180,6 +180,10 @@ trap(struct ureg *ureg)
   bool rsch = false;
   bool inkernel = current->inkernel;
 
+  if (current == nil) {
+    panic("Trapped with an unknown process!\n");
+  }
+  
   current->inkernel = true;
 
   if (ureg->type == ABORT_DATA)

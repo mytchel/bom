@@ -100,8 +100,6 @@ mountproc(void *arg)
     }
 
     if (!found) {
-      printf("%i mounted proc is being bad and replying without a request (%i).\n",
-	     current->pid, resp->rid);
       if (resp->lbuf > 0)
 	free(resp->buf);
       free(resp);
@@ -115,20 +113,16 @@ mountproc(void *arg)
 		
   debug("kproc mount: lock binding\n");	
   lock(&b->lock);
+
   debug("kproc mount: free chans\n");	
 
   freechan(b->in);
   freechan(b->out);
-  debug("kproc mount: unlock binding\n");	
-  unlock(&b->lock);
 
   debug("kproc mount: wait for bindings refs to go to zero.\n");
 
   disableintr();
-  while (true) {
-    if (b->refs == 0)
-      break;
-
+  while (b->refs > 0) {
     schedule();
   }
 
@@ -137,9 +131,6 @@ mountproc(void *arg)
   debug("kproc mount: no longer bound\n");
 
   /* Free binding and exit. */
-
-  debug("kproc mount: lock\n");
-  lock(&b->lock);	
 
   debug("kproc mount: wake waiters\n");
 
@@ -151,7 +142,6 @@ mountproc(void *arg)
 
     printf("kproc mount: wake up %i\n", p->pid);
     p->aux = nil;
-    p->next = nil;
     procready(p);
 
     p = pn;

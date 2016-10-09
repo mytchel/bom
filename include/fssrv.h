@@ -98,8 +98,7 @@ struct response {
  * If the file is a directory then the result should 
  * be in the format 
  *    uint8_t name length [0, FS_NAME_MAX-1]
- *    uint8_t *name... (If reading from userspace you should exspect this to be
- *             up to FS_NAME_MAX bytes.)
+ *    uint8_t *name... 
  * for each file in the directory. You will only get
  * one response for each read.
  *
@@ -108,8 +107,11 @@ struct response {
  * Response to create has ret as err or OK. If OK then
  * buf contains the fid of the new file.
  *
- * Response to remove, open, close, and flush have no buf and
+ * Response to remove, open, and flush have no buf and
  * ret is an error or OK.
+ * 
+ * Response to close will be ignored by the kernel. It should
+ * have no buf.
  */
 
 struct fsmount {

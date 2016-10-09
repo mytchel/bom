@@ -130,6 +130,7 @@ typedef enum {
 } procstate_t;
 
 #define MIN_PRIORITY 100
+#define NULL_PRIORITY (MIN_PRIORITY+1)
 
 struct proc {
   struct proc *next; 
@@ -149,7 +150,8 @@ struct proc {
   int priority;
   uint32_t timeused;
 
-  struct pagel *mmu, *kstack, *ustack;
+  struct page *kstack;
+  struct pagel *mmu, *ustack;
 
   struct mgroup *mgroup;
   struct fgroup *fgroup;
@@ -246,8 +248,13 @@ freemgroup(struct mgroup *m);
 bool
 fixfault(void *);
 
+/* Finds the physical address of addr in p's address
+ * space and checks if it exstends through to size. 
+ * If size is 0, checks if it exstends through to a
+ * 0 byte. If it failes any of these checks returns nil.
+ */
 void *
-kaddr(struct proc *, void *, size_t);
+kaddr(struct proc *p, void *addr, size_t size);
 
 /* Channels */
 
