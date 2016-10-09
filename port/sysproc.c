@@ -82,7 +82,6 @@ sysfork(va_list args)
     return ENOMEM;
   }
 
-  p->inkernel = false;
   p->parent = current;
 
   p->dot = copypath(current->dot);

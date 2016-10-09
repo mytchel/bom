@@ -449,27 +449,35 @@ tmpmount(char *path)
   int f, fd, p1[2], p2[2];
   
   if (pipe(p1) == ERR) {
-    return -1;
+    return ERR;
   } else if (pipe(p2) == ERR) {
-    return -1;
+    return ERR;
   }
 
   fd = open(path, O_WRONLY|O_CREATE, ATTR_wr|ATTR_rd|ATTR_dir);
   if (fd < 0) {
-    return -2;
+    return ERR;
   }
 
   if (bind(p1[1], p2[0], path) == ERR) {
-    return -3;
+    return ERR;
   }
 	
   close(p1[1]);
   close(p2[0]);
 
+  f = fork(FORK_sngroup);
+  if (f != 0) {
+    close(p1[0]);
+    close(p2[1]);
+    close(fd);
+    return f;
+  }
+ 
   root = malloc(sizeof(struct file));
   if (root == nil) {
     printf("tmp root tree malloc failed!\n");
-    return -4;
+    return ENOMEM;
   }
 
   root->fid = nfid++;
@@ -485,13 +493,5 @@ tmpmount(char *path)
   root->parent = nil;
   root->children = nil;
 
-  f = fork(FORK_sngroup);
-  if (f != 0) {
-    close(p1[0]);
-    close(p2[1]);
-    close(fd);
-    return f;
-  }
- 
   return fsmountloop(p1[0], p2[1], &mount);
 }

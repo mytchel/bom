@@ -171,11 +171,10 @@ schedule(void)
       }
     }
   }
-  
+
   updatesleeping(t);
 	
   current = nextproc();
-  
   current->state = PROC_oncpu;
 
   mmuswitch(current);
@@ -276,6 +275,7 @@ procready(struct proc *p)
 {
   p->state = PROC_ready;
 
+  p->timeused = 0;
   removefromlist(p->list, p);
   addtolistfront(&queues[p->priority].ready, p);
 }

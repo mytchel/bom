@@ -57,7 +57,7 @@ struct partition {
   bool active;
   
   uint8_t lname;
-  uint8_t name[FS_NAME_MAX+1];
+  uint8_t name[FS_NAME_MAX];
   
   uint32_t fid;
   struct stat stat;
@@ -80,51 +80,57 @@ static uint32_t nfid = ROOTFID;
 static struct blkdevice *device = nil;
 
 static struct mbr mbr;
-struct partition parts[5]; /* 4 mbr parts + raw */
+struct partition parts[4], raw;
+
+static void
+initpart(struct partition *p, char *name)
+{
+  snprintf((char *) p->name, FS_NAME_MAX, name);
+
+  p->lname = strlen((char *) p->name);
+
+  p->fid = ++nfid;
+  p->stat.attr = ATTR_wr|ATTR_rd;
+}
 
 static void
 initparts(void)
 {
-  char c = 'a';
+  char name[FS_NAME_MAX] = "a";
   int i;
 
-  snprintf((char *) parts[0].name, FS_NAME_MAX,
-	   "raw");
+  for (i = 0; i < 4; i++) {
+    initpart(&parts[i], name);
+    name[0]++;
 
-  parts[0].lname = strlen((char *) parts[0].name);
-
-  parts[0].fid = ++nfid;
-  parts[0].active = true;
-  parts[0].stat.size = device->nblk * 512;
-  parts[0].stat.attr = ATTR_wr|ATTR_rd;
-  parts[0].lba = 0;
-  parts[0].sectors = device->nblk;
-  parts[0].mbr = nil;
-
-  for (i = 1; i < 5; i++) {
-    parts[i].fid = ++nfid;
-    parts[i].mbr = &mbr.parts[i-1];
-
-    snprintf((char *) parts[i].name, FS_NAME_MAX,
-	     "%c", c++);
-
-    parts[i].lname = strlen((char *) parts[i].name);
-
-    parts[i].stat.attr = ATTR_wr|ATTR_rd;
+    parts[i].mbr = &mbr.parts[i];
     parts[i].active = false;
   }
+
+  initpart(&raw, "raw");
+
+  raw.stat.size = device->nblk * 512;
+  raw.active = true;
+  raw.lba = 0;
+  raw.sectors = device->nblk;
+  raw.mbr = nil;
 }
 
 static void
-updateparts(void)
+updatembr(void)
 {
   int i;
   uint8_t *buf;
 
-  rootbuflen = 1 + parts[0].lname;
+  if (!(device->read(device->aux, 0, (uint8_t *) &mbr))) {
+    printf("mbr read failed\n");
+    exit(ERR);
+  }
+
+  rootbuflen = sizeof(uint8_t) * (1 + raw.lname);
   rootstat.size = 1;
 
-  for (i = 1; i < 5; i++) {
+  for (i = 0; i < 4; i++) {
     if (parts[i].mbr->type != 0) {
       parts[i].active = true;
 
@@ -155,25 +161,20 @@ updateparts(void)
   }
 
   buf = rootbuf;
-  for (i = 0; i < 5; i++) {
+
+  memmove(buf, &raw.lname, sizeof(uint8_t));
+  buf += sizeof(uint8_t);
+  memmove(buf, raw.name, sizeof(uint8_t) * raw.lname);
+  buf += sizeof(uint8_t) * raw.lname;
+
+   for (i = 0; i < 4; i++) {
     if (parts[i].active == false) continue;
-    
+
     memmove(buf, &parts[i].lname, sizeof(uint8_t));
     buf += sizeof(uint8_t);
-    memmove(buf, &parts[i].name, sizeof(uint8_t) * parts[i].lname);
+    memmove(buf, parts[i].name, sizeof(uint8_t) * parts[i].lname);
     buf += sizeof(uint8_t) * parts[i].lname;
   }
-}
-
-static void
-updatembr(void)
-{
-  if (!(device->read(device->aux, 0, (uint8_t *) &mbr))) {
-    printf("mbr read failed\n");
-    exit(ERR);
-  }
-
-  updateparts();
 }
 
 static struct partition *
@@ -181,7 +182,11 @@ fidtopart(uint32_t fid)
 {
   int i;
 
-  for (i = 0; i < 5; i++) {
+  if (fid == raw.fid) {
+    return &raw;
+  }
+  
+  for (i = 0; i < 4; i++) {
     if (parts[i].fid == fid) {
       if (parts[i].active) {
 	return &parts[i];
@@ -200,18 +205,22 @@ bfid(struct request *req, struct response *resp)
   struct partition *part = nil;
   int i;
 
-  req->buf[req->lbuf] = 0;
-  
-  for (i = 0; i < 5; i++) {
-    if (parts[i].active) {
-      if (parts[i].lname != req->lbuf) continue;
-      if (strncmp((char *) parts[i].name, (char *) req->buf,
-		  parts[i].lname)) {
-	part = &parts[i];
-	break;
+  if (raw.lname == req->lbuf) {
+    if (strncmp((char *) raw.name, (char *) req->buf, raw.lname)) {
+      part = &raw;
+    }
+  } else {
+    for (i = 0; i < 4; i++) {
+      if (parts[i].active) {
+	if (parts[i].lname != req->lbuf) continue;
+	if (strncmp((char *) parts[i].name, (char *) req->buf,
+		    parts[i].lname)) {
+	  part = &parts[i];
+	  break;
+	}
       }
     }
-  }
+  } 
 
   if (part == nil) {
     resp->ret = ENOFILE;
@@ -237,11 +246,11 @@ bstat(struct request *req, struct response *resp)
 
   if (req->fid == ROOTFID) {
     s = &rootstat;
-  }
-
-  part = fidtopart(req->fid);
-  if (part != nil) {
-    s = &(part->stat);
+  } else {
+    part = fidtopart(req->fid);
+    if (part != nil) {
+      s = &(part->stat);
+    }
   }
 
   if (s == nil) {

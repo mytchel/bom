@@ -84,11 +84,16 @@ static struct readreq *readrequests;
 static int readreqlock, fsoutlock;
 static int fsin, fsout;
 
+static struct stat comstatstruct = {
+  ATTR_wr|ATTR_rd,
+  0
+};
+
 static size_t
 puts(uint8_t *s, size_t len)
 {
   size_t i;
-	
+
   for (i = 0; i < len && s[i]; i++) {
     if (s[i] == '\n') {
       while ((uart->lsr & (1 << 5)) == 0)
@@ -127,7 +132,7 @@ readloop(void)
   struct readreq *req;
   size_t respsize;
   uint32_t done;
-  uint8_t *buf;
+  uint8_t buf[FS_LBUF_MAX];
 
   respsize = sizeof(resp.rid)
     + sizeof(resp.ret)
@@ -141,11 +146,6 @@ readloop(void)
 
     readrequests = req->next;
 
-    buf = malloc(req->len + 1);
-    if (buf == nil) {
-      exit(ENOMEM);
-    }
-
     done = 0;
     while (done < req->len) {
       while ((uart->lsr & 1) == 0)
@@ -154,12 +154,11 @@ readloop(void)
       buf[done++] = uart->hr;
     }
 
-    buf[done] = 0;
-    
     resp.rid = req->rid;
     resp.lbuf = done;
-    resp.buf = buf;
+    resp.ret = OK;
 
+    buf[done] = 0;
     while (!testandset(&fsoutlock))
       sleep(0);
 
@@ -167,14 +166,13 @@ readloop(void)
       exit(ELINK);
     }
 
-    if (write(fsout, resp.buf, done) != done) {
+    if (write(fsout, buf, done) != done) {
       exit(ELINK);
     }
 
     fsoutlock = 0;
     
     free(req);
-    free(buf);
   }
 
   return 0;
@@ -220,12 +218,7 @@ addreadreq(struct request *req)
 static void
 comstat(struct request *req, struct response *resp)
 {
-  static struct stat s = {
-    ATTR_wr|ATTR_rd,
-    0
-  };
-
-  resp->buf = (uint8_t *) &s;
+  resp->buf = (uint8_t *) &comstatstruct;
   resp->lbuf = sizeof(struct stat);
   resp->ret = OK;
 }
@@ -294,6 +287,7 @@ comfsmountloop(void)
     resp.ret = ENOIMPL;
 
     if (req.lbuf > 0 && read(fsin, req.buf, req.lbuf) != req.lbuf) {
+      dprintf("read buf failed!\n");
       goto err;
     }
 
@@ -367,9 +361,6 @@ commount(char *path)
   close(p1[1]);
   close(p2[0]);
 
-  fsout = p2[1];
-  fsin = p1[0];
- 
   f = fork(FORK_sngroup);
   if (f > 0) {
     close(p1[0]);
@@ -378,6 +369,9 @@ commount(char *path)
     return f;
   }
 
+  fsout = p2[1];
+  fsin = p1[0];
+ 
   uart = (struct uart_struct *)
     getmem(MEM_io, (void *) UART0, &size);
 
@@ -388,11 +382,7 @@ commount(char *path)
   f = fork(FORK_smem|FORK_sngroup|FORK_sfgroup);
   if (f == 0) {
     return readloop();
+  } else {
+    return comfsmountloop();
   }
-
-  f = comfsmountloop();
-
-  dprintf("com mount at %s exiting!\n", path);
-
-  return f;
 }

@@ -57,6 +57,8 @@ growheap(struct block *prev)
     return nil;
   }
 
+  printf("kernel grab heap page 0x%h\n", pg->pa);
+  
   pl = wrappage(pg, (void *) 0, true, true);
   if (pl == nil) {
     freepage(pg);

@@ -8,14 +8,15 @@ SECTIONS
 	{
 		*(.text)
 		*(.text.*)
-		*(.rodata)
-		*(.rodata.*)
 	}
 	
 	. = ALIGN(4096);
 	
 	.data :
-	{	*(.data)
+	{
+		*(.rodata)
+		*(.rodata.*)
+		*(.data)
 		*(.data.*)
 		*(.bss)
 		*(.bss.*)

@@ -1,3 +1,2 @@
-cpy
 *.umg
-init.h
+initcode.c

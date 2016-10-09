@@ -299,12 +299,12 @@ fileopen(struct path *path, uint32_t mode, uint32_t cmode, int *err)
       if (*err != OK) {
 	return nil;
       }
-    }
-  }
 
-  *err = filestatfid(b, fid, &stat);
-  if (*err != OK) {
-    return nil;
+      *err = filestatfid(b, fid, &stat);
+      if (*err != OK) {
+	return nil;
+      } 
+    }
   }
 
   if (!checkmode(&stat, mode)) {
@@ -440,10 +440,6 @@ filewrite(struct chan *c, uint8_t *buf, size_t n)
 
   cfile = (struct cfile *) c->aux;
 
-  if (cfile->stat.attr & ATTR_dir) {
-    return EMODE;
-  }
-  
   req.type = REQ_write;
   req.fid = cfile->fid;
   req.lbuf = sizeof(uint32_t) + n;

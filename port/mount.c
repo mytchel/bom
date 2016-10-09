@@ -69,9 +69,6 @@ mountproc(void *arg)
 
   pathstr = (char *) pathtostr(b->path, nil);
 
-  debug("kproc mount: '/%s' on pid %i\n",
-	pathstr, current->pid);
-	
   while (b->refs > 0) {
     resp = malloc(sizeof(struct response));
     if (resp == nil) {

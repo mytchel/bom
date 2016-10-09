@@ -50,10 +50,10 @@ initmemory(void)
 
   heap_size = (uint32_t) &_heap_end - (uint32_t) &_heap_start;
 
-  debug("init heap\n");
+  printf("init heap\n");
   initheap(&_heap_start, heap_size);
 
-  debug("init ram pages\n");
+  printf("init ram pages\n");
 
   addrampages(PAGE_ALIGN_UP((uint32_t) &_kernel_end),
 	   (uint32_t) &_ram_end);
@@ -61,7 +61,7 @@ initmemory(void)
   addrampages((uint32_t) &_ram_start,
 	   PAGE_ALIGN_DN((uint32_t) &_kernel_start));
 
-  debug("init io pages\n");
+  printf("init io pages\n");
 
   addiopages(0x47400000, 0x47404000); /* USB */
   addiopages(0x44E31000, 0x44E32000); /* DMTimer1 */
@@ -79,11 +79,11 @@ initmemory(void)
 
   initmmu();
 
-  debug("map ram pages\n");
+  printf("map ram pages\n");
   /* Give kernel unmapped access to all of ram. */	
   imap(&_ram_start, &_ram_end, AP_RW_NO, true);
 
-  debug("map kernel io pages\n");
+  printf("map kernel io pages\n");
 
   /* UART0 is given to both kernel and possibly users. This may change */
   /* UART0 */
@@ -97,7 +97,7 @@ initmemory(void)
   /* INTCPS */
   imap((void *) 0x48200000, (void *) 0x48201000, AP_RW_NO, false);
 
-  debug("enable mmu\n");
+  printf("enable mmu\n");
   
   mmuenable();
 }
@@ -107,7 +107,7 @@ initpages(struct page *p, struct page **from, size_t npages,
 	  uint32_t start, bool forceshare)
 {
   size_t i;
-  
+
   for (i = 0; i < npages; i++) {
     p[i].refs = 0;
     p[i].pa = (void *) start;
@@ -125,22 +125,24 @@ initpages(struct page *p, struct page **from, size_t npages,
 void
 addrampages(uint32_t start, uint32_t end)
 {
-  struct page *p;
+  struct page *new;
   uint32_t npages, size;
 
   size = end - start;
   npages = 0;
+
+  new = (struct page *) start;
 
   while (size > (PAGE_ALIGN_UP(sizeof(struct page) * npages)
 		 + PAGE_SIZE * npages)) {
     npages++;
   }
 
-  p = (struct page *) start;
-  start += sizeof(struct page) * npages;
-  start = PAGE_ALIGN_UP(start);
+  npages--;
 
-  initpages(p, &rampages, npages, start, false);
+  start = PAGE_ALIGN_UP(start + sizeof(struct page) * npages);
+
+  initpages(new, &rampages, npages, start, false);
 }
 
 void
@@ -155,22 +157,19 @@ addiopages(uint32_t start, uint32_t end)
 
   initpages(p, &iopages, npages, start, true);
 }
- 
-void *
-pagealign(void *addr)
-{
-  uint32_t x = (uint32_t) addr;
-  return (void *) PAGE_ALIGN_UP(x);
-}
 
 struct page *
 getrampage(void)
 {
   struct page *p;
 
+  disableintr();
+  
   p = rampages;
   rampages = p->next;
   p->next = nil;
+
+  enableintr();
 
   p->refs = 1;
   return p;
@@ -181,6 +180,8 @@ getiopage(void *addr)
 {
   struct page *p, *pp;
 
+  disableintr();
+  
   pp = nil;
   for (p = iopages; p != nil; pp = p, p = p->next) {
     if (p->pa == addr) {
@@ -191,9 +192,11 @@ getiopage(void *addr)
       }
       
       p->refs = 1;
+      enableintr();
       return p;
     }
   }
 
+  enableintr();
   return nil;
 }

@@ -513,6 +513,8 @@ cardcsd(struct mmc *mmc)
 static bool
 cardinit(struct mmc *mmc)
 {
+  mmc->rca = 0;
+  
   if (!cardgotoidle(mmc)) {
     printf("%s failed to goto idle state!\n", mmc->name);
     return false;
