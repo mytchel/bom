@@ -69,15 +69,11 @@ main(void)
   if (stdout < 0) return -3;
   if (stderr < 0) return -3;
 
-  printf("/dev/com mounted\n");
-
   f = tmpmount("/tmp");
   if (f < 0) {
     return -1;
   }
   
-  printf("/tmp mounted\n");
-
   f = initblockdevs();
   if (f < 0) {
     return -1;

@@ -419,7 +419,6 @@ cardqueryvolttype(struct mmc *mmc)
 
   if (!r && (mmc->regs->stat & MMCHS_SD_STAT_CTO)) {
     /* eMMC cards here. */
-    printf("%s is a mmc card\n", mmc->name);
     mmccmdreset(mmc);
 
     cmd.cmd = MMC_SEND_OP_COND;
@@ -431,7 +430,6 @@ cardqueryvolttype(struct mmc *mmc)
    
   } else if (r) {
     /* SD cards here. */
-    printf("%s is a sd card\n", mmc->name);
     while (!(cmd.resp[0] & MMC_OCR_MEM_READY)) {
       if (!mmchssendappcmd(mmc, &cmd)) {
 	return false;

@@ -486,15 +486,12 @@ tmpmount(char *path)
   root->children = nil;
 
   f = fork(FORK_sngroup);
-  if (f < 0) {
-    return -5;
-  } else if (!f) {
-    return fsmountloop(p1[0], p2[1], &mount);
+  if (f != 0) {
+    close(p1[0]);
+    close(p2[1]);
+    close(fd);
+    return f;
   }
-	
-  close(p1[0]);
-  close(p2[1]);
-  close(fd);
-  
-  return f;
+ 
+  return fsmountloop(p1[0], p2[1], &mount);
 }

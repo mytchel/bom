@@ -402,7 +402,6 @@ mbrmountthread(struct blkdevice *d, uint8_t *dir)
   close(p1[1]);
   close(p2[0]);
 
-  printf("mounting %s on %s\n", device->name, filename);
   return fsmountloop(p1[0], p2[1], &mount);
 }
 
