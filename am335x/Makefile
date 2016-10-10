@@ -78,7 +78,8 @@ ISRC_P := \
         ../init/shell.c         \
         ../lib/fssrv.c          \
         ../lib/misc.c           \
-        ../lib/string.c
+        ../lib/string.c         \
+        ../lib/ctype.c
 
 
 IOBJECTS := \
@@ -126,7 +127,8 @@ KSRC_P := \
         ../port/sysfile.c       \
         ../port/syscall.c       \
         ../lib/string.c         \
-	../lib/misc.c
+	../lib/misc.c           \
+        ../lib/ctype.c
 
 
 KOBJECTS := \

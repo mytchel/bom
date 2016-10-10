@@ -28,41 +28,37 @@
 #include <fs.h>
 #include <stdarg.h>
 #include <string.h>
+#include <ctype.h>
 
 #define LINE_MAX 512
+#define MAX_ARGS 512
+
+struct func {
+  char *name;
+  int (*func)(int argc, char **argv);
+};
+
+static int funcls(int argc, char **argv);
+static int funccd(int argc, char **argv);
+static int funcpwd(int argc, char **argv);
+static int funcecho(int argc, char **argv);
+
+struct func funcs[] = {
+  { "ls",     &funcls },
+  { "cd",     &funccd },
+  { "pwd",    &funcpwd },
+  { "echo",   &funcecho }
+};
 
 static int ret = 0;
 static char pwd[FS_NAME_MAX * 10] = "/";
 
-static int cmdls(char *line);
-static int cmdcd(char *line);
-static int cmdpwd(char *line);
-
-struct cmd {
-  char *name;
-  int (*func)(char *);
-};
-
-struct cmd cmds[] = {
-  { "ls",     &cmdls },
-  { "cd",     &cmdcd },
-  { "pwd",    &cmdpwd },
-  { nil, nil },
-};
-
 int
-cmdls(char *line)
+funclsh(char *filename)
 {
-  uint8_t buf[FS_NAME_MAX+2], len;
+  uint8_t buf[FS_NAME_MAX+1], len;
   struct stat s;
-  char *filename;
   int r, fd;
-
-  filename = strtok(nil, " ");
-
-  if (filename == nil) {
-    filename = ".";
-  }
 
   if (stat(filename, &s) != OK) {
     printf("Error statting '%s'\n", filename);
@@ -103,22 +99,39 @@ cmdls(char *line)
   close(fd);
 
   chdir(pwd);
+
+  return OK;
+}
+
+int
+funcls(int argc, char **argv)
+{
+  int i;
+
+  if (argc == 1) {
+    funclsh(".");
+  } else if (argc == 2) {
+      funclsh(argv[1]);
+  } else {
+    for (i = 1; i < argc; i++) {
+      printf("%s:\n", argv[i]);
+      funclsh(argv[i]);
+    }
+  }
   
   return OK;
 }
 
 int
-cmdcd(char *line)
+funccd(int argc, char **argv)
 {
-  char *dir;
-
-  dir = strtok(nil, " ");
-  if (dir == nil) {
-    dir = "/";
+  if (argc != 2) {
+    printf("usage: %s dir\n", argv[0]);
+    return ERR;
   }
 
-  if (chdir(dir) != OK) {
-    printf("Failed to change to '%s'\n", dir);
+  if (chdir(argv[1]) != OK) {
+    printf("Failed to change to '%s'\n", argv[1]);
     return ERR;
   }
 
@@ -130,9 +143,23 @@ cmdcd(char *line)
 }
 
 int
-cmdpwd(char *line)
+funcpwd(int argc, char **argv)
 {
   printf("%s\n", pwd);
+  return OK;
+}
+
+int
+funcecho(int argc, char **argv)
+{
+  int i;
+
+  for (i = 1; i < argc; i++) {
+    printf("%s", argv[i]);
+  }
+
+  printf("\n");
+  
   return OK;
 }
 
@@ -159,26 +186,88 @@ readline(uint8_t *data, size_t max)
 }
 
 static void
-processline(char *line)
+shiftstringleft(char *str)
 {
-  char *cmd;
-  int i;
+  while (*(str++)) {
+    *(str-1) = *str;
+  }
+}
 
-  cmd = strtok(line, " ");
+/* Like strtok but allows for quotes and escapes. */
+static char *
+strsection(char *nstr)
+{
+  static char *str = nil;
+  char *c;
 
-  i = 0;
-  while (cmds[i].name) {
-    if (strcmp(cmds[i].name, cmd)) {
-      ret = cmds[i].func(line);
+  if (nstr != nil) {
+    str = nstr;
+  } else if (str == nil) {
+    return nil;
+  }
+
+  while (*str != 0 && isspace(*str))
+    str++;
+
+  if (*str == 0) {
+    return nil;
+  }
+
+  c = str;
+  while (*c != 0) {
+    if (isspace(*c)) {
       break;
+    } else if (*c == '\\') {
+      shiftstringleft(c);
+      c++;
+    } else if (*c == '\'') {
+      shiftstringleft(c);
+
+      while (*c != 0 && *c != '\'')
+	c++;
+
+      shiftstringleft(c);
     }
 
-    i++;
+    c++;
   }
 
-  if (cmds[i].name == nil) {
-    printf("%s: command not found\n", cmd);
+  nstr = str;
+  if (*c == 0) {
+    str = nil;
+  } else {
+    *c = 0;
+    str = c + 1;
   }
+
+  return nstr;
+}
+
+static void
+processline(char *line)
+{
+  char *argv[MAX_ARGS];
+  int i, argc;
+
+  argv[0] = strsection(line);
+  if (argv[0] == nil) {
+    return;
+  } else {
+    argc = 1;
+  }
+
+  while ((argv[argc] = strsection(nil)) != nil) {
+    argc++;
+  }
+
+  for (i = 0; i < sizeof(funcs) / sizeof(funcs[0]); i++) {
+    if (strcmp(funcs[i].name, argv[0])) {
+      ret = funcs[i].func(argc, argv);
+      return;
+    }
+  }
+
+  printf("%s: command not found\n", argv[0]);
 }
 
 int
