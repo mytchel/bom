@@ -50,18 +50,13 @@ initmemory(void)
 
   heap_size = (uint32_t) &_heap_end - (uint32_t) &_heap_start;
 
-  printf("init heap\n");
   initheap(&_heap_start, heap_size);
-
-  printf("init ram pages\n");
 
   addrampages(PAGE_ALIGN_UP((uint32_t) &_kernel_end),
 	   (uint32_t) &_ram_end);
   
   addrampages((uint32_t) &_ram_start,
 	   PAGE_ALIGN_DN((uint32_t) &_kernel_start));
-
-  printf("init io pages\n");
 
   addiopages(0x47400000, 0x47404000); /* USB */
   addiopages(0x44E31000, 0x44E32000); /* DMTimer1 */
@@ -79,11 +74,8 @@ initmemory(void)
 
   initmmu();
 
-  printf("map ram pages\n");
   /* Give kernel unmapped access to all of ram. */	
   imap(&_ram_start, &_ram_end, AP_RW_NO, true);
-
-  printf("map kernel io pages\n");
 
   /* UART0 is given to both kernel and possibly users. This may change */
   /* UART0 */
@@ -97,8 +89,6 @@ initmemory(void)
   /* INTCPS */
   imap((void *) 0x48200000, (void *) 0x48201000, AP_RW_NO, false);
 
-  printf("enable mmu\n");
-  
   mmuenable();
 }
 

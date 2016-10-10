@@ -29,51 +29,42 @@
 
 struct file {
   uint32_t fid;
-
-  uint8_t lname;
-  char name[FS_NAME_MAX];
-
-  uint8_t *buf;
-  size_t lbuf;
-
   struct stat stat;
-  unsigned int open;
 
   struct file *cnext;
-  struct file *parent;
   struct file *children;
 };
 
 static struct file *root = nil;
 static uint32_t nfid = ROOTFID;
-static struct chan *rootin;
 
-struct binding *rootbinding;
+static struct chan *fsin;
+static struct binding *fsbinding;
 
 static int
-rootfsproc(void *);
+procfsproc(void *);
 
 void
-initrootfs(void)
+initprocfs(void)
 {
   struct chan *out;
   struct proc *pr;
 
-  if (!newpipe(&(rootin), &(out))) {
-    panic("rootfs: newpipe failed!\n");
+  if (!newpipe(&(fsin), &(out))) {
+    panic("procfs: newpipe failed!\n");
   }
 
-  rootbinding = newbinding(nil, out, nil);
-  if (rootbinding == nil) {
-    panic("rootfs: newbinding failed!\n");
+  fsbinding = newbinding(nil, out, nil);
+  if (fsbinding == nil) {
+    panic("procfs: newbinding failed!\n");
   }
 
-  pr = newproc(30);
+  pr = newproc(60);
   if (pr == nil) {
-    panic("rootfs: newproc failed!\n");
+    panic("procfs: newproc failed!\n");
   }
 
-  forkfunc(pr, &rootfsproc, nil);
+  forkfunc(pr, &procfsproc, nil);
 
   procready(pr);
 }
@@ -388,16 +379,16 @@ static struct fsmount rootmount = {
   bcreate,
   bremove,
   bread,
-  nil,
+  bwrite,
   nil
 };
   
 static int
-rootfsproc(void *arg)
+procfsproc(void *arg)
 {
   root = malloc(sizeof(struct file));
   if (root == nil) {
-    panic("rootfs: root tree malloc failed!\n");
+    panic("root tree malloc failed!\n");
   }
 
   root->fid = nfid++;
@@ -413,5 +404,5 @@ rootfsproc(void *arg)
   root->parent = nil;
   root->children = nil;
 
-  return kmountloop(rootin, rootbinding, &rootmount);
+  return kmountloop(fsin, fsbinding, &rootmount);
 }

@@ -99,22 +99,12 @@ systickhandler(uint32_t irqn)
 void
 setsystick(uint32_t t)
 {
-  writel(0, TIMER2 + TIMER_TCLR); /* disable timer */
-
-  /* Wait for writes to commit. */
-  while (readl(TIMER2 + TIMER_TWPS))
-    ; 
-	
   writel(0, TIMER2 + TIMER_TCRR); /* set timer to 0 */
   writel(t, TIMER2 + TIMER_TMAR); /* set compare value */
 
   /* Clear irq status if it is set. */
   writel(3, TIMER2 + TIMER_IRQSTATUS);
 
-  /* Wait for writes to commit. */	
-  while (readl(TIMER2 + TIMER_TWPS))
-    ; 
-	
   writel((1<<6) | 1, TIMER2 + TIMER_TCLR); /* start timer */
 }
 

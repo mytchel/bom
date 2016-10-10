@@ -46,7 +46,7 @@ main(void)
 
   initscheduler();
 
-  initroot();
+  initrootfs();
   initmainproc();
 
   puts("Starting procs...\n");

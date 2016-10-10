@@ -148,9 +148,7 @@ readloop(void)
 
     done = 0;
     while (done < req->len) {
-      while ((uart->lsr & 1) == 0)
-	;
-
+      waitintr(UART0_INTR);
       buf[done++] = uart->hr;
     }
 

@@ -120,6 +120,7 @@ KSRC_P := \
         ../port/pipe.c          \
         ../port/file.c          \
         ../port/mount.c         \
+        ../port/fs.c            \
         ../port/root.c          \
         ../port/path.c          \
         ../port/heap.c          \
@@ -156,17 +157,17 @@ CLEAN += $(KOBJECTS)
 
 
 CLEAN += am335x.elf am335x.list
-am335x.elf: linker.ld $(KOBJECTS)
+am335x.elf: kernel.ld $(KOBJECTS)
 	@echo LD $@
-	@$(LD) $(LDFLAGS) -T linker.ld -o $@ \
+	@$(LD) $(LDFLAGS) -T kernel.ld -o $@ \
 		$(KOBJECTS) \
 		$(LGCC)
 
 
 CLEAN += init.elf init.list
-init.elf: init/linker.ld $(IOBJECTS)
+init.elf: init.ld $(IOBJECTS)
 	@echo LD $@
-	@$(LD) $(LDFLAGS) -T init/linker.ld -o $@ \
+	@$(LD) $(LDFLAGS) -T init.ld -o $@ \
 		$(IOBJECTS) \
 		$(LGCC)
 

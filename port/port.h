@@ -168,7 +168,10 @@ void
 initscheduler(void);
 
 void
-initroot(void);
+initrootfs(void);
+
+void
+initprocfs(void);
 
 void
 initheap(void *, size_t);
@@ -343,6 +346,9 @@ fileopen(struct path *, uint32_t, uint32_t, int *);
 
 int
 fileremove(struct path *);
+
+int
+kmountloop(struct chan *in, struct binding *b, struct fsmount *mount);
 
 /* Debug */
 

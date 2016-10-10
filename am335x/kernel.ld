@@ -41,7 +41,7 @@ SECTIONS
 	
 	. = ALIGN(4096);
 	_heap_start = .;
-	. = . + 0x80000;
+	. = . + 0x10000;
 	. = ALIGN(4096);
 	_heap_end = .;
 
