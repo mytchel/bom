@@ -37,9 +37,9 @@ static struct block *heap = nil;
 static struct pagel *pages = nil;
 
 void
-initheap(void *start, size_t size)
+heapinit(void *start, size_t size)
 {
-  initlock(&heaplock);
+  lockinit(&heaplock);
   heap = (struct block *) start;
   heap->size = size - sizeof(size_t);
   heap->next = nil;
@@ -61,7 +61,7 @@ growheap(struct block *prev)
   
   pl = wrappage(pg, (void *) 0, true, true);
   if (pl == nil) {
-    freepage(pg);
+    pagefree(pg);
     return nil;
   }
 
@@ -224,7 +224,7 @@ free(void *ptr)
 	  pp->next = pl->next;
 	}
 
-	freepage(pl->p);
+	pagefree(pl->p);
 	free(pl);
 	break;
       }

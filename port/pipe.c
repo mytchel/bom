@@ -39,7 +39,7 @@ struct pipe {
 };
 
 bool
-newpipe(struct chan **c0, struct chan **c1)
+pipenew(struct chan **c0, struct chan **c1)
 {
   struct pipe *p;
 	
@@ -48,15 +48,15 @@ newpipe(struct chan **c0, struct chan **c1)
     return false;
   }
 	
-  *c0 = newchan(CHAN_pipe, O_RDONLY);
+  *c0 = channew(CHAN_pipe, O_RDONLY);
   if (*c0 == nil) {
     free(p);
     return false;
   }
 	
-  *c1 = newchan(CHAN_pipe, O_WRONLY);
+  *c1 = channew(CHAN_pipe, O_WRONLY);
   if (*c1 == nil) {
-    freechan(*c0);
+    chanfree(*c0);
     free(p);
     return false;
   }
@@ -69,7 +69,7 @@ newpipe(struct chan **c0, struct chan **c1)
   p->waiting = false;
   p->proc = nil;
 
-  initlock(&p->lock);
+  lockinit(&p->lock);
 
   return true;	
 }

@@ -28,7 +28,7 @@
 #include "head.h"
 
 void
-freepage(struct page *p)
+pagefree(struct page *p)
 {
   if (atomicdec(&p->refs) > 0) {
     return;
@@ -39,30 +39,30 @@ freepage(struct page *p)
 }
 
 void
-freepagel(struct pagel *p)
+pagelfree(struct pagel *p)
 {
   if (p == nil) {
     return;
   } else {
-    freepage(p->p);
-    freepagel(p->next);
+    pagefree(p->p);
+    pagelfree(p->next);
     free(p);
   }
 }
 
 void
-freemgroup(struct mgroup *m)
+mgroupfree(struct mgroup *m)
 {
   if (atomicdec(&m->refs) > 0) {
     return;
   }
 
-  freepagel(m->pages);
+  pagelfree(m->pages);
   free(m);
 }
 
 struct mgroup *
-newmgroup(void)
+mgroupnew(void)
 {
   struct mgroup *new;
 
@@ -73,29 +73,29 @@ newmgroup(void)
 
   new->refs = 1;
   new->pages = nil;
-  initlock(&new->lock);
+  lockinit(&new->lock);
 
   return new;
 }
 
 struct mgroup *
-copymgroup(struct mgroup *old)
+mgroupcopy(struct mgroup *old)
 {
   struct mgroup *new;
-  new = newmgroup();
+  new = mgroupnew();
   if (new == nil) {
     return nil;
   }
   
   lock(&old->lock);
-  new->pages = copypagel(old->pages);
+  new->pages = pagelcopy(old->pages);
   unlock(&old->lock);
   
   return new;
 }
 
 struct pagel *
-copypagel(struct pagel *po)
+pagelcopy(struct pagel *po)
 {
   struct pagel *new, *pn, *pp;
   struct page *pg;
@@ -132,7 +132,7 @@ copypagel(struct pagel *po)
   return new;
 
 err:
-  freepagel(new);
+  pagelfree(new);
 
   return nil;
 }

@@ -44,7 +44,7 @@
 uint32_t ttb[4096] __attribute__((__aligned__(16*1024))) = { L1_FAULT };
 
 void
-initmmu(void)
+mmuinit(void)
 {
   int i;
   for (i = 0; i < 4096; i++)

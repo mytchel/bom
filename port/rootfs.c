@@ -54,23 +54,23 @@ static int
 rootfsproc(void *);
 
 void
-initrootfs(void)
+rootfsinit(void)
 {
   struct chan *out;
   struct proc *pr;
 
-  if (!newpipe(&(rootin), &(out))) {
-    panic("rootfs: newpipe failed!\n");
+  if (!pipenew(&(rootin), &(out))) {
+    panic("rootfs: pipenew failed!\n");
   }
 
-  rootfsbinding = newbinding(out, nil);
+  rootfsbinding = bindingnew(out, nil);
   if (rootfsbinding == nil) {
-    panic("rootfs: newbinding failed!\n");
+    panic("rootfs: bindingnew failed!\n");
   }
 
-  pr = newproc(30);
+  pr = procnew(30);
   if (pr == nil) {
-    panic("rootfs: newproc failed!\n");
+    panic("rootfs: procnew failed!\n");
   }
 
   forkfunc(pr, &rootfsproc, nil);

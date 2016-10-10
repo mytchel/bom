@@ -55,7 +55,7 @@
 static void systickhandler(uint32_t);
 
 void
-initwatchdog(void)
+watchdoginit(void)
 {
   /* Disable watchdog timer. */
 
@@ -69,7 +69,7 @@ initwatchdog(void)
 }
 
 void
-inittimers(void)
+timersinit(void)
 {
   /* Select 32KHz clock for timer 2 */
   writel(2, CM_DPLL + CLK_SEL2);

@@ -27,44 +27,62 @@
 
 #include "head.h"
 
+typedef enum { PROC_root, PROC_dir,
+	       PROC_state, PROC_note,
+} pfile_t;
+
 struct file {
   uint32_t fid;
   struct stat stat;
+  uint32_t open;
 
-  struct file *cnext;
+  uint8_t *buf;
+  uint32_t lbuf;
+
+  uint8_t name[FS_NAME_MAX];
+  uint8_t lname;
+
+  struct proc *proc;
+
+  pfile_t type;
+
   struct file *children;
+  struct file *cnext;
 };
 
+static int
+procfsproc(void *arg);
+
+static uint32_t nfid = ROOTFID;
+static struct file *root;
 static struct chan *fsin;
 
 struct binding *procfsbinding;
 
 void
-initprocfs(void)
+procfsinit(void)
 {
   struct chan *out;
+  struct proc *p;
 
-  if (!newpipe(&(fsin), &(out))) {
-    panic("procfs: newpipe failed!\n");
+  if (!pipenew(&(fsin), &(out))) {
+    panic("procfs: pipenew failed!\n");
   }
 
-  procfsbinding = newbinding(out, nil);
+  procfsbinding = bindingnew(out, nil);
   if (procfsbinding == nil) {
-    panic("procfs: newbinding failed!\n");
+    panic("procfs: bindingnew failed!\n");
   }
 
-  /*
-  pr = newproc(60);
-  if (pr == nil) {
-    panic("procfs: newproc failed!\n");
+  p = procnew(60);
+  if (p == nil) {
+    panic("procfs: procnew failed!\n");
   }
 
-  forkfunc(pr, &procfsproc, nil);
-  procready(pr);
-  */
+  forkfunc(p, &procfsproc, nil);
+  procready(p);
 }
 
-#if 0
 static struct file *
 findfile(struct file *t, uint32_t fid)
 {
@@ -75,13 +93,29 @@ findfile(struct file *t, uint32_t fid)
   } else if (t->fid == fid) {
     return t;
   } else {
-    c = findfile(t->cnext, fid);
+    c = findfile(t->children, fid);
     if (c != nil) {
       return c;
+    } else {
+      return findfile(t->cnext, fid);
     }
-
-    return findfile(t->children, fid);
   }
+}
+
+struct file *
+findchild (struct file *p, uint8_t *name, uint8_t lname)
+{
+  struct file *f;
+  
+  for (f = p->children; f != nil; f = f->cnext) {
+    if (f->type != PROC_dir) continue;
+      
+    if (strncmp((char *) f->name, (char *) name, lname)) {
+      return f;
+    }
+  }
+
+  return nil;
 }
 
 static void
@@ -95,18 +129,11 @@ bfid(struct request *req, struct response *resp)
     return;
   }
 
-  for (c = f->children; c != nil; c = c->cnext) {
-    if (c->lname != req->lbuf) continue;
-    if (strncmp(c->name, (char *) req->buf, c->lname)) {
-      break;
-    }
-  }
-
+  c = findchild(f, req->buf, req->lbuf);
   if (c == nil) {
-    resp->ret = ENOCHILD;
-    return;
+    resp->ret = ENOFILE;
   }
-
+  
   resp->buf = malloc(sizeof(uint32_t));
   if (resp->buf == nil) {
     resp->ret = ENOMEM;
@@ -168,6 +195,7 @@ bclose(struct request *req, struct response *resp)
   }
 }
 
+#if 0
 static int
 addchild(struct file *p, struct file *c)
 {
@@ -247,6 +275,8 @@ removechild(struct file *p, struct file *f)
   return OK;
 }
 
+#endif
+
 static void
 breaddir(struct request *req, struct response *resp,
 	 struct file *file,
@@ -292,6 +322,25 @@ bread(struct request *req, struct response *resp)
   }
 }
 
+static void
+bwrite(struct request *req, struct response *resp)
+{
+  struct file *f;
+  uint32_t offset;
+  uint8_t *buf;
+
+  buf = req->buf;
+  memmove(&offset, buf, sizeof(uint32_t));
+  buf += sizeof(uint32_t);
+
+  f = findfile(root, req->fid);
+  if (f == nil) {
+    resp->ret = ENOFILE;
+  } else {
+    resp->ret = ENOIMPL;
+  }
+}
+
 static struct fsmount rootmount = {
   bfid,
   bstat,
@@ -314,17 +363,16 @@ procfsproc(void *arg)
 
   root->fid = nfid++;
   root->lname = 0;
-
-  root->lbuf = 0;
-  root->buf = nil;
   
   root->stat.attr = ATTR_rd|ATTR_wr|ATTR_dir;
   root->stat.size = 0;
+
+  root->type = PROC_root;
+  root->proc = nil;
   root->open = 0;
+
   root->cnext = nil;
-  root->parent = nil;
   root->children = nil;
 
-  return kmountloop(fsin, fsbinding, &rootmount);
+  return kmountloop(fsin, procfsbinding, &rootmount);
 }
-#endif

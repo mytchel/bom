@@ -39,15 +39,15 @@ main(void)
 {
   puts("Bom Booting...\n");
 
-  initmemory();
-  initintc();
-  inittimers();
-  initwatchdog();
+  memoryinit();
+  intcinit();
+  timersinit();
+  watchdoginit();
 
-  initscheduler();
+  schedulerinit();
 
-  initrootfs();
-  initprocfs();
+  rootfsinit();
+  procfsinit();
 
   initmainproc();
 
@@ -117,7 +117,7 @@ initmainproc(void)
   struct page *pg;
   struct path *path;
 		
-  p = newproc(50);
+  p = procnew(50);
   if (p == nil) {
     printf("Failed to create main proc\n");
     return;
@@ -129,7 +129,7 @@ initmainproc(void)
   p->ustack = wrappage(pg, (void *) (USTACK_TOP - PAGE_SIZE),
 		      true, true);
 
-  p->mgroup = newmgroup();
+  p->mgroup = mgroupnew();
   p->mgroup->pages = copysegment((void *) 0, false, true,
 				 &initcodetext, initcodetextlen);
 
@@ -144,14 +144,14 @@ initmainproc(void)
 	
   p->parent = nil;
 
-  p->fgroup = newfgroup();
-  p->ngroup = newngroup();
+  p->fgroup = fgroupnew();
+  p->ngroup = ngroupnew();
 
   path = nil;
-  addbinding(p->ngroup, rootfsbinding, path, ROOTFID);
+  ngroupaddbinding(p->ngroup, rootfsbinding, path, ROOTFID);
 
   path = strtopath("proc");
-  addbinding(p->ngroup, procfsbinding, path, ROOTFID);
+  ngroupaddbinding(p->ngroup, procfsbinding, path, ROOTFID);
   
   procready(p);
 }

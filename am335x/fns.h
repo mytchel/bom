@@ -82,18 +82,18 @@ mmuloadttb(uint32_t *);
 /* Initialisation functions */
 
 void
-initintc(void);
+intcinit(void);
 
 void
-initmemory(void);
+memoryinit(void);
 
 void
-initmmu(void);
+mmuinit(void);
 
 void
-initwatchdog(void);
+watchdoginit(void);
 
 void
-inittimers(void);
+timersinit(void);
 
 #endif

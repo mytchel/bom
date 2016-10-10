@@ -28,7 +28,7 @@
 #include "head.h"
 
 void
-initlock(struct lock *l)
+lockinit(struct lock *l)
 {
   l->lock = 0;
   l->wlist = nil;

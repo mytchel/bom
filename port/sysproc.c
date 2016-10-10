@@ -77,31 +77,31 @@ sysfork(va_list args)
 	
   flags = va_arg(args, int);
 
-  p = newproc(current->priority);
+  p = procnew(current->priority);
   if (p == nil) {
     return ENOMEM;
   }
 
   p->parent = current;
 
-  p->dot = copypath(current->dot);
+  p->dot = pathcopy(current->dot);
   p->dotchan = current->dotchan;
   atomicinc(&p->dotchan->refs);
 
-  p->ustack = copypagel(current->ustack);
+  p->ustack = pagelcopy(current->ustack);
 
   if (flags & FORK_smem) {
     p->mgroup = current->mgroup;
     atomicinc(&current->mgroup->refs);
   } else {
-    p->mgroup = copymgroup(current->mgroup);
+    p->mgroup = mgroupcopy(current->mgroup);
   }
 
   if (flags & FORK_sfgroup) {
     p->fgroup = current->fgroup;
     atomicinc(&p->fgroup->refs);
   } else {
-    p->fgroup = copyfgroup(current->fgroup);
+    p->fgroup = fgroupcopy(current->fgroup);
     if (p->fgroup == nil) {
       goto err;
     }
@@ -111,7 +111,7 @@ sysfork(va_list args)
     p->ngroup = current->ngroup;
     atomicinc(&p->ngroup->refs);
   } else {
-    p->ngroup = copyngroup(current->ngroup);
+    p->ngroup = ngroupcopy(current->ngroup);
     if (p->ngroup == nil) {
       goto err;
     }
@@ -256,14 +256,14 @@ sysgetmem(va_list args)
     }
 
     if (pg == nil) {
-      freepage(pg);
-      freepagel(pagel);
+      pagelfree(pagel);
       return ERR;
     }
     
     pl = wrappage(pg, caddr, rw, c);
     if (pl == nil) {
-      freepagel(pagel);
+      pagefree(pg);
+      pagelfree(pagel);
       return ERR;
     }
 
@@ -317,7 +317,7 @@ sysrmmem(va_list args)
 			
       pt = p->next;
 
-      freepage(p->p);
+      pagefree(p->p);
       free(p);
 
       p = pt;

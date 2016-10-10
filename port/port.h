@@ -129,13 +129,16 @@ typedef enum {
   PROC_ready,
   PROC_sleeping,
   PROC_waiting,
+  PROC_dead,
 } procstate_t;
 
 #define MIN_PRIORITY 100
 #define NULL_PRIORITY (MIN_PRIORITY+1)
 
 struct proc {
-  struct proc *next; 
+  struct proc *anext; /* For list of all procs */
+
+  struct proc *next; /* For list of procs in list */
   struct proc **list;
   
   struct ureg *ureg;
@@ -167,25 +170,22 @@ struct proc {
 /****** Initialisation ******/
 
 void
-initscheduler(void);
+schedulerinit(void);
 
 void
-initrootfs(void);
+rootfsinit(void);
 
 void
-initprocfs(void);
+procfsinit(void);
 
 void
-initprocfs(void);
-
-void
-initheap(void *, size_t);
+heapinit(void *, size_t);
 
 
 /****** General Functions ******/
 
 void
-initlock(struct lock *);
+lockinit(struct lock *);
 
 void
 lock(struct lock *);
@@ -196,7 +196,14 @@ unlock(struct lock *);
 /* Procs */
 
 struct proc *
-newproc(unsigned int priority);
+procnew(unsigned int priority);
+
+void
+procfsaddproc(struct proc *);
+
+void
+procfsrmproc(struct proc *);
+
 
 /* These must all be called with interrupts disabled */
 
@@ -227,29 +234,29 @@ schedule(void);
 /* Pages and Mgroup */
 
 void
-freepage(struct page *);
+pagefree(struct page *);
 
 void
-freepagel(struct pagel *);
+pagelfree(struct pagel *);
 
 struct pagel *
-copypagel(struct pagel *);
+pagelcopy(struct pagel *);
 
 struct pagel *
 wrappage(struct page *p, void *va, bool rw, bool c);
 
 struct mgroup *
-newmgroup(void);
+mgroupnew(void);
 
 struct mgroup *
-copymgroup(struct mgroup *old);
+mgroupcopy(struct mgroup *old);
 
 void
-addtomgroup(struct mgroup *m, struct page *p,
-	    void *va, bool rw, bool c);
+mgroupaddpage(struct mgroup *m, struct page *p,
+	      void *va, bool rw, bool c);
 
 void
-freemgroup(struct mgroup *m);
+mgroupfree(struct mgroup *m);
 
 /* Memory */
 
@@ -267,10 +274,10 @@ kaddr(struct proc *p, void *addr, size_t size);
 /* Channels */
 
 struct chan *
-newchan(int, int);
+channew(int, int);
 
 void
-freechan(struct chan *);
+chanfree(struct chan *);
 
 /* Paths */
 
@@ -284,24 +291,24 @@ struct path *
 realpath(struct path *, const char *);
 
 struct path *
-copypath(struct path *);
+pathcopy(struct path *);
 
 void
-freepath(struct path *);
+pathfree(struct path *);
 
 /* Fgroup */
 
 struct fgroup *
-newfgroup(void);
+fgroupnew(void);
 
 void
-freefgroup(struct fgroup *);
+fgroupfree(struct fgroup *);
 
 struct fgroup *
-copyfgroup(struct fgroup *);
+fgroupcopy(struct fgroup *);
 
 int
-addchan(struct fgroup *, struct chan *);
+fgroupaddchan(struct fgroup *, struct chan *);
 
 struct chan *
 fdtochan(struct fgroup *, int);
@@ -309,30 +316,30 @@ fdtochan(struct fgroup *, int);
 /* Ngroup */
 
 struct ngroup *
-newngroup(void);
+ngroupnew(void);
+
+void
+ngroupfree(struct ngroup *);
 
 struct ngroup *
-copyngroup(struct ngroup *);
-
-void
-freengroup(struct ngroup *);
+ngroupcopy(struct ngroup *);
 
 struct binding *
-newbinding(struct chan *out, struct chan *in);
+bindingnew(struct chan *out, struct chan *in);
 
 void
-freebinding(struct binding *);
+bindingfree(struct binding *);
 
 struct binding *
-findbinding(struct ngroup *ngroup, struct path *path,
-	    int depth, uint32_t *rootfid);
+ngroupfindbinding(struct ngroup *n, struct path *path,
+		  int depth, uint32_t *rootfid);
 
 int
-addbinding(struct ngroup *n, struct binding *b,
+ngroupaddbinding(struct ngroup *n, struct binding *b,
 	   struct path *p, uint32_t rootfid);
 
 void
-removebinding(struct ngroup *n, struct binding *b);
+ngrouprmbinding(struct ngroup *n, struct binding *b);
 
 /* IPC */
 
@@ -340,7 +347,7 @@ int
 mountproc(void *);
 
 bool
-newpipe(struct chan **, struct chan **);
+pipenew(struct chan **, struct chan **);
 
 int
 piperead(struct chan *, uint8_t *, size_t);

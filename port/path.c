@@ -110,7 +110,7 @@ realpath(struct path *po, const char *str)
   if (str[0] == '/' || po == nil) {
     path = pstr;
   } else {
-    path = copypath(po);
+    path = pathcopy(po);
 
     for (pp = path; pp != nil && pp->next != nil; pp = pp->next);
     pp->next = pstr;
@@ -156,7 +156,7 @@ realpath(struct path *po, const char *str)
 }
 
 struct path *
-copypath(struct path *o)
+pathcopy(struct path *o)
 {
   struct path *n, *nn;
 	
@@ -184,12 +184,12 @@ copypath(struct path *o)
 }
 
 void
-freepath(struct path *p)
+pathfree(struct path *p)
 {
   if (p == nil)
     return;
 		
-  freepath(p->next);
+  pathfree(p->next);
 	
   free(p);
 }

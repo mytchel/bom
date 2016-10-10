@@ -50,14 +50,14 @@ syschdir(va_list args)
 
   c = fileopen(path, O_RDONLY|O_DIR, 0, &err);
   if (err != OK) {
-    freepath(path);
+    pathfree(path);
     return err;
   }
 
-  freepath(current->dot);
+  pathfree(current->dot);
 
   if (current->dotchan != nil) {
-    freechan(current->dotchan);
+    chanfree(current->dotchan);
   }
 
   current->dotchan = c;
@@ -223,7 +223,7 @@ sysclose(va_list args)
   current->fgroup->chans[fd] = nil;
   unlock(&current->fgroup->lock);
 
-  freechan(c);
+  chanfree(c);
   
   return OK;
 }
@@ -256,10 +256,10 @@ sysopen(va_list args)
   c = fileopen(path, mode, cmode, &err);
 
   if (c == nil) {
-    freepath(path);
+    pathfree(path);
     return err;
   } else {
-    return addchan(current->fgroup, c);
+    return fgroupaddchan(current->fgroup, c);
   }
 }
 
@@ -271,12 +271,12 @@ syspipe(va_list args)
 	
   fds = va_arg(args, int*);
 
-  if (!newpipe(&c0, &c1)) {
+  if (!pipenew(&c0, &c1)) {
     return ENOMEM;
   }
 	
-  fds[0] = addchan(current->fgroup, c0);
-  fds[1] = addchan(current->fgroup, c1);
+  fds[0] = fgroupaddchan(current->fgroup, c0);
+  fds[1] = fgroupaddchan(current->fgroup, c1);
 	
   return OK;
 }
@@ -335,27 +335,27 @@ sysbind(va_list args)
 
   path = realpath(current->dot, kpath);
 
-  b = newbinding(out, in);
+  b = bindingnew(out, in);
   if (b == nil) {
-    freepath(path);
+    pathfree(path);
     return ENOMEM;
   }
 
-  p = newproc(30);
+  p = procnew(30);
   if (p == nil) {
-    freebinding(b);
-    freepath(path);
+    bindingfree(b);
+    pathfree(path);
     return ENOMEM;
   }
 
   forkfunc(p, &mountproc, (void *) b);
   b->srv = p;
 
-  ret = addbinding(current->ngroup, b, path, ROOTFID);
+  ret = ngroupaddbinding(current->ngroup, b, path, ROOTFID);
   if (ret != OK) {
     procremove(p);
-    freebinding(b);
-    freepath(path);
+    bindingfree(b);
+    pathfree(path);
     return ret;
   }
  
@@ -390,7 +390,7 @@ syscleanpath(va_list args)
 
   if (l + 1 > cpathlen) {
     free(spath);
-    freepath(rpath);
+    pathfree(rpath);
     return ERR;
   }
 
@@ -398,7 +398,7 @@ syscleanpath(va_list args)
   cpath[l] = 0;
   
   free(spath);
-  freepath(rpath);
+  pathfree(rpath);
 
   return l;
 }

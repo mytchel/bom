@@ -44,9 +44,10 @@ static struct proc *suspended = nil;
 static struct proc *nullproc = nil;
 
 struct proc *current = nil;
+struct proc *procs = nil;
 
 void
-initscheduler(void)
+schedulerinit(void)
 {
  int i;
   
@@ -60,7 +61,7 @@ initscheduler(void)
   queues[NULL_PRIORITY].ready = nil;
   queues[NULL_PRIORITY].used = nil;
 
-  nullproc = newproc(NULL_PRIORITY);
+  nullproc = procnew(NULL_PRIORITY);
   if (nullproc == nil) {
     panic("Failed to create null proc!\n");
   }
@@ -188,7 +189,7 @@ schedule(void)
 }
 	
 struct proc *
-newproc(unsigned int priority)
+procnew(unsigned int priority)
 {
   struct proc *p;
 	
@@ -226,38 +227,56 @@ newproc(unsigned int priority)
   p->state = PROC_suspend;
   addtolistfront(&suspended, p);
 
+  p->anext = procs;
+  procs = p;
+
   return p;
 }
 
 void
 procremove(struct proc *p)
 {
+  struct proc *pp, *pt;
+
+  p->state = PROC_dead;
+  
   if (p->dotchan != nil) {
-    freechan(p->dotchan);
+    chanfree(p->dotchan);
   }
 
   if (p->fgroup != nil) {
-    freefgroup(p->fgroup);
+    fgroupfree(p->fgroup);
   }
 
   if (p->ngroup != nil) {
-    freengroup(p->ngroup);
+    ngroupfree(p->ngroup);
   }
 
   if (p == current) {
     current = nil;
   }
 
-  removefromlist(p->list, p);
+  pathfree(p->dot);
 
-  freepath(p->dot);
-  freepage(p->kstack);
-  freepagel(p->ustack);
-  freepagel(p->mmu);
+  pagefree(p->kstack);
+  pagelfree(p->ustack);
+  pagelfree(p->mmu);
 
   if (p->mgroup != nil)
-    freemgroup(p->mgroup);
+    mgroupfree(p->mgroup);
 
+  removefromlist(p->list, p);
+
+  pp = nil;
+  for (pt = procs; pt != nil && pt != p; pp = pt, pt = pt->next)
+    ;
+
+  if (pp == nil) {
+    procs = p->next;
+  } else {
+    pp->next = p->next;
+  }
+ 
   free(p);
 }
 

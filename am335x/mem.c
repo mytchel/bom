@@ -44,13 +44,13 @@ extern uint32_t *_kernel_end;
 static struct page *rampages = nil, *iopages = nil;
 
 void
-initmemory(void)
+memoryinit(void)
 {
   uint32_t heap_size;
 
   heap_size = (uint32_t) &_heap_end - (uint32_t) &_heap_start;
 
-  initheap(&_heap_start, heap_size);
+  heapinit(&_heap_start, heap_size);
 
   addrampages(PAGE_ALIGN_UP((uint32_t) &_kernel_end),
 	   (uint32_t) &_ram_end);
@@ -72,7 +72,7 @@ initmemory(void)
   addiopages(0x481D8000, 0x481D9000); /* MMC1 */
   addiopages(0x47810000, 0x47820000); /* MMCHS2 */
 
-  initmmu();
+  mmuinit();
 
   /* Give kernel unmapped access to all of ram. */	
   imap(&_ram_start, &_ram_end, AP_RW_NO, true);

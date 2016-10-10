@@ -28,7 +28,7 @@
 #include "head.h"
 
 struct ngroup *
-newngroup(void)
+ngroupnew(void)
 {
   struct ngroup *n;
 	
@@ -38,7 +38,7 @@ newngroup(void)
   }
 
   n->refs = 1;
-  initlock(&n->lock);
+  lockinit(&n->lock);
 
   n->bindings = nil;
 	
@@ -46,7 +46,7 @@ newngroup(void)
 }
 
 void
-freengroup(struct ngroup *n)
+ngroupfree(struct ngroup *n)
 {
   struct bindingl *b, *bb;
 	
@@ -58,8 +58,8 @@ freengroup(struct ngroup *n)
   while (b != nil) {
     bb = b;
     b = b->next;
-    freebinding(bb->binding);
-    freepath(bb->path);
+    bindingfree(bb->binding);
+    pathfree(bb->path);
     free(bb);
   }
 
@@ -67,7 +67,7 @@ freengroup(struct ngroup *n)
 }
 
 struct ngroup *
-copyngroup(struct ngroup *o)
+ngroupcopy(struct ngroup *o)
 {
   struct ngroup *n;
   struct bindingl *bo, *bn;
@@ -92,7 +92,7 @@ copyngroup(struct ngroup *o)
     bn->binding = bo->binding;
     atomicinc(&bn->binding->refs);
 
-    bn->path = copypath(bo->path);
+    bn->path = pathcopy(bo->path);
     bn->rootfid = bo->rootfid;
 			
     bo = bo->next;
@@ -106,15 +106,17 @@ copyngroup(struct ngroup *o)
     bn = bn->next;
 		
   }
+
+  unlock(&o->lock);
 	
   n->refs = 1;
-  initlock(&n->lock);
-  unlock(&o->lock);
+  lockinit(&n->lock);
+
   return n;
 }
 
 struct binding *
-newbinding(struct chan *out, struct chan *in)
+bindingnew(struct chan *out, struct chan *in)
 {
   struct binding *b;
 	
@@ -124,7 +126,7 @@ newbinding(struct chan *out, struct chan *in)
 	
   b->refs = 1;
 
-  initlock(&b->lock);
+  lockinit(&b->lock);
 
   b->in = in;
   b->out = out;
@@ -142,7 +144,7 @@ newbinding(struct chan *out, struct chan *in)
 }
 
 void
-freebinding(struct binding *b)
+bindingfree(struct binding *b)
 {
   atomicdec(&b->refs);
   /* 
@@ -153,8 +155,8 @@ freebinding(struct binding *b)
 }
 
 int
-addbinding(struct ngroup *n, struct binding *b,
-	   struct path *p, uint32_t rootfid)
+ngroupaddbinding(struct ngroup *n, struct binding *b,
+		 struct path *p, uint32_t rootfid)
 {
   struct bindingl *bl;
   
@@ -178,7 +180,7 @@ addbinding(struct ngroup *n, struct binding *b,
 }
 
 void
-removebinding(struct ngroup *n, struct binding *b)
+ngroupremovebinding(struct ngroup *n, struct binding *b)
 {
   struct bindingl *bl, *prev;
 
@@ -198,7 +200,7 @@ removebinding(struct ngroup *n, struct binding *b)
 
   unlock(&n->lock);
 
-  freepath(bl->path);
+  pathfree(bl->path);
   free(bl);
 }
 
@@ -208,8 +210,8 @@ removebinding(struct ngroup *n, struct binding *b)
  */
  
 struct binding *
-findbinding(struct ngroup *ngroup, struct path *path,
-	    int depth, uint32_t *rfid)
+ngroupfindbinding(struct ngroup *ngroup, struct path *path,
+		  int depth, uint32_t *rfid)
 {
   struct bindingl *bl, *best;
   struct path *pp, *bp;

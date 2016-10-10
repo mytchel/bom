@@ -35,7 +35,7 @@ struct chantype *chantypes[CHAN_max] = {
 };
 
 struct chan *
-newchan(int type, int mode)
+channew(int type, int mode)
 {
   struct chan *c;
 	
@@ -44,7 +44,7 @@ newchan(int type, int mode)
     return nil;
   }
 
-  initlock(&c->lock);
+  lockinit(&c->lock);
   c->refs = 1;
   c->type = type;
   c->mode = mode;
@@ -53,7 +53,7 @@ newchan(int type, int mode)
 }
 
 void
-freechan(struct chan *c)
+chanfree(struct chan *c)
 {
   if (atomicdec(&c->refs) > 0) {
     return;

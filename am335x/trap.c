@@ -59,7 +59,7 @@ static void (*handlers[nirq])(uint32_t) = {0};
 static struct proc *intrwait = nil;
 
 void
-initintc(void)
+intcinit(void)
 {
   int i;
 

@@ -115,7 +115,6 @@ KSRC_P := \
         ../port/page.c          \
         ../port/fgroup.c        \
         ../port/ngroup.c        \
-        ../port/binding.c       \
         ../port/chan.c          \
         ../port/pipe.c          \
         ../port/file.c          \

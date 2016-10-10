@@ -154,7 +154,7 @@ findfile(struct path *path,
   size_t depth;
 
   bp = nil;
-  b = findbinding(current->ngroup, path, 0, &f);
+  b = ngroupfindbinding(current->ngroup, path, 0, &f);
   if (b == nil) {
     *err = ENOFILE;
     return nil;
@@ -185,7 +185,7 @@ findfile(struct path *path,
     }
 
     bp = b;
-    b = findbinding(current->ngroup, path, ++depth, &fr);
+    b = ngroupfindbinding(current->ngroup, path, ++depth, &fr);
     if (b == nil) {
       *err = ENOFILE;
       return nil;
@@ -331,14 +331,14 @@ fileopen(struct path *path, uint32_t mode, uint32_t cmode, int *err)
     return nil;
   }
 
-  c = newchan(CHAN_file, mode);
+  c = channew(CHAN_file, mode);
   if (c == nil) {
     return nil;
   }
 	
   cfile = malloc(sizeof(struct cfile));
   if (cfile == nil) {
-    freechan(c);
+    chanfree(c);
     return nil;
   }
 	
@@ -514,6 +514,9 @@ fileclose(struct chan *c)
   struct request req;
 
   cfile = (struct cfile *) c->aux;
+  if (cfile == nil) {
+    return OK;
+  }
 
   req.type = REQ_close;
   req.fid = cfile->fid;

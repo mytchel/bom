@@ -109,8 +109,8 @@ mountproc(void *arg)
 
   printf("kproc mount: free chans\n");	
 
-  freechan(b->in);
-  freechan(b->out);
+  chanfree(b->in);
+  chanfree(b->out);
 
   printf("kproc mount: wait for bindings refs to go to zero.\n");
 

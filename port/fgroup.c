@@ -28,7 +28,7 @@
 #include "head.h"
 
 struct fgroup *
-newfgroup(void)
+fgroupnew(void)
 {
   struct fgroup *f;
 	
@@ -46,13 +46,13 @@ newfgroup(void)
   f->chans[0] = nil;
   f->nchans = 1;
   f->refs = 1;
-  initlock(&f->lock);
+  lockinit(&f->lock);
 	
   return f;
 }
 
 void
-freefgroup(struct fgroup *f)
+fgroupfree(struct fgroup *f)
 {
   int i;
 	
@@ -64,7 +64,7 @@ freefgroup(struct fgroup *f)
   for (i = 0; i < f->nchans; i++) {
     if (f->chans[i] != nil) {
       printf("close fd %i\n", i);
-      freechan(f->chans[i]);
+      chanfree(f->chans[i]);
     }
   }
 
@@ -74,7 +74,7 @@ freefgroup(struct fgroup *f)
 }
 
 struct fgroup *
-copyfgroup(struct fgroup *fo)
+fgroupcopy(struct fgroup *fo)
 {
   int i;
   struct fgroup *f;
@@ -103,14 +103,14 @@ copyfgroup(struct fgroup *fo)
   }
 	
   f->refs = 1;
-  initlock(&f->lock);
+  lockinit(&f->lock);
 
   unlock(&fo->lock);
   return f;
 }
 
 int
-addchan(struct fgroup *f, struct chan *chan)
+fgroupaddchan(struct fgroup *f, struct chan *chan)
 {
   int i, fd;
 	
