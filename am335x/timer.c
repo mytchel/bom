@@ -58,6 +58,7 @@ void
 initwatchdog(void)
 {
   /* Disable watchdog timer. */
+
   writel(0x0000AAAA, WDT_1 + WDT_WSPR);
   while (readl(WDT_1 + WDT_WWPS) & (1<<4))
     ;
@@ -76,34 +77,21 @@ inittimers(void)
   writel(0, TIMER2 + TIMER_TCLR); /* disable timer */
   writel(1, TIMER2 + TIMER_IRQENABLE_SET); /* set irq */
 
-  /* Wait for writes to commit. */
-  while (readl(TIMER2 + TIMER_TWPS))
-    ; 
-
   intcaddhandler(TINT2, &systickhandler);
 
   /* Set up tick timer on timer 0. */
 
   writel(0, TIMER0 + TIMER_TCRR); /* set timer to 0 */
   writel(1, TIMER0 + TIMER_TCLR); /* start timer */
-
-  /* Wait for writes to commit. */
-  while (readl(TIMER0 + TIMER_TWPS))
-    ;
 }
 
 void
 systickhandler(uint32_t irqn)
 {
   /* Clear irq status. */
-  writel(readl(TIMER2 + TIMER_IRQSTATUS), 
-	 TIMER2 + TIMER_IRQSTATUS);
+  writel(3, TIMER2 + TIMER_IRQSTATUS);
 
   writel(0, TIMER2 + TIMER_TCLR); /* disable timer */
-
-  /* Wait for writes to commit. */
-  while (readl(TIMER2 + TIMER_TWPS))
-    ;
 
   schedule();
 }
@@ -111,8 +99,17 @@ systickhandler(uint32_t irqn)
 void
 setsystick(uint32_t t)
 {
+  writel(0, TIMER2 + TIMER_TCLR); /* disable timer */
+
+  /* Wait for writes to commit. */
+  while (readl(TIMER2 + TIMER_TWPS))
+    ; 
+	
   writel(0, TIMER2 + TIMER_TCRR); /* set timer to 0 */
   writel(t, TIMER2 + TIMER_TMAR); /* set compare value */
+
+  /* Clear irq status if it is set. */
+  writel(3, TIMER2 + TIMER_IRQSTATUS);
 
   /* Wait for writes to commit. */	
   while (readl(TIMER2 + TIMER_TWPS))
@@ -130,6 +127,12 @@ ticks(void)
   writel(0, TIMER0 + TIMER_TCRR); /* reset timer */
 
   return t;
+}
+
+void
+cticks(void)
+{
+  writel(0, TIMER0 + TIMER_TCRR); /* reset timer */
 }
 
 uint32_t

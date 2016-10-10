@@ -139,7 +139,9 @@ mountproc(void *arg)
 
     printf("kproc mount: wake up %i\n", p->pid);
     p->aux = nil;
+    disableintr();
     procready(p);
+    enableintr();
 
     p = pn;
   }

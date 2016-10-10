@@ -50,11 +50,10 @@
 
 #define nirq 128
 
-#define maskintr(irqn)      writel(1 << (irqn % 32), \
-				   INTC + INTC_SETn(irqn / 32))
-
-#define unmaskintr(irqn)    writel(1 << (irqn % 32),		\
-				   INTC + INTC_CLEARn(irqn / 32))
+static void
+maskintr(int irqn);
+static void
+unmaskintr(int irqn);
 
 static void (*handlers[nirq])(uint32_t) = {0};
 static struct proc *intrwait = nil;
@@ -78,6 +77,28 @@ initintc(void)
   }
 	
   writel(1, INTC + INTC_CONTROL);
+}
+
+void
+maskintr(int irqn)
+{
+  uint32_t mask, mfield;
+
+  mfield = irqn / 32;
+  mask = 1 << (irqn % 32);
+
+  writel(mask, INTC + INTC_SETn(mfield));
+}
+
+void
+unmaskintr(int irqn)
+{
+  uint32_t mask, mfield;
+
+  mfield = irqn / 32;
+  mask = 1 << (irqn % 32);
+
+  writel(mask, INTC + INTC_CLEARn(mfield));
 }
 
 void
@@ -126,23 +147,19 @@ irqhandler(void)
   uint32_t irq;
 	
   irq = readl(INTC + INTC_SIR_IRQ);
+	
+  /* Allow new interrupts */
+  writel(1, INTC + INTC_CONTROL);
 
   if (handlers[irq]) {
     /* Kernel handler */
     handlers[irq](irq);
-	
-    /* Allow new interrupts */
-    writel(1, INTC + INTC_CONTROL);
   } else {
     /* User proc handler */
     for (p = intrwait; p != nil; p = p->next) {
       if ((uint32_t) p->aux == irq) {
-	maskintr(irq);
-	writel(1, INTC + INTC_CONTROL);
-
-	/* Run the proc right away */
 	procready(p);
-	schedule();
+	maskintr(irq);
 	break;
       }
     }
@@ -157,21 +174,19 @@ trap(struct ureg *ureg)
 
   if (current == nil) {
     printf("Trapped with an unknown process!\n");
-    printf("Probably a kernel error\n");
     dumpregs(ureg);
-    panic("Dieing...\n");
+    panic("Probably an in kernel problem.\n");
   }
   
-  if (ureg->type == ABORT_DATA) {
+  if (ureg->type == ABORT_DATA)
     ureg->pc -= 8;
-  } else {
+  else
     ureg->pc -= 4;
-  }
 
   switch(ureg->type) {
   case ABORT_INTERRUPT:
     irqhandler();
-    return;
+    return; /* Note the return. */
 
   case ABORT_INSTRUCTION:
     printf("%i bad instruction at 0x%h\n",
@@ -199,6 +214,8 @@ trap(struct ureg *ureg)
       if (fixfault(addr)) {
 	return;
       }
+      
+      break;
     case 0x0: /* vector */
     case 0x1: /* alignment */
     case 0x3: /* also alignment */
@@ -219,12 +236,12 @@ trap(struct ureg *ureg)
 
     printf("%i data abort 0x%h (type 0x%h)\n",
 	   current->pid, addr, fsr);
+		
     break;
   }
-
-  printf("killing proc %i\n", current->pid);
+	
+  printf("kill proc %i\n", current->pid);
   dumpregs(ureg);
   procremove(current);
-  printf("run another proc now\n");
   schedule();
 }

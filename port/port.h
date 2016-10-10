@@ -387,6 +387,10 @@ puts(const char *);
 uint32_t
 ticks(void);
 
+/* Clear ticks counter */
+void
+cticks(void);
+
 uint32_t
 tickstoms(uint32_t);
 

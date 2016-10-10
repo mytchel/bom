@@ -365,8 +365,10 @@ sysbind(va_list args)
   forkfunc(p, &mountproc, (void *) bl->binding);
 	
   bl->binding->srv = p;
-	
+
+  disableintr();
   procready(p);
+  enableintr();
 	
   unlock(&current->ngroup->lock);
 

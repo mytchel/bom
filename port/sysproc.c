@@ -118,7 +118,10 @@ sysfork(va_list args)
   }
 
   forkchild(p, current->ureg);
+
+  disableintr();
   procready(p);
+  enableintr();
 
   return p->pid;
 

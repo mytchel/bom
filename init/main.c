@@ -48,8 +48,6 @@ main(void)
 {
   int f, fd;
 
-  chdir("/");
-
   fd = open("/dev", O_WRONLY|O_CREATE,
 	    ATTR_wr|ATTR_rd|ATTR_dir);
   if (fd < 0) {

@@ -147,7 +147,7 @@ updatesleeping(uint32_t t)
 void
 schedule(void)
 {
-  uint32_t t;
+  uint32_t t, q;
 
   if (current && setlabel(&current->label)) {
     return;
@@ -162,7 +162,8 @@ schedule(void)
     if (current->state == PROC_oncpu) {
       current->state = PROC_ready;
 
-      if (current->timeused < queues[current->priority].quanta) {
+      q = queues[current->priority].quanta;
+      if (current->timeused < q) {
 	addtolistback(&queues[current->priority].ready, current);
       } else {
 	current->timeused = 0;
@@ -176,12 +177,13 @@ schedule(void)
   current = nextproc();
   current->state = PROC_oncpu;
 
+  cticks();
+
   mmuswitch(current);
 
   setsystick(queues[current->priority].quanta
 	     - current->timeused);
 
-  ticks(); /* Clear counter */
   gotolabel(&current->label);
 }
 	
@@ -266,7 +268,8 @@ procsetpriority(struct proc *p, unsigned int priority)
 
   if (p->state == PROC_ready) {
     removefromlist(p->list, p);
-    addtolistfront(&queues[p->priority].ready, p);
+    p->timeused = 0;
+    addtolistback(&queues[p->priority].ready, p);
   }
 }
 
@@ -276,13 +279,9 @@ procready(struct proc *p)
   p->state = PROC_ready;
 
   removefromlist(p->list, p);
-  if (p->timeused < queues[p->priority].quanta) {
-    printf("proc ready %i going to ready queue\n", p->pid);
-    addtolistfront(&queues[p->priority].ready, p);
-  } else {
-    printf("proc ready %i going to used queue\n", p->pid);
-    addtolistback(&queues[p->priority].used, p);
-  }
+
+  p->timeused = 0;
+  addtolistfront(&queues[p->priority].ready, p);
 }
 
 void
