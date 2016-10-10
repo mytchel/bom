@@ -195,18 +195,15 @@ addchild(struct file *p, struct file *c)
   if (p->lbuf > 0) {
     memmove(tbuf, p->buf, p->lbuf);
     tbuf += p->lbuf;
+    free(p->buf);
   }
   
   memmove(tbuf, &c->lname, sizeof(uint8_t));
   tbuf += sizeof(uint8_t);
   memmove(tbuf, c->name, sizeof(uint8_t) * c->lname);
 
-  if (p->lbuf > 0) {
-    free(p->buf);
-  }
-
   p->buf = buf;
-  p->lbuf = p->lbuf + sizeof(uint8_t) + c->lname;
+  p->lbuf = p->lbuf + sizeof(uint8_t) * (1 + c->lname);
   
   p->stat.size++;
 

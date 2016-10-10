@@ -162,19 +162,20 @@ addchild(struct file *p, struct file *c)
   if (buf == nil) {
     return ENOMEM;
   }
+
+  tbuf = buf;
+  if (p->lbuf > 0) {
+    memmove(tbuf, p->buf, p->lbuf);
+    tbuf = buf + p->lbuf;
+    free(p->buf);
+  }
   
-  memmove(buf, p->buf, p->lbuf);
-  tbuf = buf + p->lbuf;
   memmove(tbuf, &c->lname, sizeof(uint8_t));
   tbuf += sizeof(uint8_t);
   memmove(tbuf, c->name, sizeof(uint8_t) * c->lname);
 
-  if (p->lbuf > 0) {
-    free(p->buf);
-  }
-
   p->buf = buf;
-  p->lbuf = p->lbuf + sizeof(uint8_t) + c->lname;
+  p->lbuf = p->lbuf + sizeof(uint8_t) * (1 + c->lname);
   
   p->stat.size++;
 
@@ -312,8 +313,6 @@ breaddir(struct request *req, struct response *resp,
 	 struct file *file,
 	 uint32_t offset, uint32_t len)
 {
-  printf("tmp read dir %s\n", file->name);
-
   if (offset + len > file->lbuf) {
     len = file->lbuf - offset;
   }

@@ -42,12 +42,16 @@ static int funcls(int argc, char **argv);
 static int funccd(int argc, char **argv);
 static int funcpwd(int argc, char **argv);
 static int funcecho(int argc, char **argv);
+static int funcmkdir(int argc, char **argv);
+static int functouch(int argc, char **argv);
 
 struct func funcs[] = {
   { "ls",     &funcls },
   { "cd",     &funccd },
   { "pwd",    &funcpwd },
-  { "echo",   &funcecho }
+  { "echo",   &funcecho },
+  { "mkdir",  &funcmkdir },
+  { "touch",  &functouch },
 };
 
 static int ret = 0;
@@ -81,7 +85,7 @@ funclsh(char *filename)
     return ERR;
   }
 
-  while ((r = read(fd, &len, sizeof(len))) > 0) {
+  while ((r = read(fd, &len, sizeof(uint8_t))) > 0) {
     if (read(fd, buf, len) <= 0) {
       break;
     }
@@ -125,13 +129,19 @@ funcls(int argc, char **argv)
 int
 funccd(int argc, char **argv)
 {
-  if (argc != 2) {
+  char *dir;
+  
+  if (argc > 2) {
     printf("usage: %s dir\n", argv[0]);
     return ERR;
+  } else if (argc == 1) {
+    dir = "/";
+  } else {
+    dir = argv[1];
   }
 
-  if (chdir(argv[1]) != OK) {
-    printf("Failed to change to '%s'\n", argv[1]);
+  if (chdir(dir) != OK) {
+    printf("Failed to change to '%s'\n", dir);
     return ERR;
   }
 
@@ -167,6 +177,46 @@ funcecho(int argc, char **argv)
   return OK;
 }
 
+int
+funcmkdir(int argc, char **argv)
+{
+  int i, fd;
+
+  for (i = 1; i < argc; i++) {
+    fd = open(argv[i], O_RDONLY|O_CREATE,
+	      ATTR_rd|ATTR_wr|ATTR_dir);
+
+    if (fd < 0) {
+      printf("mkdir %s failed.\n", argv[i]);
+      return fd;
+    } else {
+      close(fd);
+    }
+  }
+
+  return OK;
+}
+
+int
+functouch(int argc, char **argv)
+{
+  int i, fd;
+
+  for (i = 1; i < argc; i++) {
+    fd = open(argv[i], O_RDONLY|O_CREATE,
+	      ATTR_rd|ATTR_wr);
+
+    if (fd < 0) {
+      printf("touch %s failed.\n", argv[i]);
+      return fd;
+    } else {
+      close(fd);
+    }
+  }
+
+  return OK;
+}
+  
 static int
 readline(uint8_t *data, size_t max)
 {
