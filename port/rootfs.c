@@ -48,7 +48,7 @@ static struct file *root = nil;
 static uint32_t nfid = ROOTFID;
 static struct chan *rootin;
 
-struct binding *rootbinding;
+struct binding *rootfsbinding;
 
 static int
 rootfsproc(void *);
@@ -63,8 +63,8 @@ initrootfs(void)
     panic("rootfs: newpipe failed!\n");
   }
 
-  rootbinding = newbinding(nil, out, nil);
-  if (rootbinding == nil) {
+  rootfsbinding = newbinding(out, nil);
+  if (rootfsbinding == nil) {
     panic("rootfs: newbinding failed!\n");
   }
 
@@ -413,5 +413,5 @@ rootfsproc(void *arg)
   root->parent = nil;
   root->children = nil;
 
-  return kmountloop(rootin, rootbinding, &rootmount);
+  return kmountloop(rootin, rootfsbinding, &rootmount);
 }

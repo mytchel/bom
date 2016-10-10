@@ -40,16 +40,7 @@ newngroup(void)
   n->refs = 1;
   initlock(&n->lock);
 
-  n->bindings = malloc(sizeof(struct binding_list));
-  if (n->bindings == nil) {
-    free(n);
-    return nil;
-  }
-
-  n->bindings->binding = rootbinding;
-  n->bindings->next = nil;
-
-  atomicinc(&rootbinding->refs);
+  n->bindings = nil;
 	
   return n;
 }
@@ -57,7 +48,7 @@ newngroup(void)
 void
 freengroup(struct ngroup *n)
 {
-  struct binding_list *b, *bb;
+  struct bindingl *b, *bb;
 	
   if (atomicdec(&n->refs) > 0) {
     return;
@@ -68,6 +59,7 @@ freengroup(struct ngroup *n)
     bb = b;
     b = b->next;
     freebinding(bb->binding);
+    freepath(bb->path);
     free(bb);
   }
 
@@ -78,7 +70,7 @@ struct ngroup *
 copyngroup(struct ngroup *o)
 {
   struct ngroup *n;
-  struct binding_list *bo, *bn;
+  struct bindingl *bo, *bn;
 	
   lock(&o->lock);
 	
@@ -90,7 +82,7 @@ copyngroup(struct ngroup *o)
 	
   bo = o->bindings;
   if (bo != nil) {
-    n->bindings = malloc(sizeof(struct binding_list));
+    n->bindings = malloc(sizeof(struct bindingl));
     bn = n->bindings;
   } else {
     n->bindings = nil;
@@ -99,13 +91,16 @@ copyngroup(struct ngroup *o)
   while (bo != nil) {
     bn->binding = bo->binding;
     atomicinc(&bn->binding->refs);
+
+    bn->path = copypath(bo->path);
+    bn->rootfid = bo->rootfid;
 			
     bo = bo->next;
 
     if (bo == nil) {
       bn->next = nil;
     } else {
-      bn->next = malloc(sizeof(struct binding_list));
+      bn->next = malloc(sizeof(struct bindingl));
     }
 		
     bn = bn->next;
@@ -116,4 +111,137 @@ copyngroup(struct ngroup *o)
   initlock(&n->lock);
   unlock(&o->lock);
   return n;
+}
+
+struct binding *
+newbinding(struct chan *out, struct chan *in)
+{
+  struct binding *b;
+	
+  b = malloc(sizeof(struct binding));
+  if (b == nil)
+    return nil;
+	
+  b->refs = 1;
+
+  initlock(&b->lock);
+
+  b->in = in;
+  b->out = out;
+
+  if (in != nil)
+    atomicinc(&in->refs);
+
+  if (out != nil)
+    atomicinc(&out->refs);
+
+  b->waiting = nil;
+  b->nreqid = 0;
+	
+  return b;
+}
+
+void
+freebinding(struct binding *b)
+{
+  atomicdec(&b->refs);
+  /* 
+   * Doesnt need to do any freeing
+   * when mountproc sees that refs <=0
+   * it will do freeing.
+   */
+}
+
+int
+addbinding(struct ngroup *n, struct binding *b,
+	   struct path *p, uint32_t rootfid)
+{
+  struct bindingl *bl;
+  
+  bl = malloc(sizeof(struct bindingl));
+  if (bl == nil) {
+    return ENOMEM;
+  }
+		
+  bl->binding = b;
+  bl->rootfid = rootfid;
+  bl->path = p;
+
+  lock(&n->lock);
+
+  bl->next = n->bindings;
+  n->bindings = bl;
+
+  unlock(&n->lock);
+
+  return OK;
+}
+
+void
+removebinding(struct ngroup *n, struct binding *b)
+{
+  struct bindingl *bl, *prev;
+
+  lock(&n->lock);
+  prev = nil;
+
+  for (bl = n->bindings;
+       bl != nil && bl->binding != b;
+       prev = bl, bl = bl->next)
+    ;
+
+  if (prev == nil) {
+    prev->next = bl->next;
+  } else {
+    n->bindings = bl->next;
+  }
+
+  unlock(&n->lock);
+
+  freepath(bl->path);
+  free(bl);
+}
+
+/*
+ * Find the binding that matches path to at most a depth of depth
+ * return the best binding.
+ */
+ 
+struct binding *
+findbinding(struct ngroup *ngroup, struct path *path,
+	    int depth, uint32_t *rfid)
+{
+  struct bindingl *bl, *best;
+  struct path *pp, *bp;
+  int d, bestd;
+	
+  lock(&ngroup->lock);
+
+  best = nil;
+  bestd = -1;
+  for (bl = ngroup->bindings; bl != nil; bl = bl->next) {
+    d = 0;
+    pp = path;
+
+    bp = bl->path;
+    while (d < depth && pp != nil && bp != nil) {
+      if (!strcmp(pp->s, bp->s)) {
+	break;
+      }
+			
+      d++;
+      pp = pp->next;
+      bp = bp->next;
+    }
+		
+    if (bp == nil && d > bestd) {
+      bestd = d;
+      best = bl;
+    }
+  }
+	
+  unlock(&ngroup->lock);
+
+  *rfid = best->rootfid;
+  return best->binding;
 }

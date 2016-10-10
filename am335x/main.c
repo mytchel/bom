@@ -47,6 +47,8 @@ main(void)
   initscheduler();
 
   initrootfs();
+  initprocfs();
+
   initmainproc();
 
   puts("Starting procs...\n");
@@ -113,6 +115,7 @@ initmainproc(void)
   struct proc *p;
   struct pagel *pl;
   struct page *pg;
+  struct path *path;
 		
   p = newproc(50);
   if (p == nil) {
@@ -139,10 +142,17 @@ initmainproc(void)
   pl->next = copysegment((void *) ((uint32_t) pl->va + PAGE_SIZE),
 	      true, true, &initcodedata, initcodedatalen);
 	
-  p->fgroup = newfgroup();
-  p->ngroup = newngroup();
   p->parent = nil;
 
+  p->fgroup = newfgroup();
+  p->ngroup = newngroup();
+
+  path = nil;
+  addbinding(p->ngroup, rootfsbinding, path, ROOTFID);
+
+  path = strtopath("proc");
+  addbinding(p->ngroup, procfsbinding, path, ROOTFID);
+  
   procready(p);
 }
 

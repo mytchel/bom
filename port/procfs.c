@@ -35,40 +35,36 @@ struct file {
   struct file *children;
 };
 
-static struct file *root = nil;
-static uint32_t nfid = ROOTFID;
-
 static struct chan *fsin;
-static struct binding *fsbinding;
 
-static int
-procfsproc(void *);
+struct binding *procfsbinding;
 
 void
 initprocfs(void)
 {
   struct chan *out;
-  struct proc *pr;
 
   if (!newpipe(&(fsin), &(out))) {
     panic("procfs: newpipe failed!\n");
   }
 
-  fsbinding = newbinding(nil, out, nil);
-  if (fsbinding == nil) {
+  procfsbinding = newbinding(out, nil);
+  if (procfsbinding == nil) {
     panic("procfs: newbinding failed!\n");
   }
 
+  /*
   pr = newproc(60);
   if (pr == nil) {
     panic("procfs: newproc failed!\n");
   }
 
   forkfunc(pr, &procfsproc, nil);
-
   procready(pr);
+  */
 }
 
+#if 0
 static struct file *
 findfile(struct file *t, uint32_t fid)
 {
@@ -252,81 +248,6 @@ removechild(struct file *p, struct file *f)
 }
 
 static void
-bcreate(struct request *req, struct response *resp)
-{
-  uint32_t attr;
-  struct file *p, *new;
-  uint8_t *buf, lname;
-
-  buf = req->buf;
-  memmove(&attr, buf, sizeof(uint32_t));
-  buf += sizeof(uint32_t);
-  memmove(&lname, buf, sizeof(uint8_t));
-  buf += sizeof(uint8_t);
-
-  p = findfile(root, req->fid);
-  
-  if (p == nil || (p->stat.attr & ATTR_dir) == 0) {
-    resp->ret = ENOFILE;
-    return;
-  }
-
-  new = malloc(sizeof(struct file));
-  if (new == nil) {
-    resp->ret = ENOMEM;
-    return;
-  }
-
-  new->buf = 0;
-  new->lbuf = 0;
-  new->stat.attr = attr;
-  new->stat.size = 0;
-  new->fid = nfid++;
-  new->open = 0;
-  new->children = nil;
-
-  new->lname = lname;
-  memmove(new->name, buf, lname);
-  new->name[lname] = 0;
-
-  resp->buf = malloc(sizeof(uint32_t));
-  if (resp->buf == nil) {
-    resp->ret = ENOMEM;
-    free(new);
-    return;
-  }
-
-  resp->ret = addchild(p, new);
-  if (resp->ret != OK) {
-    free(resp->buf);
-    free(new);
-  } else {
-    resp->lbuf = sizeof(uint32_t);
-    memmove(resp->buf, &new->fid, sizeof(uint32_t));
-  }
-}
-
-static void
-bremove(struct request *req, struct response *resp)
-{
-  struct file *f;
-
-  f = findfile(root, req->fid);
-  if (f == nil) {
-    resp->ret = ENOFILE;
-    return;
-  } else if (f->open > 0) {
-    resp->ret = ERR;
-    return;
-  } else if (f->children != nil) {
-    resp->ret = ENOTEMPTY;
-    return;
-  }
-
-  resp->ret = removechild(f->parent, f);
-}
-
-static void
 breaddir(struct request *req, struct response *resp,
 	 struct file *file,
 	 uint32_t offset, uint32_t len)
@@ -376,13 +297,13 @@ static struct fsmount rootmount = {
   bstat,
   bopen,
   bclose,
-  bcreate,
-  bremove,
+  nil,
+  nil,
   bread,
   bwrite,
   nil
 };
-  
+
 static int
 procfsproc(void *arg)
 {
@@ -406,3 +327,4 @@ procfsproc(void *arg)
 
   return kmountloop(fsin, fsbinding, &rootmount);
 }
+#endif

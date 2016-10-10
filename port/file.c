@@ -150,22 +150,22 @@ findfile(struct path *path,
 {
   struct binding *b, *bp;
   struct path *p;
+  uint32_t f, fr;
   size_t depth;
-  uint32_t f;
 
   bp = nil;
-  b = findbinding(current->ngroup, path, 0);
+  b = findbinding(current->ngroup, path, 0, &f);
   if (b == nil) {
     *err = ENOFILE;
     return nil;
   }
 
   if (path == nil) {
-    *err = filestatfid(b, b->rootfid, stat);
+    *err = filestatfid(b, f, stat);
     if (*err != OK) {
       return nil;
     } else {
-      *fid = b->rootfid;
+      *fid = f;
       return b;
     }
   }
@@ -173,7 +173,7 @@ findfile(struct path *path,
   *err = OK;
   p = path;
   depth = 0;
-  f = b->rootfid;
+  f = f;
   *fid = f;
   
   while (p != nil) {
@@ -185,14 +185,14 @@ findfile(struct path *path,
     }
 
     bp = b;
-    b = findbinding(current->ngroup, path, ++depth);
+    b = findbinding(current->ngroup, path, ++depth, &fr);
     if (b == nil) {
       *err = ENOFILE;
       return nil;
     } else if (b != bp) {
       /* If we havent encountered this binding yet then it is the
        * root of the binding. */
-      f = b->rootfid;
+      f = fr;
     }
 
     p = p->next;

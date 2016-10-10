@@ -101,24 +101,26 @@ struct binding {
   int refs;
   struct lock lock;
 	
-  struct path *path;
   struct chan *in, *out;
-  uint32_t rootfid;
 
   int nreqid;
   struct proc *waiting; /* List of procs waiting. */
   struct proc *srv; /* Kernel proc that handles responses */
 };
 
-struct binding_list {
+struct bindingl {
   struct binding *binding;
-  struct binding_list *next;
+
+  struct path *path;
+  uint32_t rootfid;
+
+  struct bindingl *next;
 };
 
 struct ngroup {
   int refs;
   struct lock lock;
-  struct binding_list *bindings;
+  struct bindingl *bindings;
 };
 
 typedef enum {
@@ -169,6 +171,9 @@ initscheduler(void);
 
 void
 initrootfs(void);
+
+void
+initprocfs(void);
 
 void
 initprocfs(void);
@@ -313,13 +318,21 @@ void
 freengroup(struct ngroup *);
 
 struct binding *
-newbinding(struct path *, struct chan *, struct chan *);
+newbinding(struct chan *out, struct chan *in);
 
 void
 freebinding(struct binding *);
 
 struct binding *
-findbinding(struct ngroup *, struct path *, int);
+findbinding(struct ngroup *ngroup, struct path *path,
+	    int depth, uint32_t *rootfid);
+
+int
+addbinding(struct ngroup *n, struct binding *b,
+	   struct path *p, uint32_t rootfid);
+
+void
+removebinding(struct ngroup *n, struct binding *b);
 
 /* IPC */
 
@@ -450,11 +463,10 @@ enableintr(void);
 
 /****** Global Variables ******/
 
-
 extern struct proc *current;
 
 extern reg_t (*syscalltable[NSYSCALLS])(va_list);
 
 extern struct chantype *chantypes[CHAN_max];
 
-extern struct binding *rootbinding;
+extern struct binding *rootfsbinding, *procfsbinding;

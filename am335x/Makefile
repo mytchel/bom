@@ -121,7 +121,8 @@ KSRC_P := \
         ../port/file.c          \
         ../port/mount.c         \
         ../port/fs.c            \
-        ../port/root.c          \
+        ../port/rootfs.c        \
+        ../port/procfs.c        \
         ../port/path.c          \
         ../port/heap.c          \
         ../port/sysproc.c       \

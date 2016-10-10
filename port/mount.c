@@ -63,11 +63,8 @@ mountproc(void *arg)
   struct proc *p, *pn;
   struct response *resp;
   bool found;
-  char *pathstr;
 
   b = (struct binding *) arg;
-
-  pathstr = (char *) pathtostr(b->path, nil);
 
   while (b->refs > 0) {
     resp = malloc(sizeof(struct response));
@@ -105,18 +102,17 @@ mountproc(void *arg)
     unlock(&b->lock);
   }
 
-  printf("kproc mount: an error occured with binding '/%s'\n",
-	pathstr);
+  printf("kproc mount: an error occured with binding\n");
 		
-  debug("kproc mount: lock binding\n");	
+  printf("kproc mount: lock binding\n");	
   lock(&b->lock);
 
-  debug("kproc mount: free chans\n");	
+  printf("kproc mount: free chans\n");	
 
   freechan(b->in);
   freechan(b->out);
 
-  debug("kproc mount: wait for bindings refs to go to zero.\n");
+  printf("kproc mount: wait for bindings refs to go to zero.\n");
 
   disableintr();
   while (b->refs > 0) {
@@ -125,11 +121,11 @@ mountproc(void *arg)
 
   enableintr();
 	
-  debug("kproc mount: no longer bound\n");
+  printf("kproc mount: no longer bound\n");
 
   /* Free binding and exit. */
 
-  debug("kproc mount: wake waiters\n");
+  printf("kproc mount: wake waiters\n");
 
   /* Wake up any waiting processes so they can error. */
 
@@ -146,13 +142,9 @@ mountproc(void *arg)
     p = pn;
   }
 	
-  debug("kproc mount: free path\n");
-  freepath(b->path);
   free(b);
-	
-  printf("kproc mount: '/%s' finished.\n", pathstr);
 
-  free(pathstr);
+  printf("kproc mount: exiting\n");
 	
   return 0;
 }

@@ -304,10 +304,11 @@ sysbind(va_list args)
 {
   int infd, outfd;
   const char *upath, *kpath;
-  struct proc *p;
-  struct path *path;
   struct chan *in, *out;
-  struct binding_list *bl;
+  struct path *path;
+  struct binding *b;
+  struct proc *p;
+  int ret;
 	
   outfd = va_arg(args, int);
   infd = va_arg(args, int);
@@ -331,46 +332,36 @@ sysbind(va_list args)
   } else if  (!(in->mode & O_RDONLY)) {
     return EMODE;
   }
-	
-  lock(&current->ngroup->lock);
 
   path = realpath(current->dot, kpath);
- 
-  bl = malloc(sizeof(struct binding_list));
-  if (bl == nil) {
+
+  b = newbinding(out, in);
+  if (b == nil) {
     freepath(path);
-    unlock(&current->ngroup->lock);
-    return ENOMEM;
-  }
-		
-  bl->binding = newbinding(path, out, in);
-  if (bl->binding == nil) {
-    free(bl);
-    freepath(path);
-    unlock(&current->ngroup->lock);
     return ENOMEM;
   }
 
   p = newproc(30);
   if (p == nil) {
-    freebinding(bl->binding);
-    free(bl);
-    unlock(&current->ngroup->lock);
+    freebinding(b);
+    freepath(path);
     return ENOMEM;
   }
 
-  bl->next = current->ngroup->bindings;
-  current->ngroup->bindings = bl;
-	
-  forkfunc(p, &mountproc, (void *) bl->binding);
-	
-  bl->binding->srv = p;
+  forkfunc(p, &mountproc, (void *) b);
+  b->srv = p;
 
+  ret = addbinding(current->ngroup, b, path, ROOTFID);
+  if (ret != OK) {
+    procremove(p);
+    freebinding(b);
+    freepath(path);
+    return ret;
+  }
+ 
   disableintr();
   procready(p);
   enableintr();
-	
-  unlock(&current->ngroup->lock);
 
 #if DEBUG == 1
   char *str = (char *) pathtostr(path, nil);
