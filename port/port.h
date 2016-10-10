@@ -140,7 +140,6 @@ struct proc {
   struct label label;
 
   procstate_t state;
-  bool inkernel;
   uint32_t pid;
   struct proc *parent;
 
@@ -149,6 +148,7 @@ struct proc {
 
   int priority;
   uint32_t timeused;
+  uint32_t cputime;
 
   struct page *kstack;
   struct pagel *mmu, *ustack;

@@ -75,8 +75,6 @@ forkchild(struct proc *p, struct ureg *ureg)
   for (i = 0; i < 9; i++)
     p->label.regs[i] = 0;
 
-  p->inkernel = false;
-
   /* SVC with interrupts disabled */
   p->label.psr = MODE_SVC | (1 << 7);
   p->label.pc = (uint32_t) &userreturn;

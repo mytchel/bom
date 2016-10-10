@@ -51,12 +51,12 @@ initscheduler(void)
  int i;
   
   for (i = 1; i <= MIN_PRIORITY; i++) {
-    queues[i].quanta = mstoticks(MIN_PRIORITY - i + 10);
+    queues[i].quanta = mstoticks(MIN_PRIORITY - i + 5);
     queues[i].ready = nil;
     queues[i].used = nil;
   }
 
-  queues[NULL_PRIORITY].quanta = mstoticks(10);
+  queues[NULL_PRIORITY].quanta = mstoticks(5);
   queues[NULL_PRIORITY].ready = nil;
   queues[NULL_PRIORITY].used = nil;
 
@@ -157,17 +157,16 @@ schedule(void)
 
   if (current != nil) {
     current->timeused += t;
+    current->cputime += t;
 
     if (current->state == PROC_oncpu) {
       current->state = PROC_ready;
 
-      if (current->timeused
-	  >= queues[current->priority].quanta) {
-
+      if (current->timeused < queues[current->priority].quanta) {
+	addtolistback(&queues[current->priority].ready, current);
+      } else {
 	current->timeused = 0;
 	addtolistback(&queues[current->priority].used, current);
-      } else {
-	addtolistback(&queues[current->priority].ready, current);
       }
     }
   }
@@ -182,6 +181,7 @@ schedule(void)
   setsystick(queues[current->priority].quanta
 	     - current->timeused);
 
+  ticks(); /* Clear counter */
   gotolabel(&current->label);
 }
 	
@@ -199,9 +199,9 @@ newproc(unsigned int priority)
   p->priority = priority;
   
   p->ureg = nil;
-  p->inkernel = true;
 
   p->timeused = 0;
+  p->cputime = 0;
   
   p->parent = nil;
 
@@ -275,9 +275,14 @@ procready(struct proc *p)
 {
   p->state = PROC_ready;
 
-  p->timeused = 0;
   removefromlist(p->list, p);
-  addtolistfront(&queues[p->priority].ready, p);
+  if (p->timeused < queues[p->priority].quanta) {
+    printf("proc ready %i going to ready queue\n", p->pid);
+    addtolistfront(&queues[p->priority].ready, p);
+  } else {
+    printf("proc ready %i going to used queue\n", p->pid);
+    addtolistback(&queues[p->priority].used, p);
+  }
 }
 
 void

@@ -50,12 +50,13 @@
 
 #define nirq 128
 
-static void
-maskintr(int irqn);
-static void
-unmaskintr(int irqn);
+#define maskintr(irqn)      writel(1 << (irqn % 32), \
+				   INTC + INTC_SETn(irqn / 32))
 
-static bool (*handlers[nirq])(uint32_t) = {0};
+#define unmaskintr(irqn)    writel(1 << (irqn % 32),		\
+				   INTC + INTC_CLEARn(irqn / 32))
+
+static void (*handlers[nirq])(uint32_t) = {0};
 static struct proc *intrwait = nil;
 
 void
@@ -80,29 +81,7 @@ initintc(void)
 }
 
 void
-maskintr(int irqn)
-{
-  uint32_t mask, mfield;
-
-  mfield = irqn / 32;
-  mask = 1 << (irqn % 32);
-
-  writel(mask, INTC + INTC_SETn(mfield));
-}
-
-void
-unmaskintr(int irqn)
-{
-  uint32_t mask, mfield;
-
-  mfield = irqn / 32;
-  mask = 1 << (irqn % 32);
-
-  writel(mask, INTC + INTC_CLEARn(mfield));
-}
-
-void
-intcaddhandler(uint32_t irqn, bool (*func)(uint32_t))
+intcaddhandler(uint32_t irqn, void (*func)(uint32_t))
 {
   handlers[irqn] = func;
   unmaskintr(irqn);
@@ -140,35 +119,34 @@ procwaitintr(struct proc *p, int irqn)
   return true;
 }
 
-static bool
+static void
 irqhandler(void)
 {
   struct proc *p;
   uint32_t irq;
-  bool r;
 	
-  r = false;
   irq = readl(INTC + INTC_SIR_IRQ);
 
   if (handlers[irq]) {
     /* Kernel handler */
-    r = handlers[irq](irq);
+    handlers[irq](irq);
+	
+    /* Allow new interrupts */
+    writel(1, INTC + INTC_CONTROL);
   } else {
     /* User proc handler */
     for (p = intrwait; p != nil; p = p->next) {
       if ((uint32_t) p->aux == irq) {
-	procready(p);
 	maskintr(irq);
-	r = true;
+	writel(1, INTC + INTC_CONTROL);
+
+	/* Run the proc right away */
+	procready(p);
+	schedule();
 	break;
       }
     }
   }
-	
-  /* Allow new interrupts */
-  writel(1, INTC + INTC_CONTROL);
-	
-  return r;
 }
 
 void
@@ -176,38 +154,40 @@ trap(struct ureg *ureg)
 {
   uint32_t fsr;
   void *addr;
-  bool fixed = true;
-  bool rsch = false;
-  bool inkernel = current->inkernel;
 
   if (current == nil) {
-    panic("Trapped with an unknown process!\n");
+    printf("Trapped with an unknown process!\n");
+    printf("Probably a kernel error\n");
+    dumpregs(ureg);
+    panic("Dieing...\n");
   }
   
-  current->inkernel = true;
-
-  if (ureg->type == ABORT_DATA)
+  if (ureg->type == ABORT_DATA) {
     ureg->pc -= 8;
-  else
+  } else {
     ureg->pc -= 4;
+  }
 
   switch(ureg->type) {
   case ABORT_INTERRUPT:
-    rsch = irqhandler();
-    break;
+    irqhandler();
+    return;
+
   case ABORT_INSTRUCTION:
-    fixed = false;
     printf("%i bad instruction at 0x%h\n",
 	   current->pid, ureg->pc);
     break;
+
   case ABORT_PREFETCH:
-    fixed = fixfault((void *) ureg->pc);
-    if (!fixed) {
-      printf("%i prefetch abort 0x%h\n",
-	     current->pid, ureg->pc);
+    if (fixfault((void *) ureg->pc)) {
+      return;
     }
 
+    printf("%i prefetch abort 0x%h\n",
+	   current->pid, ureg->pc);
+
     break;
+
   case ABORT_DATA:
     addr = faultaddr();
     fsr = fsrstatus() & 0xf;
@@ -216,8 +196,9 @@ trap(struct ureg *ureg)
     case 0x5: /* section translation */
     case 0x7: /* page translation */
       /* Try add page */
-      fixed = fixfault(addr);
-      break;
+      if (fixfault(addr)) {
+	return;
+      }
     case 0x0: /* vector */
     case 0x1: /* alignment */
     case 0x3: /* also alignment */
@@ -233,30 +214,17 @@ trap(struct ureg *ureg)
     case 0xd: /* section permission */
     case 0xf: /* page permission */
     default:
-      fixed = false;
       break;
     }
 
-    if (!fixed) {
-      printf("%i data abort 0x%h (type 0x%h)\n",
-	     current->pid, addr, fsr);
-    }
-		
+    printf("%i data abort 0x%h (type 0x%h)\n",
+	   current->pid, addr, fsr);
     break;
   }
-	
-  if (!fixed) {
-    printf("kill proc %i for doing something bad\n",
-	   current->pid);
-    dumpregs(ureg);
-    procremove(current);
-    printf("run another proc now\n");
-    schedule();
-  }
-	
-  if (rsch) {
-    schedule();
-  }
 
-  current->inkernel = inkernel;
+  printf("killing proc %i\n", current->pid);
+  dumpregs(ureg);
+  procremove(current);
+  printf("run another proc now\n");
+  schedule();
 }

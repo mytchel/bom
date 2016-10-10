@@ -34,7 +34,6 @@ syscall(struct ureg *ureg)
   unsigned int sysnum;
 
   current->ureg = ureg;
-  current->inkernel = true;
   
   sysnum = (unsigned int) ureg->regs[0];
 
@@ -45,7 +44,5 @@ syscall(struct ureg *ureg)
   } else {
     ureg->regs[0] = ERR;
   }
-
-  current->inkernel = false;
 }
 

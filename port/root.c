@@ -68,7 +68,7 @@ initroot(void)
     panic("initroot: newbinding failed!\n");
   }
 
-  pr = newproc(10);
+  pr = newproc(30);
   if (pr == nil) {
     panic("initroot: newproc failed!\n");
   }

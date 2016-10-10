@@ -49,9 +49,6 @@ userreturn(struct ureg *);
 void
 droptouser(void *);
 
-void *
-forkfunc_preloader(void *, void *, void *);
-
 void
 forkfunc_loader(void);
 
@@ -62,7 +59,7 @@ void *
 faultaddr(void);
 
 void
-intcaddhandler(uint32_t, bool (*)(uint32_t));
+intcaddhandler(uint32_t, void (*)(uint32_t));
 
 void
 mmuinvalidate(void);
