@@ -55,9 +55,7 @@ unlock(struct lock *l)
 
   p = l->wlist;
   if (p != nil) {
-    disableintr();
     procready(p);
-    enableintr();
     l->holder = p;
   } else {
     l->lock = 0;

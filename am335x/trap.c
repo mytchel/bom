@@ -109,7 +109,7 @@ intcaddhandler(uint32_t irqn, void (*func)(uint32_t))
 }
 
 bool
-procwaitintr(struct proc *p, int irqn)
+procwaitintr(int irqn)
 {
   struct proc *pp;
   
@@ -119,19 +119,17 @@ procwaitintr(struct proc *p, int irqn)
     return false;
   }
 
-  disableintr();
-
   for (pp = intrwait; pp != nil; pp = pp->next) {
     if ((uint32_t) pp->aux == irqn) {
-      enableintr();
       return false;
     }
   }
   
-  procwait(p, &intrwait);
-  p->aux = (void *) irqn;
-	
+  disableintr();
+
   unmaskintr(irqn);
+  procwait(up, &intrwait);
+  up->aux = (void *) irqn;
 
   schedule();
 

@@ -103,7 +103,7 @@ struct binding {
   struct chan *in, *out;
 
   int nreqid;
-  struct proc *waiting; /* List of procs waiting. */
+  struct proc *waiting; /* List of procs wam335x/aiting. */
   struct proc *srv; /* Kernel proc that handles responses */
 };
 
@@ -135,6 +135,8 @@ typedef enum {
 #define NULL_PRIORITY (MIN_PRIORITY+1)
 
 struct proc {
+  struct lock lock;
+  
   struct proc *next; /* For list of procs in list. */
   struct proc **list;
 
@@ -470,7 +472,7 @@ void
 mmuputpage(struct pagel *);
 
 bool
-procwaitintr(struct proc *, int);
+procwaitintr(int);
 
 struct page *
 getrampage(void);

@@ -197,7 +197,9 @@ procnew(unsigned int priority)
   if (p == nil) {
     return nil;
   }
-	
+
+  lockinit(&p->lock);
+  
   p->pid = nextpid++;
   p->priority = priority;
   
@@ -237,6 +239,8 @@ void
 procexit(struct proc *p, int code)
 {
   struct proc *dc;
+
+  lock(&p->lock);
   
   p->state = PROC_dead;
   p->exitcode = code;
@@ -279,6 +283,7 @@ procexit(struct proc *p, int code)
     p->next = dc;
 
     disableintr();
+
     if (p->parent->state == PROC_waiting
 	&& p->parent->list == &waitchildlist) {
       procready(p->parent);
@@ -286,6 +291,7 @@ procexit(struct proc *p, int code)
 
     enableintr();
     
+    unlock(&p->lock);
   } else {
     procfree(p);
   }
@@ -302,18 +308,25 @@ procwaitchild(struct proc *p)
 {
   struct proc *c;
 
+  lock(&p->lock);
+
   if (p->nchildren == 0) {
     return nil;
   } else if (p->deadchildren == nil) {
     disableintr();
+    unlock(&p->lock);
     procwait(p, &waitchildlist);
     schedule();
     enableintr();
   }
 
+  lock(&p->lock);
+
   c = p->deadchildren;
   p->deadchildren = c->next;
   p->nchildren--;
+
+  unlock(&p->lock);
 
   return c;
 }
@@ -321,6 +334,8 @@ procwaitchild(struct proc *p)
 void
 procsetpriority(struct proc *p, unsigned int priority)
 {
+  lock(&p->lock);
+
   p->priority = priority;
 
   if (p->state == PROC_ready) {
@@ -328,55 +343,77 @@ procsetpriority(struct proc *p, unsigned int priority)
     p->timeused = 0;
     addtolistback(&queues[p->priority].ready, p);
   }
+
+  unlock(&p->lock);
 }
 
 void
 procready(struct proc *p)
 {
+  lock(&p->lock);
+
   p->state = PROC_ready;
 
   removefromlist(p->list, p);
 
   p->timeused = 0;
   addtolistfront(&queues[p->priority].ready, p);
+
+  unlock(&p->lock);
 }
 
 void
 procsleep(struct proc *p, uint32_t ms)
 {
+  lock(&p->lock);
+
   p->state = PROC_sleeping;
   p->aux = (void *) mstoticks(ms);
   
   removefromlist(p->list, p);
   addtolistfront(&sleeping, p);
+
+  unlock(&p->lock);
 }
 
 void
 procyield(struct proc *p)
 {
+  lock(&p->lock);
+
   p->state = PROC_sleeping;
   p->timeused = 0;
 
   removefromlist(p->list, p);
   addtolistback(&queues[p->priority].used, p);
+
+  unlock(&p->lock);
 }
 
 void
 procsuspend(struct proc *p)
 {
+  lock(&p->lock);
+
   p->state = PROC_suspend;
 
   removefromlist(p->list, p);
   addtolistfront(&suspended, p);
+
+  unlock(&p->lock);
 }
 
 void
 procwait(struct proc *p, struct proc **wlist)
 {
+  lock(&p->lock);
+
   p->state = PROC_waiting;
 
   removefromlist(p->list, p);
   addtolistback(wlist, p);
+
+  unlock(&p->lock);
 }
 
 void
