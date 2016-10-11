@@ -157,6 +157,7 @@ readloop(void)
     resp.ret = OK;
 
     buf[done] = 0;
+
     while (!testandset(&fsoutlock))
       sleep(0);
 

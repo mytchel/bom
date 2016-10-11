@@ -94,9 +94,10 @@ forkfunc_loader:
 	ldr lr, =1f	
 	pop {r0, pc}
 1:
+	mov r1, r0
 	ldr r0, =up
 	cpsid i
-	bl procremove
+	bl procexit
 	bl schedule
 	
 

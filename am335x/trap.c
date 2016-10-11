@@ -242,6 +242,6 @@ trap(struct ureg *ureg)
 	
   printf("kill proc %i\n", up->pid);
   dumpregs(ureg);
-  procremove(up);
+  procexit(up, ureg->type);
   schedule();
 }

@@ -71,12 +71,12 @@ main(void)
   if (f < 0) {
     return -1;
   }
-  
+ 
   f = initblockdevs();
   if (f < 0) {
     return -1;
   }
-
+ 
   f = shell();
 
   return f;
