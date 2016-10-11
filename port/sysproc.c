@@ -33,10 +33,10 @@ sysexit(va_list args)
   int code = va_arg(args, int);
 
   printf("pid %i exited with status %i\n", 
-	 current->pid, code);
+	 up->pid, code);
 
   disableintr();
-  procremove(current);
+  procremove(up);
   printf("removed, now schedule\n");
   schedule();
 	
@@ -57,9 +57,9 @@ syssleep(va_list args)
   disableintr();
 
   if (ms == 0) {
-    procyield(current);
+    procyield(up);
   } else {
-    procsleep(current, ms);
+    procsleep(up, ms);
   }
 
   schedule();
@@ -77,47 +77,47 @@ sysfork(va_list args)
 	
   flags = va_arg(args, int);
 
-  p = procnew(current->priority);
+  p = procnew(up->priority);
   if (p == nil) {
     return ENOMEM;
   }
 
-  p->parent = current;
+  p->parent = up;
 
-  p->dot = pathcopy(current->dot);
-  p->dotchan = current->dotchan;
+  p->dot = pathcopy(up->dot);
+  p->dotchan = up->dotchan;
   atomicinc(&p->dotchan->refs);
 
-  p->ustack = pagelcopy(current->ustack);
+  p->ustack = pagelcopy(up->ustack);
 
   if (flags & FORK_smem) {
-    p->mgroup = current->mgroup;
-    atomicinc(&current->mgroup->refs);
+    p->mgroup = up->mgroup;
+    atomicinc(&up->mgroup->refs);
   } else {
-    p->mgroup = mgroupcopy(current->mgroup);
+    p->mgroup = mgroupcopy(up->mgroup);
   }
 
   if (flags & FORK_sfgroup) {
-    p->fgroup = current->fgroup;
+    p->fgroup = up->fgroup;
     atomicinc(&p->fgroup->refs);
   } else {
-    p->fgroup = fgroupcopy(current->fgroup);
+    p->fgroup = fgroupcopy(up->fgroup);
     if (p->fgroup == nil) {
       goto err;
     }
   }
 	
   if (flags & FORK_sngroup) {
-    p->ngroup = current->ngroup;
+    p->ngroup = up->ngroup;
     atomicinc(&p->ngroup->refs);
   } else {
-    p->ngroup = ngroupcopy(current->ngroup);
+    p->ngroup = ngroupcopy(up->ngroup);
     if (p->ngroup == nil) {
       goto err;
     }
   }
 
-  forkchild(p, current->ureg);
+  forkchild(p, up->ureg);
 
   disableintr();
   procready(p);
@@ -133,13 +133,13 @@ sysfork(va_list args)
 int
 getpid(void)
 {
-  return current->pid;
+  return up->pid;
 }
 
 reg_t
 sysgetpid(va_list args)
 {
-  return current->pid;
+  return up->pid;
 }
 
 reg_t
@@ -149,7 +149,7 @@ syswaitintr(va_list args)
 
   irqn = va_arg(args, int);
 
-  if (procwaitintr(current, irqn)) {
+  if (procwaitintr(up, irqn)) {
     return OK;
   } else {
     return ERR;
@@ -181,7 +181,7 @@ insertpages(struct pagel *pagel, void *addr, size_t size)
   fix = (addr == nil);
 
   pp = nil;
-  for (p = current->mgroup->pages; p != nil; pp = p, p = p->next) {
+  for (p = up->mgroup->pages; p != nil; pp = p, p = p->next) {
     if (fix && pp != nil) {
       addr = (uint8_t *) pp->va + PAGE_SIZE;
     }
@@ -202,7 +202,7 @@ insertpages(struct pagel *pagel, void *addr, size_t size)
   } else {
     /* First page */
     fixpagel(pagel, (reg_t) addr, p);
-    current->mgroup->pages = pagel;
+    up->mgroup->pages = pagel;
   }
 
   return addr;
@@ -283,9 +283,9 @@ sysgetmem(va_list args)
 
   *size = csize;
 
-  lock(&current->mgroup->lock);
+  lock(&up->mgroup->lock);
   addr = insertpages(pagel, addr, csize);
-  unlock(&current->mgroup->lock);
+  unlock(&up->mgroup->lock);
 
   return (reg_t) addr;
 }
@@ -300,10 +300,10 @@ sysrmmem(va_list args)
   addr = va_arg(args, void *);
   size = va_arg(args, size_t);
 	
-  lock(&current->mgroup->lock);
+  lock(&up->mgroup->lock);
   
   pp = nil;
-  p = current->mgroup->pages; 
+  p = up->mgroup->pages; 
   while (p != nil && size > 0) {
     if (p->va == addr) {
       addr += PAGE_SIZE;
@@ -312,7 +312,7 @@ sysrmmem(va_list args)
       if (pp != nil) {
 	pp->next = p->next;
       } else {
-	current->mgroup->pages = p->next;
+	up->mgroup->pages = p->next;
       }
 			
       pt = p->next;
@@ -327,7 +327,7 @@ sysrmmem(va_list args)
     }
   }
 	
-  unlock(&current->mgroup->lock);
+  unlock(&up->mgroup->lock);
 
   return OK;
 }

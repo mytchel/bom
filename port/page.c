@@ -189,7 +189,7 @@ fixfault(void *addr)
 {
   struct pagel *pl;
 
-  pl = findpagel(current, addr);
+  pl = findpagel(up, addr);
   if (pl == nil) {
     return false;
   } else {

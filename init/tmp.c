@@ -34,7 +34,7 @@ struct file {
   uint32_t fid;
 
   uint8_t lname;
-  char name[FS_NAME_MAX];
+  char name[NAMEMAX];
 
   uint8_t *buf;
   size_t lbuf;

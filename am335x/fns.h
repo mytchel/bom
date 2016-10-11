@@ -47,9 +47,6 @@ void
 userreturn(struct ureg *);
 
 void
-droptouser(void *);
-
-void
 forkfunc_loader(void);
 
 uint32_t

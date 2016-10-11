@@ -28,12 +28,16 @@
 #ifndef _FS_H_
 #define _FS_H_
 
-/* File names must be null terminated */
-#define FS_NAME_MAX     255
+/* File names  cannot exceed NAMEMAX-1 bytes. */
+#define NAMEMAX         256
 
 #define ATTR_rd		(1<<0)
 #define ATTR_wr		(1<<1)
 #define ATTR_dir	(1<<2)
+
+#define SEEK_SET        1
+#define SEEK_CUR        2
+#define SEEK_END        3
 
 struct stat {
   uint32_t attr;

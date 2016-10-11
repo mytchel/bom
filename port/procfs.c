@@ -25,6 +25,8 @@
  *
  */
 
+/* NOT PROPERLY IMPLIMENTED */
+
 #include "head.h"
 
 typedef enum { PROC_root, PROC_dir,
@@ -32,29 +34,34 @@ typedef enum { PROC_root, PROC_dir,
 } pfile_t;
 
 struct file {
-  uint32_t fid;
-  struct stat stat;
   uint32_t open;
 
-  uint8_t *buf;
-  uint32_t lbuf;
-
-  uint8_t name[FS_NAME_MAX];
+  uint32_t fid;
+  struct stat stat;
+  uint8_t name[NAMEMAX];
   uint8_t lname;
 
   struct proc *proc;
 
   pfile_t type;
 
-  struct file *children;
-  struct file *cnext;
+  struct file *next;
 };
 
 static int
 procfsproc(void *arg);
 
 static uint32_t nfid = ROOTFID;
-static struct file *root;
+static struct file *files = nil;
+
+static struct stat rootstat = {
+  ATTR_rd|ATTR_dir,
+  0,
+};
+
+static uint8_t *rootbuf, *procbuf;
+static size_t lrootbuf, lprocbuf;
+
 static struct chan *fsin;
 
 struct binding *procfsbinding;
@@ -64,6 +71,8 @@ procfsinit(void)
 {
   struct chan *out;
   struct proc *p;
+
+  return;
 
   if (!pipenew(&(fsin), &(out))) {
     panic("procfs: pipenew failed!\n");
@@ -83,35 +92,112 @@ procfsinit(void)
   procready(p);
 }
 
-static struct file *
-findfile(struct file *t, uint32_t fid)
+static int
+adddirtoroot(struct file *n)
 {
-  struct file *c;
+  uint8_t *buf, *tbuf;
 
-  if (t == nil) {
-    return nil;
-  } else if (t->fid == fid) {
-    return t;
-  } else {
-    c = findfile(t->children, fid);
-    if (c != nil) {
-      return c;
-    } else {
-      return findfile(t->cnext, fid);
-    }
+  buf = malloc(lrootbuf + sizeof(uint8_t) + n->lname);
+  if (buf == nil) {
+    return ENOMEM;
   }
+
+  tbuf = buf;
+  if (lrootbuf > 0) {
+    memmove(tbuf, rootbuf, lrootbuf);
+    tbuf += lrootbuf;
+    free(rootbuf);
+  }
+  
+  memmove(tbuf, &n->lname, sizeof(uint8_t));
+  tbuf += sizeof(uint8_t);
+  memmove(tbuf, n->name, sizeof(uint8_t) * n->lname);
+
+  rootbuf = buf;
+  lrootbuf = lrootbuf + sizeof(uint8_t) * (1 + n->lname);
+  
+  rootstat.size++;
+
+  return OK;
 }
 
 struct file *
-findchild (struct file *p, uint8_t *name, uint8_t lname)
+addfile(char *name, pfile_t type, struct proc *p)
 {
   struct file *f;
   
-  for (f = p->children; f != nil; f = f->cnext) {
-    if (f->type != PROC_dir) continue;
-      
-    if (strncmp((char *) f->name, (char *) name, lname)) {
-      return f;
+  f = malloc(sizeof(struct file));
+
+  f->lname = strlen(name);
+  memmove(f->name, name, f->lname);
+
+  f->open = 0;
+  f->fid = ++nfid;
+
+  f->proc = p;
+  f->type = type;
+
+  f->next = files;
+  files = f;
+
+  return f;
+}
+
+void
+procfsaddproc(struct proc *proc)
+{
+  struct file *dir, *note, *state;
+  char name[NAMEMAX];
+
+  return;
+
+  snprintf(name, NAMEMAX, "%i", proc->pid);
+
+  dir = addfile(name, PROC_dir, proc);
+
+  adddirtoroot(dir);
+  
+  dir->stat.attr = ATTR_rd|ATTR_dir;
+  dir->stat.size = 2;
+
+  note = addfile("note", PROC_note, proc);
+  note->stat.attr = ATTR_rd|ATTR_wr;
+  note->stat.size = 0;
+
+  state = addfile("state", PROC_state, proc);
+  state->stat.attr = ATTR_rd|ATTR_wr;
+  state->stat.size = 0;
+
+}
+
+void
+procfsrmproc(struct proc *proc)
+{
+
+}
+
+static struct file *
+findfile(uint32_t fid)
+{
+  struct file *p;
+  
+  for (p = files; p != nil; p = p->next) {
+    if (p->fid == fid) {
+      return p;
+    }
+  }
+
+  return nil;
+}
+
+static struct file *
+findsubfile(struct proc *proc, pfile_t type)
+{
+  struct file *p;
+
+  for (p = files; p != nil; p = p->next) {
+    if (p->type == type && p->proc == proc) {
+      return p;
     }
   }
 
@@ -121,19 +207,44 @@ findchild (struct file *p, uint8_t *name, uint8_t lname)
 static void
 bfid(struct request *req, struct response *resp)
 {
-  struct file *f, *c;
+  struct file *p;
+  uint32_t fid;
 
-  f = findfile(root, req->fid);
-  if (f == nil) {
-    resp->ret = ENOFILE;
-    return;
+  printf("procfs fid\n");
+
+  if (req->fid == ROOTFID) {
+    for (p = files; p != nil; p = p->next) {
+      if (p->type == PROC_dir) {
+	if (strncmp((char *) p->name, (char *) req->buf,
+		    req->lbuf)) {
+	  fid = p->fid;
+	}
+      }
+    }
+  } else {
+    p = findfile(req->fid);
+    if (p == nil) {
+      resp->ret = ENOFILE;
+      return;
+    }
+
+    if (strncmp("state", (char *) req->buf, req->lbuf)) {
+      p = findsubfile(p->proc, PROC_state);
+    } else if (strncmp("note", (char *) req->buf, req->lbuf)) {
+      p = findsubfile(p->proc, PROC_note);
+    } else {
+      resp->ret = ENOFILE;
+      return;
+    }
+
+    if (p != nil) {
+      fid = p->fid;
+    } else {
+      resp->ret = ENOFILE;
+      return;
+    }
   }
 
-  c = findchild(f, req->buf, req->lbuf);
-  if (c == nil) {
-    resp->ret = ENOFILE;
-  }
-  
   resp->buf = malloc(sizeof(uint32_t));
   if (resp->buf == nil) {
     resp->ret = ENOMEM;
@@ -141,29 +252,37 @@ bfid(struct request *req, struct response *resp)
   }
   
   resp->lbuf = sizeof(uint32_t);
-  memmove(resp->buf, &c->fid, sizeof(uint32_t));
+  memmove(resp->buf, &fid, sizeof(uint32_t));
   resp->ret = OK;
 }
-
 
 static void
 bstat(struct request *req, struct response *resp)
 {
+  struct stat *s = nil;
   struct file *f;
 
-  f = findfile(root, req->fid);
-  if (f == nil) {
+  if (req->fid == ROOTFID) {
+    s = &rootstat;
+  } else {
+    f = findfile(req->fid);
+    if (f != nil) {
+      s = &f->stat;
+    }
+  }
+
+  if (s == nil) {
     resp->ret = ENOFILE;
     return;
   }
-
+  
   resp->buf = malloc(sizeof(struct stat));
   if (resp->buf == nil) {
     resp->ret = ENOMEM;
   } else {
     resp->ret = OK;
     resp->lbuf = sizeof(struct stat);
-    memmove(resp->buf, &f->stat, sizeof(struct stat));
+    memmove(resp->buf, s, sizeof(struct stat));
   }
 }
 
@@ -172,12 +291,16 @@ bopen(struct request *req, struct response *resp)
 {
   struct file *f;
 
-  f = findfile(root, req->fid);
-  if (f == nil) {
-    resp->ret = ENOFILE;
-  } else {
+  if (req->fid == ROOTFID) {
     resp->ret = OK;
-    f->open++;
+  } else {
+    f = findfile(req->fid);
+    if (f == nil) {
+      resp->ret = ENOFILE;
+    } else {
+      resp->ret = OK;
+      f->open++;
+    }
   }
 }
 
@@ -186,104 +309,26 @@ bclose(struct request *req, struct response *resp)
 {
   struct file *f;
 
-  f = findfile(root, req->fid);
-  if (f == nil) {
-    resp->ret = ENOFILE;
-  } else {
+  if (req->fid == ROOTFID) {
     resp->ret = OK;
-    f->open--;
-  }
-}
-
-#if 0
-static int
-addchild(struct file *p, struct file *c)
-{
-  uint8_t *buf, *tbuf;
-
-  buf = malloc(p->lbuf + sizeof(uint8_t) + c->lname);
-  if (buf == nil) {
-    return ENOMEM;
-  }
-
-  tbuf = buf;
-  if (p->lbuf > 0) {
-    memmove(tbuf, p->buf, p->lbuf);
-    tbuf += p->lbuf;
-  }
-  
-  memmove(tbuf, &c->lname, sizeof(uint8_t));
-  tbuf += sizeof(uint8_t);
-  memmove(tbuf, c->name, sizeof(uint8_t) * c->lname);
-
-  if (p->lbuf > 0) {
-    free(p->buf);
-  }
-
-  p->buf = buf;
-  p->lbuf = p->lbuf + sizeof(uint8_t) + c->lname;
-  
-  p->stat.size++;
-
-  c->cnext = p->children;
-  p->children = c;
-
-  c->parent = p;
-
-  return OK;
-}
-
-static int
-removechild(struct file *p, struct file *f)
-{
-  struct file *c;
-  uint8_t *buf, *tbuf;
-
-  if ((f->stat.attr & ATTR_dir) && f->lbuf > 0) {
-    return ENOTEMPTY;
-  }
-
-  buf = malloc(p->lbuf - 1 - f->lname);
-  if (buf == nil) {
-    return ENOMEM;
-  }
-
-  /* Remove from parent */
-  for (c = p->children; c != nil && c->cnext != f; c = c->cnext)
-    ;
-
-  if (c == nil) {
-    p->children = f->cnext;
   } else {
-    c->cnext = f->cnext;
+    f = findfile(req->fid);
+    if (f == nil) {
+      resp->ret = ENOFILE;
+    } else {
+      resp->ret = OK;
+      f->open--;
+    }
   }
-
-  tbuf = buf;
-  for (c = p->children; c != nil; c = c->cnext) {
-    memmove(tbuf, &c->lname, sizeof(uint8_t));
-    tbuf += sizeof(uint8_t);
-    memmove(tbuf, c->name, c->lname);
-    tbuf += c->lname;
-  }
-
-  p->buf = buf;
-  p->lbuf = p->lbuf - 1 - f->lname;
-  
-  p->stat.size--;
-
-  free(f);
-  return OK;
 }
-
-#endif
 
 static void
 breaddir(struct request *req, struct response *resp,
-	 struct file *file,
+	 uint8_t *buf, size_t lbuf,
 	 uint32_t offset, uint32_t len)
 {
-  if (offset + len > file->lbuf) {
-    len = file->lbuf - offset;
+  if (offset + len > lbuf) {
+    len = lbuf - offset;
   }
   
   resp->buf = malloc(len);
@@ -292,7 +337,7 @@ breaddir(struct request *req, struct response *resp,
     return;
   }
 
-  memmove(resp->buf, file->buf + offset, len);
+  memmove(resp->buf, buf + offset, len);
   resp->lbuf = len;
   resp->ret = OK;
 }
@@ -304,19 +349,24 @@ bread(struct request *req, struct response *resp)
   uint32_t offset, len;
   uint8_t *buf;
 
+  printf("procfs read\n");
+
   buf = req->buf;
   memmove(&offset, buf, sizeof(uint32_t));
   buf += sizeof(uint32_t);
   memmove(&len, buf, sizeof(uint32_t));
   buf += sizeof(uint32_t);
 
-  f = findfile(root, req->fid);
+  if (req->fid == ROOTFID) {
+    breaddir(req, resp, rootbuf, lrootbuf, offset, len);
+    return;
+  }
+  
+  f = findfile(req->fid);
   if (f == nil) {
     resp->ret = ENOFILE;
-  } else if (offset >= f->lbuf) {
-    resp->ret = EOF;
-  } else if (f->stat.attr & ATTR_dir) {
-    breaddir(req, resp, f, offset, len);
+  } else if (f->type == PROC_dir) {
+    breaddir(req, resp, procbuf, lprocbuf, offset, len);
   } else {
     resp->ret = ENOIMPL;
   }
@@ -329,11 +379,13 @@ bwrite(struct request *req, struct response *resp)
   uint32_t offset;
   uint8_t *buf;
 
+  printf("procfs write\n");
+
   buf = req->buf;
   memmove(&offset, buf, sizeof(uint32_t));
   buf += sizeof(uint32_t);
 
-  f = findfile(root, req->fid);
+  f = findfile(req->fid);
   if (f == nil) {
     resp->ret = ENOFILE;
   } else {
@@ -341,7 +393,7 @@ bwrite(struct request *req, struct response *resp)
   }
 }
 
-static struct fsmount rootmount = {
+static struct fsmount mount = {
   bfid,
   bstat,
   bopen,
@@ -356,23 +408,30 @@ static struct fsmount rootmount = {
 static int
 procfsproc(void *arg)
 {
-  root = malloc(sizeof(struct file));
-  if (root == nil) {
-    panic("root tree malloc failed!\n");
+  uint8_t *buf;
+  uint8_t lnote, lstate;
+
+  lrootbuf = 0;
+
+  lnote = strlen("note");
+  lstate = strlen("state");
+  
+  lprocbuf = 0
+    + 1 + lnote
+    + 1 + lstate;
+  
+  procbuf = malloc(lprocbuf);
+  if (procbuf == nil) {
+    panic("procfs: proc buf malloc failed.\n");
   }
 
-  root->fid = nfid++;
-  root->lname = 0;
+  buf = procbuf;
   
-  root->stat.attr = ATTR_rd|ATTR_wr|ATTR_dir;
-  root->stat.size = 0;
-
-  root->type = PROC_root;
-  root->proc = nil;
-  root->open = 0;
-
-  root->cnext = nil;
-  root->children = nil;
-
-  return kmountloop(fsin, procfsbinding, &rootmount);
+  buf[0] = lnote;
+  memmove(buf + 1, "note", lnote);
+  buf += 1 + lnote;
+  buf[0] = lstate;
+  memmove(buf + 1, "state", lstate);
+  
+  return kmountloop(fsin, procfsbinding, &mount);
 }

@@ -31,7 +31,7 @@ struct file {
   uint32_t fid;
 
   uint8_t lname;
-  char name[FS_NAME_MAX];
+  char name[NAMEMAX];
 
   uint8_t *buf;
   size_t lbuf;
@@ -130,7 +130,6 @@ bfid(struct request *req, struct response *resp)
   memmove(resp->buf, &c->fid, sizeof(uint32_t));
   resp->ret = OK;
 }
-
 
 static void
 bstat(struct request *req, struct response *resp)
@@ -394,7 +393,7 @@ rootfsproc(void *arg)
 {
   root = malloc(sizeof(struct file));
   if (root == nil) {
-    panic("rootfs: root tree malloc failed!\n");
+    panic("rootfs: root file malloc failed!\n");
   }
 
   root->fid = nfid++;

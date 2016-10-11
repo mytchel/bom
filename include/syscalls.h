@@ -34,25 +34,27 @@
 #define SYSCALL_GETPID          4
 #define SYSCALL_CHDIR           5
 
-#define SYSCALL_PIPE	        6	
+#define SYSCALL_SETSIGNAL       6
 
-#define SYSCALL_READ	        7	
-#define SYSCALL_WRITE	        8	
-#define SYSCALL_SEEK	        9	
-#define SYSCALL_CLOSE	       10	
+#define SYSCALL_PIPE	        7	
 
-#define SYSCALL_STAT	       11	
-#define SYSCALL_OPEN           12 
-#define SYSCALL_REMOVE	       13
-#define SYSCALL_BIND           14
-#define SYSCALL_CLEANPATH      15
+#define SYSCALL_READ	        8	
+#define SYSCALL_WRITE	        9	
+#define SYSCALL_SEEK	       10	
+#define SYSCALL_CLOSE	       11	
 
-#define SYSCALL_GETMEM         16
-#define SYSCALL_RMMEM          17
+#define SYSCALL_STAT	       12	
+#define SYSCALL_OPEN           13 
+#define SYSCALL_REMOVE	       14
+#define SYSCALL_BIND           15
+#define SYSCALL_CLEANPATH      16
 
-#define SYSCALL_WAITINTR       18
+#define SYSCALL_GETMEM         17
+#define SYSCALL_RMMEM          18
 
-#define NSYSCALLS              19
+#define SYSCALL_WAITINTR       19
+
+#define NSYSCALLS              20 
 
 #define OK		0
 /* General error */
@@ -86,8 +88,7 @@
 #define O_CREATE	(1<<2)
 #define O_DIR           (1<<3) /* File must be dir */
 
-#define SEEK_SET        1
-#define SEEK_CUR        2
-#define SEEK_END        3
+/* Error strings cannot exceed ESTRMAX-1 bytes. */
+#define ESTRMAX          256
 
 #endif
