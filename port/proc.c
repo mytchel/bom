@@ -43,7 +43,7 @@ static struct proc *sleeping = nil;
 static struct proc *suspended = nil;
 static struct proc *nullproc = nil;
 
-struct proc *current = nil;
+struct proc *up = nil;
 struct proc *procs = nil;
 
 void
@@ -150,42 +150,42 @@ schedule(void)
 {
   uint32_t t, q;
 
-  if (current && setlabel(&current->label)) {
+  if (up && setlabel(&up->label)) {
     return;
   }
 
   t = ticks();
 
-  if (current != nil) {
-    current->timeused += t;
-    current->cputime += t;
+  if (up != nil) {
+    up->timeused += t;
+    up->cputime += t;
 
-    if (current->state == PROC_oncpu) {
-      current->state = PROC_ready;
+    if (up->state == PROC_oncpu) {
+      up->state = PROC_ready;
 
-      q = queues[current->priority].quanta;
-      if (current->timeused < q) {
-	addtolistback(&queues[current->priority].ready, current);
+      q = queues[up->priority].quanta;
+      if (up->timeused < q) {
+	addtolistback(&queues[up->priority].ready, up);
       } else {
-	current->timeused = 0;
-	addtolistback(&queues[current->priority].used, current);
+	up->timeused = 0;
+	addtolistback(&queues[up->priority].used, up);
       }
     }
   }
 
   updatesleeping(t);
 	
-  current = nextproc();
-  current->state = PROC_oncpu;
+  up = nextproc();
+  up->state = PROC_oncpu;
 
   cticks();
 
-  mmuswitch(current);
+  mmuswitch(up);
 
-  setsystick(queues[current->priority].quanta
-	     - current->timeused);
+  setsystick(queues[up->priority].quanta
+	     - up->timeused);
 
-  gotolabel(&current->label);
+  gotolabel(&up->label);
 }
 	
 struct proc *
@@ -252,8 +252,8 @@ procremove(struct proc *p)
     ngroupfree(p->ngroup);
   }
 
-  if (p == current) {
-    current = nil;
+  if (p == up) {
+    up = nil;
   }
 
   pathfree(p->dot);

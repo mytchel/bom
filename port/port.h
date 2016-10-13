@@ -470,7 +470,7 @@ enableintr(void);
 
 /****** Global Variables ******/
 
-extern struct proc *current;
+extern struct proc *up;
 
 extern reg_t (*syscalltable[NSYSCALLS])(va_list);
 

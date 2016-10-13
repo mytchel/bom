@@ -41,12 +41,12 @@ syschdir(va_list args)
 
   upath = va_arg(args, const char *);
 
-  kpath = kaddr(current, (void *) upath, 0);
+  kpath = kaddr(up, (void *) upath, 0);
   if (kpath == nil) {
     return ERR;
   }
 
-  path = realpath(current->dot, kpath);
+  path = realpath(up->dot, kpath);
 
   c = fileopen(path, O_RDONLY|O_DIR, 0, &err);
   if (err != OK) {
@@ -54,14 +54,14 @@ syschdir(va_list args)
     return err;
   }
 
-  pathfree(current->dot);
+  pathfree(up->dot);
 
-  if (current->dotchan != nil) {
-    chanfree(current->dotchan);
+  if (up->dotchan != nil) {
+    chanfree(up->dotchan);
   }
 
-  current->dotchan = c;
-  current->dot = path;
+  up->dotchan = c;
+  up->dot = path;
 
   return OK;
 }
@@ -72,7 +72,7 @@ read(int fd, void *buf, size_t len)
   struct chan *c;
   int r;
 
-  c = fdtochan(current->fgroup, fd);
+  c = fdtochan(up->fgroup, fd);
   if (c == nil) {
     return ERR;
   } else if (!(c->mode & O_RDONLY)) {
@@ -99,7 +99,7 @@ sysread(va_list args)
   buf = va_arg(args, void *);
   len = va_arg(args, size_t);
 
-  kbuf = kaddr(current, buf, len);
+  kbuf = kaddr(up, buf, len);
 
   if (kbuf == nil) {
     return ERR;
@@ -114,7 +114,7 @@ write(int fd, void *buf, size_t len)
   struct chan *c;
   int r;
 
-  c = fdtochan(current->fgroup, fd);
+  c = fdtochan(up->fgroup, fd);
   if (c == nil) {
     return ERR;
   } else if (!(c->mode & O_WRONLY)) {
@@ -141,7 +141,7 @@ syswrite(va_list args)
   buf = va_arg(args, void *);
   len = va_arg(args, size_t);
 
-  kbuf = kaddr(current, buf, len);
+  kbuf = kaddr(up, buf, len);
 
   if (kbuf == nil) {
     return ERR;
@@ -156,7 +156,7 @@ seek(int fd, size_t offset, int whence)
   struct chan *c;
   int r;
 
-  c = fdtochan(current->fgroup, fd);
+  c = fdtochan(up->fgroup, fd);
   if (c == nil) {
     return ERR;
   }
@@ -191,16 +191,16 @@ sysstat(va_list args)
   upath = va_arg(args, const char *);
   ustat = va_arg(args, struct stat *);
 
-  kpath = kaddr(current, (void *) upath, 0);
+  kpath = kaddr(up, (void *) upath, 0);
   
-  stat = (struct stat *) kaddr(current, (void *) ustat,
+  stat = (struct stat *) kaddr(up, (void *) ustat,
 			       sizeof(struct stat *));
 
   if (stat == nil || kpath == nil) {
     return ERR;
   }
   
-  path = realpath(current->dot, kpath);
+  path = realpath(up->dot, kpath);
 
   return filestat(path, stat);
 }
@@ -213,15 +213,15 @@ sysclose(va_list args)
 
   fd = va_arg(args, int);
 
-  c = fdtochan(current->fgroup, fd);
+  c = fdtochan(up->fgroup, fd);
   if (c == nil) {
     return ERR;
   }
 
   /* Remove fd. */
-  lock(&current->fgroup->lock);
-  current->fgroup->chans[fd] = nil;
-  unlock(&current->fgroup->lock);
+  lock(&up->fgroup->lock);
+  up->fgroup->chans[fd] = nil;
+  unlock(&up->fgroup->lock);
 
   chanfree(c);
   
@@ -240,7 +240,7 @@ sysopen(va_list args)
   upath = va_arg(args, const char *);
   mode = va_arg(args, uint32_t);
 
-  kpath = kaddr(current, (void *) upath, 0);
+  kpath = kaddr(up, (void *) upath, 0);
   if (kpath == nil) {
     return ERR;
   }
@@ -251,7 +251,7 @@ sysopen(va_list args)
     cmode = 0;
   }
 
-  path = realpath(current->dot, kpath);
+  path = realpath(up->dot, kpath);
 
   c = fileopen(path, mode, cmode, &err);
 
@@ -259,7 +259,7 @@ sysopen(va_list args)
     pathfree(path);
     return err;
   } else {
-    return fgroupaddchan(current->fgroup, c);
+    return fgroupaddchan(up->fgroup, c);
   }
 }
 
@@ -275,8 +275,8 @@ syspipe(va_list args)
     return ENOMEM;
   }
 	
-  fds[0] = fgroupaddchan(current->fgroup, c0);
-  fds[1] = fgroupaddchan(current->fgroup, c1);
+  fds[0] = fgroupaddchan(up->fgroup, c0);
+  fds[1] = fgroupaddchan(up->fgroup, c1);
 	
   return OK;
 }
@@ -289,12 +289,12 @@ sysremove(va_list args)
 	
   upath = va_arg(args, const char *);
 
-  kpath = kaddr(current, (void *) upath, 0);
+  kpath = kaddr(up, (void *) upath, 0);
   if (kpath == nil) {
     return nil;
   }
 
-  path = realpath(current->dot, kpath);
+  path = realpath(up->dot, kpath);
 
   return fileremove(path);
 }
@@ -314,26 +314,26 @@ sysbind(va_list args)
   infd = va_arg(args, int);
   upath = va_arg(args, const char *);
 
-  kpath = kaddr(current, (void *) upath, 0);
+  kpath = kaddr(up, (void *) upath, 0);
   if (kpath == nil) {
     return ERR;
   }
   
-  out = fdtochan(current->fgroup, outfd);
+  out = fdtochan(up->fgroup, outfd);
   if (out == nil) {
     return ERR;
   } else if (!(out->mode & O_WRONLY)) {
     return EMODE;
   }
 
-  in = fdtochan(current->fgroup, infd);
+  in = fdtochan(up->fgroup, infd);
   if (in == nil) {
     return ERR;
   } else if  (!(in->mode & O_RDONLY)) {
     return EMODE;
   }
 
-  path = realpath(current->dot, kpath);
+  path = realpath(up->dot, kpath);
 
   b = bindingnew(out, in);
   if (b == nil) {
@@ -351,7 +351,7 @@ sysbind(va_list args)
   forkfunc(p, &mountproc, (void *) b);
   b->srv = p;
 
-  ret = ngroupaddbinding(current->ngroup, b, path, ROOTFID);
+  ret = ngroupaddbinding(up->ngroup, b, path, ROOTFID);
   if (ret != OK) {
     procremove(p);
     bindingfree(b);
@@ -365,7 +365,7 @@ sysbind(va_list args)
 
 #if DEBUG == 1
   char *str = (char *) pathtostr(path, nil);
-  printf("Binding %i to '%s', kproc %i\n", current->pid, kpath,
+  printf("Binding %i to '%s', kproc %i\n", up->pid, kpath,
 	 p->pid);
   free(str);
 #endif
@@ -384,7 +384,7 @@ syscleanpath(va_list args)
   cpath = va_arg(args, char *);
   cpathlen = va_arg(args, size_t);
 
-  rpath = realpath(current->dot, opath);
+  rpath = realpath(up->dot, opath);
 
   spath = pathtostr(rpath, &l);
 

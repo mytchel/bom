@@ -93,7 +93,7 @@ malloc(size_t size)
 
   if (size > PAGE_SIZE - sizeof(size_t)) {
     printf("%i trying to malloc something too large %i\n",
-	   current->pid, size);
+	   up->pid, size);
     return nil;
   }
 

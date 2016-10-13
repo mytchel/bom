@@ -172,7 +172,7 @@ trap(struct ureg *ureg)
   uint32_t fsr;
   void *addr;
 
-  if (current == nil) {
+  if (up == nil) {
     printf("Trapped with an unknown process!\n");
     dumpregs(ureg);
     panic("Probably an in kernel problem.\n");
@@ -190,7 +190,7 @@ trap(struct ureg *ureg)
 
   case ABORT_INSTRUCTION:
     printf("%i bad instruction at 0x%h\n",
-	   current->pid, ureg->pc);
+	   up->pid, ureg->pc);
     break;
 
   case ABORT_PREFETCH:
@@ -199,7 +199,7 @@ trap(struct ureg *ureg)
     }
 
     printf("%i prefetch abort 0x%h\n",
-	   current->pid, ureg->pc);
+	   up->pid, ureg->pc);
 
     break;
 
@@ -235,13 +235,13 @@ trap(struct ureg *ureg)
     }
 
     printf("%i data abort 0x%h (type 0x%h)\n",
-	   current->pid, addr, fsr);
+	   up->pid, addr, fsr);
 		
     break;
   }
 	
-  printf("kill proc %i\n", current->pid);
+  printf("kill proc %i\n", up->pid);
   dumpregs(ureg);
-  procremove(current);
+  procremove(up);
   schedule();
 }

@@ -95,7 +95,7 @@ forkfunc_loader:
 	ldr lr, =1f	
 	pop {r0, pc}
 1:
-	ldr r0, =current
+	ldr r0, =up
 	cpsid i
 	bl procremove
 	bl schedule
