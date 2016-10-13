@@ -54,6 +54,6 @@ struct ureg {
   uint32_t type, psr, pc;
 };
 
-#include "../port/port.h"
+#include "../kern/port.h"
 
 #endif
