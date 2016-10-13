@@ -70,7 +70,7 @@ swi_ex:
 	mov r0, sp
 
 	bl syscall
-	b userreturn 
+	b droptouser
 	
 
 irq_ex:
@@ -153,7 +153,7 @@ _user:  @ user mode interrupted
 	sub r0, r0, #(4 * 13)
 	mov sp, r0
 	bl trap
-	b userreturn
+	b droptouser
 
 
 @ Not used. But just in case kick and scream.

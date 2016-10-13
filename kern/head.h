@@ -403,6 +403,10 @@ reg_t syscleanpath(va_list);
 
 /****** Machine Implimented ******/
 
+/* Type and psr are ignored. */
+void
+droptouser(struct ureg *);
+
 void
 dumpregs(struct ureg *);
 

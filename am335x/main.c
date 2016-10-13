@@ -103,8 +103,16 @@ copysegment(void *start, bool rw, bool c, char **buf, size_t len)
 static int
 mainproc(void *arg)
 {
+  struct ureg ureg;
+  
   disableintr();
-  droptouser((void *) USTACK_TOP);
+
+  memset(ureg.regs, 0, sizeof(ureg.regs));
+  ureg.sp = USTACK_TOP;
+  ureg.pc = 4;
+  
+  droptouser(&ureg);
+
   return 0; /* Never reached. */
 }
 
