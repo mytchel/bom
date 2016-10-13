@@ -25,7 +25,7 @@
  *
  */
 
-#include "head.h"
+#include "../kern/head.h"
 #include "fns.h"
 
 #define L1X(va)		(va >> 20)

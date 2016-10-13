@@ -25,11 +25,6 @@
  *
  */
 
-#ifndef _HEAD_H_
-#define _HEAD_H_
-
-#include <types.h>
-
 #define PAGE_SHIFT 	 12
 #define PAGE_SIZE	 (1UL << PAGE_SHIFT)
 #define PAGE_MASK	 (~(PAGE_SIZE - 1))
@@ -54,6 +49,3 @@ struct ureg {
   uint32_t type, psr, pc;
 };
 
-#include "../kern/port.h"
-
-#endif

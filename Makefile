@@ -25,10 +25,8 @@
 
 .SUFFIXES: .S .c .h .o .elf .bin .list .umg
 
-TARGETS := $(TARGET).elf $(TARGET).list init.elf init.list
-
 CLEAN = 
-DEBUG ?= 0
+TARGETS := $(TARGET).elf $(TARGET).list init.elf init.list
 
 TARGET ?= am335x
 
@@ -36,7 +34,7 @@ HOSTCC ?= cc
 
 CFLAGS := -std=c89 -Wall -Werror -O2 \
         -nostdinc -ffreestanding \
-        -D_$(TARGET)_ -DDEBUG=${DEBUG} \
+        -D_$(TARGET)_ \
         -I${.CURDIR}/include -I${.CURDIR}/$(TARGET)/
 
 LDFLAGS := -nostdlib -nodefaultlibs

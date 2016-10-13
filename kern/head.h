@@ -26,15 +26,16 @@
  */
 
 #include <libc.h>
+#include <types.h>
 #include <stdarg.h>
 #include <fs.h>
 #include <fssrv.h>
 #include <string.h>
 
-#if DEBUG == 1
-#define debug(...)  printf(__VA_ARGS__)
+#ifdef _am335x_
+#include "../am335x/head.h"
 #else
-#define debug(...) {}
+#error Need to set arch
 #endif
 
 struct lock {
@@ -42,7 +43,6 @@ struct lock {
   struct proc *holder;
   struct proc *wlist;
 };
-
   
 struct page {
   int refs;
