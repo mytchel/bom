@@ -234,7 +234,7 @@ procnew(unsigned int priority)
 }
 
 void
-procremove(struct proc *p)
+procexit(struct proc *p, int code)
 {
   struct proc *pp, *pt;
 
@@ -276,8 +276,6 @@ procremove(struct proc *p)
   } else {
     pp->next = p->next;
   }
- 
-  free(p);
 }
 
 void

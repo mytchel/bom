@@ -208,7 +208,7 @@ procfsrmproc(struct proc *);
 /* These must all be called with interrupts disabled */
 
 void
-procremove(struct proc *);
+procexit(struct proc *, int code);
 
 void
 procready(struct proc *);

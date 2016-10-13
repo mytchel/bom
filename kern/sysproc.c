@@ -36,7 +36,7 @@ sysexit(va_list args)
 	 up->pid, code);
 
   disableintr();
-  procremove(up);
+  procexit(up, code);
   printf("removed, now schedule\n");
   schedule();
 	
@@ -82,8 +82,6 @@ sysfork(va_list args)
     return ENOMEM;
   }
 
-  p->parent = up;
-
   p->dot = pathcopy(up->dot);
   p->dotchan = up->dotchan;
   atomicinc(&p->dotchan->refs);
@@ -119,6 +117,8 @@ sysfork(va_list args)
 
   forkchild(p, up->ureg);
 
+  p->parent = up;
+
   disableintr();
   procready(p);
   enableintr();
@@ -126,7 +126,7 @@ sysfork(va_list args)
   return p->pid;
 
  err:
-  procremove(p);
+  procexit(p, 0);
   return ENOMEM;
 }
 

@@ -353,7 +353,7 @@ sysbind(va_list args)
 
   ret = ngroupaddbinding(up->ngroup, b, path, ROOTFID);
   if (ret != OK) {
-    procremove(p);
+    procexit(p, 0);
     bindingfree(b);
     pathfree(path);
     return ret;

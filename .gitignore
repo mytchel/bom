@@ -4,3 +4,4 @@ docs
 *.bin
 *.list
 *.umg
+initcode.c
