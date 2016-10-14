@@ -25,7 +25,7 @@
  *
  */
 
-#include "head.h"
+#include "../kern/head.h"
 #include "fns.h"
 
 #define L1X(va)		(va >> 20)
@@ -125,8 +125,8 @@ mmuputpage(struct pagel *p)
       panic("mmu failed to wrap page\n");
     }
  
-    pn->next = current->mmu;
-    current->mmu = pn;
+    pn->next = up->mmu;
+    up->mmu = pn;
 
     for (i = 0; i < 256; i++)
       ((uint32_t *) pg->pa)[i] = L2_FAULT;

@@ -52,17 +52,17 @@ makereq(struct binding *b, struct request *req)
     return nil;
   }
 
-  current->aux = (void *) req->rid;
+  up->aux = (void *) req->rid;
 
   disableintr();
 
-  procwait(current, &b->waiting);
+  procwait(up, &b->waiting);
   unlock(&b->lock);
 
   schedule();
   enableintr();
 
-  return (struct response *) current->aux;
+  return (struct response *) up->aux;
 }
 
 static int
@@ -154,7 +154,7 @@ findfile(struct path *path,
   size_t depth;
 
   bp = nil;
-  b = ngroupfindbinding(current->ngroup, path, 0, &f);
+  b = ngroupfindbinding(up->ngroup, path, 0, &f);
   if (b == nil) {
     *err = ENOFILE;
     return nil;
@@ -185,7 +185,7 @@ findfile(struct path *path,
     }
 
     bp = b;
-    b = ngroupfindbinding(current->ngroup, path, ++depth, &fr);
+    b = ngroupfindbinding(up->ngroup, path, ++depth, &fr);
     if (b == nil) {
       *err = ENOFILE;
       return nil;

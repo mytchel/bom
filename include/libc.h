@@ -34,7 +34,7 @@
 extern int stdin, stdout, stderr;
 
 int
-exit(int code);
+exit(int code) __attribute__((noreturn));
 
 int
 fork(int flags);
@@ -44,6 +44,9 @@ sleep(int ms);
 
 int
 getpid(void);
+
+int
+wait(int *status);
 
 /* Memory system calls */
 

@@ -55,105 +55,92 @@ vectortable:
 
 
 swi_ex:
-	sub sp, sp, #(4 * 18)
-	stmia sp, {r0 - r12}
-	
-	add r0, sp, #(4 * 13)
+	sub sp, sp, #(4 * 14)
+	stmia sp, {r0 - r12, lr}
+
+	mrs r1, spsr
+	sub r0, sp, #(4 * 3)
 	cps #MODE_SYS
-	stmia r0!, {sp, lr}
+	stmia r0, {r1, sp, lr}
 	cps #MODE_SVC
 	
-	mrs r1, spsr
-	@ stored r0 doesnt matter, type is not used in syscalls.
-	stmia r0, {r0, r1, lr}
-	
-	mov r0, sp
-
+	mov sp, r0
 	bl syscall
-	b userreturn 
+	add sp, sp, #(4 * 17)
+	b droptouser
 	
 
 irq_ex:
 	stmfd sp, {r0 - r4}
-	mov r0, #ABORT_INTERRUPT
+	mov r1, #ABORT_INTERRUPT
 	b switch
 	
 
 undefined_instruction:
 	stmfd sp, {r0 - r4}
-	mov r0, #ABORT_INSTRUCTION
+	mov r1, #ABORT_INSTRUCTION
 	b switch
 
 
 prefetch_abort:
 	stmfd sp, {r0 - r4}
-	mov r0, #ABORT_PREFETCH
+	mov r1, #ABORT_PREFETCH
 	b switch
 
 
 data_abort:
 	stmfd sp, {r0 - r4}
-	mov r0, #ABORT_DATA
+	mov r1, #ABORT_DATA
 	b switch
 
 
 switch:
-	mrs r1, spsr
-	mov r2, lr
-	sub r3, sp, #(4 * 5)
+	mrs r2, spsr
+	mov r3, lr
+	sub r4, sp, #(4 * 5)
 	
 	clrex
 	
 	cps #MODE_SVC
 
-	@ store interrupted type, spsr, lr
+	sub r0, sp, #(4 * 9)
+	stmia r0!, {r5 - r12}
+	str r3, [r0]
+	sub r0, r0, #(4 * 13)
 
-	sub r4, sp, #(4 * 3)
-	stmia r4, {r0, r1, r2}
+	@ retrieve and store r0 - r4
+	ldmfd r4, {r5 - r9}
+	stmia r0, {r5 - r9}
+	sub r0, r0, #(4 * 3)
 
-	@ skip sp, lr, and store r5 - r12
-	sub r0, r4, #(4 * 10)
-	stmia r0, {r5 - r12}
-
-	@ store r0 - r4
-	sub r0, r0, #(4 * 5)
-	ldmfd r3, {r2 - r6}
-	stmia r0, {r2 - r6}
-	add r0, r0, #(4 * 13)
-
-	ands r2, r1, #0xf
-	cmp r2, #0
+	ands r3, r2, #0xf
+	cmp r3, #0
 	beq _user
 
 	@ kernel mode interrupted
 
-	@ store ksp, lr
-	stmia r0, {sp, lr}
+	stmia r0, {r2, sp, lr}
 
-	@ set up arg and sp
-	sub r0, r0, #(4 * 13)
 	mov sp, r0
 
+	@ r0 -> interrupted label, r1 -> type
 	bl trap
 
-	add sp, sp, #(4 * 15)
-	ldmia sp, {r1, r2, r3}
-	msr spsr, r2
-	str r3, [sp]
-	sub sp, sp, #(4 * 15)
-
-	ldmia sp, {r0 - r12, sp, lr, pc}^
+	ldmia r0!, {r1, sp, lr}
+	msr spsr, r1
+	ldmia r0, {r0 - r12, pc}^
 
 _user:  @ user mode interrupted
 
 	cps #MODE_SYS
-	stmia r0, {sp, lr}
+	stmia r0, {r2, sp, lr}
 	cps #MODE_SVC
 
-	sub r0, r0, #(4 * 13)
 	mov sp, r0
+	@ r0 -> interrupted label, r1 -> type
 	bl trap
-	b userreturn
+	add sp, sp, #(4 * 17)
+	b droptouser
 
 
 @ Not used. But just in case kick and scream.

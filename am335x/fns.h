@@ -43,15 +43,6 @@
 #define AP_RW_RO	2
 #define AP_RW_RW	3
 
-void
-userreturn(struct ureg *);
-
-void
-droptouser(void *);
-
-void
-forkfunc_loader(void);
-
 uint32_t
 fsrstatus(void);
 

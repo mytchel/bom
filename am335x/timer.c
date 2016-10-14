@@ -25,7 +25,7 @@
  *
  */
 
-#include "head.h"
+#include "../kern/head.h"
 #include "fns.h"
 
 #define TIMER0 0x44E05000

@@ -3,3 +3,5 @@ docs
 *.elf
 *.bin
 *.list
+*.umg
+initcode.c

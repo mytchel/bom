@@ -46,7 +46,7 @@ int stdin, stdout, stderr;
 int
 main(void)
 {
-  int f, fd;
+  int f, fd, code;
 
   fd = open("/dev", O_WRONLY|O_CREATE,
 	    ATTR_wr|ATTR_rd|ATTR_dir);
@@ -77,7 +77,16 @@ main(void)
     return -1;
   }
 
-  f = shell();
+  f = fork(FORK_sngroup);
+  if (f == 0) {
+    return shell();
+  }
 
-  return f;
+  printf("%i wait on processes\n", getpid());
+  while ((f = wait(&code)) > 0) {
+    printf("%i exited with %i\n", f, code);
+  }
+
+  printf("All processes exited.\n");
+  return OK;
 }

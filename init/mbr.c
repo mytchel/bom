@@ -45,7 +45,7 @@ struct mbrpartition {
   uint8_t end_chs[3];
   uint32_t lba;
   uint32_t sectors;
-} __attribute__ ((__packed__));
+} __attribute__((__packed__));
 
 struct mbr {
   uint8_t bootstrap[446];
@@ -395,22 +395,25 @@ mbrmountthread(struct blkdevice *d, uint8_t *dir)
   fd = open(filename, O_WRONLY|O_CREATE, ATTR_dir|ATTR_rd);
   if (fd < 0) {
     printf("%s failed to create %s.\n", device->name, filename);
-    return -1;
+    exit(-1);
   }
 
   if (pipe(p1) == ERR) {
-    return -2;
+    exit(-2);
   } else if (pipe(p2) == ERR) {
-    return -2;
+    exit(-2);
   }
 
   if (bind(p1[1], p2[0], filename) == ERR) {
-    return -3;
+    exit(-3);
   }
 
   close(p1[1]);
   close(p2[0]);
 
-  return fsmountloop(p1[0], p2[1], &mount);
+  i = fsmountloop(p1[0], p2[1], &mount);
+  exit(i);
+
+  return 0;
 }
 

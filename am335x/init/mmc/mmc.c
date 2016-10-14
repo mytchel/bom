@@ -590,6 +590,7 @@ mmchsproc(char *name, void *addr, int intr)
   size_t regsize = 4 * 1024;
   struct blkdevice device;
   struct mmc mmc;
+  int p, code;
 
   mmc.name = name;
 
@@ -644,14 +645,14 @@ mmchsproc(char *name, void *addr, int intr)
 
   mmc.mbrpid = mbrmountthread(&device, (uint8_t *) "/dev/");
   if (mmc.mbrpid < 0) {
-    printf("mbr exited!\n");
     return mmc.mbrpid;
   } else {
-    while (true)
-      sleep(1000000);
-  }
+    p = wait(&code);
+    printf("MBR exited?, mbrpid = %i, waitpid = %i, code = %i\n",
+	   mmc.mbrpid, p, code);
 
-  return 0;
+    return code;
+  }
 }
 
 int
@@ -661,14 +662,16 @@ initblockdevs(void)
 
   p = fork(FORK_sngroup);
   if (p == 0) {
-    return mmchsproc("mmc0", (void *) MMCHS0, MMC0_intr);
+    p = mmchsproc("mmc0", (void *) MMCHS0, MMC0_intr);
+    exit(p);
   } else if (p < 0) {
     printf("Failed to fork for mmc0\n");
   }
 
   p = fork(FORK_sngroup);
   if (p == 0) {
-    return mmchsproc("mmc1", (void *) MMC1, MMC1_intr);
+    p = mmchsproc("mmc1", (void *) MMC1, MMC1_intr);
+    exit(p);
   } else if (p < 0) {
     printf("Failed to fork for mmc1\n");
   }

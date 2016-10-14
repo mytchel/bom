@@ -27,40 +27,28 @@
 
 #include "head.h"
 
-void
-lockinit(struct lock *l)
-{
-  l->lock = 0;
-  l->wlist = nil;
-  l->holder = nil;
-}
+reg_t (*syscalltable[NSYSCALLS])(va_list) = {
+	[SYSCALL_EXIT] 		= sysexit,
+	[SYSCALL_FORK] 		= sysfork,
+	[SYSCALL_SLEEP]		= syssleep,
+	[SYSCALL_GETPID]	= sysgetpid,
+	[SYSCALL_WAIT]	        = syswait,
 
-void
-lock(struct lock *l)
-{
-  if (!testandset(&l->lock)) {
-    disableintr();
-    procwait(current, &l->wlist);
-    schedule();
-    enableintr();
-  } else {
-    l->holder = current;
-  }
-}
-
-void
-unlock(struct lock *l)
-{
-  struct proc *p;
-
-  p = l->wlist;
-  if (p != nil) {
-    disableintr();
-    procready(p);
-    enableintr();
-    l->holder = p;
-  } else {
-    l->lock = 0;
-    l->holder = nil;
-  }
-}
+	[SYSCALL_CHDIR]	        = syschdir,
+	
+	[SYSCALL_GETMEM]	= sysgetmem,
+	[SYSCALL_RMMEM]		= sysrmmem,
+	[SYSCALL_WAITINTR]	= syswaitintr,
+	
+	[SYSCALL_PIPE]		= syspipe,
+	[SYSCALL_READ]		= sysread,
+	[SYSCALL_WRITE]		= syswrite,
+	[SYSCALL_SEEK]		= sysseek,
+	[SYSCALL_CLOSE]		= sysclose,
+	
+	[SYSCALL_STAT]		= sysstat,
+	[SYSCALL_BIND]		= sysbind,
+	[SYSCALL_OPEN]		= sysopen,
+	[SYSCALL_REMOVE]	= sysremove,
+	[SYSCALL_CLEANPATH]	= syscleanpath,
+};

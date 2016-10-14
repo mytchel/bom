@@ -39,12 +39,12 @@ struct priority_queue {
 static uint32_t nextpid = 1;
 
 static struct priority_queue queues[NULL_PRIORITY + 1];
+static struct proc *waitchildren = nil;
 static struct proc *sleeping = nil;
 static struct proc *suspended = nil;
 static struct proc *nullproc = nil;
 
-struct proc *current = nil;
-struct proc *procs = nil;
+struct proc *up = nil;
 
 void
 schedulerinit(void)
@@ -150,42 +150,41 @@ schedule(void)
 {
   uint32_t t, q;
 
-  if (current && setlabel(&current->label)) {
+  if (up && setlabel(&up->label)) {
     return;
   }
 
   t = ticks();
 
-  if (current != nil) {
-    current->timeused += t;
-    current->cputime += t;
+  if (up != nil) {
+    up->timeused += t;
+    up->cputime += t;
 
-    if (current->state == PROC_oncpu) {
-      current->state = PROC_ready;
+    if (up->state == PROC_oncpu) {
+      up->state = PROC_ready;
 
-      q = queues[current->priority].quanta;
-      if (current->timeused < q) {
-	addtolistback(&queues[current->priority].ready, current);
+      q = queues[up->priority].quanta;
+      if (up->timeused < q) {
+	addtolistback(&queues[up->priority].ready, up);
       } else {
-	current->timeused = 0;
-	addtolistback(&queues[current->priority].used, current);
+	up->timeused = 0;
+	addtolistback(&queues[up->priority].used, up);
       }
     }
   }
 
   updatesleeping(t);
 	
-  current = nextproc();
-  current->state = PROC_oncpu;
+  up = nextproc();
+  up->state = PROC_oncpu;
+
+  mmuswitch(up);
 
   cticks();
+  setsystick(queues[up->priority].quanta
+	     - up->timeused);
 
-  mmuswitch(current);
-
-  setsystick(queues[current->priority].quanta
-	     - current->timeused);
-
-  gotolabel(&current->label);
+  gotolabel(&up->label);
 }
 	
 struct proc *
@@ -205,7 +204,9 @@ procnew(unsigned int priority)
 
   p->timeused = 0;
   p->cputime = 0;
-  
+
+  p->deadchildren = nil;
+  p->nchildren = 0;
   p->parent = nil;
 
   p->dot = nil;
@@ -227,57 +228,92 @@ procnew(unsigned int priority)
   p->state = PROC_suspend;
   addtolistfront(&suspended, p);
 
-  p->anext = procs;
-  procs = p;
-
   return p;
 }
 
 void
-procremove(struct proc *p)
+procexit(struct proc *p, int code)
 {
-  struct proc *pp, *pt;
-
   p->state = PROC_dead;
+  p->exitcode = code;
   
   if (p->dotchan != nil) {
     chanfree(p->dotchan);
+    p->dotchan = nil;
   }
 
   if (p->fgroup != nil) {
     fgroupfree(p->fgroup);
+    p->fgroup = nil;
   }
 
   if (p->ngroup != nil) {
     ngroupfree(p->ngroup);
-  }
-
-  if (p == current) {
-    current = nil;
+    p->ngroup = nil;
   }
 
   pathfree(p->dot);
+  p->dot = nil;
 
-  pagefree(p->kstack);
   pagelfree(p->ustack);
+  p->ustack = nil;
+  
   pagelfree(p->mmu);
+  p->mmu = nil;
 
-  if (p->mgroup != nil)
+  if (p->mgroup != nil) {
     mgroupfree(p->mgroup);
+    p->mgroup = nil;
+  }
 
   removefromlist(p->list, p);
+  p->list = nil;
 
-  pp = nil;
-  for (pt = procs; pt != nil && pt != p; pp = pt, pt = pt->next)
-    ;
+  if (p->parent != nil) {
+    addtolistback(&p->parent->deadchildren, p);
 
-  if (pp == nil) {
-    procs = p->next;
+    p->next = p->deadchildren;
+    p->parent->nchildren += p->nchildren;
+
+    if (p->parent->state == PROC_waiting
+	&& p->parent->list == &waitchildren) {
+      procready(p->parent);
+    }
+
   } else {
-    pp->next = p->next;
+    procfree(p);
   }
- 
+
+  if (p == up) {
+    up = nil;
+  }
+}
+
+void
+procfree(struct proc *p)
+{
+  pagefree(p->kstack);
   free(p);
+}
+
+struct proc *
+procwaitchildren(void)
+{
+  struct proc *p;
+
+  if (up->nchildren == 0) {
+    return nil;
+  } else if (up->deadchildren == nil) {
+    disableintr();
+    procwait(up, &waitchildren);
+    schedule();
+    enableintr();
+  }
+
+  p = up->deadchildren;
+  up->deadchildren = p->next;
+
+  return p;
 }
 
 void

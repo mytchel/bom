@@ -28,10 +28,10 @@
 #ifndef _TYPES_H_
 #define _TYPES_H_
 
-#ifdef _AM335X_
-#include <types_am335x.h>
+#ifdef _am335x_
+#include "../am335x/types.h"
 #else
-#error Need to set arch to get types
+#error Need to set arch
 #endif
 
 #define nil 0

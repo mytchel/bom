@@ -26,15 +26,16 @@
  */
 
 #include <libc.h>
+#include <types.h>
 #include <stdarg.h>
 #include <fs.h>
 #include <fssrv.h>
 #include <string.h>
 
-#if DEBUG == 1
-#define debug(...)  printf(__VA_ARGS__)
+#ifdef _am335x_
+#include "../am335x/head.h"
 #else
-#define debug(...) {}
+#error Need to set arch
 #endif
 
 struct lock {
@@ -42,7 +43,6 @@ struct lock {
   struct proc *holder;
   struct proc *wlist;
 };
-
   
 struct page {
   int refs;
@@ -136,12 +136,14 @@ typedef enum {
 #define NULL_PRIORITY (MIN_PRIORITY+1)
 
 struct proc {
-  struct proc *anext; /* For list of all procs */
-
   struct proc *next; /* For list of procs in list */
   struct proc **list;
+
+  size_t nchildren;
+  int exitcode;
+  struct proc *deadchildren;
   
-  struct ureg *ureg;
+  struct label *ureg;
   struct label label;
 
   procstate_t state;
@@ -204,11 +206,16 @@ procfsaddproc(struct proc *);
 void
 procfsrmproc(struct proc *);
 
+struct proc *
+procwaitchildren(void);
 
 /* These must all be called with interrupts disabled */
 
 void
-procremove(struct proc *);
+procexit(struct proc *, int code);
+
+void
+procfree(struct proc *);
 
 void
 procready(struct proc *);
@@ -385,6 +392,7 @@ reg_t sysexit(va_list);
 reg_t sysfork(va_list);
 reg_t syssleep(va_list);
 reg_t sysgetpid(va_list);
+reg_t syswait(va_list);
 reg_t sysgetmem(va_list);
 reg_t sysrmmem(va_list);
 reg_t syswaitintr(va_list);
@@ -403,8 +411,12 @@ reg_t syscleanpath(va_list);
 
 /****** Machine Implimented ******/
 
+/* Type and psr are ignored. */
 void
-dumpregs(struct ureg *);
+droptouser(struct label *) __attribute__((noreturn));
+
+void
+dumpregs(struct label *);
 
 void
 puts(const char *);
@@ -430,7 +442,7 @@ int
 setlabel(struct label *);
 
 int
-gotolabel(struct label *);
+gotolabel(struct label *) __attribute__((noreturn));
 
 int
 nullprocfunc(void *);
@@ -439,7 +451,7 @@ void
 forkfunc(struct proc *, int (*func)(void *), void *);
 
 void
-forkchild(struct proc *, struct ureg *);
+forkchild(struct proc *, struct label *);
 
 void
 mmuswitch(struct proc *);
@@ -448,7 +460,7 @@ void
 mmuputpage(struct pagel *);
 
 bool
-procwaitintr(struct proc *, int);
+procwaitintr(int);
 
 struct page *
 getrampage(void);
@@ -470,7 +482,7 @@ enableintr(void);
 
 /****** Global Variables ******/
 
-extern struct proc *current;
+extern struct proc *up;
 
 extern reg_t (*syscalltable[NSYSCALLS])(va_list);
 

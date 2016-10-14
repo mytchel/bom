@@ -25,7 +25,7 @@
  *
  */
 
-#include "head.h"
+#include "../kern/head.h"
 #include "fns.h"
 
 extern char *initcodetext, *initcodedata;
@@ -47,8 +47,6 @@ main(void)
   schedulerinit();
 
   rootfsinit();
-  procfsinit();
-
   initmainproc();
 
   puts("Starting procs...\n");
@@ -103,9 +101,18 @@ copysegment(void *start, bool rw, bool c, char **buf, size_t len)
 static int
 mainproc(void *arg)
 {
+  struct label ureg;
+
   disableintr();
-  debug("Drop to user for inital proc (pid = %i)\n", current->pid);
-  droptouser((void *) USTACK_TOP);
+
+  memset(&ureg, 0, sizeof(struct label));
+
+  ureg.sp = USTACK_TOP;
+  ureg.psr = MODE_USR;
+  ureg.pc = 4;
+
+  droptouser(&ureg);
+
   return 0; /* Never reached. */
 }
 

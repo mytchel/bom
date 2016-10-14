@@ -25,7 +25,7 @@
  *
  */
 
-#include "head.h"
+#include "../kern/head.h"
 #include "fns.h"
 
 static void
@@ -42,6 +42,7 @@ extern uint32_t *_kernel_start;
 extern uint32_t *_kernel_end;
 
 static struct page *rampages = nil, *iopages = nil;
+static struct lock ramlock, iolock;
 
 void
 memoryinit(void)
@@ -52,7 +53,7 @@ memoryinit(void)
 
   heapinit(&_heap_start, heap_size);
 
-  addrampages(PAGE_ALIGN_UP((uint32_t) &_kernel_end),
+ addrampages(PAGE_ALIGN_UP((uint32_t) &_kernel_end),
 	   (uint32_t) &_ram_end);
   
   addrampages((uint32_t) &_ram_start,
@@ -89,6 +90,9 @@ memoryinit(void)
   /* INTCPS */
   imap((void *) 0x48200000, (void *) 0x48201000, AP_RW_NO, false);
 
+  lockinit(&ramlock);
+  lockinit(&iolock);
+ 
   mmuenable();
 }
 
@@ -153,13 +157,13 @@ getrampage(void)
 {
   struct page *p;
 
-  disableintr();
+  lock(&ramlock);
   
   p = rampages;
   rampages = p->next;
   p->next = nil;
 
-  enableintr();
+  unlock(&ramlock);
 
   p->refs = 1;
   return p;
@@ -170,7 +174,7 @@ getiopage(void *addr)
 {
   struct page *p, *pp;
 
-  disableintr();
+  lock(&iolock);
   
   pp = nil;
   for (p = iopages; p != nil; pp = p, p = p->next) {
@@ -182,11 +186,10 @@ getiopage(void *addr)
       }
       
       p->refs = 1;
-      enableintr();
-      return p;
+      break;
     }
   }
 
-  enableintr();
-  return nil;
+  unlock(&iolock);
+  return p;
 }

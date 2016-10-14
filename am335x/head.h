@@ -25,11 +25,6 @@
  *
  */
 
-#ifndef _HEAD_H_
-#define _HEAD_H_
-
-#include <types.h>
-
 #define PAGE_SHIFT 	 12
 #define PAGE_SIZE	 (1UL << PAGE_SHIFT)
 #define PAGE_MASK	 (~(PAGE_SIZE - 1))
@@ -43,17 +38,7 @@
 #define UTEXT		0
 
 struct label {
-  uint32_t psr;
-  uint32_t regs[9];
-  uint32_t sp, pc;
-};
-
-struct ureg {
+  uint32_t psr, sp, lr;
   uint32_t regs[13];
-  uint32_t sp, lr;
-  uint32_t type, psr, pc;
-};
-
-#include "../port/port.h"
-
-#endif
+  uint32_t pc;
+} __attribute__((__packed__));

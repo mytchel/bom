@@ -38,6 +38,7 @@ struct func {
   int (*func)(int argc, char **argv);
 };
 
+static int funcexit(int argc, char **argv);
 static int funcls(int argc, char **argv);
 static int funccd(int argc, char **argv);
 static int funcpwd(int argc, char **argv);
@@ -46,6 +47,7 @@ static int funcmkdir(int argc, char **argv);
 static int functouch(int argc, char **argv);
 
 struct func funcs[] = {
+  { "exit",   &funcexit },
   { "ls",     &funcls },
   { "cd",     &funccd },
   { "pwd",    &funcpwd },
@@ -56,6 +58,20 @@ struct func funcs[] = {
 
 static int ret = 0;
 static char pwd[FS_NAME_MAX * 10] = "/";
+
+int
+funcexit(int argc, char **argv)
+{
+  int code = 1;
+  
+  if (argc == 2) {
+    code = strtol(argv[1], nil, 10);
+  }
+
+  exit(code);
+
+  return ERR;
+}
 
 int
 funclsh(char *filename)
@@ -335,5 +351,6 @@ shell(void)
     processline((char *) line);
   }
 
-  return 0;
+  /* Never reached */
+  exit(OK);
 }

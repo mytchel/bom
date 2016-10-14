@@ -145,6 +145,10 @@ mountproc(void *arg)
   free(b);
 
   printf("kproc mount: exiting\n");
-	
+
+  procexit(up, ERR);
+  disableintr();
+  schedule();
+  /* Never reached */
   return 0;
 }

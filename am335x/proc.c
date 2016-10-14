@@ -25,11 +25,11 @@
  *
  */
 
-#include "head.h"
+#include "../kern/head.h"
 #include "fns.h"
 
 void
-dumpregs(struct ureg *r)
+dumpregs(struct label *r)
 {
   int i;
   for (i = 0; i < 13; i++) {
@@ -38,51 +38,42 @@ dumpregs(struct ureg *r)
   
   printf("sp   = 0x%h\n", r->sp);
   printf("lr   = 0x%h\n", r->lr);
-  printf("type = %i\n", r->type);
-  printf("pc   = 0x%h\n", r->pc);
   printf("psr  = 0b%b\n", r->psr);
+  printf("pc   = 0x%h\n", r->pc);
 }
 
 void
 forkfunc(struct proc *p, int (*func)(void *), void *arg)
 {
   int i;
-
-  for (i = 0; i < 9; i++)
-    p->label.regs[i] = 0;
-	
+  for (i = 0; i < 13; i++)
+    p->label.regs[i] = i;
+  
   p->label.psr = MODE_SVC;
-  p->label.pc = (uint32_t) &forkfunc_loader;
+  p->label.sp = (uint32_t) p->kstack->pa + PAGE_SIZE;
 
-  p->label.sp = (uint32_t) p->kstack->pa
-    + PAGE_SIZE - sizeof(void *) * 2;
-
-  memmove((void *) ((uint32_t) p->kstack->pa
-		    + PAGE_SIZE - sizeof(void *)),
-	  &func, sizeof(void *));
-
-  memmove((void *) ((uint32_t) p->kstack->pa
-		    + PAGE_SIZE - sizeof(void *) * 2),
-	  &arg, sizeof(void *));
+  p->label.pc = (uint32_t) func;
+  p->label.regs[0] = (uint32_t) arg;
 }
 
 void
-forkchild(struct proc *p, struct ureg *ureg)
+forkchild(struct proc *p, struct label *ureg)
 {
-  struct ureg *nreg;
+  struct label *nreg;
+
   int i;
-
-  for (i = 0; i < 9; i++)
-    p->label.regs[i] = 0;
-
+  for (i = 0; i < 13; i++)
+    p->label.regs[i] = i;
+  
   /* SVC with interrupts disabled */
   p->label.psr = MODE_SVC | (1 << 7);
-  p->label.pc = (uint32_t) &userreturn;
-  p->label.sp = (uint32_t) 
-    p->kstack->pa + PAGE_SIZE - sizeof(struct ureg);
+  p->label.sp = (uint32_t) p->kstack->pa + PAGE_SIZE;
 
-  nreg = (struct ureg *) p->label.sp;
-  memmove(nreg, ureg, sizeof(struct ureg));
+  nreg = (struct label *) (p->label.sp - sizeof(struct label));
+  memmove(nreg, ureg, sizeof(struct label));
 
   nreg->regs[0] = 0;
+
+  p->label.pc = (uint32_t) &droptouser;
+  p->label.regs[0] = (uint32_t) nreg;
 }

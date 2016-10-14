@@ -25,15 +25,15 @@
  *
  */
 
-#include "head.h"
+#include "../kern/head.h"
 #include "fns.h"
 
-void
-syscall(struct ureg *ureg)
+struct label *
+syscall(struct label *ureg)
 {
   unsigned int sysnum;
 
-  current->ureg = ureg;
+  up->ureg = ureg;
   
   sysnum = (unsigned int) ureg->regs[0];
 
@@ -44,5 +44,7 @@ syscall(struct ureg *ureg)
   } else {
     ureg->regs[0] = ERR;
   }
+
+  return ureg;
 }
 
