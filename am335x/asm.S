@@ -32,6 +32,7 @@
 .global gotolabel
 .global forkfunc_preloader
 .global forkfunc_loader
+.global userreturn 
 .global droptouser
 .global fsrstatus
 .global faultaddr
@@ -94,13 +95,13 @@ forkfunc_loader:
 	ldr lr, =1f	
 	pop {r0, pc}
 1:
-	ldr r0, =up
+	ldr r0, =current
 	cpsid i
 	bl procremove
 	bl schedule
 	
 
-droptouser:
+userreturn:
 	mov r0, sp
 	add sp, sp, #(4 * 15)
 	ldmia sp!, {r1, r2, lr}
@@ -109,6 +110,33 @@ droptouser:
 	ldmia r0, {r0 - r12, sp, lr}
 	cps #MODE_SVC
 	movs pc, lr
+
+
+@ r0 is user stack pointer
+droptouser:
+	cps #MODE_SYS
+	mov sp, r0
+	mov lr, #0
+
+	cps #MODE_SVC
+
+	mov r1, #MODE_USR
+	msr spsr, r1
+	
+	mov r0, #0
+	mov r1, #0
+	mov r2, #0
+	mov r3, #0
+	mov r4, #0
+	mov r5, #0
+	mov r6, #0
+	mov r7, #0
+	mov r8, #0
+	mov r9, #0
+	mov r10, #0
+	mov r11, #0
+	mov r12, #0
+	movs pc, #4
 
 
 fsrstatus:

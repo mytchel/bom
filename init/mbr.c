@@ -57,7 +57,7 @@ struct partition {
   bool active;
   
   uint8_t lname;
-  uint8_t name[NAMEMAX];
+  uint8_t name[FS_NAME_MAX];
   
   uint32_t fid;
   struct stat stat;
@@ -85,7 +85,7 @@ struct partition parts[4], raw;
 static void
 initpart(struct partition *p, char *name)
 {
-  snprintf((char *) p->name, NAMEMAX, name);
+  snprintf((char *) p->name, FS_NAME_MAX, name);
 
   p->lname = strlen((char *) p->name);
 
@@ -96,7 +96,7 @@ initpart(struct partition *p, char *name)
 static void
 initparts(void)
 {
-  char name[NAMEMAX] = "a";
+  char name[FS_NAME_MAX] = "a";
   int i;
 
   for (i = 0; i < 4; i++) {

@@ -33,7 +33,7 @@ syscall(struct ureg *ureg)
 {
   unsigned int sysnum;
 
-  up->ureg = ureg;
+  current->ureg = ureg;
   
   sysnum = (unsigned int) ureg->regs[0];
 

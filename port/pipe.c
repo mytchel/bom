@@ -110,11 +110,11 @@ pipedocopy(struct pipe *p, uint8_t *buf, size_t n, bool writing)
 
     disableintr();
     unlock(&p->lock);
-    procwait(up, &p->proc);
+    procwait(current, &p->proc);
     schedule();
     enableintr();
 
-    r = (int) up->aux;
+    r = (int) current->aux;
   }
 
   return r;

@@ -77,7 +77,7 @@ forkchild(struct proc *p, struct ureg *ureg)
 
   /* SVC with interrupts disabled */
   p->label.psr = MODE_SVC | (1 << 7);
-  p->label.pc = (uint32_t) &droptouser;
+  p->label.pc = (uint32_t) &userreturn;
   p->label.sp = (uint32_t) 
     p->kstack->pa + PAGE_SIZE - sizeof(struct ureg);
 

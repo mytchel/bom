@@ -55,12 +55,12 @@ struct func funcs[] = {
 };
 
 static int ret = 0;
-static char pwd[NAMEMAX * 10] = "/";
+static char pwd[FS_NAME_MAX * 10] = "/";
 
 int
 funclsh(char *filename)
 {
-  uint8_t buf[NAMEMAX+1], len;
+  uint8_t buf[FS_NAME_MAX+1], len;
   struct stat s;
   int r, fd;
 

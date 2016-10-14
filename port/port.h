@@ -86,7 +86,7 @@ struct chantype {
 };
 
 struct path {
-  char s[NAMEMAX];
+  char s[FS_NAME_MAX];
   struct path *prev, *next;
 };
 
@@ -136,13 +136,13 @@ typedef enum {
 #define NULL_PRIORITY (MIN_PRIORITY+1)
 
 struct proc {
+  struct proc *anext; /* For list of all procs */
+
   struct proc *next; /* For list of procs in list */
   struct proc **list;
   
   struct ureg *ureg;
   struct label label;
-
-  void *signalhandler;
 
   procstate_t state;
   uint32_t pid;
@@ -230,9 +230,6 @@ procsetpriority(struct proc *p, unsigned int priority);
 
 void
 schedule(void);
-
-void
-prochandlesignal(struct proc *p, uint8_t *signal);
 
 /* Pages and Mgroup */
 
@@ -406,19 +403,13 @@ reg_t syscleanpath(va_list);
 
 /****** Machine Implimented ******/
 
-/* Ureg type and psr are ignored. 
- * Must be called with interrupts disabled.
- */
-void
-droptouser(struct ureg *);
-
 void
 dumpregs(struct ureg *);
 
 void
 puts(const char *);
 
-/* Number of ticks since last cticks call. */
+/* Number of ticks since last call. */
 uint32_t
 ticks(void);
 
@@ -479,7 +470,7 @@ enableintr(void);
 
 /****** Global Variables ******/
 
-extern struct proc *up;
+extern struct proc *current;
 
 extern reg_t (*syscalltable[NSYSCALLS])(va_list);
 

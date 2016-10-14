@@ -103,17 +103,9 @@ copysegment(void *start, bool rw, bool c, char **buf, size_t len)
 static int
 mainproc(void *arg)
 {
-  struct ureg ureg;
-  
   disableintr();
   debug("Drop to user for inital proc (pid = %i)\n", current->pid);
-
-  memmove(ureg.regs, 0, sizeof(ureg.regs));
-  ureg.sp = USTACK_TOP;
-  ureg.lr = 0;
-  ureg.pc = 4;
-
-  droptouser(&ureg);
+  droptouser((void *) USTACK_TOP);
   return 0; /* Never reached. */
 }
 

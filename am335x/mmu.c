@@ -125,8 +125,8 @@ mmuputpage(struct pagel *p)
       panic("mmu failed to wrap page\n");
     }
  
-    pn->next = up->mmu;
-    up->mmu = pn;
+    pn->next = current->mmu;
+    current->mmu = pn;
 
     for (i = 0; i < 256; i++)
       ((uint32_t *) pg->pa)[i] = L2_FAULT;

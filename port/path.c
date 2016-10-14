@@ -38,7 +38,7 @@ strtopathh(struct path *prev, const char *str)
     return strtopathh(prev, str + 1);
   } else if (i == 0) {
     return nil;
-  } else if (i >= NAMEMAX) {
+  } else if (i >= FS_NAME_MAX) {
     return nil;
   }
 	
@@ -168,7 +168,7 @@ pathcopy(struct path *o)
   nn->prev = nil;
 	
   while (o != nil) {
-    memmove(nn->s, o->s, NAMEMAX);
+    memmove(nn->s, o->s, FS_NAME_MAX);
 
     o = o->next;
     if (o != nil) {

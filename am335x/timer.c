@@ -111,7 +111,12 @@ setsystick(uint32_t t)
 uint32_t
 ticks(void)
 {
-  return readl(TIMER0 + TIMER_TCRR);
+  uint32_t t;
+
+  t = readl(TIMER0 + TIMER_TCRR);
+  writel(0, TIMER0 + TIMER_TCRR); /* reset timer */
+
+  return t;
 }
 
 void

@@ -40,11 +40,11 @@ lock(struct lock *l)
 {
   if (!testandset(&l->lock)) {
     disableintr();
-    procwait(up, &l->wlist);
+    procwait(current, &l->wlist);
     schedule();
     enableintr();
   } else {
-    l->holder = up;
+    l->holder = current;
   }
 }
 
