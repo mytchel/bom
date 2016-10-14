@@ -112,7 +112,9 @@ kmountloop(struct chan *in, struct binding *b, struct fsmount *mount)
 	found = true;
 	p->aux = (void *) resp;
 
+	disableintr();
 	procready(p);
+	enableintr();
 	break;
       }
     }

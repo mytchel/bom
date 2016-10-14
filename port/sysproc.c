@@ -32,8 +32,8 @@ sysexit(va_list args)
 {
   int code = va_arg(args, int);
 
-  procexit(up, code);
   disableintr();
+  procexit(up, code);
   schedule();
 	
   /* Never reached. */
@@ -50,14 +50,16 @@ syssleep(va_list args)
     ms = 0;
   }
 
+  disableintr();
+
   if (ms == 0) {
     procyield(up);
   } else {
     procsleep(up, ms);
   }
 
-  disableintr();
   schedule();
+
   enableintr();
 		
   return 0;
@@ -116,7 +118,9 @@ sysfork(va_list args)
   p->parent = up;
   up->nchildren++;
  
+  disableintr();
   procready(p);
+  enableintr();
 
   return p->pid;
 
@@ -168,7 +172,7 @@ syswaitintr(va_list args)
 
   irqn = va_arg(args, int);
 
-  if (procwaitintr(irqn)) {
+  if (procwaitintr(up, irqn)) {
     return OK;
   } else {
     return ERR;

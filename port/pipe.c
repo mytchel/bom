@@ -97,7 +97,9 @@ pipedocopy(struct pipe *p, uint8_t *buf, size_t n, bool writing)
     p->proc->aux = (void *) r;
     p->waiting = false;
 
+    disableintr();
     procready(p->proc);
+    enableintr();
     unlock(&p->lock);
   } else {
     /* Wait for other end to do copy */
@@ -155,8 +157,10 @@ pipeclose(struct chan *c)
 	
   if (p->waiting) {
     p->proc->aux = (void *) ELINK;
+    disableintr();
     p->waiting = false;
     procready(p->proc);
+    enableintr();
   }
 
   if (p->c0 == nil && p->c1 == nil) {

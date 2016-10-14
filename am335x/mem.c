@@ -182,10 +182,11 @@ getiopage(void *addr)
       }
       
       p->refs = 1;
-      break;
+      enableintr();
+      return p;
     }
   }
 
   enableintr();
-  return p;
+  return nil;
 }
