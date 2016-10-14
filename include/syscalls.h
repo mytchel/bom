@@ -33,7 +33,8 @@
 #define SYSCALL_SLEEP           3
 #define SYSCALL_GETPID          4
 #define SYSCALL_CHDIR           5
-#define SYSCALL_WAIT            6
+
+#define SYSCALL_SETSIGNAL       6
 
 #define SYSCALL_PIPE	        7	
 

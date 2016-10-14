@@ -43,6 +43,7 @@ struct lock {
   struct proc *wlist;
 };
 
+  
 struct page {
   int refs;
   /* Not changable */
@@ -135,28 +136,22 @@ typedef enum {
 #define NULL_PRIORITY (MIN_PRIORITY+1)
 
 struct proc {
-  struct proc *next; /* For list of procs in list. */
+  struct proc *next; /* For list of procs in list */
   struct proc **list;
-
-  /* List of exited children waiting to be buried. */
-  struct proc *deadchildren;
-  int exitcode;
   
   struct ureg *ureg;
   struct label label;
 
   void *signalhandler;
 
+  procstate_t state;
   uint32_t pid;
   struct proc *parent;
-  size_t nchildren;
 
   struct path *dot;
   struct chan *dotchan;
 
   int priority;
-  procstate_t state;
-
   uint32_t timeused;
   uint32_t cputime;
 
@@ -167,7 +162,7 @@ struct proc {
   struct fgroup *fgroup;
   struct ngroup *ngroup;
 
-  /* Used for waiting, sleeping, etc */
+  uint32_t sleep; /* in ticks */
   void *aux;
 };
 
@@ -213,14 +208,7 @@ procfsrmproc(struct proc *);
 /* These must all be called with interrupts disabled */
 
 void
-procexit(struct proc *, int code);
-
-/* Should not be called by anything but syswait. */
-void
-procfree(struct proc *);
-
-struct proc *
-procwaitchild(struct proc *);
+procremove(struct proc *);
 
 void
 procready(struct proc *);
@@ -400,7 +388,6 @@ reg_t sysexit(va_list);
 reg_t sysfork(va_list);
 reg_t syssleep(va_list);
 reg_t sysgetpid(va_list);
-reg_t syswait(va_list);
 reg_t sysgetmem(va_list);
 reg_t sysrmmem(va_list);
 reg_t syswaitintr(va_list);

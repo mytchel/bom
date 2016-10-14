@@ -231,8 +231,7 @@ readline(uint8_t *data, size_t max)
       data[i] = '\0';
       return i;
     } else {
-      data[i] = c;
-      i++;
+      data[i++] = c;
     }
   }
 

@@ -341,31 +341,24 @@ sysbind(va_list args)
     return ENOMEM;
   }
 
-  disableintr();
   p = procnew(30);
   if (p == nil) {
-    enableintr();
     bindingfree(b);
     pathfree(path);
     return ENOMEM;
   }
-
-  enableintr();
 
   forkfunc(p, &mountproc, (void *) b);
   b->srv = p;
 
   ret = ngroupaddbinding(up->ngroup, b, path, ROOTFID);
   if (ret != OK) {
-    disableintr();
-    procexit(p, ENOMEM);
-    enableintr();
-
+    procremove(p);
     bindingfree(b);
     pathfree(path);
     return ret;
   }
-
+ 
   disableintr();
   procready(p);
   enableintr();

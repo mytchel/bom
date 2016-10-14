@@ -39,7 +39,6 @@ struct priority_queue {
 static uint32_t nextpid = 1;
 
 static struct priority_queue queues[NULL_PRIORITY + 1];
-static struct proc *waitchildlist = nil;
 static struct proc *sleeping = nil;
 static struct proc *suspended = nil;
 static struct proc *nullproc = nil;
@@ -116,14 +115,14 @@ nextproc(void)
 }
 
 static void
-updatesleeping(reg_t t)
+updatesleeping(uint32_t t)
 {
   struct proc *p, *pp, *pt;
 
   pp = nil;
   p = sleeping;
   while (p != nil) {
-    if (t >= (reg_t) p->aux) {
+    if (t >= p->sleep) {
       if (pp == nil) {
 	sleeping = p->next;
       } else {
@@ -137,7 +136,7 @@ updatesleeping(reg_t t)
       addtolistfront(&queues[p->priority].ready, p);
       p = pt;
     } else {
-      p->aux = (void *) ((reg_t) p->aux - t);
+      p->sleep -= t;
 
       pp = p;
       p = p->next;
@@ -192,7 +191,7 @@ struct proc *
 procnew(unsigned int priority)
 {
   struct proc *p;
-
+	
   p = malloc(sizeof(struct proc));
   if (p == nil) {
     return nil;
@@ -208,8 +207,6 @@ procnew(unsigned int priority)
   p->cputime = 0;
   
   p->parent = nil;
-  p->deadchildren = nil;
-  p->nchildren = 0;
 
   p->dot = nil;
   p->dotchan = nil;
@@ -230,16 +227,15 @@ procnew(unsigned int priority)
   p->state = PROC_suspend;
   addtolistfront(&suspended, p);
 
+  procfsaddproc(p);
+  
   return p;
 }
 
 void
-procexit(struct proc *p, int code)
+procremove(struct proc *p)
 {
-  struct proc *dc;
-  
   p->state = PROC_dead;
-  p->exitcode = code;
   
   if (p->dotchan != nil) {
     chanfree(p->dotchan);
@@ -268,54 +264,9 @@ procexit(struct proc *p, int code)
 
   removefromlist(p->list, p);
 
-  if (p->parent != nil) {
-    if (p->nchildren > 0) {
-      p->parent->nchildren += p->nchildren;
-    }
-    
-    dc = p->deadchildren;
-    addtolistback(&p->parent->deadchildren, p);
-    /* Add own dead children to parents list */
-    p->next = dc;
-
-    disableintr();
-    if (p->parent->state == PROC_waiting
-	&& p->parent->list == &waitchildlist) {
-      procready(p->parent);
-    }
-
-    enableintr();
-    
-  } else {
-    procfree(p);
-  }
-}
-
-void
-procfree(struct proc *p)
-{
+  procfsrmproc(p);
+ 
   free(p);
-}
-
-struct proc *
-procwaitchild(struct proc *p)
-{
-  struct proc *c;
-
-  if (p->nchildren == 0) {
-    return nil;
-  } else if (p->deadchildren == nil) {
-    disableintr();
-    procwait(p, &waitchildlist);
-    schedule();
-    enableintr();
-  }
-
-  c = p->deadchildren;
-  p->deadchildren = c->next;
-  p->nchildren--;
-
-  return c;
 }
 
 void
@@ -345,7 +296,7 @@ void
 procsleep(struct proc *p, uint32_t ms)
 {
   p->state = PROC_sleeping;
-  p->aux = (void *) mstoticks(ms);
+  p->sleep = mstoticks(ms);
   
   removefromlist(p->list, p);
   addtolistfront(&sleeping, p);

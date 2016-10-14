@@ -45,11 +45,6 @@ sleep(int ms);
 int
 getpid(void);
 
-/* Returns pid or 0 of exited child and sets code to
- * the exit code. */
-int
-wait(int *code);
-
 /* Memory system calls */
 
 enum { MEM_ram, MEM_io };

@@ -59,8 +59,8 @@ static struct stat rootstat = {
   0,
 };
 
-static uint8_t *rootbuf = nil, *procbuf = nil;
-static size_t lrootbuf = 0, lprocbuf = 0;
+static uint8_t *rootbuf, *procbuf;
+static size_t lrootbuf, lprocbuf;
 
 static struct chan *fsin;
 
@@ -410,6 +410,8 @@ procfsproc(void *arg)
 {
   uint8_t *buf;
   uint8_t lnote, lstate;
+
+  lrootbuf = 0;
 
   lnote = strlen("note");
   lstate = strlen("state");

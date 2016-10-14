@@ -106,7 +106,7 @@ mainproc(void *arg)
   struct ureg ureg;
   
   disableintr();
-  debug("Drop to user for inital proc (pid = %i)\n", up->pid);
+  debug("Drop to user for inital proc (pid = %i)\n", current->pid);
 
   memmove(ureg.regs, 0, sizeof(ureg.regs));
   ureg.sp = USTACK_TOP;
@@ -123,6 +123,7 @@ initmainproc(void)
   struct proc *p;
   struct pagel *pl;
   struct page *pg;
+  struct path *path;
 		
   p = procnew(50);
   if (p == nil) {
@@ -133,14 +134,12 @@ initmainproc(void)
   forkfunc(p, &mainproc, nil);
 
   pg = getrampage();
-  p->ustack =
-    wrappage(pg, (void *) (USTACK_TOP - PAGE_SIZE),
-	     true, true);
+  p->ustack = wrappage(pg, (void *) (USTACK_TOP - PAGE_SIZE),
+		      true, true);
 
   p->mgroup = mgroupnew();
-  p->mgroup->pages =
-    copysegment((void *) 0, false, true,
-		&initcodetext, initcodetextlen);
+  p->mgroup->pages = copysegment((void *) 0, false, true,
+				 &initcodetext, initcodetextlen);
 
   for (pl = p->mgroup->pages; pl != nil; pl = pl->next) {
     if (pl->next == nil) {
@@ -148,17 +147,20 @@ initmainproc(void)
     }
   }
 
-  pl->next =
-    copysegment((void *) ((uint32_t) pl->va + PAGE_SIZE),
-		true, true, &initcodedata, initcodedatalen);
+  pl->next = copysegment((void *) ((uint32_t) pl->va + PAGE_SIZE),
+	      true, true, &initcodedata, initcodedatalen);
 	
   p->parent = nil;
 
   p->fgroup = fgroupnew();
   p->ngroup = ngroupnew();
 
-  ngroupaddbinding(p->ngroup, rootfsbinding, nil, ROOTFID);
+  path = nil;
+  ngroupaddbinding(p->ngroup, rootfsbinding, path, ROOTFID);
 
+  path = strtopath("proc");
+  ngroupaddbinding(p->ngroup, procfsbinding, path, ROOTFID);
+  
   procready(p);
 }
 

@@ -644,15 +644,13 @@ mmchsproc(char *name, void *addr, int intr)
 
   mmc.mbrpid = mbrmountthread(&device, (uint8_t *) "/dev/");
   if (mmc.mbrpid < 0) {
-    printf("mbr mount thread failed!\n");
+    printf("mbr exited!\n");
     return mmc.mbrpid;
-  } 
+  } else {
+    while (true)
+      sleep(1000000);
+  }
 
-  wait(nil);
-  printf("I guess mbr exited\n");
-  printf("Not really sure what I should do now.\n");
-
-  exit(OK);
   return 0;
 }
 

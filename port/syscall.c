@@ -32,7 +32,6 @@ reg_t (*syscalltable[NSYSCALLS])(va_list) = {
 	[SYSCALL_FORK] 		= sysfork,
 	[SYSCALL_SLEEP]		= syssleep,
 	[SYSCALL_GETPID]	= sysgetpid,
-	[SYSCALL_WAIT]          = syswait,
 
 	[SYSCALL_CHDIR]	        = syschdir,
 	

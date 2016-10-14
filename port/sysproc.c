@@ -32,8 +32,12 @@ sysexit(va_list args)
 {
   int code = va_arg(args, int);
 
+  printf("pid %i exited with status %i\n", 
+	 up->pid, code);
+
   disableintr();
-  procexit(up, code);
+  procremove(up);
+  printf("removed, now schedule\n");
   schedule();
 	
   /* Never reached. */
@@ -78,6 +82,8 @@ sysfork(va_list args)
     return ENOMEM;
   }
 
+  p->parent = up;
+
   p->dot = pathcopy(up->dot);
   p->dotchan = up->dotchan;
   atomicinc(&p->dotchan->refs);
@@ -113,11 +119,6 @@ sysfork(va_list args)
 
   forkchild(p, up->ureg);
 
-  /* Not set till now so that procexit will not add it to 
-   * the parent. */
-  p->parent = up;
-  up->nchildren++;
- 
   disableintr();
   procready(p);
   enableintr();
@@ -125,7 +126,7 @@ sysfork(va_list args)
   return p->pid;
 
  err:
-  procexit(p, 0);
+  procremove(p);
   return ENOMEM;
 }
 
@@ -139,30 +140,6 @@ reg_t
 sysgetpid(va_list args)
 {
   return up->pid;
-}
-
-reg_t
-syswait(va_list args)
-{
-  int *ucode, *code;
-  struct proc *p;
-  int pid;
-  
-  ucode = va_arg(args, int *);
-  code = kaddr(up, ucode, sizeof(int *));
-
-  p = procwaitchild(up);
-  if (p == nil) {
-    return ERR;
-  } else if (code != nil) {
-    *code = p->exitcode;
-  }
-
-  pid = p->pid;
-
-  procfree(p);
-  
-  return pid;
 }
 
 reg_t

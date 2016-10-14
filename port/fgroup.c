@@ -60,12 +60,15 @@ fgroupfree(struct fgroup *f)
     return;
   }
 
+  printf("close %i chans\n", f->nchans);
   for (i = 0; i < f->nchans; i++) {
     if (f->chans[i] != nil) {
+      printf("close fd %i\n", i);
       chanfree(f->chans[i]);
     }
   }
 
+  printf("free chans\n");
   free(f->chans);
   free(f);
 }
