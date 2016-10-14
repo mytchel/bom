@@ -39,12 +39,12 @@ struct priority_queue {
 static uint32_t nextpid = 1;
 
 static struct priority_queue queues[NULL_PRIORITY + 1];
+static struct proc *waitchildren = nil;
 static struct proc *sleeping = nil;
 static struct proc *suspended = nil;
 static struct proc *nullproc = nil;
 
 struct proc *up = nil;
-struct proc *procs = nil;
 
 void
 schedulerinit(void)
@@ -178,10 +178,9 @@ schedule(void)
   up = nextproc();
   up->state = PROC_oncpu;
 
-  cticks();
-
   mmuswitch(up);
 
+  cticks();
   setsystick(queues[up->priority].quanta
 	     - up->timeused);
 
@@ -205,7 +204,9 @@ procnew(unsigned int priority)
 
   p->timeused = 0;
   p->cputime = 0;
-  
+
+  p->deadchildren = nil;
+  p->nchildren = 0;
   p->parent = nil;
 
   p->dot = nil;
@@ -227,55 +228,92 @@ procnew(unsigned int priority)
   p->state = PROC_suspend;
   addtolistfront(&suspended, p);
 
-  p->anext = procs;
-  procs = p;
-
   return p;
 }
 
 void
 procexit(struct proc *p, int code)
 {
-  struct proc *pp, *pt;
-
   p->state = PROC_dead;
+  p->exitcode = code;
   
   if (p->dotchan != nil) {
     chanfree(p->dotchan);
+    p->dotchan = nil;
   }
 
   if (p->fgroup != nil) {
     fgroupfree(p->fgroup);
+    p->fgroup = nil;
   }
 
   if (p->ngroup != nil) {
     ngroupfree(p->ngroup);
+    p->ngroup = nil;
+  }
+
+  pathfree(p->dot);
+  p->dot = nil;
+
+  pagelfree(p->ustack);
+  p->ustack = nil;
+  
+  pagelfree(p->mmu);
+  p->mmu = nil;
+
+  if (p->mgroup != nil) {
+    mgroupfree(p->mgroup);
+    p->mgroup = nil;
+  }
+
+  removefromlist(p->list, p);
+  p->list = nil;
+
+  if (p->parent != nil) {
+    addtolistback(&p->parent->deadchildren, p);
+
+    p->next = p->deadchildren;
+    p->parent->nchildren += p->nchildren;
+
+    if (p->parent->state == PROC_waiting
+	&& p->parent->list == &waitchildren) {
+      procready(p->parent);
+    }
+
+  } else {
+    procfree(p);
   }
 
   if (p == up) {
     up = nil;
   }
+}
 
-  pathfree(p->dot);
-
+void
+procfree(struct proc *p)
+{
   pagefree(p->kstack);
-  pagelfree(p->ustack);
-  pagelfree(p->mmu);
+  free(p);
+}
 
-  if (p->mgroup != nil)
-    mgroupfree(p->mgroup);
+struct proc *
+procwaitchildren(void)
+{
+  struct proc *p;
 
-  removefromlist(p->list, p);
-
-  pp = nil;
-  for (pt = procs; pt != nil && pt != p; pp = pt, pt = pt->next)
-    ;
-
-  if (pp == nil) {
-    procs = p->next;
-  } else {
-    pp->next = p->next;
+  if (up->nchildren == 0) {
+    return nil;
+  } else if (up->deadchildren == nil) {
+    disableintr();
+    procwait(up, &waitchildren);
+    schedule();
+    enableintr();
   }
+
+  p = up->deadchildren;
+  up->deadchildren = p->next;
+
+  return p;
 }
 
 void

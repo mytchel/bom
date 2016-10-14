@@ -136,12 +136,14 @@ typedef enum {
 #define NULL_PRIORITY (MIN_PRIORITY+1)
 
 struct proc {
-  struct proc *anext; /* For list of all procs */
-
   struct proc *next; /* For list of procs in list */
   struct proc **list;
+
+  size_t nchildren;
+  int exitcode;
+  struct proc *deadchildren;
   
-  struct ureg *ureg;
+  struct label *ureg;
   struct label label;
 
   procstate_t state;
@@ -204,11 +206,16 @@ procfsaddproc(struct proc *);
 void
 procfsrmproc(struct proc *);
 
+struct proc *
+procwaitchildren(void);
 
 /* These must all be called with interrupts disabled */
 
 void
 procexit(struct proc *, int code);
+
+void
+procfree(struct proc *);
 
 void
 procready(struct proc *);
@@ -385,6 +392,7 @@ reg_t sysexit(va_list);
 reg_t sysfork(va_list);
 reg_t syssleep(va_list);
 reg_t sysgetpid(va_list);
+reg_t syswait(va_list);
 reg_t sysgetmem(va_list);
 reg_t sysrmmem(va_list);
 reg_t syswaitintr(va_list);
@@ -405,10 +413,10 @@ reg_t syscleanpath(va_list);
 
 /* Type and psr are ignored. */
 void
-droptouser(struct ureg *);
+droptouser(struct label *) __attribute__((noreturn));
 
 void
-dumpregs(struct ureg *);
+dumpregs(struct label *);
 
 void
 puts(const char *);
@@ -434,7 +442,7 @@ int
 setlabel(struct label *);
 
 int
-gotolabel(struct label *);
+gotolabel(struct label *) __attribute__((noreturn));
 
 int
 nullprocfunc(void *);
@@ -443,7 +451,7 @@ void
 forkfunc(struct proc *, int (*func)(void *), void *);
 
 void
-forkchild(struct proc *, struct ureg *);
+forkchild(struct proc *, struct label *);
 
 void
 mmuswitch(struct proc *);
@@ -452,7 +460,7 @@ void
 mmuputpage(struct pagel *);
 
 bool
-procwaitintr(struct proc *, int);
+procwaitintr(int);
 
 struct page *
 getrampage(void);

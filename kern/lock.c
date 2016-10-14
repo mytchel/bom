@@ -57,8 +57,8 @@ unlock(struct lock *l)
   if (p != nil) {
     disableintr();
     procready(p);
-    enableintr();
     l->holder = p;
+    enableintr();
   } else {
     l->lock = 0;
     l->holder = nil;

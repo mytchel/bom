@@ -374,13 +374,15 @@ commount(char *path)
     getmem(MEM_io, (void *) UART0, &size);
 
   if (uart == nil) {
-    return -4;
+    exit(-4);
   }
 
   f = fork(FORK_smem|FORK_sngroup|FORK_sfgroup);
   if (f == 0) {
-    return readloop();
+    f = readloop();
   } else {
-    return comfsmountloop();
+    f = comfsmountloop();
   }
+
+  exit(f);
 }

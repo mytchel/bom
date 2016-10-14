@@ -23,7 +23,8 @@
 #  OTHER DEALINGS IN THE SOFTWARE
 #
 
-TARGETS += am335x.umg copy
+.PHONY: all
+all: $(TARGETS) am335x.umg
 
 CROSS_COMPILE ?= arm-none-eabi-
 
@@ -63,6 +64,7 @@ KSRC_C := \
 
 
 loadaddr=0x82000000
+
 CLEAN += am335x.umg am335x.bin
 am335x.umg: am335x.bin tools/mkuboot/mkuboot
 	@echo MKUBOOT $@

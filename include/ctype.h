@@ -28,3 +28,5 @@
 bool
 isspace(int c);
  
+long
+strtol(const char *nptr, char **endptr, int base);

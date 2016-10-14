@@ -77,39 +77,29 @@ _start:
 
 
 setlabel:
+	add r0, r0, #(4 * 4)
+	stmia r0, {r1 - r12, lr}
+	sub r0, r0, #(4 * 4)
 	mrs r1, cpsr
-	stmia r0, {r1, r4 - r12, sp, lr}
+	stmia r0!, {r1, sp, lr}
+	mov r1, #1
+	str r1, [r0]
 	mov r0, #0
-	mov pc, lr
+	bx lr
 	
 
 gotolabel:
-	ldmia r0, {r1, r4 - r12, sp, lr}
-	msr cpsr, r1
-	mov r0, #1
-	mov pc, lr
+	ldmia r0!, {r1, sp, lr}
+	msr spsr, r1
+	ldmia r0, {r0 - r12, pc}^
 
-
-forkfunc_loader:
-	ldr lr, =1f	
-	pop {r0, pc}
-1:
-	mov r1, r0
-	ldr r0, =up
-	cpsid i
-	bl procexit
-	bl schedule
-	
 
 droptouser:
-	mov r0, sp
-	add sp, sp, #(4 * 15)
-	ldmia sp!, {r1, r2, lr}
-	msr spsr, r2
 	cps #MODE_SYS
-	ldmia r0, {r0 - r12, sp, lr}
+	ldmia r0!, {r1, sp, lr}
 	cps #MODE_SVC
-	movs pc, lr
+	msr spsr, r1
+	ldmia r0, {r0 - r12, pc}^
 
 
 fsrstatus:

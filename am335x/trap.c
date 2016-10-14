@@ -109,7 +109,7 @@ intcaddhandler(uint32_t irqn, void (*func)(uint32_t))
 }
 
 bool
-procwaitintr(struct proc *p, int irqn)
+procwaitintr(int irqn)
 {
   struct proc *pp;
   
@@ -127,9 +127,9 @@ procwaitintr(struct proc *p, int irqn)
       return false;
     }
   }
-  
-  procwait(p, &intrwait);
-  p->aux = (void *) irqn;
+
+  procwait(up, &intrwait);
+  up->aux = (void *) irqn;
 	
   unmaskintr(irqn);
 
@@ -166,8 +166,8 @@ irqhandler(void)
   }
 }
 
-void
-trap(struct ureg *ureg)
+struct label *
+trap(struct label *ureg, int type)
 {
   uint32_t fsr;
   void *addr;
@@ -177,16 +177,17 @@ trap(struct ureg *ureg)
     dumpregs(ureg);
     panic("Probably an in kernel problem.\n");
   }
-  
-  if (ureg->type == ABORT_DATA)
-    ureg->pc -= 8;
-  else
-    ureg->pc -= 4;
 
-  switch(ureg->type) {
+  if (type == ABORT_DATA) {
+    ureg->pc -= 8;
+  } else {
+    ureg->pc -= 4;
+  }
+
+  switch(type) {
   case ABORT_INTERRUPT:
     irqhandler();
-    return; /* Note the return. */
+    return ureg; /* Note the return. */
 
   case ABORT_INSTRUCTION:
     printf("%i bad instruction at 0x%h\n",
@@ -195,7 +196,7 @@ trap(struct ureg *ureg)
 
   case ABORT_PREFETCH:
     if (fixfault((void *) ureg->pc)) {
-      return;
+      return ureg;
     }
 
     printf("%i prefetch abort 0x%h\n",
@@ -212,7 +213,7 @@ trap(struct ureg *ureg)
     case 0x7: /* page translation */
       /* Try add page */
       if (fixfault(addr)) {
-	return;
+	return ureg;
       }
       
       break;
@@ -240,8 +241,10 @@ trap(struct ureg *ureg)
     break;
   }
 	
-  printf("kill proc %i\n", up->pid);
+  printf("kill proc %i (trap %i)\n", up->pid, type);
   dumpregs(ureg);
   procexit(up, -1);
   schedule();
+  /* Never reached */
+  return nil;
 }

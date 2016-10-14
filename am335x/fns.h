@@ -43,9 +43,6 @@
 #define AP_RW_RO	2
 #define AP_RW_RW	3
 
-void
-forkfunc_loader(void);
-
 uint32_t
 fsrstatus(void);
 

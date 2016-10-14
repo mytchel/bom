@@ -32,6 +32,7 @@
 .global fork
 .global sleep
 .global getpid
+.global wait
 .global getmem
 .global rmmem
 .global pipe
@@ -84,6 +85,14 @@ sleep:
 getpid:
 	mov r0, #SYSCALL_GETPID
 	svc 0
+	bx lr
+
+
+wait:
+	push {r0}
+	mov r0, #SYSCALL_WAIT
+	svc 0
+	add sp, sp, #4
 	bx lr
 
 

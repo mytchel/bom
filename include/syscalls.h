@@ -51,8 +51,9 @@
 #define SYSCALL_RMMEM          17
 
 #define SYSCALL_WAITINTR       18
+#define SYSCALL_WAIT           19
 
-#define NSYSCALLS              19
+#define NSYSCALLS              20
 
 #define OK		0
 /* General error */

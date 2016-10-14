@@ -28,8 +28,8 @@
 #include "../kern/head.h"
 #include "fns.h"
 
-void
-syscall(struct ureg *ureg)
+struct label *
+syscall(struct label *ureg)
 {
   unsigned int sysnum;
 
@@ -44,5 +44,7 @@ syscall(struct ureg *ureg)
   } else {
     ureg->regs[0] = ERR;
   }
+
+  return ureg;
 }
 

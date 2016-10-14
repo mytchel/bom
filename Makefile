@@ -26,10 +26,7 @@
 .SUFFIXES: .S .c .h .o .elf .bin .list .umg
 
 CLEAN = 
-TARGETS := $(TARGET).elf $(TARGET).list init.elf init.list
-
 TARGET ?= am335x
-
 HOSTCC ?= cc
 
 CFLAGS := -std=c89 -Wall -Werror -O2 \
@@ -43,11 +40,8 @@ LIBS:=
 HOST_CFLAGS := -Wall -Werror -std=c89
 HOST_LDFLAGS :=
 
+TARGETS := $(TARGET).elf $(TARGET).list init.elf init.list
 include $(TARGET)/local.mk
-
-
-.PHONY: all
-all: $(TARGETS)
 
 
 ISRC_P := \

@@ -476,7 +476,7 @@ tmpmount(char *path)
   root = malloc(sizeof(struct file));
   if (root == nil) {
     printf("tmp root tree malloc failed!\n");
-    return ENOMEM;
+    exit(ENOMEM);
   }
 
   root->fid = nfid++;
@@ -492,5 +492,6 @@ tmpmount(char *path)
   root->parent = nil;
   root->children = nil;
 
-  return fsmountloop(p1[0], p2[1], &mount);
+  f = fsmountloop(p1[0], p2[1], &mount);
+  exit(f);
 }

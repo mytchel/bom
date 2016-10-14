@@ -37,7 +37,6 @@ sysexit(va_list args)
 
   disableintr();
   procexit(up, code);
-  printf("removed, now schedule\n");
   schedule();
 	
   /* Never reached. */
@@ -117,6 +116,7 @@ sysfork(va_list args)
 
   forkchild(p, up->ureg);
 
+  up->nchildren++;
   p->parent = up;
 
   disableintr();
@@ -143,13 +143,39 @@ sysgetpid(va_list args)
 }
 
 reg_t
+syswait(va_list args)
+{
+  struct proc *p;
+  int *ustatus, *status, pid;
+
+  ustatus = va_arg(args, int *);
+
+  status = kaddr(up, ustatus, sizeof(int *));
+  if (status == nil) {
+    return ERR;
+  }
+  
+  p = procwaitchildren();
+  if (p == nil) {
+    return ERR;
+  } 
+
+  *status = p->exitcode;
+  pid = p->pid;
+  
+  procfree(p);
+
+  return pid;
+}
+
+reg_t
 syswaitintr(va_list args)
 {
   int irqn;
 
   irqn = va_arg(args, int);
 
-  if (procwaitintr(up, irqn)) {
+  if (procwaitintr(irqn)) {
     return OK;
   } else {
     return ERR;

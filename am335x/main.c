@@ -47,8 +47,6 @@ main(void)
   schedulerinit();
 
   rootfsinit();
-  procfsinit();
-
   initmainproc();
 
   puts("Starting procs...\n");
@@ -103,14 +101,16 @@ copysegment(void *start, bool rw, bool c, char **buf, size_t len)
 static int
 mainproc(void *arg)
 {
-  struct ureg ureg;
-  
+  struct label ureg;
+
   disableintr();
 
-  memset(ureg.regs, 0, sizeof(ureg.regs));
+  memset(&ureg, 0, sizeof(struct label));
+
   ureg.sp = USTACK_TOP;
+  ureg.psr = MODE_USR;
   ureg.pc = 4;
-  
+
   droptouser(&ureg);
 
   return 0; /* Never reached. */
