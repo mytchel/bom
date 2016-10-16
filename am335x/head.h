@@ -31,11 +31,10 @@
 #define PAGE_ALIGN_UP(x) (((x) + PAGE_SIZE - 1) & PAGE_MASK)
 #define PAGE_ALIGN_DN(x) (((x) - PAGE_SIZE + 1) & PAGE_MASK)
 
-#define disableintr()   __asm__("cpsid i")
-#define enableintr()    __asm__("cpsie i")
+#define USTACK_TOP	 0x20000000
+#define UTEXT		 0
 
-#define USTACK_TOP	0x20000000
-#define UTEXT		0
+typedef enum { INTR_ON = 0, INTR_OFF = (1 << 7) } intrstate_t;
 
 struct label {
   uint32_t psr, sp, lr;

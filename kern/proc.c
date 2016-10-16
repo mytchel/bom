@@ -300,10 +300,10 @@ procwaitchildren(void)
   if (up->nchildren == 0) {
     return nil;
   } else if (up->deadchildren == nil) {
-    disableintr();
+    setintr(INTR_OFF);
     procwait(up, &waitchildren);
     schedule();
-    enableintr();
+    setintr(INTR_ON);
   }
 
   p = up->deadchildren;

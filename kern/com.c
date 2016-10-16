@@ -55,6 +55,7 @@ panic(const char *fmt, ...)
   puts(str);
 
   printf("\n\nHanging...\n");
-  disableintr();
-  while (1);
+  setintr(INTR_OFF);
+  while (1)
+    ;
 }

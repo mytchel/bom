@@ -30,8 +30,6 @@
 .global _start
 .global setlabel
 .global gotolabel
-.global forkfunc_preloader
-.global forkfunc_loader
 .global droptouser
 .global fsrstatus
 .global faultaddr
@@ -39,6 +37,7 @@
 .global mmuenable
 .global mmudisable
 .global mmuinvalidate
+.global setintr
 .global testandset
 .global atomicinc 
 .global atomicdec
@@ -74,6 +73,21 @@ _start:
 	bl vectortableinit
 
 	b main
+
+
+setintr:
+	push {r1, lr}
+
+	mrs r1, cpsr
+
+	mvn r0, r0
+
+	and r0, r0, r1
+	msr cpsr, r0
+
+	and r0, r1, #(1 << 7) @ INTR_OFF
+
+	pop {r1, pc}
 
 
 setlabel:

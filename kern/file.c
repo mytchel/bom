@@ -54,13 +54,13 @@ makereq(struct binding *b, struct request *req)
 
   up->aux = (void *) req->rid;
 
-  disableintr();
+  setintr(INTR_OFF);
 
   procwait(up, &b->waiting);
   unlock(&b->lock);
 
   schedule();
-  enableintr();
+  setintr(INTR_ON);
 
   return (struct response *) up->aux;
 }

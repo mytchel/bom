@@ -465,17 +465,9 @@ getrampage(void);
 struct page *
 getiopage(void *addr);
 
-/* 
-
-Can be macros and should be defined in head.h
-
-void
-disableintr(void);
-
-void
-enableintr(void);
-
-*/
+/* Returns old state of interrupts to resetting. */
+intrstate_t
+setintr(intrstate_t);
 
 /****** Global Variables ******/
 

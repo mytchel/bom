@@ -35,7 +35,7 @@ sysexit(va_list args)
   printf("pid %i exited with status %i\n", 
 	 up->pid, code);
 
-  disableintr();
+  setintr(INTR_OFF);
   procexit(up, code);
   schedule();
 	
@@ -53,7 +53,7 @@ syssleep(va_list args)
     ms = 0;
   }
 
-  disableintr();
+  setintr(INTR_OFF);
 
   if (ms == 0) {
     procyield(up);
@@ -63,7 +63,7 @@ syssleep(va_list args)
 
   schedule();
 
-  enableintr();
+  setintr(INTR_ON);
 		
   return 0;
 }
@@ -119,9 +119,9 @@ sysfork(va_list args)
   up->nchildren++;
   p->parent = up;
 
-  disableintr();
+  setintr(INTR_OFF);
   procready(p);
-  enableintr();
+  setintr(INTR_ON);
 
   return p->pid;
 

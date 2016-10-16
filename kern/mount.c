@@ -86,9 +86,9 @@ mountproc(void *arg)
 	found = true;
 	p->aux = (void *) resp;
 
-	disableintr();
+	setintr(INTR_OFF);
 	procready(p);
-	enableintr();
+	setintr(INTR_ON);
 	break;
       }
     }
@@ -114,12 +114,13 @@ mountproc(void *arg)
 
   printf("kproc mount: wait for bindings refs to go to zero.\n");
 
-  disableintr();
+  setintr(INTR_OFF);
+
   while (b->refs > 0) {
     schedule();
   }
 
-  enableintr();
+  setintr(INTR_ON);
 	
   printf("kproc mount: no longer bound\n");
 
@@ -129,25 +130,24 @@ mountproc(void *arg)
 
   /* Wake up any waiting processes so they can error. */
 
+  setintr(INTR_OFF);
+
   p = b->waiting;
   while (p != nil) {
     pn = p->next;
 
     printf("kproc mount: wake up %i\n", p->pid);
     p->aux = nil;
-    disableintr();
     procready(p);
-    enableintr();
 
     p = pn;
   }
-	
+
   free(b);
 
   printf("kproc mount: exiting\n");
 
   procexit(up, ERR);
-  disableintr();
   schedule();
   /* Never reached */
   return 0;

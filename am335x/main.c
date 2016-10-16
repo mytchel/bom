@@ -103,7 +103,7 @@ mainproc(void *arg)
 {
   struct label ureg;
 
-  disableintr();
+  setintr(INTR_OFF);
 
   memset(&ureg, 0, sizeof(struct label));
 

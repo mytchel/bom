@@ -38,11 +38,13 @@ lockinit(struct lock *l)
 void
 lock(struct lock *l)
 {
+  intrstate_t i;
+  
   if (!testandset(&l->lock)) {
-    disableintr();
+    i = setintr(INTR_OFF);
     procwait(up, &l->wlist);
     schedule();
-    enableintr();
+    setintr(i);
   } else {
     l->holder = up;
   }
@@ -52,13 +54,14 @@ void
 unlock(struct lock *l)
 {
   struct proc *p;
+  intrstate_t i;
 
   p = l->wlist;
   if (p != nil) {
-    disableintr();
+    i = setintr(INTR_OFF);
     procready(p);
     l->holder = p;
-    enableintr();
+    setintr(i);
   } else {
     l->lock = 0;
     l->holder = nil;

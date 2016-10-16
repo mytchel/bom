@@ -359,9 +359,9 @@ sysbind(va_list args)
     return ret;
   }
  
-  disableintr();
+  setintr(INTR_OFF);
   procready(p);
-  enableintr();
+  setintr(INTR_ON);
 
 #if DEBUG == 1
   char *str = (char *) pathtostr(path, nil);

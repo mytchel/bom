@@ -119,11 +119,11 @@ procwaitintr(int irqn)
     return false;
   }
 
-  disableintr();
+  setintr(INTR_OFF);
 
   for (pp = intrwait; pp != nil; pp = pp->next) {
     if ((uint32_t) pp->aux == irqn) {
-      enableintr();
+      setintr(INTR_ON);
       return false;
     }
   }
@@ -135,7 +135,7 @@ procwaitintr(int irqn)
 
   schedule();
 
-  enableintr();
+  setintr(INTR_ON);
 	
   return true;
 }

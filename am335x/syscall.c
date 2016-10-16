@@ -38,9 +38,9 @@ syscall(struct label *ureg)
   sysnum = (unsigned int) ureg->regs[0];
 
   if (sysnum < NSYSCALLS) {
-    enableintr();
+    setintr(INTR_ON);
     ureg->regs[0] = syscalltable[sysnum]((va_list) ureg->sp);
-    disableintr();
+    setintr(INTR_OFF);
   } else {
     ureg->regs[0] = ERR;
   }
