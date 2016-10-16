@@ -132,9 +132,6 @@ typedef enum {
   PROC_dead,
 } procstate_t;
 
-#define MIN_PRIORITY 100
-#define NULL_PRIORITY (MIN_PRIORITY+1)
-
 struct proc {
   struct proc *next; /* For list of procs in list */
   struct proc **list;

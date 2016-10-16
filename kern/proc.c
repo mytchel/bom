@@ -38,7 +38,7 @@ struct priority_queue {
 
 static uint32_t nextpid = 1;
 
-static struct priority_queue queues[NULL_PRIORITY + 1];
+static struct priority_queue queues[18];
 static struct proc *waitchildren = nil;
 static struct proc *sleeping = nil;
 static struct proc *suspended = nil;
@@ -51,17 +51,13 @@ schedulerinit(void)
 {
  int i;
   
-  for (i = 1; i <= MIN_PRIORITY; i++) {
-    queues[i].quanta = mstoticks(MIN_PRIORITY - i + 5);
+  for (i = 1; i < 18; i++) {
+    queues[i].quanta = mstoticks(18 - i + 5);
     queues[i].ready = nil;
     queues[i].used = nil;
   }
 
-  queues[NULL_PRIORITY].quanta = mstoticks(5);
-  queues[NULL_PRIORITY].ready = nil;
-  queues[NULL_PRIORITY].used = nil;
-
-  nullproc = procnew(NULL_PRIORITY);
+  nullproc = procnew(17);
   if (nullproc == nil) {
     panic("Failed to create null proc!\n");
   }
@@ -76,7 +72,7 @@ popnextproc(void)
   struct proc *p;
   unsigned int i;
 
-  for (i = 1; i <= MIN_PRIORITY; i++) {
+  for (i = 1; i <= 16; i++) {
     p = queues[i].ready;
     if (p != nil) {
       queues[i].ready = p->next;
@@ -99,7 +95,7 @@ nextproc(void)
     return p;
   }
 
-  for (i = 1; i <= MIN_PRIORITY; i++) {
+  for (i = 1; i <= 16; i++) {
     queues[i].ready = queues[i].used;
     queues[i].used = nil;
   }
