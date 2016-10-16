@@ -68,7 +68,7 @@ struct partition {
 };
 
 static struct stat rootstat = {
-  ATTR_rd|ATTR_wr|ATTR_dir,
+  ATTR_rd|ATTR_dir,
   0,
 };
 
@@ -375,17 +375,12 @@ static struct fsmount mount = {
 };
 
 int
-mbrmountthread(struct blkdevice *d, uint8_t *dir)
+mbrmount(struct blkdevice *d, uint8_t *dir)
 {
-  int p1[2], p2[3], fd, i;
+  int p1[2], p2[3], fd;
   char filename[1024];
 
   device = d;
-
-  i = fork(FORK_smem|FORK_sngroup|FORK_sfgroup);
-  if (i != 0) {
-    return i;
-  }
 
   initparts();
   updatembr();
@@ -395,25 +390,22 @@ mbrmountthread(struct blkdevice *d, uint8_t *dir)
   fd = open(filename, O_WRONLY|O_CREATE, ATTR_dir|ATTR_rd);
   if (fd < 0) {
     printf("%s failed to create %s.\n", device->name, filename);
-    exit(-1);
+    return -1;
   }
 
   if (pipe(p1) == ERR) {
-    exit(-2);
+    return -2;
   } else if (pipe(p2) == ERR) {
-    exit(-2);
+    return -2;
   }
 
   if (bind(p1[1], p2[0], filename) == ERR) {
-    exit(-3);
+    return -3;
   }
 
   close(p1[1]);
   close(p2[0]);
 
-  i = fsmountloop(p1[0], p2[1], &mount);
-  exit(i);
-
-  return 0;
+  return fsmountloop(p1[0], p2[1], &mount);
 }
 

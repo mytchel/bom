@@ -1,4 +1,5 @@
 /*
+ *
  * Copyright (c) 2016 Mytchel Hammond <mytchel@openmailbox.org>
  * 
  * Permission is hereby granted, free of charge, to any person
@@ -26,18 +27,30 @@
 
 #include <libc.h>
 #include <fs.h>
+#include <fssrv.h>
 #include <stdarg.h>
 #include <string.h>
-#include <block.h>
 
-#include "sdmmcreg.h"
-#include "sdhcreg.h"
-#include "omap_mmc.h"
-#include "mmc.h"
+#include "fat.h"
 
-bool
-mmcinit(struct mmc *mmc)
+struct fat fat;
+
+int
+fatinit(int fd)
 {
-  mmc->nblk = MMC_CSD_CAPACITY(mmc->csd);
-  return true;
+  uint16_t sectorsize;
+  uint8_t clustersize;
+  
+  if (read(fd, &fat.bs, sizeof(fat.bs)) != sizeof(fat.bs)) {
+    printf("Failed to read boot sector.\n");
+    return ERR;
+  }
+
+  memmove(&sectorsize, fat.bs.sector_size, sizeof(sectorsize));
+  memmove(&clustersize, &fat.bs.cluster_size, sizeof(clustersize));
+
+  printf("%i bytes per sector, %i sectors per cluster\n",
+	 sectorsize, clustersize);
+
+  return ERR;
 }

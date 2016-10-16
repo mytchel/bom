@@ -45,20 +45,63 @@ static int funcpwd(int argc, char **argv);
 static int funcecho(int argc, char **argv);
 static int funcmkdir(int argc, char **argv);
 static int functouch(int argc, char **argv);
+static int funcmountfat(int argc, char **argv);
+static int funcblocktest(int argc, char **argv);
+
+int
+mountfat(char *device, char *dir);
 
 struct func funcs[] = {
-  { "exit",   &funcexit },
-  { "ls",     &funcls },
-  { "cd",     &funccd },
-  { "pwd",    &funcpwd },
-  { "echo",   &funcecho },
-  { "mkdir",  &funcmkdir },
-  { "touch",  &functouch },
+  { "exit",      &funcexit },
+  { "ls",        &funcls },
+  { "cd",        &funccd },
+  { "pwd",       &funcpwd },
+  { "echo",      &funcecho },
+  { "mkdir",     &funcmkdir },
+  { "touch",     &functouch },
+  { "mountfat",  &funcmountfat },
+  { "blocktest", &funcblocktest },
 };
 
 static int ret = 0;
 static char pwd[FS_NAME_MAX * 10] = "/";
 
+int
+funcblocktest(int argc, char **argv)
+{
+  uint8_t block[512];
+  int blk, nblk, fd, i;
+  char *dev;
+
+  if (argc != 3) {
+    printf("usage: %s device nblk\n", argv[0]);
+    return ERR;
+  }
+  
+  dev = argv[1];
+  nblk = strtol(argv[2], nil, 10);
+
+  fd = open(dev, O_RDONLY);
+  if (fd < 0) {
+    printf("failed to open %s\n", dev);
+    return fd;
+  }
+
+  blk = 0;
+  while (nblk-- > 0 && read(fd, block, sizeof(block)) > 0) {
+    printf("Block %i\n", blk++);
+
+    i = 0;
+    while (i < 512) {
+      printf("%h ", block[i]);
+      if (++i % 8 == 0)
+	printf("\n");
+    }
+  }
+
+  return 0;
+}
+ 
 int
 funcexit(int argc, char **argv)
 {
@@ -76,7 +119,7 @@ funcexit(int argc, char **argv)
 int
 funclsh(char *filename)
 {
-  uint8_t buf[FS_NAME_MAX+1], len;
+  uint8_t buf[FS_NAME_MAX], len;
   struct stat s;
   int r, fd;
 
@@ -131,7 +174,7 @@ funcls(int argc, char **argv)
   if (argc == 1) {
     funclsh(".");
   } else if (argc == 2) {
-      funclsh(argv[1]);
+    funclsh(argv[1]);
   } else {
     for (i = 1; i < argc; i++) {
       printf("%s:\n", argv[i]);
@@ -232,7 +275,18 @@ functouch(int argc, char **argv)
 
   return OK;
 }
-  
+
+int
+funcmountfat(int argc, char **argv)
+{
+  if (argc != 3) {
+    printf("usage: %s blockdevice dir\n", argv[0]);
+    return ERR;
+  }
+
+  return mountfat(argv[1], argv[2]);
+}
+   
 static int
 readline(uint8_t *data, size_t max)
 {

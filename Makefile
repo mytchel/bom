@@ -50,6 +50,8 @@ ISRC_P := \
         init/heap.c          \
         init/tmp.c           \
         init/mbr.c           \
+        init/fat/fat.c       \
+        init/fat/mount.c     \
         init/shell.c         \
         lib/fssrv.c          \
         lib/misc.c           \
