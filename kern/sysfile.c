@@ -362,13 +362,6 @@ sysbind(va_list args)
   setintr(INTR_OFF);
   procready(p);
   setintr(INTR_ON);
-
-#if DEBUG == 1
-  char *str = (char *) pathtostr(path, nil);
-  printf("Binding %i to '%s', kproc %i\n", up->pid, kpath,
-	 p->pid);
-  free(str);
-#endif
  
   return OK;
 }
