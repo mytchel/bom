@@ -38,8 +38,11 @@ struct fat fat;
 int
 fatinit(int fd)
 {
+  struct fat_dir_entry *file;
+  uint32_t rootcluster, s;
   uint16_t sectorsize;
   uint8_t clustersize;
+  uint8_t *buf;
   
   if (read(fd, &fat.bs, sizeof(fat.bs)) != sizeof(fat.bs)) {
     printf("Failed to read boot sector.\n");
@@ -52,5 +55,36 @@ fatinit(int fd)
   printf("%i bytes per sector, %i sectors per cluster\n",
 	 sectorsize, clustersize);
 
+
+  buf = malloc(sizeof(uint8_t) * sectorsize * clustersize);
+  if (buf == nil) {
+    printf("Failed to allocat buf!\n");
+    return ENOMEM;
+  }
+  
+  memmove(&rootcluster, fat.bs.ext.root_cluster,
+	  sizeof(fat.bs.ext.root_cluster));
+
+  printf("root cluster at 0x%h\n", rootcluster);
+
+  if (seek(fd, rootcluster, SEEK_SET) < 0) {
+    return ERR;
+  }
+
+  if (read(fd, buf, sizeof(uint8_t) * sectorsize * clustersize) < 0) {
+    printf("Failed to read root cluster!\n");
+    return ERR;
+  }
+
+  file = (struct fat_dir_entry *) buf;
+  while (file->name[0] != 0) {
+    printf("have entry '%s'\n", file->name);
+    printf("with attributes 0b%b\n", file->attr);
+    memmove(&s, file->size, sizeof(file->size));
+    printf("of size %u\n", s);
+
+    file++;
+  }
+  
   return ERR;
 }

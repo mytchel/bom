@@ -43,6 +43,7 @@ struct fat_extBS_32 {
   uint8_t boot_part_signature[2];
 }__attribute__((packed));
 
+
 struct fat_bs {
   uint8_t jmp[3];
   uint8_t oem_identifier[8];
@@ -61,7 +62,46 @@ struct fat_bs {
 
   struct fat_extBS_32 ext;
 
-} __attribute__((packed));
+}__attribute__((packed));
+
+
+#define FAT_ATTR_read_only        0x01
+#define FAT_ATTR_hidden           0x02
+#define FAT_ATTR_system           0x04
+#define FAT_ATTR_volume_id        0x08
+#define FAT_ATTR_directory        0x10
+#define FAT_ATTR_archive          0x20
+#define FAT_ATTR_lfn \
+  (FAT_read_only|FAT_hidden|FAT_system|FAT_volume_id)
+
+
+struct fat_lfn {
+  uint8_t order;
+  uint8_t first[10];
+  uint8_t attr;
+  uint8_t type;
+  uint8_t chksum;
+  uint8_t next[12];
+  uint8_t zero[2];
+  uint8_t final[4];
+}__attribute__((packed));
+
+
+struct fat_dir_entry {
+  uint8_t name[11];
+  uint8_t attr;
+  uint8_t reserved1;
+  uint8_t create_dseconds;
+  uint8_t create_time[2];
+  uint8_t create_date[2];
+  uint8_t last_access[2];
+  uint8_t cluster_high[2];
+  uint8_t mod_time[2];
+  uint8_t mod_date[2];
+  uint8_t cluster_low[2];
+  uint8_t size[4];
+}__attribute__((packed));
+
 
 struct fat {
   int fd;
