@@ -45,7 +45,7 @@ fatinit(int fd)
   uint32_t rootcluster, s;
   uint32_t reservedsectors;
   uint8_t *buf;
-  
+
   if (read(fd, &fat.bs, sizeof(fat.bs)) != sizeof(fat.bs)) {
     printf("Failed to read boot sector.\n");
     return ERR;

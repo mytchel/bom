@@ -146,12 +146,11 @@ bindingnew(struct chan *out, struct chan *in)
 void
 bindingfree(struct binding *b)
 {
-  atomicdec(&b->refs);
-  /* 
-   * Doesnt need to do any freeing
-   * when mountproc sees that refs <=0
-   * it will do freeing.
-   */
+  if (atomicdec(&b->refs) > 0) {
+    return;
+  }
+
+  free(b);
 }
 
 int
@@ -164,7 +163,9 @@ ngroupaddbinding(struct ngroup *n, struct binding *b,
   if (bl == nil) {
     return ENOMEM;
   }
-		
+
+  atomicinc(&b->refs);
+  
   bl->binding = b;
   bl->rootfid = rootfid;
   bl->path = p;
@@ -186,7 +187,7 @@ ngroupremovebinding(struct ngroup *n, struct binding *b)
 
   lock(&n->lock);
   prev = nil;
-
+  
   for (bl = n->bindings;
        bl != nil && bl->binding != b;
        prev = bl, bl = bl->next)
@@ -202,6 +203,8 @@ ngroupremovebinding(struct ngroup *n, struct binding *b)
 
   pathfree(bl->path);
   free(bl);
+
+  bindingfree(b);
 }
 
 /*
