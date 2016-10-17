@@ -26,6 +26,7 @@
  */
 
 #include <libc.h>
+#include <mem.h>
 
 #define CHUNK_POWER_MAX 11
 #define CHUNK_POWER_MIN 2
@@ -46,9 +47,8 @@ addchunk(int power, void *start, size_t size)
   struct fixedblk *new = start;
   int i, csize;
 
-  if (power < CHUNK_POWER_MIN) {
-    return;
-  }
+  printf("add chunk of size %i to power %i\n",
+	 size, 1 << power);
 
   new->num  = 0;
   csize = sizeof(struct fixedblk);
@@ -61,10 +61,6 @@ addchunk(int power, void *start, size_t size)
     return;
   } else {
     new->num--;
-  }
-
-  if (new->num < 2) {
-    return addchunk(power - 1, start, size);
   }
 
   csize += roundptr(new->num * sizeof(uint8_t))
@@ -89,7 +85,7 @@ addchunk(int power, void *start, size_t size)
   heaps[power - CHUNK_POWER_MIN] = new;
 }
 
-static void
+static bool
 growchunk(int power)
 {
   void *blk;
@@ -97,9 +93,14 @@ growchunk(int power)
 
   size = (1 << CHUNK_POWER_MAX) + sizeof(struct fixedblk);
 
+  printf("get chunk of size %i\n", size);
   blk = getmem(MEM_ram, nil, &size);
+  if (blk == nil) {
+    return false;
+  }
 
   addchunk(power, blk, size);
+  return true;
 }
 
 static void *
@@ -124,28 +125,28 @@ getchunk(int power)
     }
   }
 
-  growchunk(power);
-  return getchunk(power);
+  if (growchunk(power)) {
+    return getchunk(power);
+  } else {
+    return nil;
+  }
 }
 
 void *
 malloc(size_t size)
 {
-  void *ptr;
   int p;
 
   if (size == 0)
     return nil;
 
-  ptr = nil;
   for (p = CHUNK_POWER_MIN; p <= CHUNK_POWER_MAX; p++) {
     if (size <= (1 << p)) {
-      ptr = getchunk(p);
-      break;
+      return getchunk(p);
     }
   }
 
-  return ptr;
+  return nil;
 }
 
 void

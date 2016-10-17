@@ -26,66 +26,83 @@
  */
 
 #include <libc.h>
-#include <fs.h>
-#include <stdarg.h>
+#include <types.h>
 
-int
-commount(char *path);
-
-int
-tmpmount(char *path);
-
-int
-initblockdevs(void);
-
-int
-shell(void);
-
-int stdin, stdout, stderr;
-
-int
-main(void)
+void *
+memmove(void *dest, const void *src, size_t len)
 {
-  int f, fd, code;
+  uint8_t *d;
+  const uint8_t *s;
+	
+  d = dest;
+  s = src;
+	
+  while (len-- > 0) {
+    *d++ = *s++;
+  }
+		
+  return dest;
+}
 
-  fd = open("/dev", O_WRONLY|O_CREATE,
-	    ATTR_wr|ATTR_rd|ATTR_dir);
-  if (fd < 0) {
-    return -1;
+void *
+memset(void *dest, int c, size_t len)
+{
+  uint8_t *bb = dest;
+	
+  while (len-- > 0)
+    *bb++ = c;
+		
+  return dest;
+}
+
+uint16_t
+intcopylittle16(uint8_t *src)
+{
+  size_t offset = 0;
+  uint16_t d = 0;
+
+  while (offset < sizeof(d)) {
+    d |= *src++ << (offset++ * 8);
   }
 
-  f = commount("/dev/com");
-  if (f < 0) {
-    return -1;
+  return d;
+}
+
+uint32_t
+intcopylittle32(uint8_t *src)
+{
+  size_t offset = 0;
+  uint32_t d = 0;
+
+  while (offset < sizeof(d)) {
+    d |= *src++ << offset++;
   }
 
-  stdin = open("/dev/com", O_RDONLY);
-  stdout = open("/dev/com", O_WRONLY);
-  stderr = open("/dev/com", O_WRONLY);
+  return d;
+}
 
-  if (stdin < 0) return -2;
-  if (stdout < 0) return -3;
-  if (stderr < 0) return -3;
+uint16_t
+intcopybig16(uint8_t *src)
+{
+  uint16_t d = 0;
+  size_t offset = sizeof(d);
 
-  f = tmpmount("/tmp");
-  if (f < 0) {
-    return -1;
-  }
-  
-  f = initblockdevs();
-  if (f < 0) {
-    return -1;
+  while (offset-- > 0) {
+    d |= *src++ << offset;
   }
 
-  f = fork(FORK_sngroup);
-  if (f == 0) {
-    return shell();
+  return d;
+}
+
+uint32_t
+intcopybig32(uint8_t *src)
+{
+  uint32_t d = 0;
+  size_t offset = sizeof(d);
+
+  while (offset-- > 0) {
+    d |= *src++ << offset;
   }
 
-  while ((f = wait(&code)) > 0) {
-    printf("%i exited with %i\n", f, code);
-  }
-
-  printf("should probably shutdown or something.\n");
-  return OK;
+  return d;
 }

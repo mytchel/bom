@@ -26,6 +26,8 @@
  */
 
 #include <libc.h>
+#include <syscalls.h>
+#include <mem.h>
 #include <types.h>
 #include <stdarg.h>
 #include <fs.h>
@@ -82,7 +84,7 @@ struct chantype {
   int (*read)(struct chan *, uint8_t *, size_t);
   int (*write)(struct chan *, uint8_t *, size_t);
   int (*seek)(struct chan *, size_t, int);
-  int (*close)(struct chan *);
+  void (*close)(struct chan *);
 };
 
 struct path {
@@ -358,9 +360,6 @@ piperead(struct chan *, uint8_t *, size_t);
 
 int
 pipewrite(struct chan *, uint8_t *, size_t);
-
-int
-pipeclose(struct chan *);
 
 int
 filestat(struct path *, struct stat *stat);

@@ -26,6 +26,7 @@
  */
 
 #include <libc.h>
+#include <mem.h>
 #include <fs.h>
 #include <fssrv.h>
 

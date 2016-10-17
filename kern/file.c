@@ -46,9 +46,12 @@ makereq(struct binding *b, struct request *req)
 
   req->rid = b->nreqid++;
 
-  if (pipewrite(b->out, (void *) req, s) != s || 
+  if (b->out == nil ||
+      pipewrite(b->out, (void *) req, s) != s || 
       (req->lbuf > 0 &&
        pipewrite(b->out, req->buf, req->lbuf) != req->lbuf)) {
+
+    unlock(&b->lock);
     return nil;
   }
 
@@ -70,8 +73,8 @@ filestatfid(struct binding *b, uint32_t fid, struct stat *stat)
 {
   struct response *resp;
   struct request req;
-  int err;
-	
+  int ret;
+
   req.type = REQ_stat;
   req.lbuf = 0;
   req.fid = fid;
@@ -81,19 +84,21 @@ filestatfid(struct binding *b, uint32_t fid, struct stat *stat)
     return ELINK;
   }
 	
-  err = resp->ret;
+  ret = resp->ret;
 
-  if (err == OK && resp->lbuf == sizeof(struct stat)) {
+  if (ret == OK && resp->lbuf == sizeof(struct stat)) {
     memmove(stat, resp->buf, resp->lbuf);
   } else {
-    err = ELINK;
+    ret = ELINK;
   }
 
-  if (resp->lbuf > 0)
+  if (resp->lbuf > 0) {
     free(resp->buf);
+  }
+  
   free(resp);
 
-  return err;
+  return ret;
 }
 
 static uint32_t
@@ -103,14 +108,6 @@ findfileindir(struct binding *b, uint32_t fid, struct stat *stat,
   struct response *resp;
   struct request req;
   uint32_t f;
-
-  *err = filestatfid(b, fid, stat);
-  if (*err != OK) {
-    return 0;
-  } else if (!(stat->attr & ATTR_dir)) {
-    *err = ENOFILE;
-    return 0;
-  }
 
   req.type = REQ_fid;
   req.fid = fid;
@@ -160,23 +157,22 @@ findfile(struct path *path,
     return nil;
   }
 
-  if (path == nil) {
-    *err = filestatfid(b, f, stat);
-    if (*err != OK) {
-      return nil;
-    } else {
-      *fid = f;
-      return b;
-    }
+  *err = filestatfid(b, ROOTFID, stat);
+  if (*err != OK) {
+    return nil;
   }
 
-  *err = OK;
   p = path;
   depth = 0;
-  f = f;
-  *fid = f;
+  f = ROOTFID;
+  *fid = ROOTFID;
   
   while (p != nil) {
+    if (!(stat->attr & ATTR_dir)) {
+      *err = ENOFILE;
+      return nil;
+    }
+    
     f = findfileindir(b, f, stat, p->s, err);
     if (*err == ENOCHILD && p->next == nil) {
       return b;
@@ -506,7 +502,7 @@ fileseek(struct chan *c, size_t offset, int whence)
   return cfile->offset;
 }
 
-static int
+static void
 fileclose(struct chan *c)
 {
   struct response *resp;
@@ -515,7 +511,7 @@ fileclose(struct chan *c)
 
   cfile = (struct cfile *) c->aux;
   if (cfile == nil) {
-    return OK;
+    return;
   }
 
   req.type = REQ_close;
@@ -533,8 +529,6 @@ fileclose(struct chan *c)
 
   atomicdec(&cfile->binding->refs);
   free(cfile);
-	
-  return OK;
 }
 
 struct chantype devfile = {

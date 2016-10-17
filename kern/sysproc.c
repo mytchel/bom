@@ -32,9 +32,6 @@ sysexit(va_list args)
 {
   int code = va_arg(args, int);
 
-  printf("pid %i exited with status %i\n", 
-	 up->pid, code);
-
   setintr(INTR_OFF);
   procexit(up, code);
   schedule();
@@ -285,7 +282,7 @@ sysgetmem(va_list args)
       pagelfree(pagel);
       return ERR;
     }
-    
+
     pl = wrappage(pg, caddr, rw, c);
     if (pl == nil) {
       pagefree(pg);

@@ -37,6 +37,6 @@ struct blkdevice {
 };
 
 int
-mbrmountthread(struct blkdevice *, uint8_t *dir);
+mbrmount(struct blkdevice *, uint8_t *dir);
 
 #endif

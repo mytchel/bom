@@ -141,7 +141,7 @@ pipewrite(struct chan *c, uint8_t *buf, size_t n)
   return pipedocopy(p, buf, n, true);
 }
 
-int
+void
 pipeclose(struct chan *c)
 {
   struct pipe *p;
@@ -169,8 +169,6 @@ pipeclose(struct chan *c)
   } else {
     unlock(&p->lock);
   }
-	
-  return 0;
 }
 
 int

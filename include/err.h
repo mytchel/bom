@@ -25,32 +25,27 @@
  *
  */
 
-#include <libc.h>
-#include <types.h>
+#ifndef _ERR_H_
+#define _ERR_H_
 
-void *
-memmove(void *dest, const void *src, size_t len)
-{
-  uint8_t *d;
-  const uint8_t *s;
-	
-  d = dest;
-  s = src;
-	
-  while (len-- > 0) {
-    *d++ = *s++;
-  }
-		
-  return dest;
-}
+#define OK		0
+/* General error */
+#define ERR		-1
+/* Pipe connection closed somewhere along the line. */
+#define ELINK		-2
+/* Pipe/File mode wrong for operation. */
+#define EMODE		-3
+/* No such file. */
+#define ENOFILE		-4
+/* Function not implimented */
+#define ENOIMPL		-5
+/* No memory */
+#define ENOMEM		-6
+/* End of file */
+#define EOF		-7
+/* For file systems, no child with that name found. */
+#define ENOCHILD        -8
+/* Directory not empty */
+#define ENOTEMPTY       -9
 
-void *
-memset(void *dest, int c, size_t len)
-{
-  uint8_t *bb = dest;
-	
-  while (len-- > 0)
-    *bb++ = c;
-		
-  return dest;
-}
+#endif

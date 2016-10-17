@@ -55,40 +55,4 @@
 
 #define NSYSCALLS              20
 
-#define OK		0
-/* General error */
-#define ERR		-1
-/* Pipe connection closed somewhere along the line. */
-#define ELINK		-2
-/* Pipe/File mode wrong for operation. */
-#define EMODE		-3
-/* No such file. */
-#define ENOFILE		-4
-/* Function not implimented */
-#define ENOIMPL		-5
-/* No memory */
-#define ENOMEM		-6
-/* End of file */
-#define EOF		-7
-/* For file systems, no child with that name found. */
-#define ENOCHILD        -8
-/* Directory not empty */
-#define ENOTEMPTY       -9
-
-/* Should processor aspects be shared with the child
- * rather than copied. */
-#define FORK_smem	(1<<0)
-#define FORK_sfgroup	(1<<1)
-#define FORK_sngroup	(1<<2)
-
-#define O_RDONLY	(1<<0)
-#define O_WRONLY	(1<<1)
-#define O_RDWR		(O_RDONLY|O_WRONLY)
-#define O_CREATE	(1<<2)
-#define O_DIR           (1<<3) /* File must be dir */
-
-#define SEEK_SET        1
-#define SEEK_CUR        2
-#define SEEK_END        3
-
 #endif

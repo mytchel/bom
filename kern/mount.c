@@ -66,7 +66,7 @@ mountproc(void *arg)
 
   b = (struct binding *) arg;
 
-  while (b->refs > 0) {
+  while (true) {
     resp = malloc(sizeof(struct response));
     if (resp == nil) {
       printf("kproc mount: error allocating response.\n");
@@ -102,31 +102,10 @@ mountproc(void *arg)
     unlock(&b->lock);
   }
 
-  printf("kproc mount: an error occured with binding\n");
-		
-  printf("kproc mount: lock binding\n");	
   lock(&b->lock);
-
-  printf("kproc mount: free chans\n");	
 
   chanfree(b->in);
   chanfree(b->out);
-
-  printf("kproc mount: wait for bindings refs to go to zero.\n");
-
-  setintr(INTR_OFF);
-
-  while (b->refs > 0) {
-    schedule();
-  }
-
-  setintr(INTR_ON);
-	
-  printf("kproc mount: no longer bound\n");
-
-  /* Free binding and exit. */
-
-  printf("kproc mount: wake waiters\n");
 
   /* Wake up any waiting processes so they can error. */
 
@@ -136,19 +115,22 @@ mountproc(void *arg)
   while (p != nil) {
     pn = p->next;
 
-    printf("kproc mount: wake up %i\n", p->pid);
     p->aux = nil;
     procready(p);
 
     p = pn;
   }
 
-  free(b);
+  /* Free binding and exit. */
 
-  printf("kproc mount: exiting\n");
+  unlock(&b->lock);
+  bindingfree(b);
+
+  setintr(INTR_OFF);
 
   procexit(up, ERR);
   schedule();
+
   /* Never reached */
   return 0;
 }

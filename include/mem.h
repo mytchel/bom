@@ -25,67 +25,53 @@
  *
  */
 
-#include <libc.h>
-#include <fs.h>
-#include <stdarg.h>
+#ifndef _MEM_H_
+#define _MEM_H_
 
+/* Memory system calls */
+
+enum { MEM_ram, MEM_io };
+
+/* 
+ * Maps a number of pages necessary to contain size and 
+ * returns the address. Sets size to the real size returned
+ * which will be a multiple of page size. If addr is not null
+ * then it should be the physical address of the memory wanted.
+ * This is so you can request memory mapped IO.
+ */
+void *
+getmem(int type, void *addr, size_t *size);
+
+/*
+ * Unmaps the pages starting at addr. 
+ * Addr must be page aligned and should be something returned
+ * from getmem. Size should be a multiple of a page.
+ */
 int
-commount(char *path);
+rmmem(void *addr, size_t size);
 
-int
-tmpmount(char *path);
+void *
+malloc(size_t size);
 
-int
-initblockdevs(void);
+void
+free(void *addr);
 
-int
-shell(void);
+void *
+memmove(void *dest, const void *src, size_t len);
 
-int stdin, stdout, stderr;
+void *
+memset(void *dest, int c, size_t len);
 
-int
-main(void)
-{
-  int f, fd, code;
+uint16_t
+intcopylittle16(uint8_t *src);
 
-  fd = open("/dev", O_WRONLY|O_CREATE,
-	    ATTR_wr|ATTR_rd|ATTR_dir);
-  if (fd < 0) {
-    return -1;
-  }
+uint32_t
+intcopylittle32(uint8_t *src);
 
-  f = commount("/dev/com");
-  if (f < 0) {
-    return -1;
-  }
+uint16_t
+intcopybig16(uint8_t *src);
 
-  stdin = open("/dev/com", O_RDONLY);
-  stdout = open("/dev/com", O_WRONLY);
-  stderr = open("/dev/com", O_WRONLY);
+uint32_t
+intcopybig32(uint8_t *src);
 
-  if (stdin < 0) return -2;
-  if (stdout < 0) return -3;
-  if (stderr < 0) return -3;
-
-  f = tmpmount("/tmp");
-  if (f < 0) {
-    return -1;
-  }
-  
-  f = initblockdevs();
-  if (f < 0) {
-    return -1;
-  }
-
-  f = fork(FORK_sngroup);
-  if (f == 0) {
-    return shell();
-  }
-
-  while ((f = wait(&code)) > 0) {
-    printf("%i exited with %i\n", f, code);
-  }
-
-  printf("should probably shutdown or something.\n");
-  return OK;
-}
+#endif

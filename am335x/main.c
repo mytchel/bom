@@ -157,9 +157,6 @@ initmainproc(void)
   path = nil;
   ngroupaddbinding(p->ngroup, rootfsbinding, path, ROOTFID);
 
-  path = strtopath("proc");
-  ngroupaddbinding(p->ngroup, procfsbinding, path, ROOTFID);
-  
   procready(p);
 }
 
