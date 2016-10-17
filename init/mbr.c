@@ -315,6 +315,7 @@ breadblocks(struct request *req, struct response *resp,
   buf = resp->buf;
 
   for (i = 0; i < nblk && part->lba + blk + i < part->sectors; i++) {
+    printf("%s mbr read sector %i\n", device->name, part->lba + blk + i);
     if (!device->read(device->aux, part->lba + blk + i, buf)) {
       free(resp->buf);
       resp->ret = ERR;

@@ -25,43 +25,56 @@
  *
  */
 
-struct fat_extBS_32 {
-  uint8_t fat_size[4];
-  uint8_t extended_flags[2];
-  uint8_t fat_version[2];
-  uint8_t root_cluster[4];
-  uint8_t fat_info[2];
-  uint8_t backup_BS_sector[2];
-  uint8_t reserved_0[12];
-  uint8_t drive_number;
-  uint8_t reserved_1;
-  uint8_t boot_signature;
-  uint8_t volume_id[4];
-  uint8_t volume_label[11];
-  uint8_t fat_type_label[8];
-  uint8_t boot_code[420];
+struct fat_bs_ext32 {
+  uint8_t spf[4];
+  uint8_t extflags[2];
+  uint8_t version[2];
+  uint8_t rootcluster[4];
+  uint8_t info[2];
+  uint8_t backup[2];
+  uint8_t res_0[12];
+  uint8_t drvn;
+  uint8_t res_1;
+  uint8_t sig;
+  uint8_t volid[4];
+  uint8_t vollabel[11];
+  uint8_t fattypelabel[8];
+  uint8_t bootcode[420];
 }__attribute__((packed));
 
+struct fat_bs_ext16
+{
+  uint8_t drvn;
+  uint8_t res_1;
+  uint8_t sig;
+  uint8_t volid[2];
+  uint8_t vollabel[11];
+  uint8_t fattypelabel[8];
+  uint8_t bootcode[448];
+}__attribute__((packed));
 
 struct fat_bs {
   uint8_t jmp[3];
-  uint8_t oem_identifier[8];
-  uint8_t sector_size[2];
-  uint8_t cluster_size;
-  uint8_t reserved_sectors[2];
-  uint8_t nfats;
-  uint8_t dir_entries[2];
-  uint8_t sector_count_16[2];
+  uint8_t oem[8];
+  uint8_t bps[2];
+  uint8_t spc;
+  uint8_t res[2];
+  uint8_t nft;
+  uint8_t rde[2];
+  uint8_t sc16[2];
   uint8_t mdt;
-  uint8_t sectors_per_fat[2];
-  uint8_t sectors_per_track[2];
+  uint8_t spf[2];
+  uint8_t spt[2];
   uint8_t heads[2];
-  uint8_t hidden_sectors[4];
-  uint8_t sector_count_32[4];
+  uint8_t hidden[4];
+  uint8_t sc32[4];
 
-  struct fat_extBS_32 ext;
-
-  uint8_t boot_part_signature[2];
+  union {
+    struct fat_bs_ext32 high;
+    struct fat_bs_ext16 low;
+  } ext;
+  
+  uint8_t boot_signature[2];
 
 }__attribute__((packed));
 
@@ -106,16 +119,24 @@ struct fat_dir_entry {
 }__attribute__((packed));
 
 
+typedef enum { FAT12, FAT16, FAT32 } fat_t;
+
 struct fat {
   int fd;
+  fat_t type;
 
-  uint32_t sectorsize;
-  uint32_t clustersize;
+  uint32_t bps;
+  uint32_t spc;
 
-  uint16_t fatsize;
-  uint8_t nfat;
+  uint32_t spf;
+  uint8_t nft;
 
-  uint32_t firstsector;
+  uint32_t nclusters;
+  uint32_t nsectors;
+
+  uint32_t rde;
+  uint32_t rootdir;
+  uint32_t dataarea;
 
   struct fat_bs bs;
 };

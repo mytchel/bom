@@ -42,8 +42,8 @@ fatinit(int fd)
 {
   struct fat_dir_entry *file;
   struct fat_lfn *lfn;
-  uint32_t rootcluster, s;
   uint32_t reservedsectors;
+  uint32_t s;
   uint8_t *buf;
 
   if (read(fd, &fat.bs, sizeof(fat.bs)) != sizeof(fat.bs)) {
@@ -51,51 +51,54 @@ fatinit(int fd)
     return ERR;
   }
 
-  fat.sectorsize = intcopylittle16(fat.bs.sector_size);
-  fat.clustersize = fat.bs.cluster_size;
+  fat.bps = intcopylittle16(fat.bs.bps);
+  fat.spc = fat.bs.spc;
 
-  printf("%i sectors per cluster, %i bytes per sector\n",
-	 fat.clustersize, fat.sectorsize);
-  
-  fat.fatsize = intcopylittle16(fat.bs.sectors_per_fat);
-  fat.nfat = fat.bs.nfats;
-
-  reservedsectors = intcopylittle16(fat.bs.reserved_sectors);
-
-  fat.firstsector = reservedsectors +
-    fat.nfat * fat.fatsize;
-
-  printf("reserverd sectors = %i\n", reservedsectors);
-  printf("fatsize = %i\n", fat.fatsize);
-  printf("nfat = %i\n", fat.nfat);
-  printf("firstsector at %i\n", fat.firstsector);
-  
-  s = intcopylittle16(fat.bs.sector_count_16);
-  if (s == 0) {
-    printf("sector count 16 is zero, read 32\n");
-    s = intcopylittle32(fat.bs.sector_count_32);
+  fat.nsectors = intcopylittle16(fat.bs.sc16);
+  if (fat.nsectors == 0) {
+    fat.nsectors = intcopylittle32(fat.bs.sc32);
   }
 
-  printf("there are %i sectors\n", s);
+  fat.nft = fat.bs.nft;
 
-  rootcluster = intcopylittle32(fat.bs.ext.root_cluster);
+  reservedsectors = intcopylittle16(fat.bs.res);
 
-  printf("rootcluster = %i\n", rootcluster);
-  printf("seek to %i\n", clusteroffset(&fat, rootcluster));
-  if (seek(fd, clusteroffset(&fat, rootcluster), SEEK_SET) < 0) {
+  fat.rde = intcopylittle16(fat.bs.rde);
+  if (fat.rde > 0) {
+    fat.spf = intcopylittle16(fat.bs.spf);
+
+    fat.rootdir = reservedsectors + fat.spf * 2;
+    fat.dataarea = fat.rootdir + (((fat.rde * 32) + (fat.bps - 1))
+				  / fat.bps);
+  } else {
+    fat.spf = intcopylittle32(fat.bs.ext.high.spf);
+
+    fat.rootdir = intcopylittle32(fat.bs.ext.high.rootcluster)
+      * fat.spc;
+    fat.dataarea = reservedsectors + fat.spf * 2;
+  }
+
+  fat.nclusters = (fat.nsectors - fat.dataarea) / fat.spc;
+
+  if (fat.nclusters < 4085) {
+    fat.type = FAT12;
+  } else if (fat.nclusters < 65525) {
+    fat.type = FAT16;
+  } else {
+    fat.type = FAT32;
+  }
+
+  if (seek(fd, fat.rootdir * fat.bps, SEEK_SET) < 0) {
     return ERR;
   }
 
-  buf = malloc(fat.clustersize * fat.sectorsize);
+  buf = malloc(fat.spc * fat.bps);
   if (buf == nil) {
     printf("Failed to alloc buf!\n");
     return ENOMEM;
   }
 
-  printf("buf at 0x%h\n", buf);
-  printf("read root cluster\n");
-
-  if (read(fd, buf, fat.clustersize * fat.sectorsize) < 0) {
+  if (read(fd, buf, fat.spc * fat.bps) < 0) {
     printf("Failed to read root cluster!\n");
     return ERR;
   }
@@ -103,7 +106,7 @@ fatinit(int fd)
   printf("parse files\n");
   
   file = (struct fat_dir_entry *) buf;
-  while ((uint8_t *) file < buf + fat.clustersize * fat.sectorsize) {
+  while ((uint8_t *) file < buf + fat.spc * fat.bps) {
     if (file->attr == 0) {
       break;
     } else if ((file->attr & FAT_ATTR_lfn) == FAT_ATTR_lfn) {
@@ -127,13 +130,12 @@ fatinit(int fd)
 
   free(buf);
 
-  printf("now err\n");
   return ERR;
 }
 
 uint32_t
 clusteroffset(struct fat *fat, uint32_t cluster)
 {
-  return (fat->firstsector + ((cluster - 2) * fat->clustersize))
-    * fat->sectorsize;
+  return (fat->dataarea + ((cluster - 2) * fat->spc))
+    * fat->bps;
 }
