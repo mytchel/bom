@@ -341,7 +341,7 @@ sysbind(va_list args)
     return ENOMEM;
   }
 
-  p = procnew(30);
+  p = procnew(up->priority);
   if (p == nil) {
     bindingfree(b);
     pathfree(path);

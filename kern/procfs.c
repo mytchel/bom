@@ -74,7 +74,7 @@ procfsinit(void)
     panic("procfs: bindingnew failed!\n");
   }
 
-  p = procnew(60);
+  p = procnew(15);
   if (p == nil) {
     panic("procfs: procnew failed!\n");
   }

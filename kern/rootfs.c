@@ -68,7 +68,7 @@ rootfsinit(void)
     panic("rootfs: bindingnew failed!\n");
   }
 
-  pr = procnew(30);
+  pr = procnew(8);
   if (pr == nil) {
     panic("rootfs: procnew failed!\n");
   }

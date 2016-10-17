@@ -124,7 +124,7 @@ initmainproc(void)
   struct page *pg;
   struct path *path;
 		
-  p = procnew(50);
+  p = procnew(10);
   if (p == nil) {
     printf("Failed to create main proc\n");
     return;
