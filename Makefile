@@ -54,7 +54,7 @@ ISRC_P := \
         init/fat/mount.c     \
         init/shell.c         \
         lib/fssrv.c          \
-        lib/misc.c           \
+        lib/mem.c            \
         lib/string.c         \
         lib/ctype.c
 
@@ -79,7 +79,7 @@ KSRC_P := \
         kern/sysfile.c       \
         kern/syscall.c       \
         lib/string.c         \
-	lib/misc.c           \
+	lib/mem.c            \
         lib/ctype.c
 
 

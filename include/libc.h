@@ -29,12 +29,18 @@
 #define _LIBC_H_
 
 #include <types.h>
-#include <syscalls.h>
+#include <err.h>
 
 extern int stdin, stdout, stderr;
 
 int
 exit(int code) __attribute__((noreturn));
+
+/* Should processor aspects be shared with the child
+ * rather than copied. */
+#define FORK_smem	(1<<0)
+#define FORK_sfgroup	(1<<1)
+#define FORK_sngroup	(1<<2)
 
 int
 fork(int flags);
@@ -47,28 +53,6 @@ getpid(void);
 
 int
 wait(int *status);
-
-/* Memory system calls */
-
-enum { MEM_ram, MEM_io };
-
-/* 
- * Maps a number of pages necessary to contain size and 
- * returns the address. Sets size to the real size returned
- * which will be a multiple of page size. If addr is not null
- * then it should be the physical address of the memory wanted.
- * This is so you can request memory mapped IO.
- */
-void *
-getmem(int type, void *addr, size_t *size);
-
-/*
- * Unmaps the pages starting at addr. 
- * Addr must be page aligned and should be something returned
- * from getmem. Size should be a multiple of a page.
- */
-int
-rmmem(void *addr, size_t size);
 
 /* Blocks until interrupt intr occurs. */
 int
@@ -87,6 +71,10 @@ read(int fd, void *buf, size_t len);
 int
 write(int fd, void *buf, size_t len);
 
+#define SEEK_SET        1
+#define SEEK_CUR        2
+#define SEEK_END        3
+
 int
 seek(int fd, size_t offset, int whence);
 
@@ -96,23 +84,17 @@ close(int fd);
 int
 bind(int out, int in, const char *path);
 
+#define O_RDONLY	(1<<0)
+#define O_WRONLY	(1<<1)
+#define O_RDWR		(O_RDONLY|O_WRONLY)
+#define O_CREATE	(1<<2)
+#define O_DIR           (1<<3) /* File must be dir */
+
 int
 open(const char *path, uint32_t mode, ...);
 
 int
 remove(const char *path);
-
-void *
-malloc(size_t size);
-
-void
-free(void *addr);
-
-void *
-memmove(void *dest, const void *src, size_t len);
-
-void *
-memset(void *dest, int c, size_t len);
 
 void
 printf(const char *, ...);

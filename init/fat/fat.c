@@ -26,6 +26,8 @@
  */
 
 #include <libc.h>
+#include <mem.h>
+#include <err.h>
 #include <fs.h>
 #include <fssrv.h>
 #include <stdarg.h>
@@ -39,9 +41,9 @@ int
 fatinit(int fd)
 {
   struct fat_dir_entry *file;
+  struct fat_lfn *lfn;
   uint32_t rootcluster, s;
-  uint16_t sectorsize;
-  uint8_t clustersize;
+  uint32_t reservedsectors;
   uint8_t *buf;
   
   if (read(fd, &fat.bs, sizeof(fat.bs)) != sizeof(fat.bs)) {
@@ -49,42 +51,89 @@ fatinit(int fd)
     return ERR;
   }
 
-  memmove(&sectorsize, fat.bs.sector_size, sizeof(sectorsize));
-  memmove(&clustersize, &fat.bs.cluster_size, sizeof(clustersize));
+  fat.sectorsize = intcopylittle16(fat.bs.sector_size);
+  fat.clustersize = fat.bs.cluster_size;
 
-  printf("%i bytes per sector, %i sectors per cluster\n",
-	 sectorsize, clustersize);
-
-
-  buf = malloc(sizeof(uint8_t) * sectorsize * clustersize);
-  if (buf == nil) {
-    printf("Failed to allocat buf!\n");
-    return ENOMEM;
-  }
+  printf("%i sectors per cluster, %i bytes per sector\n",
+	 fat.clustersize, fat.sectorsize);
   
-  memmove(&rootcluster, fat.bs.ext.root_cluster,
-	  sizeof(fat.bs.ext.root_cluster));
+  fat.fatsize = intcopylittle16(fat.bs.sectors_per_fat);
+  fat.nfat = fat.bs.nfats;
 
-  printf("root cluster at 0x%h\n", rootcluster);
+  reservedsectors = intcopylittle16(fat.bs.reserved_sectors);
 
-  if (seek(fd, rootcluster, SEEK_SET) < 0) {
+  fat.firstsector = reservedsectors +
+    fat.nfat * fat.fatsize;
+
+  printf("reserverd sectors = %i\n", reservedsectors);
+  printf("fatsize = %i\n", fat.fatsize);
+  printf("nfat = %i\n", fat.nfat);
+  printf("firstsector at %i\n", fat.firstsector);
+  
+  s = intcopylittle16(fat.bs.sector_count_16);
+  if (s == 0) {
+    printf("sector count 16 is zero, read 32\n");
+    s = intcopylittle32(fat.bs.sector_count_32);
+  }
+
+  printf("there are %i sectors\n", s);
+
+  rootcluster = intcopylittle32(fat.bs.ext.root_cluster);
+
+  printf("rootcluster = %i\n", rootcluster);
+  printf("seek to %i\n", clusteroffset(&fat, rootcluster));
+  if (seek(fd, clusteroffset(&fat, rootcluster), SEEK_SET) < 0) {
     return ERR;
   }
 
-  if (read(fd, buf, sizeof(uint8_t) * sectorsize * clustersize) < 0) {
+  buf = malloc(fat.clustersize * fat.sectorsize);
+  if (buf == nil) {
+    printf("Failed to alloc buf!\n");
+    return ENOMEM;
+  }
+
+  printf("buf at 0x%h\n", buf);
+  printf("read root cluster\n");
+
+  if (read(fd, buf, fat.clustersize * fat.sectorsize) < 0) {
     printf("Failed to read root cluster!\n");
     return ERR;
   }
 
+  printf("parse files\n");
+  
   file = (struct fat_dir_entry *) buf;
-  while (file->name[0] != 0) {
-    printf("have entry '%s'\n", file->name);
-    printf("with attributes 0b%b\n", file->attr);
-    memmove(&s, file->size, sizeof(file->size));
-    printf("of size %u\n", s);
+  while ((uint8_t *) file < buf + fat.clustersize * fat.sectorsize) {
+    if (file->attr == 0) {
+      break;
+    } else if ((file->attr & FAT_ATTR_lfn) == FAT_ATTR_lfn) {
+      printf("This is a long file name entry\n");
+
+      lfn = (struct fat_lfn *) file;
+
+      printf("order = %i\n", lfn->order);
+
+    } else {
+      printf("have entry name = '%s' ext = '%s' \n", file->name, file->ext);
+      printf("with attributes 0b%b\n", file->attr);
+      s = intcopylittle32(file->size);
+      printf("of size %u\n", s);
+    }
 
     file++;
   }
-  
+
+  printf("finished reading root dir\n");
+
+  free(buf);
+
+  printf("now err\n");
   return ERR;
+}
+
+uint32_t
+clusteroffset(struct fat *fat, uint32_t cluster)
+{
+  return (fat->firstsector + ((cluster - 2) * fat->clustersize))
+    * fat->sectorsize;
 }

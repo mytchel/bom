@@ -26,6 +26,8 @@
  */
 
 #include <libc.h>
+#include <syscalls.h>
+#include <mem.h>
 #include <types.h>
 #include <stdarg.h>
 #include <fs.h>
