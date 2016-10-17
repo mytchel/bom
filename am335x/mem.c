@@ -42,7 +42,6 @@ extern uint32_t *_kernel_start;
 extern uint32_t *_kernel_end;
 
 static struct page *rampages = nil, *iopages = nil;
-static struct lock ramlock, iolock;
 
 void
 memoryinit(void)
@@ -90,9 +89,6 @@ memoryinit(void)
   /* INTCPS */
   imap((void *) 0x48200000, (void *) 0x48201000, AP_RW_NO, false);
 
-  lockinit(&ramlock);
-  lockinit(&iolock);
- 
   mmuenable();
 }
 
@@ -156,14 +152,15 @@ struct page *
 getrampage(void)
 {
   struct page *p;
+  intrstate_t i;
 
-  lock(&ramlock);
+  i = setintr(INTR_OFF);
   
   p = rampages;
   rampages = p->next;
   p->next = nil;
 
-  unlock(&ramlock);
+  setintr(i);
 
   p->refs = 1;
   return p;
@@ -173,8 +170,9 @@ struct page *
 getiopage(void *addr)
 {
   struct page *p, *pp;
+  intrstate_t i;
 
-  lock(&iolock);
+  i = setintr(INTR_OFF);
   
   pp = nil;
   for (p = iopages; p != nil; pp = p, p = p->next) {
@@ -190,6 +188,6 @@ getiopage(void *addr)
     }
   }
 
-  unlock(&iolock);
+  setintr(i);
   return p;
 }

@@ -28,147 +28,147 @@
 #include <libc.h>
 #include <mem.h>
 
-#define CHUNK_POWER_MAX 11
-#define CHUNK_POWER_MIN 2
-
-struct fixedblk {
-  size_t num, numused;
-  uint8_t *used;
-  void *start;
-  struct fixedblk *next;
+struct block {
+  size_t size;
+  struct block *next;
 };
 
-static struct fixedblk *
-heaps[1 + CHUNK_POWER_MAX - CHUNK_POWER_MIN] = {nil};
+static struct block *heap = nil;
 
-static void
-addchunk(int power, void *start, size_t size)
+struct block *
+growheap(struct block *prev, size_t size)
 {
-  struct fixedblk *new = start;
-  int i, csize;
+  struct block *b;
+  void *pg;
 
-  printf("add chunk of size %i to power %i\n",
-	 size, 1 << power);
-
-  new->num  = 0;
-  csize = sizeof(struct fixedblk);
-  while (csize + roundptr(new->num * sizeof(uint8_t))
-	 + roundptr(new->num * (1 << power)) < size) {
-    new->num++;
-  }
-
-  if (new->num == 0) {
-    return;
-  } else {
-    new->num--;
-  }
-
-  csize += roundptr(new->num * sizeof(uint8_t))
-    + roundptr(new->num * (1 << power));
-
-  if (size - csize > sizeof(struct fixedblk)
-                      + (2 << (power - 1))) {
-
-    addchunk(power - 1, start + csize, size - csize);
-  }
-
-  new->used = (void *) ((reg_t) start + sizeof(struct fixedblk));
-  new->start = (void *) roundptr(((reg_t) new->used +
-				  sizeof(uint8_t) * new->num));
-
-  new->numused = 0;
-  for (i = 0; i < new->num; i++) {
-    new->used[i] = 0;
-  }
-
-  new->next = heaps[power - CHUNK_POWER_MIN];
-  heaps[power - CHUNK_POWER_MIN] = new;
-}
-
-static bool
-growchunk(int power)
-{
-  void *blk;
-  size_t size;
-
-  size = (1 << CHUNK_POWER_MAX) + sizeof(struct fixedblk);
-
-  printf("get chunk of size %i\n", size);
-  blk = getmem(MEM_ram, nil, &size);
-  if (blk == nil) {
-    return false;
-  }
-
-  addchunk(power, blk, size);
-  return true;
-}
-
-static void *
-getchunk(int power)
-{
-  struct fixedblk *blk;
-  int i;
-
-  blk = heaps[power-CHUNK_POWER_MIN];
-
-  for (; blk != nil; blk = blk->next) {
-    if (blk->numused == blk->num) {
-      continue;
-    }
-    
-    for (i = 0; i < blk->num; i++) {
-      if (!blk->used[i]) {
-	blk->numused++;
-	blk->used[i] = true;
-	return blk->start + (1 << power) * i;
-      }
-    }
-  }
-
-  if (growchunk(power)) {
-    return getchunk(power);
-  } else {
+  pg = getmem(MEM_ram, nil, &size);
+  if (pg == nil) {
     return nil;
   }
+
+  if (prev == nil) {
+    b = heap = (struct block *) pg;
+  } else {
+    b = prev->next = (struct block *) pg;
+  }
+	
+  b->size = size - sizeof(size_t);
+  b->next = nil;
+
+  return b;
 }
 
 void *
 malloc(size_t size)
 {
-  int p;
+  struct block *b, *n, *p;
+  void *block;
 
   if (size == 0)
     return nil;
 
-  for (p = CHUNK_POWER_MIN; p <= CHUNK_POWER_MAX; p++) {
-    if (size <= (1 << p)) {
-      return getchunk(p);
+  size = roundptr(size);
+
+  p = nil;
+  for (b = heap; b != nil; p = b, b = b->next) {
+    if (b->size >= size) {
+      break;
     }
   }
 
-  return nil;
+  if (b == nil) {
+    b = growheap(p, size);
+    if (b == nil) {
+      return nil;
+    }
+  }
+
+  block = (void *) ((uint8_t *) b + sizeof(size_t));
+	
+  if (b->size > size + sizeof(size_t) + sizeof(struct block)) {
+    n = (struct block *) ((uint8_t *) block + size);
+		
+    n->size = b->size - size - sizeof(size_t);
+    n->next = b->next;
+		
+    /* Set size of allocated block (so free can find it) */
+    b->size = size;
+  } else {
+    n = b->next;
+  }
+	
+  if (p == nil) {
+    heap = n;
+  } else {
+    p->next = n;
+  }
+
+  return block;
 }
 
 void
 free(void *ptr)
 {
-  struct fixedblk *blk;
-  reg_t offset;
-  int p;
+  struct block *b, *p;
+  bool palign, nalign;
 
-  for (p = CHUNK_POWER_MIN; p <= CHUNK_POWER_MAX; p++) {
-    blk = heaps[p-CHUNK_POWER_MIN];
-    for (; blk != nil; blk = blk->next) {
-      if ((reg_t) blk->start <= (reg_t) ptr &&
-	  (reg_t) blk->start + ((1 << p) * blk->num) > (reg_t) ptr) {
+  if (ptr == nil)
+    return;
 
-	offset = (reg_t) ptr - (reg_t) blk->start;
-	offset /= (1 << p);
+  b = (struct block *) ((reg_t) ptr - sizeof(size_t));
 
-	blk->used[offset] = false;
-	blk->numused--;
-	break;
-      }
+  if (b < heap) {
+    if ((reg_t) b + sizeof(size_t) + b->size == (reg_t) heap) {
+      /* block lines up with start of heap. */
+      b->size += sizeof(size_t) + heap->size;
+      b->next = heap->next;
+    } else {
+      b->next = heap;
     }
+		
+    heap = b;
+    return;
+  }
+
+  for (p = heap; p != nil && p->next != nil; p = p->next) {
+    if ((void *) p->next > ptr && ptr < (void *) p->next->next) {
+      break;
+    }
+  }
+	
+  if (p == nil) {
+    printf("Are you sure 0x%h is from the heap?\n", ptr);
+    return;
+  }
+	
+  palign = (reg_t) p + sizeof(size_t) + p->size == (reg_t) b;
+
+  if (p->next) {
+    nalign = (reg_t) b + sizeof(size_t) + b->size == (reg_t) p->next;
+  } else {
+    nalign = false;
+  }
+	
+  if (palign && nalign) {
+    /* b lines up with p and p->next, join them all. */
+    p->size += sizeof(size_t) * 2 + b->size + p->next->size;
+    p->next = p->next->next;
+    b = p;
+		
+  } else if (nalign) {
+    /* b lines up with p->next, join them. */
+    b->size += sizeof(size_t) + p->next->size;
+    b->next = p->next->next;
+    p->next = b;
+    
+  } else if (palign) {
+    /* b lines up with end of p, join them. */
+    p->size += sizeof(size_t) + b->size;
+    b = p;
+
+  } else {
+    /* b is somewhere between p and p->next. */
+    b->next = p->next;
+    p->next = b;
   }
 }
