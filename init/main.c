@@ -82,11 +82,10 @@ main(void)
     return shell();
   }
 
-  printf("%i wait on processes\n", getpid());
   while ((f = wait(&code)) > 0) {
     printf("%i exited with %i\n", f, code);
   }
 
-  printf("All processes exited.\n");
+  printf("should probably shutdown now.\n");
   return OK;
 }
