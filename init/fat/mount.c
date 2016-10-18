@@ -36,9 +36,50 @@
 
 static uint32_t nfid = ROOTFID;
 
+struct fat *fat;
+
 static void
 bfid(struct request *req, struct response *resp)
 {
+  struct fat_file *new, *parent;
+  struct response_fid *fidresp;
+  char *name;
+
+  name = (char *) req->buf;
+
+  printf("fat mount find '%s' in %i and give fid %i\n",
+	 name, req->fid, nfid++);
+
+  parent = fatfilefindfid(fat, req->fid);
+  if (parent == nil) {
+    resp->ret = ENOFILE;
+    return;
+  }
+
+  new = fatfilefind(fat, parent, name, &resp->ret);
+  if (new == nil) {
+    resp->ret = ENOFILE;
+    return;
+  }
+
+  fidresp = malloc(sizeof(struct response_fid));
+  if (fidresp == nil) {
+    resp->ret = ENOMEM;
+    return;
+  }
+
+  fidresp->fid = new->fid;
+  fidresp->attr = new->attr;
+
+  resp->buf = (uint8_t *) fidresp;
+  resp->lbuf = sizeof(struct response_fid);
+  resp->ret = OK;
+}
+
+static void
+bclunk(struct request *req, struct response *resp)
+{
+  printf("fat mount should clunk %i\n", req->fid);
   resp->ret = ENOIMPL;
 }
 
@@ -63,14 +104,12 @@ bclose(struct request *req, struct response *resp)
 static void
 bread(struct request *req, struct response *resp)
 {
-  uint32_t offset, len;
-  uint8_t *buf;
+  struct request_read *rr;
 
-  buf = req->buf;
-  memmove(&offset, buf, sizeof(uint32_t));
-  buf += sizeof(uint32_t);
-  memmove(&len, buf, sizeof(uint32_t));
-  buf += sizeof(uint32_t);
+  rr = (struct request_read *) req->buf;
+
+  printf("fat mount should read %i from %i len %i\n",
+	 req->fid, rr->offset, rr->len);
 
   resp->ret = ENOIMPL;
 }
@@ -78,32 +117,46 @@ bread(struct request *req, struct response *resp)
 static void
 bwrite(struct request *req, struct response *resp)
 {
+  struct request_write *rw;
+
+  rw = (struct request_write *) req->buf;
+
+  printf("fat mount should write %i from %i len %i\n",
+	 req->fid, rw->offset, rw->len);
+
   resp->ret = ENOIMPL;
 }
 
 static void
 bcreate(struct request *req, struct response *resp)
 {
-  nfid++;
+  struct request_create *rc;
+
+  rc = (struct request_create *) req->buf;
+
+  printf("fat mount should create in %i file with attr 0b%b, name '%s'\n",
+	 req->fid, rc->attr, rc->name);
+
   resp->ret = ENOIMPL;
 }
 
 static void
 bremove(struct request *req, struct response *resp)
 {
+  printf("fat mount should remove %i\n", req->fid);
   resp->ret = ENOIMPL;
 }
 
 static struct fsmount mount = {
-  &bfid,
-  &bstat,
-  &bopen,
-  &bclose,
-  &bcreate,
-  &bremove,
-  &bread,
-  &bwrite,
-  nil,
+  .fid = &bfid,
+  .clunk  = &bclunk,
+  .stat = &bstat,
+  .open = &bopen,
+  .close = &bclose,
+  .create = &bcreate,
+  .remove = &bremove,
+  .read = &bread,
+  .write = &bwrite,
 };
 
 int
@@ -117,10 +170,10 @@ mountfat(char *device, char *dir)
     return fddev;
   }
 
-  i = fatinit(fddev);
-  if (i < 0) {
+  fat = fatinit(fddev);
+  if (fat == nil) {
     printf("fat init failed on %s\n", device);
-    return i;
+    return ERR;
   }
   
   fddir = open(dir, O_RDONLY);

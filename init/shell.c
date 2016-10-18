@@ -159,10 +159,9 @@ funclsh(char *filename)
 
     if (stat((const char *) buf, &s) != OK) {
       printf("stat error %s\n", buf);
-      continue;
+    } else {
+      printf("%b %u %s\n", s.attr, s.size, buf);
     }
-
-    printf("%b %u %s\n", s.attr, s.size, buf);
   }
 
   close(fd);

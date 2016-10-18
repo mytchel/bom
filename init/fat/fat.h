@@ -25,6 +25,23 @@
  *
  */
 
+struct fat_cluster {
+  uint32_t num;
+  struct fat_cluster *next;
+};
+
+
+struct fat_file {
+  uint32_t fid;
+  char name[NAMEMAX];
+  size_t opened;
+  uint32_t fatattr, attr;
+  uint32_t size;
+  struct fat_cluster *clusters;
+  struct fat_file *next;
+};
+
+
 struct fat_bs_ext32 {
   uint8_t spf[4];
   uint8_t extflags[2];
@@ -42,6 +59,7 @@ struct fat_bs_ext32 {
   uint8_t bootcode[420];
 }__attribute__((packed));
 
+
 struct fat_bs_ext16
 {
   uint8_t drvn;
@@ -52,6 +70,7 @@ struct fat_bs_ext16
   uint8_t fattypelabel[8];
   uint8_t bootcode[448];
 }__attribute__((packed));
+
 
 struct fat_bs {
   uint8_t jmp[3];
@@ -125,6 +144,9 @@ struct fat {
   int fd;
   fat_t type;
 
+  uint32_t nfid;
+  struct fat_file *files;
+
   uint32_t bps;
   uint32_t spc;
 
@@ -141,10 +163,12 @@ struct fat {
   struct fat_bs bs;
 };
 
-extern struct fat fat;
-
-int
+struct fat *
 fatinit(int fd);
 
-uint32_t
-clusteroffset(struct fat *fat, uint32_t cluster);
+struct fat_file *
+fatfilefind(struct fat *fat, struct fat_file *parent,
+	    char *name, int *err);
+
+struct fat_file *
+fatfilefindfid(struct fat *fat, uint32_t fid);
