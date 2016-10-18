@@ -49,6 +49,7 @@ static int funcpwd(int argc, char **argv);
 static int funcecho(int argc, char **argv);
 static int funcmkdir(int argc, char **argv);
 static int functouch(int argc, char **argv);
+static int funcrm(int argc, char **argv);
 static int funcmounttmp(int argc, char **argv);
 static int funcmountfat(int argc, char **argv);
 static int funcblocktest(int argc, char **argv);
@@ -64,6 +65,7 @@ struct func funcs[] = {
   { "echo",      &funcecho },
   { "mkdir",     &funcmkdir },
   { "touch",     &functouch },
+  { "rm",        &funcrm },
   { "mounttmp",  &funcmounttmp },
   { "mountfat",  &funcmountfat },
   { "blocktest", &funcblocktest },
@@ -274,6 +276,22 @@ functouch(int argc, char **argv)
       return fd;
     } else {
       close(fd);
+    }
+  }
+
+  return OK;
+}
+
+int
+funcrm(int argc, char **argv)
+{
+  int i, e;
+
+  for (i = 1; i < argc; i++) {
+    e = remove(argv[i]);
+    if (e != OK) {
+      printf("rm %s failed ERR %i\n", argv[i], e);
+      return e;
     }
   }
 

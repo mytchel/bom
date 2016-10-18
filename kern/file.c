@@ -161,6 +161,7 @@ findfileindir(struct bindingfid *fid, char *name, int *err)
 
   for (nfid = fid->children; nfid != nil; nfid = nfid->cnext) {
     if (strncmp(nfid->name, name, NAMEMAX)) {
+      atomicinc(&nfid->refs);
       *err = OK;
       return nfid;
     }
@@ -314,8 +315,8 @@ filecreate(struct bindingfid *parent, char *name,
     return nil;
   }
 
-  atomicinc(&parent->binding->refs);
   atomicinc(&parent->refs);
+  atomicinc(&parent->binding->refs);
 
   nfid->refs = 1;
   nfid->binding = parent->binding;
@@ -350,7 +351,11 @@ filestat(struct path *path, struct stat *stat)
     return err;
   }
 
-  return filestatfid(fid, stat);
+  err = filestatfid(fid, stat);
+
+  bindingfidfree(fid);
+
+  return err;
 }
 
 static bool
@@ -362,7 +367,7 @@ checkmode(uint32_t attr, uint32_t mode)
 struct chan *
 fileopen(struct path *path, uint32_t mode, uint32_t cmode, int *err)
 {
-  struct bindingfid *fid;
+  struct bindingfid *fid, *nfid;
   struct response *resp;
   struct request req;
   struct cfile *cfile;
@@ -375,24 +380,32 @@ fileopen(struct path *path, uint32_t mode, uint32_t cmode, int *err)
       *err = ERR;
       return nil;
     } else if ((fid->attr & ATTR_wr) == 0) {
+      bindingfidfree(fid);
       *err = EMODE;
       return nil;
     } else {
       /* Create the file first. */
       for (p = path; p != nil && p->next != nil; p = p->next);
       if (p == nil) {
+	bindingfidfree(fid);
 	return nil;
       }
 
-      fid = filecreate(fid, p->s, cmode, err);
+      nfid = filecreate(fid, p->s, cmode, err);
       if (*err != OK) {
+	bindingfidfree(fid);
 	return nil;
       }
+
+      bindingfidfree(fid);
+      
+      fid = nfid;
     }
   }
 
   if (!checkmode(fid->attr, mode)) {
     *err = EMODE;
+    bindingfidfree(fid);
     return nil;
   }
 
@@ -402,6 +415,7 @@ fileopen(struct path *path, uint32_t mode, uint32_t cmode, int *err)
   resp = makereq(fid->binding, &req);
   if (resp == nil) {
     *err = ELINK;
+    bindingfidfree(fid);
     return nil;
   }
 
@@ -414,25 +428,25 @@ fileopen(struct path *path, uint32_t mode, uint32_t cmode, int *err)
   free(resp);
 	
   if (*err != OK) {
+    bindingfidfree(fid);
     return nil;
   }
 
   c = channew(CHAN_file, mode);
   if (c == nil) {
+    bindingfidfree(fid);
     return nil;
   }
 	
   cfile = malloc(sizeof(struct cfile));
   if (cfile == nil) {
+    bindingfidfree(fid);
     chanfree(c);
     return nil;
   }
 	
   c->aux = cfile;
 
-  atomicinc(&fid->refs);
-  atomicinc(&fid->binding->refs);
-	
   cfile->fid = fid;
   cfile->offset = 0;
 
@@ -445,7 +459,6 @@ fileremove(struct path *path)
   struct bindingfid *fid;
   struct response *resp;
   struct request req;
-  uint32_t f;
   int err;
 
   printf("file remove\n");
@@ -455,29 +468,30 @@ fileremove(struct path *path)
     return ENOFILE;
   }
 
-  f = fid->fid;
-
   if (fid->refs != 1) {
     printf("file has other referenecs!\n");
     return ERR;
   }
   
-  bindingfidfree(fid);
-
-  printf("now send remove %i\n", f);
+  printf("now send remove %i\n", fid->fid);
   
   req.type = REQ_remove;
   req.lbuf = 0;
-  req.fid = f;
+  req.fid = fid->fid;
   resp = makereq(fid->binding, &req);
   if (resp == nil) {
+    bindingfidfree(fid);
     return ELINK;
   }
 	
   err = resp->ret;
-  if (resp->lbuf > 0)
+  if (resp->lbuf > 0) {
     free(resp->buf);
+  }
+  
   free(resp);
+
+  bindingfidfree(fid);
 
   return err;
 }
@@ -562,7 +576,6 @@ filewrite(struct chan *c, uint8_t *buf, size_t n)
   ret = resp->ret;
   if (ret > 0) {
     cfile->offset += ret;
-  } else {
   }
 
   if (resp->lbuf > 0) {
