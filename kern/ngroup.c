@@ -116,7 +116,7 @@ ngroupcopy(struct ngroup *o)
 }
 
 struct binding *
-bindingnew(struct chan *out, struct chan *in)
+bindingnew(struct chan *out, struct chan *in, uint32_t rootattr)
 {
   struct binding *b;
 	
@@ -124,6 +124,21 @@ bindingnew(struct chan *out, struct chan *in)
   if (b == nil)
     return nil;
 	
+  b->fids = malloc(sizeof(struct bindingfid));
+  if (b->fids == nil) {
+    free(b);
+    return nil;
+  }
+
+  b->fids->refs = 1;
+  b->fids->binding = b;
+  b->fids->parent = nil;
+  b->fids->children = nil;
+  b->fids->cnext = nil;
+  b->fids->fid = ROOTFID;
+  memset(b->fids->name, 0, NAMEMAX);
+  b->fids->attr = rootattr;
+
   b->refs = 1;
 
   lockinit(&b->lock);
@@ -131,16 +146,30 @@ bindingnew(struct chan *out, struct chan *in)
   b->in = in;
   b->out = out;
 
-  if (in != nil)
+  if (in != nil) {
     atomicinc(&in->refs);
-
-  if (out != nil)
+  }
+  
+  if (out != nil) {
     atomicinc(&out->refs);
+  }
 
   b->waiting = nil;
   b->nreqid = 0;
 	
   return b;
+}
+
+static void
+bindingfidfree(struct bindingfid *f)
+{
+  if (f == nil) {
+    return;
+  }
+
+  bindingfidfree(f->children);
+  bindingfidfree(f->cnext);
+  free(f);
 }
 
 void
@@ -150,12 +179,13 @@ bindingfree(struct binding *b)
     return;
   }
 
+  bindingfidfree(b->fids);
   free(b);
 }
 
 int
 ngroupaddbinding(struct ngroup *n, struct binding *b,
-		 struct path *p, uint32_t rootfid)
+		 struct path *p, struct bindingfid *rootfid)
 {
   struct bindingl *bl;
   
@@ -212,9 +242,9 @@ ngroupremovebinding(struct ngroup *n, struct binding *b)
  * return the best binding.
  */
  
-struct binding *
-ngroupfindbinding(struct ngroup *ngroup, struct path *path,
-		  int depth, uint32_t *rfid)
+struct bindingl *
+ngroupfindbindingl(struct ngroup *ngroup, struct path *path,
+		  int depth)
 {
   struct bindingl *bl, *best;
   struct path *pp, *bp;
@@ -247,6 +277,5 @@ ngroupfindbinding(struct ngroup *ngroup, struct path *path,
 	
   unlock(&ngroup->lock);
 
-  *rfid = best->rootfid;
-  return best->binding;
+  return best;
 }

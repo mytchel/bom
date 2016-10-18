@@ -52,6 +52,7 @@ schedulerinit(void)
  int i;
   
   for (i = 0; i < 17; i++) {
+    /* Remember to change */
     queues[i].quanta = mstoticks((18 - i) * 5 + 5);
     queues[i].ready = nil;
     queues[i].used = nil;

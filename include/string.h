@@ -38,6 +38,9 @@ size_t
 strlen(const char *s);
 
 size_t
+strlcpy(char *dst, const char *src, size_t max);
+
+size_t
 vsnprintf(char *str, size_t max, const char *fmt, va_list ap);
 
 size_t

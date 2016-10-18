@@ -30,16 +30,13 @@
 #include <fs.h>
 #include <fssrv.h>
 
-bool debugfs = false;
-
 int
 fsmountloop(int in, int out, struct fsmount *mount)
 {
-  uint8_t buf[FS_LBUF_MAX];
+  uint8_t buf[FSBUFMAX];
   size_t reqsize, respsize;
-  struct request req;
   struct response resp;
-  int pid = getpid();
+  struct request req;
 
   reqsize = sizeof(req.rid)
     + sizeof(req.type)
@@ -52,13 +49,7 @@ fsmountloop(int in, int out, struct fsmount *mount)
   
   req.buf = buf;
 
-  if (debugfs)
-    printf("fs %i start mount loop.\n", pid);
-
   while (true) {
-    if (debugfs)
-      printf("fs %i wait for request.\n", pid);
-
     if (read(in, &req, reqsize) != reqsize)
       goto err;
 
@@ -66,21 +57,18 @@ fsmountloop(int in, int out, struct fsmount *mount)
     resp.lbuf = 0;
     resp.ret = ENOIMPL;
 
-    if (debugfs)
-      printf("fs %i got request rid = %i, lbuf = %i, type = %i\n",
-	     pid, req.rid, req.lbuf, req.type);
-
     if (req.lbuf > 0 && read(in, req.buf, req.lbuf) != req.lbuf) {
       goto err;
     }
-
-    if (debugfs)
-      printf("fs %i process request %i\n", pid, req.rid);
 
     switch (req.type) {
     case REQ_fid:
       if (mount->fid)
 	mount->fid(&req, &resp);
+      break;
+    case REQ_clunk:
+      if (mount->clunk)
+	mount->clunk(&req, &resp);
       break;
     case REQ_stat:
       if (mount->stat)
@@ -110,14 +98,7 @@ fsmountloop(int in, int out, struct fsmount *mount)
       if (mount->write)
 	mount->write(&req, &resp);
       break;
-    case REQ_flush:
-      if (mount->flush)
-	mount->flush(&req, &resp);
-      break;
     }
-
-    if (debugfs)
-      printf("fs %i hand over response for %i\n", pid, req.rid);
 
     if (write(out, &resp, respsize) != respsize)
       goto err;
@@ -135,11 +116,9 @@ fsmountloop(int in, int out, struct fsmount *mount)
 
  err:
 
-  if (debugfs)
-    printf("fs %i errored.\n", pid);
-
-  if (resp.lbuf > 0)
+  if (resp.lbuf > 0) {
     free(resp.buf);
+  }
 
   return -1;
 }

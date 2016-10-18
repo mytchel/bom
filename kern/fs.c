@@ -41,7 +41,7 @@ kmountloop(struct chan *in, struct binding *b, struct fsmount *mount)
     + sizeof(req.fid)
     + sizeof(req.lbuf);
 
-  req.buf = malloc(FS_LBUF_MAX);
+  req.buf = malloc(FSBUFMAX);
   if (req.buf == nil) {
     panic("Kernel mount buf malloc failed!\n");
   }
@@ -97,10 +97,6 @@ kmountloop(struct chan *in, struct binding *b, struct fsmount *mount)
     case REQ_write:
       if (mount->write)
 	mount->write(&req, resp);
-      break;
-    case REQ_flush:
-      if (mount->flush)
-	mount->flush(&req, resp);
       break;
     }
     

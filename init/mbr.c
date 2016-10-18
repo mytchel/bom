@@ -58,7 +58,7 @@ struct partition {
   bool active;
   
   uint8_t lname;
-  uint8_t name[FS_NAME_MAX];
+  char name[NAMEMAX];
   
   uint32_t fid;
   struct stat stat;
@@ -86,10 +86,7 @@ struct partition parts[4], raw;
 static void
 initpart(struct partition *p, char *name)
 {
-  snprintf((char *) p->name, FS_NAME_MAX, name);
-
-  p->lname = strlen((char *) p->name);
-
+  p->lname = strlcpy(p->name, name, NAMEMAX);
   p->fid = ++nfid;
   p->stat.attr = ATTR_wr|ATTR_rd;
 }
@@ -97,7 +94,7 @@ initpart(struct partition *p, char *name)
 static void
 initparts(void)
 {
-  char name[FS_NAME_MAX] = "a";
+  char name[NAMEMAX] = "a";
   int i;
 
   for (i = 0; i < 4; i++) {
@@ -128,7 +125,7 @@ updatembr(void)
     exit(ERR);
   }
 
-  rootbuflen = sizeof(uint8_t) * (1 + raw.lname);
+  rootbuflen = 1 + raw.lname;
   rootstat.size = 1;
 
   for (i = 0; i < 4; i++) {
@@ -136,8 +133,7 @@ updatembr(void)
       parts[i].active = true;
 
       rootstat.size++;
-      rootbuflen += sizeof(uint8_t)
-	* (1 + parts[i].lname);
+      rootbuflen += 1 + parts[i].lname;
 
       memmove(&parts[i].lba, &parts[i].mbr->lba,
 	      sizeof(uint32_t));
@@ -168,13 +164,13 @@ updatembr(void)
   memmove(buf, raw.name, sizeof(uint8_t) * raw.lname);
   buf += sizeof(uint8_t) * raw.lname;
 
-   for (i = 0; i < 4; i++) {
+  for (i = 0; i < 4; i++) {
     if (parts[i].active == false) continue;
 
     memmove(buf, &parts[i].lname, sizeof(uint8_t));
     buf += sizeof(uint8_t);
-    memmove(buf, parts[i].name, sizeof(uint8_t) * parts[i].lname);
-    buf += sizeof(uint8_t) * parts[i].lname;
+    memmove(buf, parts[i].name, parts[i].lname);
+    buf += parts[i].lname;
   }
 }
 
@@ -204,18 +200,15 @@ static void
 bfid(struct request *req, struct response *resp)
 {
   struct partition *part = nil;
+  struct response_fid *respfid;
   int i;
 
-  if (raw.lname == req->lbuf) {
-    if (strncmp((char *) raw.name, (char *) req->buf, raw.lname)) {
-      part = &raw;
-    }
+  if (strncmp(raw.name, (char *) req->buf, NAMEMAX)) {
+    part = &raw;
   } else {
     for (i = 0; i < 4; i++) {
       if (parts[i].active) {
-	if (parts[i].lname != req->lbuf) continue;
-	if (strncmp((char *) parts[i].name, (char *) req->buf,
-		    parts[i].lname)) {
+	if (strncmp(parts[i].name, (char *) req->buf, NAMEMAX)) {
 	  part = &parts[i];
 	  break;
 	}
@@ -228,14 +221,25 @@ bfid(struct request *req, struct response *resp)
     return;
   }
 
-  resp->buf = malloc(sizeof(uint32_t));
-  if (resp->buf == nil) {
+  respfid = malloc(sizeof(struct response_fid));
+  if (respfid == nil) {
     resp->ret = ENOMEM;
     return;
   }
 
-  resp->lbuf = sizeof(uint32_t);
-  memmove(resp->buf, &part->fid, sizeof(uint32_t));
+  respfid->fid = part->fid;
+  respfid->attr = part->stat.attr;
+  
+  resp->buf = (uint8_t *) respfid;
+  resp->lbuf = sizeof(struct response_fid);
+  resp->ret = OK;
+}
+
+static void
+bclunk(struct request *req, struct response *resp)
+{
+  printf("mbr %s clunk %i\n", device->name, req->fid);
+  
   resp->ret = OK;
 }
 
@@ -257,9 +261,14 @@ bstat(struct request *req, struct response *resp)
   if (s == nil) {
     resp->ret = ENOFILE;
   } else {
-    resp->buf = (uint8_t *) s;
-    resp->lbuf = sizeof(struct stat);
-    resp->ret = OK;
+    resp->buf = malloc(sizeof(struct stat));
+    if (resp->buf == nil) {
+      resp->ret = ENOMEM;
+    } else {
+      memmove(resp->buf, s, sizeof(struct stat));
+      resp->lbuf = sizeof(struct stat);
+      resp->ret = OK;
+    }
   }
 }
 
@@ -286,7 +295,7 @@ breadroot(struct request *req, struct response *resp,
   } else {
     rlen = len;
   }
-  
+
   resp->buf = malloc(rlen);
   if (resp->buf == nil) {
     resp->ret = ENOMEM;
@@ -332,20 +341,15 @@ breadblocks(struct request *req, struct response *resp,
 static void
 bread(struct request *req, struct response *resp)
 {
+  struct request_read *rr;
   struct partition *part;
-  uint32_t offset, len;
-  uint8_t *buf;
 
-  buf = req->buf;
-  memmove(&offset, buf, sizeof(uint32_t));
-  buf += sizeof(uint32_t);
-  memmove(&len, buf, sizeof(uint32_t));
-  buf += sizeof(uint32_t);
-  
+  rr = (struct request_read *) req->buf;
+
   if (req->fid == ROOTFID) {
-    breadroot(req, resp, offset, len);
+    breadroot(req, resp, rr->offset, rr->len);
     return;
-  } else if (len % 512 != 0 || offset % 512 != 0) {
+  } else if (rr->len % 512 != 0 || rr->offset % 512 != 0) {
     resp->ret = ENOIMPL;
     return;
   } else {
@@ -353,7 +357,8 @@ bread(struct request *req, struct response *resp)
     if (part == nil) {
       resp->ret = ENOFILE;
     } else {
-      breadblocks(req, resp, part, offset / 512, len / 512);
+      breadblocks(req, resp, part,
+		  rr->offset / 512, rr->len / 512);
     }
   }
 }
@@ -365,15 +370,13 @@ bwrite(struct request *req, struct response *resp)
 }
 
 static struct fsmount mount = {
-  &bfid,
-  &bstat,
-  &bopen,
-  &bclose,
-  nil,
-  nil,
-  &bread,
-  &bwrite,
-  nil,
+  .fid = &bfid,
+  .clunk = &bclunk,
+  .stat = &bstat,
+  .open = &bopen,
+  .close = &bclose,
+  .read = &bread,
+  .write = &bwrite,
 };
 
 int

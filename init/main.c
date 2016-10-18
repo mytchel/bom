@@ -33,9 +33,6 @@ int
 commount(char *path);
 
 int
-tmpmount(char *path);
-
-int
 initblockdevs(void);
 
 int
@@ -66,12 +63,7 @@ main(void)
   if (stdin < 0) return -2;
   if (stdout < 0) return -3;
   if (stderr < 0) return -3;
-
-  f = tmpmount("/tmp");
-  if (f < 0) {
-    return -1;
-  }
-  
+ 
   f = initblockdevs();
   if (f < 0) {
     return -1;

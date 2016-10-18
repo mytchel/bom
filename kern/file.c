@@ -28,10 +28,8 @@
 #include "head.h"
 
 struct cfile {
-  struct binding *binding;
-  uint32_t fid;
+  struct bindingfid *fid;
   uint32_t offset;
-  struct stat stat;
 };
 
 static struct response *
@@ -42,9 +40,9 @@ makereq(struct binding *b, struct request *req)
     + sizeof(req->fid)
     + sizeof(req->lbuf);
 
-  lock(&b->lock);
+  req->rid = atomicinc(&b->nreqid);
 
-  req->rid = b->nreqid++;
+  lock(&b->lock);
 
   if (b->out == nil ||
       pipewrite(b->out, (void *) req, s) != s || 
@@ -68,8 +66,60 @@ makereq(struct binding *b, struct request *req)
   return (struct response *) up->aux;
 }
 
+static void
+bindingfidfree(struct bindingfid *fid)
+{
+  struct bindingfid *o;
+  struct request req;
+  struct response *resp;
+
+  if (atomicdec(&fid->refs) > 0) {
+    return;
+  } else if (fid->children != nil) {
+    return;
+  }
+
+  printf("can actually free it\nremove self from parent list\n");
+
+  lock(&fid->binding->lock);
+  
+  if (fid->parent->children == fid) {
+    fid->parent->children = fid->cnext;
+  } else {
+    for (o = fid->parent->children; o->cnext != fid; o = o->cnext)
+      ;
+    
+    o->cnext = fid->cnext;
+  }
+
+  unlock(&fid->binding->lock);
+
+  req.type = REQ_clunk;
+  req.fid = fid->fid;
+  req.lbuf = 0;
+
+  printf("send clunk %i\n", fid->fid);
+  
+  resp = makereq(fid->binding, &req);
+  if (resp != nil) {
+    printf("got a response\n");
+    if (resp->lbuf > 0) {
+      free(resp->buf);
+    }
+    free(resp);
+  }
+  
+  printf("possibly free parent\n");
+  bindingfidfree(fid->parent);
+
+  bindingfree(fid->binding);
+  
+  printf("free mem\n");
+  free(fid);
+}
+
 static int
-filestatfid(struct binding *b, uint32_t fid, struct stat *stat)
+filestatfid(struct bindingfid *fid, struct stat *stat)
 {
   struct response *resp;
   struct request req;
@@ -77,9 +127,9 @@ filestatfid(struct binding *b, uint32_t fid, struct stat *stat)
 
   req.type = REQ_stat;
   req.lbuf = 0;
-  req.fid = fid;
+  req.fid = fid->fid;
 
-  resp = makereq(b, &req);
+  resp = makereq(fid->binding, &req);
   if (resp == nil) {
     return ELINK;
   }
@@ -101,165 +151,210 @@ filestatfid(struct binding *b, uint32_t fid, struct stat *stat)
   return ret;
 }
 
-static uint32_t
-findfileindir(struct binding *b, uint32_t fid, struct stat *stat,
-	      char *name, int *err)
+static struct bindingfid *
+findfileindir(struct bindingfid *fid, char *name, int *err)
 {
+  struct response_fid *fidresp;
+  struct bindingfid *nfid;
   struct response *resp;
   struct request req;
-  uint32_t f;
+
+  for (nfid = fid->children; nfid != nil; nfid = nfid->cnext) {
+    if (strncmp(nfid->name, name, NAMEMAX)) {
+      *err = OK;
+      return nfid;
+    }
+  }
 
   req.type = REQ_fid;
-  req.fid = fid;
+  req.fid = fid->fid;
   req.lbuf = strlen(name);
   req.buf = (uint8_t *) name;
 
-  resp = makereq(b, &req);
+  resp = makereq(fid->binding, &req);
   if (resp == nil) {
     *err = ELINK;
     return 0;
   } else if (resp->ret != OK) {
     *err = resp->ret;
     goto err;
-  } else if (resp->lbuf != sizeof(uint32_t)) {
+  } else if (resp->lbuf != sizeof(struct response_fid)) {
     *err = ELINK;
     goto err;
  }
 
-  f = *resp->buf;
+  fidresp = (struct response_fid *) resp->buf;
+
+  nfid = malloc(sizeof(struct bindingfid));
+  if (nfid == nil) {
+    *err = ENOMEM;
+    goto err;
+  }
+
+  atomicinc(&fid->refs);
+  atomicinc(&fid->binding->refs);
+
+  nfid->refs = 1;
+  nfid->binding = fid->binding;
+  nfid->children = nil;
+
+  nfid->fid = fidresp->fid;
+  nfid->attr = fidresp->attr;
+  memmove(nfid->name, name, NAMEMAX);
+
+  lock(&fid->binding->lock);
+  
+  nfid->parent = fid;
+  nfid->cnext = fid->children;
+  fid->children = fid;
+
+  unlock(&fid->binding->lock);
 
   free(resp->buf);
   free(resp);
 
-  return f;
+  return nfid;
 
  err:
-  if (resp->lbuf > 0)
+  if (resp->lbuf > 0) {
       free(resp->buf);
+  }
+  
   free(resp);
-  return 0;
+  return nil;
 }
 
-static struct binding *
-findfile(struct path *path,
-	 uint32_t *fid, struct stat *stat,
-	 int *err)
+struct bindingfid *
+findfile(struct path *path, int *err)
 {
-  struct binding *b, *bp;
+  struct bindingl *b, *bp;
+  struct bindingfid *nfid, *fid;
   struct path *p;
-  uint32_t f, fr;
   size_t depth;
 
-  bp = nil;
-  b = ngroupfindbinding(up->ngroup, path, 0, &f);
+  depth = 0;
+
+  bp = b = ngroupfindbindingl(up->ngroup, path, depth++);
   if (b == nil) {
     *err = ENOFILE;
     return nil;
+  } else {
+    *err = OK;
   }
 
-  *err = filestatfid(b, ROOTFID, stat);
-  if (*err != OK) {
-    return nil;
-  }
+  fid = b->rootfid;
 
   p = path;
-  depth = 0;
-  f = ROOTFID;
-  *fid = ROOTFID;
-  
   while (p != nil) {
-    if (!(stat->attr & ATTR_dir)) {
+    if (!(fid->attr & ATTR_dir)) {
       *err = ENOFILE;
       return nil;
     }
-    
-    f = findfileindir(b, f, stat, p->s, err);
+
+    nfid = findfileindir(fid, p->s, err);
     if (*err == ENOCHILD && p->next == nil) {
-      return b;
+      return fid;
     } else if (*err != OK) {
       return nil;
     }
 
-    bp = b;
-    b = ngroupfindbinding(up->ngroup, path, ++depth, &fr);
+    /* Free parent binding, should not clunk it as we have a 
+     * reference to its child. */
+    bindingfidfree(fid);
+
+    b = ngroupfindbindingl(up->ngroup, path, depth++);
     if (b == nil) {
       *err = ENOFILE;
       return nil;
     } else if (b != bp) {
       /* If we havent encountered this binding yet then it is the
        * root of the binding. */
-      f = fr;
+      bp = b;
+      fid = b->rootfid;
+    } else {
+      /* Use the fid from parent */
+      fid = nfid;
     }
 
     p = p->next;
-    *fid = f;
   }
 
-  return b;
+  return fid;
 }
 
-static uint32_t
-filecreate(struct binding *b, uint32_t pfid, char *name, 
+static struct bindingfid *
+filecreate(struct bindingfid *parent, char *name, 
 	   uint32_t cattr, int *err)
 {
+  struct bindingfid *nfid;
+  struct request_create rc;
   struct response *resp;
   struct request req;
-  uint8_t *buf;
-  uint32_t cfid;
-  int nlen;
-	
-  req.type = REQ_create;
-  req.fid = pfid;
-	
-  nlen = strlen(name);
-	
-  req.lbuf = sizeof(uint32_t) * 2 + nlen;
-  buf = req.buf = malloc(req.lbuf);
-	
-  memmove(buf, &cattr, sizeof(uint32_t));
-  buf += sizeof(uint32_t);
-  memmove(buf, &nlen, sizeof(uint8_t));
-  buf += sizeof(uint8_t);
-  memmove(buf, name, nlen);
 
-  resp = makereq(b, &req);
+  req.type = REQ_create;
+  req.fid = parent->fid;
+	
+  rc.attr = cattr;
+  strlcpy(rc.name, name, NAMEMAX);
+  
+  req.lbuf = sizeof(struct request_create);
+  req.buf = (uint8_t *) &rc;
+	
+  resp = makereq(parent->binding, &req);
   if (resp == nil) {
     *err = ELINK;
     return nil;
-  } else if (resp->ret != OK) {
+  } else if (resp->ret < 0) {
     *err = resp->ret;
-  } else if (resp->lbuf != sizeof(uint32_t)) {
-    *err = ELINK;
-  } else {
-    *err = OK;
-    memmove(&cfid, resp->buf, sizeof(uint32_t));
+  } 
+
+  nfid = malloc(sizeof(struct bindingfid));
+  if (nfid == nil) {
+    *err = ENOMEM;
+    return nil;
   }
 
-  if (resp->lbuf > 0)
-    free(resp->buf);
+  atomicinc(&parent->binding->refs);
+  atomicinc(&parent->refs);
+
+  nfid->refs = 1;
+  nfid->binding = parent->binding;
+  nfid->children = nil;
+
+  nfid->parent = parent;
+  nfid->attr = cattr;
+  nfid->fid = resp->ret;
+  memmove(nfid->name, name, NAMEMAX);
+
+  lock(&parent->binding->lock);
+
+  nfid->cnext = parent->children;
+  parent->children = nfid;
+
+  unlock(&parent->binding->lock);
+
   free(resp);
-	
-  return cfid;
+
+  *err = OK;
+  return nfid;
 }
 
 int 
 filestat(struct path *path, struct stat *stat)
 {
-  struct stat pstat;
-  struct binding *b;
-  uint32_t fid;
+  struct bindingfid *fid;
   int err;
-  
-  b = findfile(path, &fid, &pstat, &err);
+
+  fid = findfile(path, &err);
   if (err != OK) {
     return err;
   }
 
-  return filestatfid(b, fid, stat);
+  return filestatfid(fid, stat);
 }
 
 static bool
-checkmode(struct stat *stat, uint32_t mode)
+checkmode(uint32_t attr, uint32_t mode)
 {
   return true;
 }
@@ -267,21 +362,19 @@ checkmode(struct stat *stat, uint32_t mode)
 struct chan *
 fileopen(struct path *path, uint32_t mode, uint32_t cmode, int *err)
 {
-  uint32_t fid;
+  struct bindingfid *fid;
   struct response *resp;
   struct request req;
   struct cfile *cfile;
-  struct stat stat;
-  struct binding *b;
   struct chan *c;
   struct path *p;
 
-  b = findfile(path, &fid, &stat, err);
+  fid = findfile(path, err);
   if (*err != OK) {
-    if (*err != ENOCHILD || b == nil || cmode == 0) {
+    if (*err != ENOCHILD || fid == nil || cmode == 0) {
       *err = ERR;
       return nil;
-    } else if ((stat.attr & ATTR_wr) == 0) {
+    } else if ((fid->attr & ATTR_wr) == 0) {
       *err = EMODE;
       return nil;
     } else {
@@ -291,36 +384,33 @@ fileopen(struct path *path, uint32_t mode, uint32_t cmode, int *err)
 	return nil;
       }
 
-      fid = filecreate(b, fid, p->s, cmode, err);
+      fid = filecreate(fid, p->s, cmode, err);
       if (*err != OK) {
 	return nil;
       }
-
-      *err = filestatfid(b, fid, &stat);
-      if (*err != OK) {
-	return nil;
-      } 
     }
   }
 
-  if (!checkmode(&stat, mode)) {
+  if (!checkmode(fid->attr, mode)) {
     *err = EMODE;
     return nil;
   }
 
   req.type = REQ_open;
   req.lbuf = 0;
-  req.fid = fid;
-  resp = makereq(b, &req);
+  req.fid = fid->fid;
+  resp = makereq(fid->binding, &req);
   if (resp == nil) {
     *err = ELINK;
     return nil;
   }
-	
+
   *err = resp->ret;
 
-  if (resp->lbuf > 0)
-    free(resp->buf);	
+  if (resp->lbuf > 0) {
+    free(resp->buf);
+  }
+  
   free(resp);
 	
   if (*err != OK) {
@@ -339,13 +429,12 @@ fileopen(struct path *path, uint32_t mode, uint32_t cmode, int *err)
   }
 	
   c->aux = cfile;
-	
-  atomicinc(&b->refs);
+
+  atomicinc(&fid->refs);
+  atomicinc(&fid->binding->refs);
 	
   cfile->fid = fid;
-  cfile->binding = b;
   cfile->offset = 0;
-  memmove(&cfile->stat, &stat, sizeof(struct stat));
 
   return c;
 }
@@ -353,23 +442,34 @@ fileopen(struct path *path, uint32_t mode, uint32_t cmode, int *err)
 int
 fileremove(struct path *path)
 {
+  struct bindingfid *fid;
   struct response *resp;
   struct request req;
-  struct binding *b;
-  struct stat stat;
-  uint32_t fid;
+  uint32_t f;
   int err;
-	
-  b = findfile(path, &fid, &stat, &err);
+
+  printf("file remove\n");
+  
+  fid = findfile(path, &err);
   if (err != OK) {
     return ENOFILE;
   }
 
+  f = fid->fid;
+
+  if (fid->refs != 1) {
+    printf("file has other referenecs!\n");
+    return ERR;
+  }
+  
+  bindingfidfree(fid);
+
+  printf("now send remove %i\n", f);
+  
   req.type = REQ_remove;
   req.lbuf = 0;
-  req.fid = fid;
-  resp = makereq(b, &req);
-
+  req.fid = f;
+  resp = makereq(fid->binding, &req);
   if (resp == nil) {
     return ELINK;
   }
@@ -389,11 +489,11 @@ fileread(struct chan *c, uint8_t *buf, size_t n)
   struct request_read read;
   struct response *resp;
   struct cfile *cfile;
-  int err = 0;
-	
+  int ret;
+
   cfile = (struct cfile *) c->aux;
 
-  req.fid = cfile->fid;
+  req.fid = cfile->fid->fid;
   req.type = REQ_read;
   req.lbuf = sizeof(struct request_read);
   req.buf = (uint8_t *) &read;
@@ -401,44 +501,42 @@ fileread(struct chan *c, uint8_t *buf, size_t n)
   read.offset = cfile->offset;
   read.len = n;
 		
-  resp = makereq(cfile->binding, &req);
+  resp = makereq(cfile->fid->binding, &req);
   if (resp == nil) {
     return ELINK;
   } else if (resp->ret != OK) {
-    err = resp->ret;
+    ret = resp->ret;
   } else if (resp->lbuf > 0) {
-
     n = n > resp->lbuf ? resp->lbuf : n;
     memmove(buf, resp->buf, n);
 
     cfile->offset += n;
     
-    err = n;
+    ret = n;
 
     free(resp->buf);
   } else {
-    err = ELINK;
+    ret = ELINK;
   }
 
   free(resp);
-  return err;
+  return ret;
 }
 
 static int
 filewrite(struct chan *c, uint8_t *buf, size_t n)
 {
-  struct request req;
   struct response *resp;
+  struct request req;
   struct cfile *cfile;
   uint8_t *b;
-  uint32_t wrote;
-  int err;
+  int ret;
 
   cfile = (struct cfile *) c->aux;
 
   req.type = REQ_write;
-  req.fid = cfile->fid;
-  req.lbuf = sizeof(uint32_t) + n;
+  req.fid = cfile->fid->fid;
+  req.lbuf = sizeof(uint32_t) * 2 + n;
 
   req.buf = malloc(req.lbuf);
   if (req.buf == nil) {
@@ -448,30 +546,32 @@ filewrite(struct chan *c, uint8_t *buf, size_t n)
   b = req.buf;
   memmove(b, &cfile->offset, sizeof(uint32_t));
   b += sizeof(uint32_t);
+  memmove(b, &n, sizeof(uint32_t));
+  b += sizeof(uint32_t);
   /* Should change this to write strait into the pipe. */
   memmove(b, buf, n);
 
-  resp = makereq(cfile->binding, &req);
+  resp = makereq(cfile->fid->binding, &req);
 
   free(req.buf);
 	
   if (resp == nil) {
     return ELINK;
-  } if (resp->ret != OK) {
-    err = resp->ret;
-  } else if (resp->lbuf == sizeof(uint32_t)) {
-    memmove(&wrote, resp->buf, sizeof(uint32_t));
-    cfile->offset += wrote;
-    err = wrote;
-  } else {
-    err = ELINK;
   }
 
-  if (resp->lbuf > 0)
+  ret = resp->ret;
+  if (ret > 0) {
+    cfile->offset += ret;
+  } else {
+  }
+
+  if (resp->lbuf > 0) {
     free(resp->buf);
+  }
+
   free(resp);
 
-  return err;
+  return ret;
 }
 
 static int
@@ -487,13 +587,6 @@ fileseek(struct chan *c, size_t offset, int whence)
     break;
   case SEEK_CUR:
     cfile->offset += offset;
-    break;
-  case SEEK_END:
-    if (cfile->offset > cfile->stat.size) {
-      cfile->stat.size = cfile->offset;
-    }
-
-    cfile->offset = cfile->stat.size - offset;
     break;
   default:
     return ERR;
@@ -515,10 +608,10 @@ fileclose(struct chan *c)
   }
 
   req.type = REQ_close;
-  req.fid = cfile->fid;
+  req.fid = cfile->fid->fid;
   req.lbuf = 0;
 
-  resp = makereq(cfile->binding, &req);
+  resp = makereq(cfile->fid->binding, &req);
   if (resp != nil) {
     if (resp->lbuf > 0) {
       free(resp->buf);
@@ -527,7 +620,7 @@ fileclose(struct chan *c)
     free(resp);
   }
 
-  atomicdec(&cfile->binding->refs);
+  bindingfidfree(cfile->fid);
   free(cfile);
 }
 

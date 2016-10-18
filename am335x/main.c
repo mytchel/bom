@@ -122,7 +122,6 @@ initmainproc(void)
   struct proc *p;
   struct pagel *pl;
   struct page *pg;
-  struct path *path;
 		
   p = procnew(10);
   if (p == nil) {
@@ -154,8 +153,8 @@ initmainproc(void)
   p->fgroup = fgroupnew();
   p->ngroup = ngroupnew();
 
-  path = nil;
-  ngroupaddbinding(p->ngroup, rootfsbinding, path, ROOTFID);
+  ngroupaddbinding(p->ngroup, rootfsbinding,
+		   nil, rootfsbinding->fids);
 
   procready(p);
 }

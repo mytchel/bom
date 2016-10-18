@@ -29,7 +29,7 @@
 #define _FS_H_
 
 /* File names must be null terminated */
-#define FS_NAME_MAX     255
+#define NAMEMAX     255
 
 #define ATTR_rd		(1<<0)
 #define ATTR_wr		(1<<1)

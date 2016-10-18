@@ -88,7 +88,7 @@ struct chantype {
 };
 
 struct path {
-  char s[FS_NAME_MAX];
+  char s[NAMEMAX];
   struct path *prev, *next;
 };
 
@@ -97,6 +97,18 @@ struct fgroup {
   struct lock lock;
   struct chan **chans;
   size_t nchans;
+};
+
+struct bindingfid {
+  int refs;
+  
+  uint32_t fid, attr;
+  char name[NAMEMAX];
+
+  struct binding *binding;
+  struct bindingfid *parent;
+  struct bindingfid *children;
+  struct bindingfid *cnext;
 };
 
 struct binding {
@@ -108,13 +120,15 @@ struct binding {
   int nreqid;
   struct proc *waiting; /* List of procs waiting. */
   struct proc *srv; /* Kernel proc that handles responses */
+
+  struct bindingfid *fids;
 };
 
 struct bindingl {
   struct binding *binding;
 
   struct path *path;
-  uint32_t rootfid;
+  struct bindingfid *rootfid;
 
   struct bindingl *next;
 };
@@ -166,7 +180,6 @@ struct proc {
   uint32_t sleep; /* in ticks */
   void *aux;
 };
-
 
 /****** Initialisation ******/
 
@@ -331,18 +344,18 @@ struct ngroup *
 ngroupcopy(struct ngroup *);
 
 struct binding *
-bindingnew(struct chan *out, struct chan *in);
+bindingnew(struct chan *out, struct chan *in, uint32_t rootattr);
 
 void
 bindingfree(struct binding *);
 
-struct binding *
-ngroupfindbinding(struct ngroup *n, struct path *path,
-		  int depth, uint32_t *rootfid);
+struct bindingl *
+ngroupfindbindingl(struct ngroup *n, struct path *path,
+		  int depth);
 
 int
 ngroupaddbinding(struct ngroup *n, struct binding *b,
-	   struct path *p, uint32_t rootfid);
+	   struct path *p, struct bindingfid *rootfid);
 
 void
 ngrouprmbinding(struct ngroup *n, struct binding *b);
@@ -353,19 +366,24 @@ int
 mountproc(void *);
 
 bool
-pipenew(struct chan **, struct chan **);
+pipenew(struct chan **in, struct chan **out);
 
 int
-piperead(struct chan *, uint8_t *, size_t);
+piperead(struct chan *c, uint8_t *buf, size_t len);
 
 int
-pipewrite(struct chan *, uint8_t *, size_t);
+pipewrite(struct chan *c, uint8_t *buf, size_t len);
 
 int
-filestat(struct path *, struct stat *stat);
+filestat(struct path *path, struct stat *stat);
 
 struct chan *
-fileopen(struct path *, uint32_t, uint32_t, int *);
+fileopen(struct path *path,
+	 uint32_t mode, uint32_t cattr,
+	 int *err);
+
+struct bindingfid *
+findfile(struct path *path, int *err);
 
 int
 fileremove(struct path *);

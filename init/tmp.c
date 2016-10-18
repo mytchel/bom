@@ -35,7 +35,7 @@ struct file {
   uint32_t fid;
 
   uint8_t lname;
-  char name[FS_NAME_MAX];
+  char name[NAMEMAX];
 
   uint8_t *buf;
   size_t lbuf;
@@ -74,6 +74,7 @@ static void
 bfid(struct request *req, struct response *resp)
 {
   struct file *f, *c;
+  struct response_fid *fidresp;
 
   f = findfile(root, req->fid);
   if (f == nil) {
@@ -93,17 +94,25 @@ bfid(struct request *req, struct response *resp)
     return;
   }
 
-  resp->buf = malloc(sizeof(uint32_t));
-  if (resp->buf == nil) {
+  fidresp = malloc(sizeof(struct response_fid));
+  if (fidresp == nil) {
     resp->ret = ENOMEM;
     return;
   }
+
+  fidresp->fid = c->fid;
+  fidresp->attr = c->stat.attr;
   
-  resp->lbuf = sizeof(uint32_t);
-  memmove(resp->buf, &c->fid, sizeof(uint32_t));
+  resp->buf = (uint8_t *) fidresp;
+  resp->lbuf = sizeof(struct response_fid);
   resp->ret = OK;
 }
 
+static void
+bclunk(struct request *req, struct response *resp)
+{
+  resp->ret = OK;
+}
 
 static void
 bstat(struct request *req, struct response *resp)
@@ -237,15 +246,10 @@ removechild(struct file *p, struct file *f)
 static void
 bcreate(struct request *req, struct response *resp)
 {
-  uint32_t attr;
+  struct request_create *cr;
   struct file *p, *new;
-  uint8_t *buf, lname;
 
-  buf = req->buf;
-  memmove(&attr, buf, sizeof(uint32_t));
-  buf += sizeof(uint32_t);
-  memmove(&lname, buf, sizeof(uint8_t));
-  buf += sizeof(uint8_t);
+  cr = (struct request_create *) req->buf;
 
   p = findfile(root, req->fid);
   
@@ -262,30 +266,19 @@ bcreate(struct request *req, struct response *resp)
 
   new->buf = 0;
   new->lbuf = 0;
-  new->stat.attr = attr;
+  new->stat.attr = cr->attr;
   new->stat.size = 0;
   new->fid = nfid++;
   new->open = 0;
   new->children = nil;
 
-  new->lname = lname;
-  memmove(new->name, buf, lname);
-  new->name[lname] = 0;
-
-  resp->buf = malloc(sizeof(uint32_t));
-  if (resp->buf == nil) {
-    resp->ret = ENOMEM;
-    free(new);
-    return;
-  }
+  new->lname = strlcpy(new->name, cr->name, NAMEMAX);
 
   resp->ret = addchild(p, new);
   if (resp->ret != OK) {
-    free(resp->buf);
     free(new);
   } else {
-    resp->lbuf = sizeof(uint32_t);
-    memmove(resp->buf, &new->fid, sizeof(uint32_t));
+    resp->ret = new->fid;
   }
 }
 
@@ -312,34 +305,38 @@ bremove(struct request *req, struct response *resp)
 static void
 breaddir(struct request *req, struct response *resp,
 	 struct file *file,
-	 uint32_t offset, uint32_t len)
+	 struct request_read *rr)
 {
-  if (offset + len > file->lbuf) {
-    len = file->lbuf - offset;
+  uint32_t rlen;
+  
+  if (rr->offset + rr->len > file->lbuf) {
+    rlen = file->lbuf - rr->offset;
+  } else {
+    rlen = rr->len;
   }
   
-  resp->buf = malloc(len);
+  resp->buf = malloc(rlen);
   if (resp->buf == nil) {
     resp->ret = ENOMEM;
     return;
   }
 
-  memmove(resp->buf, file->buf + offset, len);
-  resp->lbuf = len;
+  memmove(resp->buf, file->buf + rr->offset, rlen);
+  resp->lbuf = rlen;
   resp->ret = OK;
 }
 
 static void
 breadfile(struct request *req, struct response *resp,
 	 struct file *file,
-	 uint32_t offset, uint32_t len)
+	 struct request_read *rr)
 {
   uint32_t rlen;
 
-  if (offset + len >= file->lbuf) {
-    rlen = file->lbuf - offset;
+  if (rr->offset + rr->len >= file->lbuf) {
+    rlen = file->lbuf - rr->offset;
   } else {
-    rlen = len;
+    rlen = rr->len;
   }
 
   resp->buf = malloc(rlen);
@@ -348,7 +345,7 @@ breadfile(struct request *req, struct response *resp,
     return;
   }
 
-  memmove(resp->buf, file->buf + offset, rlen);
+  memmove(resp->buf, file->buf + rr->offset, rlen);
   
   resp->lbuf = rlen;
   resp->ret = OK;
@@ -357,49 +354,44 @@ breadfile(struct request *req, struct response *resp,
 static void
 bread(struct request *req, struct response *resp)
 {
+  struct request_read *rr;
   struct file *f;
-  uint32_t offset, len;
-  uint8_t *buf;
 
-  buf = req->buf;
-  memmove(&offset, buf, sizeof(uint32_t));
-  buf += sizeof(uint32_t);
-  memmove(&len, buf, sizeof(uint32_t));
-  buf += sizeof(uint32_t);
-
+  rr = (struct request_read *) req->buf;
+  
   f = findfile(root, req->fid);
   if (f == nil) {
     resp->ret = ENOFILE;
-  } else if (offset >= f->lbuf) {
+  } else if (rr->offset >= f->lbuf) {
     resp->ret = EOF;
   } else if (f->stat.attr & ATTR_dir) {
-    breaddir(req, resp, f, offset, len);
+    breaddir(req, resp, f, rr);
   } else {
-    breadfile(req, resp, f, offset, len);
+    breadfile(req, resp, f, rr);
   }
 }
 
 static void
 bwrite(struct request *req, struct response *resp)
 {
+  struct request_write *wr;
   struct file *f;
-  uint32_t offset, len;
-  uint8_t *buf, *nbuf;
+  uint8_t *nbuf;
   size_t nsize;
 
-  buf = req->buf;
-  memmove(&offset, buf, sizeof(uint32_t));
-  buf += sizeof(uint32_t);
+  wr = (struct request_write *) req->buf;
 
-  len = req->lbuf - sizeof(uint32_t);
+  printf("tmpfs bwrite from %i len %i\n", wr->offset,
+	 wr->len);
 
   f = findfile(root, req->fid);
   if (f == nil) {
     resp->ret = ENOFILE;
+    return;
   }
 
-  if (offset + len > f->stat.size) {
-    nsize = offset + len;
+  if (wr->offset + wr->len > f->stat.size) {
+    nsize = wr->offset + wr->len;
     nbuf = getmem(MEM_ram, nil, &nsize);
     if (nbuf == nil) {
       resp->ret = ENOMEM;
@@ -415,36 +407,29 @@ bwrite(struct request *req, struct response *resp)
     f->buf = nbuf;
   }
 
-  if (offset + len > f->lbuf) {
-    f->lbuf = offset + len;
+  if (wr->offset + wr->len > f->lbuf) {
+    f->lbuf = wr->offset + wr->len;
   }
 
-  resp->buf = malloc(sizeof(uint32_t));
-  if (resp->buf == nil) {
-    resp->ret = ENOMEM;
-    return;
-  }
+  memmove(f->buf + wr->offset, wr->buf, wr->len);
 
-  memmove(f->buf + offset, buf, len);
-  memmove(resp->buf, &len, sizeof(uint32_t));
-  resp->ret = OK;
-  resp->lbuf = sizeof(uint32_t);
+  resp->ret = wr->len;
 }
  
 static struct fsmount mount = {
-  &bfid,
-  &bstat,
-  &bopen,
-  &bclose,
-  &bcreate,
-  &bremove,
-  &bread,
-  &bwrite,
-  nil,
+  .fid = &bfid,
+  .clunk = &bclunk,
+  .stat = &bstat,
+  .open = &bopen,
+  .close = &bclose,
+  .create = &bcreate,
+  .remove = &bremove,
+  .read = &bread,
+  .write = &bwrite,
 };
 
 int
-tmpmount(char *path)
+mounttmp(char *path)
 {
   int f, fd, p1[2], p2[2];
   

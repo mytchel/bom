@@ -27,10 +27,6 @@
 
 #include "head.h"
 
-/* Need to fix syscalls with path arguments so check if the
- * path is a valid address in the processes memory.
- */
-
 reg_t
 syschdir(va_list args)
 {
@@ -302,12 +298,13 @@ sysremove(va_list args)
 reg_t
 sysbind(va_list args)
 {
-  int infd, outfd;
   const char *upath, *kpath;
+  struct bindingfid *fid;
   struct chan *in, *out;
-  struct path *path;
   struct binding *b;
+  struct path *path;
   struct proc *p;
+  int infd, outfd;
   int ret;
 	
   outfd = va_arg(args, int);
@@ -335,7 +332,12 @@ sysbind(va_list args)
 
   path = realpath(up->dot, kpath);
 
-  b = bindingnew(out, in);
+  fid = findfile(path, &ret);
+  if (ret != OK) {
+    return ret;
+  }
+  
+  b = bindingnew(out, in, fid->attr);
   if (b == nil) {
     pathfree(path);
     return ENOMEM;
@@ -351,7 +353,7 @@ sysbind(va_list args)
   forkfunc(p, &mountproc, (void *) b);
   b->srv = p;
 
-  ret = ngroupaddbinding(up->ngroup, b, path, ROOTFID);
+  ret = ngroupaddbinding(up->ngroup, b, path, b->fids);
   if (ret != OK) {
     procexit(p, 0);
     bindingfree(b);

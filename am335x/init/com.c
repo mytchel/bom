@@ -95,7 +95,7 @@ puts(uint8_t *s, size_t len)
 {
   size_t i;
 
-  for (i = 0; i < len && s[i]; i++) {
+  for (i = 0; i < len; i++) {
     if (s[i] == '\n') {
       while ((uart->lsr & (1 << 5)) == 0)
 	;
@@ -104,6 +104,7 @@ puts(uint8_t *s, size_t len)
 
     while ((uart->lsr & (1 << 5)) == 0)
       ;
+
     uart->hr = s[i];
   }
 	
@@ -133,7 +134,7 @@ readloop(void)
   struct readreq *req;
   size_t respsize;
   uint32_t done;
-  uint8_t buf[FS_LBUF_MAX];
+  uint8_t buf[FSBUFMAX];
 
   respsize = sizeof(resp.rid)
     + sizeof(resp.ret)
@@ -143,7 +144,7 @@ readloop(void)
 
   while (true) {
     while ((req = readrequests) == nil)
-      sleep(0);
+      sleep(20);
 
     readrequests = req->next;
 
@@ -180,14 +181,10 @@ readloop(void)
 static void
 addreadreq(struct request *req)
 {
+  struct request_read *rr;
   struct readreq *read, *r;
-  uint32_t offset, len;
-  uint8_t *buf;
 
-  buf = req->buf;
-  memmove(&offset, buf, sizeof(uint32_t));
-  buf += sizeof(uint32_t);
-  memmove(&len, buf, sizeof(uint32_t));
+  rr = (struct request_read *) req->buf;
 
   read = malloc(sizeof(struct readreq));
   if (read == nil) {
@@ -196,7 +193,7 @@ addreadreq(struct request *req)
   }
 
   read->rid = req->rid;
-  read->len = len;
+  read->len = rr->len;
   read->next = nil;
 
   while (!testandset(&readreqlock))
@@ -237,29 +234,17 @@ comclose(struct request *req, struct response *resp)
 static void
 comwrite(struct request *req, struct response *resp)
 {
-  uint32_t offset, n;
-  uint8_t *buf;
+  struct request_write *rw;
+  
+  rw = (struct request_write *) req->buf;
 
-  buf = req->buf;
-  memmove(&offset, buf, sizeof(uint32_t));
-  buf += sizeof(uint32_t);
-
-  resp->buf = malloc(sizeof(uint32_t));
-  if (resp->buf == nil) {
-    resp->lbuf = 0;
-    resp->ret = ENOMEM;
-  } else {
-    resp->lbuf = sizeof(uint32_t);
-    n = puts(buf, req->lbuf - sizeof(uint32_t));
-    memmove(resp->buf, &n, sizeof(uint32_t));
-    resp->ret = OK;
-  }
+  resp->ret = puts(rw->buf, rw->len);
 }
 
 int
 comfsmountloop(void)
 {
-  uint8_t buf[FS_LBUF_MAX];
+  uint8_t buf[FSBUFMAX];
   size_t reqsize, respsize;
   struct response resp;
   struct request req;
@@ -312,15 +297,14 @@ comfsmountloop(void)
     while (!testandset(&fsoutlock))
       sleep(0);
     
-    if (write(fsout, &resp, respsize) != respsize)
+    if (write(fsout, &resp, respsize) != respsize) {
       goto err;
+    }
 		
     if (resp.lbuf > 0) {
       if (write(fsout, resp.buf, resp.lbuf) != resp.lbuf) {
 	goto err;
       }
-
-      free(resp.buf);
     }
 
     fsoutlock = 0;

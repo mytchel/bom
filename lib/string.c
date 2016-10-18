@@ -34,7 +34,9 @@ bool
 strncmp(const char *s1, const char *s2, size_t len)
 {
   while (len-- > 0) {
-    if (*s1++ != *s2++) {
+    if (*s1 == 0 && *s2 == 0) {
+      return true;
+    } else if (*s1++ != *s2++) {
       return false;
     }
   }
@@ -66,6 +68,19 @@ strlen(const char *s)
     len++;
 	
   return len;
+}
+
+size_t
+strlcpy(char *dest, const char *src, size_t max)
+{
+  size_t i;
+  
+  for (i = 1; i < max - 1 && *src != 0; i++) {
+    *dest++ = *src++;
+  }
+
+  *dest = 0;
+  return i;
 }
 
 static size_t

@@ -28,23 +28,29 @@
 #ifndef _FSSRV_H_
 #define _FSSRV_H_
 
-#define FS_LBUF_MAX     1024
+#include <fs.h>
+
+#define FSBUFMAX        1024
 
 #define ROOTFID		0 /* Of any binding. */
 
-extern bool debugfs;
-
 enum {
-  REQ_fid, REQ_stat,
+  REQ_fid, REQ_clunk, REQ_stat,
   REQ_open, REQ_close,
   REQ_create, REQ_remove,
   REQ_read, REQ_write,
-  REQ_flush,
 };
 
 /* 
  * request/response->buf should be written/read after request/response 
  * has been written/read for any request/response that has lbuf > 0.
+ */
+
+/*
+ * All names will be at most NAMEMAX-1 bytes long and will include a
+ * terminating null byte. They may be shorted than NAMEMAX and so
+ * requests and responses should take care to stop when they get to 
+ * a null byte.
  */
 
 struct request {
@@ -56,31 +62,6 @@ struct request {
   uint8_t *buf;
 };
 
-struct request_fid {
-  uint8_t *name;
-  /* Of length lbuf for request */
-};
-
-struct request_create {
-  uint32_t attr;
-  uint8_t lname;
-  /* Followed by lname bytes of data for name. */
-  uint8_t *name;
-};
-
-struct request_read {
-  uint32_t offset;
-  uint32_t len;
-};
-
-struct request_write {
-  uint32_t offset;
-  /* Followed by (lbuf - sizeof(uint32_t)) bytes of data to write. */
-  uint8_t *buf;
-};
-
-/* Requests for open, flush, and remove have no buffer. */
-
 struct response {
   uint32_t rid;
   int32_t ret;
@@ -89,33 +70,85 @@ struct response {
   uint8_t *buf;
 };
 
-/*
- * Response to write has ret as err or OK. If OK then
- * buf contains the number of bytes that were written.
- * 
- * Response to read has ret as err or OK. If OK then 
- * buf contains the bytes that were read.
- * If the file is a directory then the result should 
- * be in the format 
- *    uint8_t name length [0, FS_NAME_MAX-1]
- *    uint8_t *name... 
- * for each file in the directory. You will only get
- * one response for each read.
- *
- * Respose for stat should be a stat structure for the fid.
- * 
- * Response to create has ret as err or OK. If OK then
- * buf contains the fid of the new file.
- *
- * Response to remove, open, and flush have no buf and
- * ret is an error or OK.
- * 
- * Response to close will be ignored by the kernel. It should
- * have no buf.
- */
+
+struct request_fid {
+  char name[NAMEMAX];
+};
+
+struct response_fid {
+  uint32_t fid;
+  uint32_t attr;
+};
+
+
+struct request_clunk {
+  uint32_t fid;
+};
+
+struct response_clunk {};
+
+
+struct request_stat {};
+struct response_stat {
+  struct stat stat;
+};
+
+
+struct request_open {};
+struct response_open {};
+
+
+struct request_close {};
+struct response_close {};
+
+
+struct request_create {
+  uint32_t attr;
+  char name[NAMEMAX];
+};
+
+struct response_create {
+  /* ret is set to the created fid */
+};
+
+
+struct request_remove {};
+struct response_remove {};
+
+
+struct request_read {
+  uint32_t offset;
+  uint32_t len;
+};
+
+/* Sets ret to OK or an err */
+struct response_read {
+  uint8_t *data; /* Of lbuf length. */
+  /*
+   * If the file is a directory then the result should 
+   * be in the format 
+   *    uint8_t name length [1, NAMEMAX] including null byte.
+   *    uint8_t *name... 
+   * for each file in the directory. 
+   *
+   */
+};
+
+
+struct request_write {
+  uint32_t offset;
+  uint32_t len;
+  /* Followed by len bytes of data to write. */
+  uint8_t buf[1];
+};
+
+struct response_write {
+  /* ret is set to the number of bytes written. */
+};
 
 struct fsmount {
   void (*fid)(struct request *, struct response *);
+  void (*clunk)(struct request *, struct response *);
   void (*stat)(struct request *, struct response *);
   void (*open)(struct request *, struct response *);
   void (*close)(struct request *, struct response *);
@@ -123,7 +156,6 @@ struct fsmount {
   void (*remove)(struct request *, struct response *);
   void (*read)(struct request *, struct response *);
   void (*write)(struct request *, struct response *);
-  void (*flush)(struct request *, struct response *);
 };
 
 int

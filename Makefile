@@ -72,7 +72,6 @@ KSRC_P := \
         kern/mount.c         \
         kern/fs.c            \
         kern/rootfs.c        \
-        kern/procfs.c        \
         kern/path.c          \
         kern/heap.c          \
         kern/sysproc.c       \

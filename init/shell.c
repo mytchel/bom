@@ -39,6 +39,9 @@ struct func {
   int (*func)(int argc, char **argv);
 };
 
+int
+mounttmp(char *path);
+
 static int funcexit(int argc, char **argv);
 static int funcls(int argc, char **argv);
 static int funccd(int argc, char **argv);
@@ -46,6 +49,7 @@ static int funcpwd(int argc, char **argv);
 static int funcecho(int argc, char **argv);
 static int funcmkdir(int argc, char **argv);
 static int functouch(int argc, char **argv);
+static int funcmounttmp(int argc, char **argv);
 static int funcmountfat(int argc, char **argv);
 static int funcblocktest(int argc, char **argv);
 
@@ -60,12 +64,13 @@ struct func funcs[] = {
   { "echo",      &funcecho },
   { "mkdir",     &funcmkdir },
   { "touch",     &functouch },
+  { "mounttmp",  &funcmounttmp },
   { "mountfat",  &funcmountfat },
   { "blocktest", &funcblocktest },
 };
 
 static int ret = 0;
-static char pwd[FS_NAME_MAX * 10] = "/";
+static char pwd[NAMEMAX * 10] = "/";
 
 int
 funcblocktest(int argc, char **argv)
@@ -120,7 +125,7 @@ funcexit(int argc, char **argv)
 int
 funclsh(char *filename)
 {
-  uint8_t buf[FS_NAME_MAX], len;
+  uint8_t buf[NAMEMAX], len;
   struct stat s;
   int r, fd;
 
@@ -149,8 +154,6 @@ funclsh(char *filename)
     if (read(fd, buf, len) <= 0) {
       break;
     }
-
-    buf[len] = 0;
 
     if (stat((const char *) buf, &s) != OK) {
       printf("stat error %s\n", buf);
@@ -275,6 +278,17 @@ functouch(int argc, char **argv)
   }
 
   return OK;
+}
+
+int
+funcmounttmp(int argc, char **argv)
+{
+  if (argc != 2) {
+    printf("usage: %s dir\n", argv[0]);
+    return ERR;
+  }
+
+  return mounttmp(argv[1]);
 }
 
 int
