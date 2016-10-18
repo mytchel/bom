@@ -171,4 +171,7 @@ fatfilefind(struct fat *fat, struct fat_file *parent,
 	    char *name, int *err);
 
 struct fat_file *
-fatfilefindfid(struct fat *fat, uint32_t fid);
+fatfindfid(struct fat *fat, uint32_t fid);
+
+void
+fatclunkfid(struct fat *fat, uint32_t fid);

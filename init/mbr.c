@@ -74,7 +74,6 @@ static struct stat rootstat = {
 };
 
 static uint8_t *rootbuf = nil;
-static size_t rootbuflen;
 
 static uint32_t nfid = ROOTFID;
 
@@ -125,15 +124,13 @@ updatembr(void)
     exit(ERR);
   }
 
-  rootbuflen = 1 + raw.lname;
-  rootstat.size = 1;
+  rootstat.size = 1 + raw.lname;
 
   for (i = 0; i < 4; i++) {
     if (parts[i].mbr->type != 0) {
       parts[i].active = true;
 
-      rootstat.size++;
-      rootbuflen += 1 + parts[i].lname;
+      rootstat.size += 1 + parts[i].lname;
 
       memmove(&parts[i].lba, &parts[i].mbr->lba,
 	      sizeof(uint32_t));
@@ -151,7 +148,7 @@ updatembr(void)
     free(rootbuf);
   }
   
-  rootbuf = malloc(rootbuflen);
+  rootbuf = malloc(rootstat.size);
   if (rootbuf == nil) {
     printf("Failed to malloc mbr rootbuf!\n");
     exit(-1);
@@ -290,8 +287,8 @@ breadroot(struct request *req, struct response *resp,
 {
   uint32_t rlen;
 
-  if (offset + len > rootbuflen) {
-    rlen = rootbuflen - offset;
+  if (offset + len > rootstat.size) {
+    rlen = rootstat.size - offset;
   } else {
     rlen = len;
   }

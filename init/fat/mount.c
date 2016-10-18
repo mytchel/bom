@@ -50,7 +50,7 @@ bfid(struct request *req, struct response *resp)
   printf("fat mount find '%s' in %i and give fid %i\n",
 	 name, req->fid, nfid++);
 
-  parent = fatfilefindfid(fat, req->fid);
+  parent = fatfindfid(fat, req->fid);
   if (parent == nil) {
     resp->ret = ENOFILE;
     return;
@@ -80,12 +80,36 @@ static void
 bclunk(struct request *req, struct response *resp)
 {
   printf("fat mount should clunk %i\n", req->fid);
-  resp->ret = ENOIMPL;
+
+  fatclunkfid(fat, req->fid);
+  resp->ret = OK;
 }
 
 static void
 bstat(struct request *req, struct response *resp)
 {
+  struct fat_file *f;
+  struct stat *s;
+
+  printf("fat mount stat %i\n", req->fid);
+
+  f = fatfindfid(fat, req->fid);
+  if (f == nil) {
+    resp->ret = ENOFILE;
+    return;
+  }
+
+  s = malloc(sizeof(struct stat));
+  if (s == nil) {
+    resp->ret = ENOMEM;
+    return;
+  }
+
+  s->attr = f->attr;
+  s->size = f->size;
+
+  resp->buf = (uint8_t *) s;
+  resp->lbuf = sizeof(struct stat);
   resp->ret = ENOIMPL;
 }
 
@@ -105,13 +129,34 @@ static void
 bread(struct request *req, struct response *resp)
 {
   struct request_read *rr;
+  struct fat_file *f;
+  uint32_t rlen;
 
   rr = (struct request_read *) req->buf;
 
   printf("fat mount should read %i from %i len %i\n",
 	 req->fid, rr->offset, rr->len);
 
-  resp->ret = ENOIMPL;
+  f = fatfindfid(fat, req->fid);
+  if (f == nil) {
+    resp->ret = ENOFILE;
+    return;
+  }
+
+  if (rr->offset >= f->size) {
+    resp->ret = EOF;
+    return;
+  } else if (rr->offset + rr->len >= f->size) {
+    rlen = f->size - rr->offset;
+  } else {
+    rlen = rr->len;
+  }
+  
+  if (f->attr & ATTR_dir) {
+    printf("should read as a dir bytes %i\n", rlen);
+  } else {
+    printf("should read as a file bytes %i\n", rlen);
+  }
 }
 
 static void

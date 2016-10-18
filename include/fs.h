@@ -37,11 +37,6 @@
 
 struct stat {
   uint32_t attr;
-
-  /* If file is a directory then size is the number of 
-   * files it contains. Else it is the size of the file in memory/on 
-   * disk which may be different to the readable length.
-   */
   uint32_t size;
 };
 

@@ -213,7 +213,7 @@ addchild(struct file *p, struct file *c)
   p->buf = buf;
   p->lbuf = p->lbuf + sizeof(uint8_t) + c->lname;
   
-  p->stat.size++;
+  p->stat.size = p->lbuf;
 
   c->cnext = p->children;
   p->children = c;
@@ -259,7 +259,7 @@ removechild(struct file *p, struct file *f)
   p->buf = buf;
   p->lbuf = p->lbuf - 1 - f->lname;
   
-  p->stat.size--;
+  p->stat.size = p->lbuf;
 
   free(f);
   return OK;

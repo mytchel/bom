@@ -267,7 +267,7 @@ fatfilefind(struct fat *fat, struct fat_file *parent,
 }
 
 struct fat_file *
-fatfilefindfid(struct fat *fat, uint32_t fid)
+fatfindfid(struct fat *fat, uint32_t fid)
 {
   struct fat_file *file;
 
@@ -278,4 +278,37 @@ fatfilefindfid(struct fat *fat, uint32_t fid)
   }
 
   return nil;
+}
+
+void
+fatclunkfid(struct fat *fat, uint32_t fid)
+{
+  struct fat_file *f, *p;
+  struct fat_cluster *c, *cc;
+
+  p = nil;
+  for (f = fat->files; f != nil; p = f, f = f->next) {
+    if (f->fid == fid) {
+      if (p == nil) {
+	fat->files = f->next;
+      } else {
+	p->next = f->next;
+      }
+
+      break;
+    }
+  }
+
+  if (f == nil) {
+    return;
+  }
+
+  c = f->clusters;
+  while (c != nil) {
+    cc = c->next;
+    free(c);
+    c = cc;
+  }
+  
+  free(f);
 }

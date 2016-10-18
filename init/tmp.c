@@ -83,8 +83,7 @@ bfid(struct request *req, struct response *resp)
   }
 
   for (c = f->children; c != nil; c = c->cnext) {
-    if (c->lname != req->lbuf) continue;
-    if (strncmp(c->name, (char *) req->buf, c->lname)) {
+    if (strncmp(c->name, (char *) req->buf, NAMEMAX)) {
       break;
     }
   }
@@ -187,7 +186,7 @@ addchild(struct file *p, struct file *c)
   p->buf = buf;
   p->lbuf = p->lbuf + sizeof(uint8_t) * (1 + c->lname);
   
-  p->stat.size++;
+  p->stat.size = p->lbuf;
 
   c->cnext = p->children;
   p->children = c;
@@ -233,7 +232,7 @@ removechild(struct file *p, struct file *f)
   p->buf = buf;
   p->lbuf = p->lbuf - 1 - f->lname;
   
-  p->stat.size--;
+  p->stat.size = p->lbuf;
 
   if (f->buf != nil) {
     rmmem(f->buf, f->stat.size);
