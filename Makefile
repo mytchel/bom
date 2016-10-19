@@ -70,7 +70,6 @@ KSRC_P := \
         kern/pipe.c          \
         kern/file.c          \
         kern/mount.c         \
-        kern/fs.c            \
         kern/rootfs.c        \
         kern/path.c          \
         kern/heap.c          \

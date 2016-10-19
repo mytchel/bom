@@ -55,19 +55,35 @@ enum {
 
 struct request {
   uint32_t rid;
-  uint32_t type;
   uint32_t fid;
-  uint32_t lbuf;
-  /* Followed by lbuf bytes of data for request */
-  uint8_t *buf;
+  uint8_t type;
+  union {
+    struct request_fid fid;
+    struct request_clunk clunk;
+    struct request_stat stat;
+    struct request_open open;
+    struct request_close close;
+    struct request_create create;
+    struct request_remove remove;
+    struct request_read read;
+    struct request_write write;
+  } data;
 };
 
 struct response {
   uint32_t rid;
   int32_t ret;
-	
-  uint32_t lbuf;
-  uint8_t *buf;
+  union {
+    struct response_fid fid;
+    struct response_clunk clunk;
+    struct response_stat stat;
+    struct response_open open;
+    struct response_close close;
+    struct response_create create;
+    struct response_remove remove;
+    struct response_read read;
+    struct response_write write;
+  } data;
 };
 
 
@@ -121,9 +137,9 @@ struct request_read {
   uint32_t len;
 };
 
-/* Sets ret to OK or an err */
 struct response_read {
-  uint8_t *data; /* Of lbuf length. */
+  uint32_t len;
+  uint8_t buf[FSBUFMAX]; /* Of len length. */
   /*
    * If the file is a directory then the result should 
    * be in the format 
@@ -139,7 +155,7 @@ struct request_write {
   uint32_t offset;
   uint32_t len;
   /* Followed by len bytes of data to write. */
-  uint8_t buf[1];
+  uint8_t data[FSBUFMAX];
 };
 
 struct response_write {

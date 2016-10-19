@@ -33,7 +33,7 @@ struct cfile {
 };
 
 static struct response *
-makereq(struct binding *b, struct request *req)
+makereq(struct binding *b, struct request *req, struct response *resp)
 {
   size_t s = sizeof(req->rid)
     + sizeof(req->type)
@@ -41,11 +41,10 @@ makereq(struct binding *b, struct request *req)
     + sizeof(req->lbuf);
 
   req->rid = atomicinc(&b->nreqid);
+  resp->rid = req->rid;
 
   lock(&b->lock);
 
-  printf("%i make req %i\n", up->pid, req->rid);
-  
   if (b->out == nil ||
       pipewrite(b->out, (void *) req, s) != s || 
       (req->lbuf > 0 &&
@@ -77,14 +76,8 @@ bindingfidfree(struct bindingfid *fid)
 
   if (atomicdec(&fid->refs) > 0) {
     return;
-  } else if (fid->children != nil) {
-    return;
   }
-
-  return;
   
-  printf("can actually free it\nremove self from parent list\n");
-
   if (fid->parent) {
     lock(&fid->binding->lock);
 
@@ -99,29 +92,26 @@ bindingfidfree(struct bindingfid *fid)
     }
 
     unlock(&fid->binding->lock);
+
+    bindingfidfree(fid->parent);
   }
   
   req.type = REQ_clunk;
   req.fid = fid->fid;
   req.lbuf = 0;
 
-  printf("send clunk %i\n", fid->fid);
-  
   resp = makereq(fid->binding, &req);
   if (resp != nil) {
-    printf("got a response\n");
     if (resp->lbuf > 0) {
       free(resp->buf);
     }
     free(resp);
   }
-  
-  printf("possibly free parent\n");
-  bindingfidfree(fid->parent);
 
-  bindingfree(fid->binding);
-  
-  printf("free mem\n");
+  if (fid->parent == nil) {
+    bindingfree(fid->binding);
+  }
+
   free(fid);
 }
 
@@ -136,8 +126,6 @@ filestatfid(struct bindingfid *fid, struct stat *stat)
   req.lbuf = 0;
   req.fid = fid->fid;
 
-  printf("filestatfid %i\n", fid->fid);
-  
   resp = makereq(fid->binding, &req);
   if (resp == nil) {
     return ELINK;
@@ -146,12 +134,15 @@ filestatfid(struct bindingfid *fid, struct stat *stat)
   ret = resp->ret;
 
   if (ret == OK && resp->lbuf == sizeof(struct stat)) {
-    memmove(stat, resp->buf, resp->lbuf);
-    free(resp->buf);
+    memmove(stat, resp->buf, sizeof(struct stat));
   } else {
     ret = ELINK;
   }
 
+  if (resp->lbuf > 0) {
+    free(resp->buf);
+  }
+  
   free(resp);
 
   return ret;
@@ -165,8 +156,6 @@ findfileindir(struct bindingfid *fid, char *name, int *err)
   struct response *resp;
   struct request req;
 
-  printf("findfileindir '%s'\n", name);
-  
   for (nfid = fid->children; nfid != nil; nfid = nfid->cnext) {
     if (strncmp(nfid->name, name, NAMEMAX)) {
       atomicinc(&nfid->refs);
@@ -177,7 +166,7 @@ findfileindir(struct bindingfid *fid, char *name, int *err)
 
   req.type = REQ_fid;
   req.fid = fid->fid;
-  req.lbuf = strlen(name);
+  req.lbuf = strlen(name) + 1;
   req.buf = (uint8_t *) name;
 
   resp = makereq(fid->binding, &req);
@@ -200,21 +189,22 @@ findfileindir(struct bindingfid *fid, char *name, int *err)
     goto err;
   }
 
-  atomicinc(&fid->refs);
-
   nfid->refs = 1;
   nfid->binding = fid->binding;
-  nfid->children = nil;
 
   nfid->fid = fidresp->fid;
   nfid->attr = fidresp->attr;
   memmove(nfid->name, name, NAMEMAX);
 
+
+  atomicinc(&fid->refs);
+  nfid->parent = fid;
+  nfid->children = nil;
+
   lock(&fid->binding->lock);
   
-  nfid->parent = fid;
   nfid->cnext = fid->children;
-  fid->children = fid;
+  fid->children = nfid;
 
   unlock(&fid->binding->lock);
 
@@ -251,10 +241,12 @@ findfile(struct path *path, int *err)
   }
 
   fid = b->rootfid;
+  atomicinc(&fid->refs);
 
   p = path;
   while (p != nil) {
     if (!(fid->attr & ATTR_dir)) {
+      bindingfidfree(fid);
       *err = ENOFILE;
       return nil;
     }
@@ -263,6 +255,7 @@ findfile(struct path *path, int *err)
     if (*err == ENOCHILD && p->next == nil) {
       return fid;
     } else if (*err != OK) {
+      bindingfidfree(fid);
       return nil;
     }
 
@@ -273,12 +266,14 @@ findfile(struct path *path, int *err)
     b = ngroupfindbindingl(up->ngroup, path, depth++);
     if (b == nil) {
       *err = ENOFILE;
+      bindingfidfree(nfid);
       return nil;
     } else if (b != bp) {
       /* If we havent encountered this binding yet then it is the
        * root of the binding. */
       bp = b;
       fid = b->rootfid;
+      atomicinc(&fid->refs);
     } else {
       /* Use the fid from parent */
       fid = nfid;
@@ -322,17 +317,16 @@ filecreate(struct bindingfid *parent, char *name,
     return nil;
   }
 
-  atomicinc(&parent->refs);
-  atomicinc(&parent->binding->refs);
-
   nfid->refs = 1;
   nfid->binding = parent->binding;
-  nfid->children = nil;
 
-  nfid->parent = parent;
   nfid->attr = cattr;
   nfid->fid = resp->ret;
   memmove(nfid->name, name, NAMEMAX);
+
+  atomicinc(&parent->refs);
+  nfid->parent = parent;
+  nfid->children = nil;
 
   lock(&parent->binding->lock);
 
@@ -627,6 +621,9 @@ fileclose(struct chan *c)
     return;
   }
 
+  printf("closeing %i '%s'\n", cfile->fid->fid,
+	 cfile->fid->name);
+  
   req.type = REQ_close;
   req.fid = cfile->fid->fid;
   req.lbuf = 0;
@@ -640,6 +637,7 @@ fileclose(struct chan *c)
     free(resp);
   }
 
+  printf("free binding\n");
   bindingfidfree(cfile->fid);
   free(cfile);
 }

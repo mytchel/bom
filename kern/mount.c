@@ -134,3 +134,114 @@ mountproc(void *arg)
   /* Never reached */
   return 0;
 }
+
+int
+kmountloop(struct chan *in, struct binding *b, struct fsmount *mount)
+{
+  struct request req;
+  struct response *resp;
+  struct proc *p;
+  size_t reqsize;
+  bool found;
+
+  reqsize = sizeof(req.rid)
+    + sizeof(req.type)
+    + sizeof(req.fid)
+    + sizeof(req.lbuf);
+
+  req.buf = malloc(FSBUFMAX);
+  if (req.buf == nil) {
+    panic("Kernel mount buf malloc failed!\n");
+  }
+
+  while (true) {
+    resp = malloc(sizeof(struct response));
+    if (resp == nil) {
+      goto err;
+    }
+
+    if (piperead(in, (void *) &req, reqsize) != reqsize) {
+      goto err;
+    }
+
+    resp->rid = req.rid;
+    resp->ret = ENOIMPL;
+    resp->lbuf = 0;
+
+    if (req.lbuf > 0 &&
+	piperead(in, req.buf, req.lbuf) != req.lbuf) {
+      goto err;
+    }
+
+    switch (req.type) {
+    case REQ_fid:
+      if (mount->fid)
+	mount->fid(&req, resp);
+      break;
+    case REQ_stat:
+      if (mount->stat)
+	mount->stat(&req, resp);
+      break;
+    case REQ_open:
+      if (mount->open)
+	mount->open(&req, resp);
+      break;
+    case REQ_close:
+      if (mount->close)
+	mount->close(&req, resp);
+      break;
+    case REQ_create:
+      if (mount->create)
+	mount->create(&req, resp);
+      break;
+    case REQ_remove:
+      if (mount->remove)
+	mount->remove(&req, resp);
+      break;
+    case REQ_read:
+      if (mount->read)
+	mount->read(&req, resp);
+      break;
+    case REQ_write:
+      if (mount->write)
+	mount->write(&req, resp);
+      break;
+    }
+    
+    lock(&b->lock);
+
+    found = false;
+    for (p = b->waiting; p != nil; p = p->next) {
+      if ((uint32_t) p->aux == resp->rid) {
+	found = true;
+	p->aux = (void *) resp;
+
+	setintr(INTR_OFF);
+	procready(p);
+	setintr(INTR_ON);
+	break;
+      }
+    }
+
+    unlock(&b->lock);
+
+    if (!found) {
+      printf("no proc waiting for request %i\n", resp->rid);
+      if (resp->lbuf > 0) {
+	free(resp->buf);
+      }
+
+      free(resp);
+    }
+  }
+
+  return 0;
+
+ err:
+
+  panic("Kernel mount errored!\n");
+
+  return -1;
+}
+
+

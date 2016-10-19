@@ -41,10 +41,14 @@ growheap(struct block *prev, size_t size)
   struct block *b;
   void *pg;
 
+  printf("out of mem\n");
+  
   pg = getmem(MEM_ram, nil, &size);
   if (pg == nil) {
     return nil;
   }
+
+  printf("got heap page 0x%h\n", pg);
 
   if (prev == nil) {
     b = heap = (struct block *) pg;
@@ -68,6 +72,8 @@ malloc(size_t size)
     return nil;
 
   size = roundptr(size);
+
+  printf("malloc size %i\n", size);
 
   p = nil;
   for (b = heap; b != nil; p = b, b = b->next) {

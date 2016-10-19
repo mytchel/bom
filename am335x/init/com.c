@@ -135,6 +135,7 @@ readloop(void)
   size_t respsize;
   uint32_t done;
   uint8_t buf[FSBUFMAX];
+  uint32_t s;
 
   respsize = sizeof(resp.rid)
     + sizeof(resp.ret)
@@ -146,7 +147,15 @@ readloop(void)
     while ((req = readrequests) == nil)
       sleep(20);
 
+    s = 1;
+    while (!testandset(&readreqlock)) {
+      sleep(s);
+      s *= 2;
+    }
+ 
     readrequests = req->next;
+
+    readreqlock = 0;
 
     done = 0;
     while (done < req->len) {
@@ -159,8 +168,12 @@ readloop(void)
     resp.ret = OK;
 
     buf[done] = 0;
-    while (!testandset(&fsoutlock))
-      sleep(0);
+
+    s = 1;
+    while (!testandset(&fsoutlock)) {
+      sleep(s);
+      s *= 2;
+    }
 
     if (write(fsout, &resp, respsize) != respsize) {
       exit(ELINK);
@@ -183,6 +196,7 @@ addreadreq(struct request *req)
 {
   struct request_read *rr;
   struct readreq *read, *r;
+  uint32_t s;
 
   rr = (struct request_read *) req->buf;
 
@@ -196,8 +210,11 @@ addreadreq(struct request *req)
   read->len = rr->len;
   read->next = nil;
 
-  while (!testandset(&readreqlock))
-    sleep(0);
+  s = 1;
+  while (!testandset(&readreqlock)) {
+    sleep(s);
+    s *= 2;
+  }
   
   for (r = readrequests; r != nil && r->next != nil; r = r->next)
     ;
@@ -248,6 +265,7 @@ comfsmountloop(void)
   size_t reqsize, respsize;
   struct response resp;
   struct request req;
+  uint32_t s;
   int r;
 
   reqsize = sizeof(req.rid)
@@ -294,8 +312,11 @@ comfsmountloop(void)
       continue;
     }
 
-    while (!testandset(&fsoutlock))
-      sleep(0);
+    s = 1;
+    while (!testandset(&fsoutlock)) {
+      sleep(s);
+      s *= 2;
+    }
     
     if (write(fsout, &resp, respsize) != respsize) {
       goto err;

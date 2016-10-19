@@ -165,9 +165,10 @@ bindingfree(struct binding *b)
 {
   if (atomicdec(&b->refs) > 0) {
     return;
-  } else if (b->fids != nil) {
-    return;
   }
+
+  /* There should only be the root binding left, which
+   * bindingfidfree releasing after calling this. */
 
   free(b);
 }

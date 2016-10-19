@@ -57,24 +57,23 @@ growheap(struct block *prev)
     return nil;
   }
 
-  printf("kernel grab heap page 0x%h\n", pg->pa);
+  pl = (struct pagel *) pg->pa;
   
-  pl = wrappage(pg, (void *) 0, true, true);
-  if (pl == nil) {
-    pagefree(pg);
-    return nil;
-  }
-
+  pl->p = pg;
+  pl->rw = true;
+  pl->c = true;
   pl->next = pages;
   pages = pl;
 
+  b = (struct block *) ((uint8_t *) pg->pa + sizeof(struct pagel));
+  
   if (prev == nil) {
-    b = heap = (struct block *) pg->pa;
+    heap = b;
   } else {
-    b = prev->next = (struct block *) pg->pa;
+    prev->next = b;
   }
 	
-  b->size = PAGE_SIZE - sizeof(size_t);
+  b->size = PAGE_SIZE - sizeof(struct pagel) - sizeof(size_t);
   b->next = nil;
 
   return b;
@@ -84,14 +83,14 @@ void *
 malloc(size_t size)
 {
   struct block *b, *n, *p;
-  void *block;
+  void *ptr;
 
   if (size == 0)
     return nil;
 
   size = roundptr(size);
 
-  if (size > PAGE_SIZE - sizeof(size_t)) {
+  if (size > PAGE_SIZE - sizeof(struct pagel) - sizeof(size_t)) {
     printf("%i trying to malloc something too large %i\n",
 	   up->pid, size);
     return nil;
@@ -109,16 +108,15 @@ malloc(size_t size)
   if (b == nil) {
     b = growheap(p);
     if (b == nil) {
-      printf("KERNEL OUT OF MEMORY!\n");
-      unlock(&heaplock);
+      panic("KERNEL OUT OF MEMORY!\n");
       return nil;
     }
   }
 
-  block = (void *) ((uint8_t *) b + sizeof(size_t));
+  ptr = (void *) ((uint8_t *) b + sizeof(size_t));
 	
   if (b->size > size + sizeof(size_t) + sizeof(struct block)) {
-    n = (struct block *) ((uint8_t *) block + size);
+    n = (struct block *) ((uint8_t *) b + sizeof(size_t) + size);
 		
     n->size = b->size - size - sizeof(size_t);
     n->next = b->next;
@@ -136,7 +134,8 @@ malloc(size_t size)
   }
 
   unlock(&heaplock);
-  return block;
+
+  return ptr;
 }
 
 void

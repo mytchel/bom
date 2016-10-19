@@ -61,6 +61,8 @@ fatinit(int fd)
     return nil;
   }
 
+  printf("alloc root file\n");
+  
   fat->files = malloc(sizeof(struct fat_file));
   if (fat->files == nil) {
     printf("fat mount failed to alloc fat_file for root!\n");
@@ -76,6 +78,8 @@ fatinit(int fd)
   fat->files->size = 0;
   fat->files->next = nil;
 
+  printf("read boot sector\n");
+  
   if (read(fd, &fat->bs, sizeof(fat->bs)) != sizeof(fat->bs)) {
     printf("fat mount failed to read boot sector.\n");
     return nil;
@@ -115,22 +119,29 @@ fatinit(int fd)
 
   if (fat->nclusters < 4085) {
     fat->type = FAT12;
+    printf("FAT12\n");
   } else if (fat->nclusters < 65525) {
     fat->type = FAT16;
+    printf("FAT16\n");
   } else {
     fat->type = FAT32;
+    printf("FAT32\n");
   }
 
+  printf("alloc table\n");
+  
   fat->table = malloc(fat->spf * fat->bps);
   if (fat->table == nil) {
     printf("fat mount failed to alloc table!\n");
     return nil;
   }
 
+  printf("seek to table\n");
   if (seek(fat->fd, reservedsectors * fat->bps, SEEK_SET) < 0) {
     return nil;
   }
 
+  printf("read table\n");
   if (read(fd, &fat->table, fat->spf * fat->bps)
       != fat->spf * fat->bps) {
     printf("fat mount failed to read table!\n");

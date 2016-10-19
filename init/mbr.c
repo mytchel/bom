@@ -200,6 +200,8 @@ bfid(struct request *req, struct response *resp)
   struct response_fid *respfid;
   int i;
 
+  printf("mbr %s fid '%s'\n", device->name, req->buf);
+  
   if (strncmp(raw.name, (char *) req->buf, NAMEMAX)) {
     part = &raw;
   } else {
@@ -246,6 +248,8 @@ bstat(struct request *req, struct response *resp)
   struct partition *part;
   struct stat *s = nil;
 
+  printf("mbr %s stat %i\n", device->name, req->fid);
+  
   if (req->fid == ROOTFID) {
     s = &rootstat;
   } else {
@@ -257,16 +261,18 @@ bstat(struct request *req, struct response *resp)
 
   if (s == nil) {
     resp->ret = ENOFILE;
-  } else {
-    resp->buf = malloc(sizeof(struct stat));
-    if (resp->buf == nil) {
-      resp->ret = ENOMEM;
-    } else {
-      memmove(resp->buf, s, sizeof(struct stat));
-      resp->lbuf = sizeof(struct stat);
-      resp->ret = OK;
-    }
+    return;
+  } 
+
+  resp->buf = malloc(sizeof(struct stat));
+  if (resp->buf == nil) {
+    resp->ret = ENOMEM;
+    return;
   }
+
+  memmove(resp->buf, s, sizeof(struct stat));
+  resp->lbuf = sizeof(struct stat);
+  resp->ret = OK;
 }
 
 static void
@@ -287,18 +293,24 @@ breadroot(struct request *req, struct response *resp,
 {
   uint32_t rlen;
 
-  if (offset + len > rootstat.size) {
+  printf("mbr %s read root from %i len %i\n",
+	 device->name, offset, len);
+  
+  if (offset + len >= rootstat.size) {
     rlen = rootstat.size - offset;
   } else {
     rlen = len;
   }
 
+  printf("mbr alloc %i\n", rlen);
+  
   resp->buf = malloc(rlen);
   if (resp->buf == nil) {
     resp->ret = ENOMEM;
     return;
   }
 
+  printf("mbr copy %i\n", rlen);
   memmove(resp->buf, rootbuf + offset, rlen);
   resp->lbuf = rlen;
   resp->ret = OK;
