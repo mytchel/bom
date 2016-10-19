@@ -44,6 +44,8 @@ makereq(struct binding *b, struct request *req)
 
   lock(&b->lock);
 
+  printf("%i make req %i\n", up->pid, req->rid);
+  
   if (b->out == nil ||
       pipewrite(b->out, (void *) req, s) != s || 
       (req->lbuf > 0 &&
@@ -69,7 +71,7 @@ makereq(struct binding *b, struct request *req)
 static void
 bindingfidfree(struct bindingfid *fid)
 {
-  struct bindingfid *o;
+  struct bindingfid *p, *o;
   struct request req;
   struct response *resp;
 
@@ -79,21 +81,26 @@ bindingfidfree(struct bindingfid *fid)
     return;
   }
 
+  return;
+  
   printf("can actually free it\nremove self from parent list\n");
 
-  lock(&fid->binding->lock);
-  
-  if (fid->parent->children == fid) {
-    fid->parent->children = fid->cnext;
-  } else {
-    for (o = fid->parent->children; o->cnext != fid; o = o->cnext)
+  if (fid->parent) {
+    lock(&fid->binding->lock);
+
+    p = nil;
+    for (o = fid->parent->children; o != fid; p = o, o = o->cnext)
       ;
-    
-    o->cnext = fid->cnext;
+
+    if (p == nil) {
+      fid->parent->children = fid->cnext;
+    } else {
+      p->cnext = fid->cnext;
+    }
+
+    unlock(&fid->binding->lock);
   }
-
-  unlock(&fid->binding->lock);
-
+  
   req.type = REQ_clunk;
   req.fid = fid->fid;
   req.lbuf = 0;
@@ -129,6 +136,8 @@ filestatfid(struct bindingfid *fid, struct stat *stat)
   req.lbuf = 0;
   req.fid = fid->fid;
 
+  printf("filestatfid %i\n", fid->fid);
+  
   resp = makereq(fid->binding, &req);
   if (resp == nil) {
     return ELINK;
@@ -138,14 +147,11 @@ filestatfid(struct bindingfid *fid, struct stat *stat)
 
   if (ret == OK && resp->lbuf == sizeof(struct stat)) {
     memmove(stat, resp->buf, resp->lbuf);
+    free(resp->buf);
   } else {
     ret = ELINK;
   }
 
-  if (resp->lbuf > 0) {
-    free(resp->buf);
-  }
-  
   free(resp);
 
   return ret;
@@ -159,6 +165,8 @@ findfileindir(struct bindingfid *fid, char *name, int *err)
   struct response *resp;
   struct request req;
 
+  printf("findfileindir '%s'\n", name);
+  
   for (nfid = fid->children; nfid != nil; nfid = nfid->cnext) {
     if (strncmp(nfid->name, name, NAMEMAX)) {
       atomicinc(&nfid->refs);
@@ -182,7 +190,7 @@ findfileindir(struct bindingfid *fid, char *name, int *err)
   } else if (resp->lbuf != sizeof(struct response_fid)) {
     *err = ELINK;
     goto err;
- }
+  }
 
   fidresp = (struct response_fid *) resp->buf;
 
@@ -193,7 +201,6 @@ findfileindir(struct bindingfid *fid, char *name, int *err)
   }
 
   atomicinc(&fid->refs);
-  atomicinc(&fid->binding->refs);
 
   nfid->refs = 1;
   nfid->binding = fid->binding;
@@ -218,7 +225,7 @@ findfileindir(struct bindingfid *fid, char *name, int *err)
 
  err:
   if (resp->lbuf > 0) {
-      free(resp->buf);
+    free(resp->buf);
   }
   
   free(resp);

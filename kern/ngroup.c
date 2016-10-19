@@ -160,26 +160,15 @@ bindingnew(struct chan *out, struct chan *in, uint32_t rootattr)
   return b;
 }
 
-static void
-bindingfidfree(struct bindingfid *f)
-{
-  if (f == nil) {
-    return;
-  }
-
-  bindingfidfree(f->children);
-  bindingfidfree(f->cnext);
-  free(f);
-}
-
 void
 bindingfree(struct binding *b)
 {
   if (atomicdec(&b->refs) > 0) {
     return;
+  } else if (b->fids != nil) {
+    return;
   }
 
-  bindingfidfree(b->fids);
   free(b);
 }
 

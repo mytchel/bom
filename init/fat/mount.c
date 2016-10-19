@@ -151,11 +151,18 @@ bread(struct request *req, struct response *resp)
   } else {
     rlen = rr->len;
   }
+
+  resp->buf = malloc(rlen);
+  if (resp->buf == nil) {
+    resp->ret = ENOMEM;
+    return;
+  }
   
+  resp->lbuf = rlen;
   if (f->attr & ATTR_dir) {
-    printf("should read as a dir bytes %i\n", rlen);
+    resp->ret = fatreaddir(fat, f, resp->buf, rr->offset, rr->len);
   } else {
-    printf("should read as a file bytes %i\n", rlen);
+    resp->ret = fatreadfile(fat, f, resp->buf, rr->offset, rr->len);
   }
 }
 

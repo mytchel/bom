@@ -25,19 +25,13 @@
  *
  */
 
-struct fat_cluster {
-  uint32_t num;
-  struct fat_cluster *next;
-};
-
-
 struct fat_file {
   uint32_t fid;
   char name[NAMEMAX];
   size_t opened;
   uint32_t fatattr, attr;
   uint32_t size;
-  struct fat_cluster *clusters;
+  uint32_t startcluster;
   struct fat_file *next;
 };
 
@@ -160,6 +154,8 @@ struct fat {
   uint32_t rootdir;
   uint32_t dataarea;
 
+  uint8_t *table;
+
   struct fat_bs bs;
 };
 
@@ -175,3 +171,11 @@ fatfindfid(struct fat *fat, uint32_t fid);
 
 void
 fatclunkfid(struct fat *fat, uint32_t fid);
+
+int
+fatreadfile(struct fat *fat, struct fat_file *file,
+	    uint8_t *buf, uint32_t offset, uint32_t len);
+
+int
+fatreaddir(struct fat *fat, struct fat_file *file,
+	   uint8_t *buf, uint32_t offset, uint32_t len);

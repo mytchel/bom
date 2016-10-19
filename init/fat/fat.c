@@ -35,6 +35,20 @@
 
 #include "fat.h"
 
+static uint32_t
+clusteroffset(struct fat *fat, uint32_t cluster);
+
+static uint32_t
+nextcluster(struct fat *fat, uint32_t prev);
+
+static struct fat_dir_entry *
+fatfindfileincluster(struct fat *fat, uint32_t sector,
+		     uint8_t *buf, /* Of len fat->spc * fat->bps */
+		     char *name);
+
+static struct fat_dir_entry *
+copyfileentryname(struct fat_dir_entry *start, char *name);
+
 struct fat *
 fatinit(int fd)
 {
@@ -47,8 +61,23 @@ fatinit(int fd)
     return nil;
   }
 
+  fat->files = malloc(sizeof(struct fat_file));
+  if (fat->files == nil) {
+    printf("fat mount failed to alloc fat_file for root!\n");
+    return nil;
+  }
+
+  fat->nfid = ROOTFID;
+
+  fat->files->fid = fat->nfid++;
+  fat->files->opened = 0;
+  fat->files->fatattr = 0;
+  fat->files->attr = ATTR_wr|ATTR_rd|ATTR_dir;
+  fat->files->size = 0;
+  fat->files->next = nil;
+
   if (read(fd, &fat->bs, sizeof(fat->bs)) != sizeof(fat->bs)) {
-    printf("Failed to read boot sector.\n");
+    printf("fat mount failed to read boot sector.\n");
     return nil;
   }
 
@@ -66,17 +95,20 @@ fatinit(int fd)
 
   fat->rde = intcopylittle16(fat->bs.rde);
   if (fat->rde > 0) {
+    fat->files->startcluster = 0;
+
     fat->spf = intcopylittle16(fat->bs.spf);
 
-    fat->rootdir = reservedsectors + fat->spf * 2;
+    fat->rootdir = reservedsectors + fat->spf * fat->nft;
     fat->dataarea = fat->rootdir + (((fat->rde * 32) + (fat->bps - 1))
 				  / fat->bps);
   } else {
     fat->spf = intcopylittle32(fat->bs.ext.high.spf);
 
-    fat->rootdir = intcopylittle32(fat->bs.ext.high.rootcluster)
-      * fat->spc;
-    fat->dataarea = reservedsectors + fat->spf * 2;
+    fat->files->startcluster =
+      intcopylittle32(fat->bs.ext.high.rootcluster);
+
+    fat->dataarea = reservedsectors + fat->spf * fat->nft;
   }
 
   fat->nclusters = (fat->nsectors - fat->dataarea) / fat->spc;
@@ -89,40 +121,63 @@ fatinit(int fd)
     fat->type = FAT32;
   }
 
-  fat->files = malloc(sizeof(struct fat_file));
-  if (fat->files == nil) {
-    printf("Failed to alloc fat_file for root!\n");
+  fat->table = malloc(fat->spf * fat->bps);
+  if (fat->table == nil) {
+    printf("fat mount failed to alloc table!\n");
     return nil;
   }
 
-  fat->nfid = ROOTFID;
-  fat->files->fid = fat->nfid++;
-  fat->files->opened = 0;
-  fat->files->fatattr = 0;
-  fat->files->attr = ATTR_wr|ATTR_rd|ATTR_dir;
-  fat->files->size = 0;
-  fat->files->next = nil;
-  fat->files->clusters = nil;
+  if (seek(fat->fd, reservedsectors * fat->bps, SEEK_SET) < 0) {
+    return nil;
+  }
 
+  if (read(fd, &fat->table, fat->spf * fat->bps)
+      != fat->spf * fat->bps) {
+    printf("fat mount failed to read table!\n");
+    return nil;
+  }
+ 
   return fat;
 }
 
-static uint32_t
-clusteroffset(struct fat *fat, uint32_t cluster)
+struct fat_dir_entry *
+copyfileentryname(struct fat_dir_entry *file, char *name)
 {
-  return (fat->dataarea + ((cluster - 2) * fat->spc))
-    * fat->bps;
+  struct fat_lfn *lfn;
+  size_t i, j;
+
+  if (file->attr == 0) {
+    printf("end of dir\n");
+    return nil;
+  }
+
+  while ((file->attr & FAT_ATTR_lfn) == FAT_ATTR_lfn) {
+    printf("This is a long file name entry, not sure what to do\n");
+
+    lfn = (struct fat_lfn *) file++;
+    
+    printf("order = %i\n", lfn->order);
+  } 
+
+  i = 0;
+  for (j = 0; j < sizeof(file->name) && file->name[j] != ' '; j++)
+    name[i++] = file->name[j];
+
+  for (j = 0; j < sizeof(file->ext) && file->ext[j] != ' '; j++)
+    name[i++] = file->ext[j];
+
+  name[i] = 0;
+
+  return file++;
 }
 
-static struct fat_dir_entry *
+struct fat_dir_entry *
 fatfindfileincluster(struct fat *fat, uint32_t sector,
 		     uint8_t *buf, /* Of len fat->spc * fat->bps */
 		     char *name)
 {
   struct fat_dir_entry *file;
-  struct fat_lfn *lfn;
   char fname[NAMEMAX];
-  size_t i, j;
 
   if (seek(fat->fd, sector * fat->bps, SEEK_SET) < 0) {
     return nil;
@@ -137,35 +192,13 @@ fatfindfileincluster(struct fat *fat, uint32_t sector,
   
   file = (struct fat_dir_entry *) buf;
   while ((uint8_t *) file < buf + fat->spc * fat->bps) {
-    if (file->attr == 0) {
-      printf("end of dir\n");
-      return nil;
-    } else if ((file->attr & FAT_ATTR_lfn) == FAT_ATTR_lfn) {
-      printf("This is a long file name entry, not sure what to do\n");
-
-      lfn = (struct fat_lfn *) file;
-
-      printf("order = %i\n", lfn->order);
-
-    } else {
-      i = 0;
-      for (j = 0; j < sizeof(file->name) && file->name[j] != ' '; j++)
-	fname[i++] = file->name[j];
-
-      for (j = 0; j < sizeof(file->ext) && file->ext[j] != ' '; j++)
-	fname[i++] = file->ext[j];
-
-      fname[i] = 0;
-      
-      printf("have entry name = '%s'\n", fname);
-
-      if (strncmp(fname, name, NAMEMAX)) {
-	printf("entry matches!\n");
-	return file;
-      }
+    file = copyfileentryname(file, fname);
+    printf("have entry name = '%s'\n", fname);
+    if (file == nil) {
+      break;
+    } else if (strncmp(fname, name, NAMEMAX)) {
+      return file;
     }
-
-    file++;
   }
 
   printf("finished reading dir\n");
@@ -178,8 +211,8 @@ fatfilefind(struct fat *fat, struct fat_file *parent,
 	    char *name, int *err)
 {
   struct fat_dir_entry *direntry;
-  struct fat_cluster *c;
   struct fat_file *child;
+  uint32_t cluster;
   uint8_t *buf;
 
   printf("fatfilefind '%s'\n", name);
@@ -191,17 +224,20 @@ fatfilefind(struct fat *fat, struct fat_file *parent,
   }
 
   direntry = nil;
-  if (parent->clusters == nil) {
+  if (parent->startcluster == 0) {
     printf("in fat12/16 root dir\n");
     direntry = fatfindfileincluster(fat, fat->rootdir, buf, name);
   } else {
     printf("in normal dir\n");
-    for (c = parent->clusters; c != nil; c = c->next) {
+    cluster = parent->startcluster;
+    while (cluster != 0) {
       direntry = fatfindfileincluster(fat,
-				      clusteroffset(fat, c->num),
+				      clusteroffset(fat, cluster),
 				      buf, name);
       if (direntry != nil) {
 	break;
+      } else {
+	cluster = nextcluster(fat, cluster);
       }
     }
   }
@@ -246,16 +282,12 @@ fatfilefind(struct fat *fat, struct fat_file *parent,
   child->size = intcopylittle32(direntry->size);
   printf("file has size %i\n", child->size);
   
-  child->clusters = malloc(sizeof(struct fat_cluster));
-
-  child->clusters->num =
+  child->startcluster =
     ((uint32_t) intcopylittle16(direntry->cluster_high)) << 16;
-  child->clusters->num |=
+  child->startcluster |=
     ((uint32_t) intcopylittle16(direntry->cluster_low));
 
-  child->clusters->next = nil;
-  
-  printf("file initial cluster at 0x%h\n", child->clusters->num);
+  printf("file initial cluster at 0x%h\n", child->startcluster);
 
   printf("add to list\n");
   child->next = fat->files;
@@ -284,7 +316,6 @@ void
 fatclunkfid(struct fat *fat, uint32_t fid)
 {
   struct fat_file *f, *p;
-  struct fat_cluster *c, *cc;
 
   p = nil;
   for (f = fat->files; f != nil; p = f, f = f->next) {
@@ -303,12 +334,93 @@ fatclunkfid(struct fat *fat, uint32_t fid)
     return;
   }
 
-  c = f->clusters;
-  while (c != nil) {
-    cc = c->next;
-    free(c);
-    c = cc;
+  free(f);
+}
+
+int
+fatreadfile(struct fat *fat, struct fat_file *file,
+	    uint8_t *buf, uint32_t offset, uint32_t len)
+{
+  return ERR;
+}
+
+int
+fatreaddir(struct fat *fat, struct fat_file *file,
+	   uint8_t *buf, uint32_t offset, uint32_t len)
+{
+  uint32_t cluster;
+  uint8_t *cbuf;
+
+  cbuf = malloc(fat->spc * fat->bps);
+  if (cbuf == nil) {
+    return ENOMEM;
   }
   
-  free(f);
+  if (file->startcluster == 0) {
+    printf("in fat12/16 root dir\n");
+
+    if (seek(fat->fd, fat->rootdir * fat->bps, SEEK_SET) < 0) {
+      return nil;
+    }
+
+    if (read(fat->fd, cbuf, fat->spc * fat->bps) < 0) {
+      printf("fat mount failed to read dir sector\n");
+      return nil;
+    }
+
+ } else {
+    printf("in normal dir\n");
+    cluster = file->startcluster;
+    while (cluster != 0) {
+      break;
+      /*
+      if (direntry != nil) {
+	break;
+      } else {
+	cluster = nextcluster(fat, cluster);
+      }
+      */
+    }
+  }
+  
+  return ERR;
+}
+
+uint32_t
+clusteroffset(struct fat *fat, uint32_t cluster)
+{
+  return (fat->dataarea + ((cluster - 2) * fat->spc))
+    * fat->bps;
+}
+
+uint32_t
+nextcluster(struct fat *fat, uint32_t prev)
+{
+  uint32_t v;
+
+  printf("find next cluster for 0x%h\n", prev);
+  v = fat->table[prev];
+  printf("has value 0x%h\n", v);
+
+  switch (fat->type) {
+  case FAT12:
+    v &= 0xfff;
+    if (v >= 0xff8) {
+      v = 0;
+    }
+  case FAT16:
+    v &= 0xffff;
+    if (v >= 0xfff8) {
+      v = 0;
+    }
+    break;
+  case FAT32:
+    v &= 0x0fffffff;
+    if (v >= 0x0ffffff8) {
+      v = 0;
+    }
+    break;
+  }
+
+  return v;
 }
