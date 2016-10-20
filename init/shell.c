@@ -43,39 +43,90 @@ int
 mounttmp(char *path);
 
 static int funcexit(int argc, char **argv);
-static int funcls(int argc, char **argv);
 static int funccd(int argc, char **argv);
 static int funcpwd(int argc, char **argv);
-static int funcecho(int argc, char **argv);
-static int funcmkdir(int argc, char **argv);
-static int functouch(int argc, char **argv);
-static int funcrm(int argc, char **argv);
-static int funcmounttmp(int argc, char **argv);
-static int funcmountfat(int argc, char **argv);
-static int funcblocktest(int argc, char **argv);
+
+static int cmdls(int argc, char **argv);
+static int cmdecho(int argc, char **argv);
+static int cmdmkdir(int argc, char **argv);
+static int cmdtouch(int argc, char **argv);
+static int cmdrm(int argc, char **argv);
+static int cmdmounttmp(int argc, char **argv);
+static int cmdmountfat(int argc, char **argv);
+static int cmdblocktest(int argc, char **argv);
 
 int
 mountfat(char *device, char *dir);
 
 struct func funcs[] = {
   { "exit",      &funcexit },
-  { "ls",        &funcls },
   { "cd",        &funccd },
   { "pwd",       &funcpwd },
-  { "echo",      &funcecho },
-  { "mkdir",     &funcmkdir },
-  { "touch",     &functouch },
-  { "rm",        &funcrm },
-  { "mounttmp",  &funcmounttmp },
-  { "mountfat",  &funcmountfat },
-  { "blocktest", &funcblocktest },
+};
+
+struct func cmds[] = {
+  { "ls",        &cmdls },
+  { "echo",      &cmdecho },
+  { "mkdir",     &cmdmkdir },
+  { "touch",     &cmdtouch },
+  { "rm",        &cmdrm },
+  { "mounttmp",  &cmdmounttmp },
+  { "mountfat",  &cmdmountfat },
+  { "blocktest", &cmdblocktest },
 };
 
 static int ret = 0;
 static char pwd[NAMEMAX * 10] = "/";
 
 int
-funcblocktest(int argc, char **argv)
+funcexit(int argc, char **argv)
+{
+  int code = 1;
+  
+  if (argc == 2) {
+    code = strtol(argv[1], nil, 10);
+  }
+
+  exit(code);
+
+  return ERR;
+}
+
+int
+funccd(int argc, char **argv)
+{
+  char *dir;
+  
+  if (argc > 2) {
+    printf("usage: %s dir\n", argv[0]);
+    return ERR;
+  } else if (argc == 1) {
+    dir = "/";
+  } else {
+    dir = argv[1];
+  }
+
+  if (chdir(dir) != OK) {
+    printf("Failed to change to '%s'\n", dir);
+    return ERR;
+  }
+
+  memmove(pwd, ".", 2);
+  cleanpath(pwd, pwd+1, sizeof(pwd));
+  pwd[0] = '/';
+  
+  return 0;
+}
+
+int
+funcpwd(int argc, char **argv)
+{
+  printf("%s\n", pwd);
+  return OK;
+}
+
+int
+cmdblocktest(int argc, char **argv)
 {
   uint8_t block[512];
   int blk, nblk, fd, i;
@@ -111,21 +162,7 @@ funcblocktest(int argc, char **argv)
 }
  
 int
-funcexit(int argc, char **argv)
-{
-  int code = 1;
-  
-  if (argc == 2) {
-    code = strtol(argv[1], nil, 10);
-  }
-
-  exit(code);
-
-  return ERR;
-}
-
-int
-funclsh(char *filename)
+cmdlsh(char *filename)
 {
   uint8_t buf[NAMEMAX], len;
   struct stat s;
@@ -172,18 +209,18 @@ funclsh(char *filename)
 }
 
 int
-funcls(int argc, char **argv)
+cmdls(int argc, char **argv)
 {
   int i;
 
   if (argc == 1) {
-    funclsh(".");
+    cmdlsh(".");
   } else if (argc == 2) {
-    funclsh(argv[1]);
+    cmdlsh(argv[1]);
   } else {
     for (i = 1; i < argc; i++) {
       printf("%s:\n", argv[i]);
-      funclsh(argv[i]);
+      cmdlsh(argv[i]);
     }
   }
   
@@ -191,40 +228,7 @@ funcls(int argc, char **argv)
 }
 
 int
-funccd(int argc, char **argv)
-{
-  char *dir;
-  
-  if (argc > 2) {
-    printf("usage: %s dir\n", argv[0]);
-    return ERR;
-  } else if (argc == 1) {
-    dir = "/";
-  } else {
-    dir = argv[1];
-  }
-
-  if (chdir(dir) != OK) {
-    printf("Failed to change to '%s'\n", dir);
-    return ERR;
-  }
-
-  memmove(pwd, ".", 2);
-  cleanpath(pwd, pwd+1, sizeof(pwd));
-  pwd[0] = '/';
-  
-  return 0;
-}
-
-int
-funcpwd(int argc, char **argv)
-{
-  printf("%s\n", pwd);
-  return OK;
-}
-
-int
-funcecho(int argc, char **argv)
+cmdecho(int argc, char **argv)
 {
   int i;
 
@@ -242,7 +246,7 @@ funcecho(int argc, char **argv)
 }
 
 int
-funcmkdir(int argc, char **argv)
+cmdmkdir(int argc, char **argv)
 {
   int i, fd;
 
@@ -262,7 +266,7 @@ funcmkdir(int argc, char **argv)
 }
 
 int
-functouch(int argc, char **argv)
+cmdtouch(int argc, char **argv)
 {
   int i, fd;
 
@@ -282,7 +286,7 @@ functouch(int argc, char **argv)
 }
 
 int
-funcrm(int argc, char **argv)
+cmdrm(int argc, char **argv)
 {
   int i, e;
 
@@ -298,7 +302,7 @@ funcrm(int argc, char **argv)
 }
 
 int
-funcmounttmp(int argc, char **argv)
+cmdmounttmp(int argc, char **argv)
 {
   if (argc != 2) {
     printf("usage: %s dir\n", argv[0]);
@@ -309,7 +313,7 @@ funcmounttmp(int argc, char **argv)
 }
 
 int
-funcmountfat(int argc, char **argv)
+cmdmountfat(int argc, char **argv)
 {
   if (argc != 3) {
     printf("usage: %s blockdevice dir\n", argv[0]);
@@ -403,7 +407,7 @@ static void
 processline(char *line)
 {
   char *argv[MAX_ARGS];
-  int i, argc;
+  int i, f, argc;
 
   argv[0] = strsection(line);
   if (argv[0] == nil) {
@@ -422,6 +426,20 @@ processline(char *line)
       return;
     }
   }
+
+  for (i = 0; i < sizeof(cmds) / sizeof(cmds[0]); i++) {
+    if (strcmp(cmds[i].name, argv[0])) {
+      f = fork(FORK_sngroup);
+      if (f == 0) {
+	ret = cmds[i].func(argc, argv);
+	exit(ret);
+      } else {
+	wait(&ret);
+	return;
+      }
+    }
+  }
+
 
   printf("%s: command not found\n", argv[0]);
 }
