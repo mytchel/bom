@@ -150,7 +150,6 @@ updatembr(void)
   
   rootbuf = malloc(rootstat.size);
   if (rootbuf == nil) {
-    printf("Failed to malloc mbr rootbuf!\n");
     exit(-1);
   }
 
@@ -194,20 +193,17 @@ fidtopart(uint32_t fid)
 }
 
 static void
-bfid(struct request *req, struct response *resp)
+bgetfid(struct request_getfid *req, struct response_getfid *resp)
 {
   struct partition *part = nil;
-  struct response_fid *respfid;
   int i;
 
-  printf("mbr %s fid '%s'\n", device->name, req->buf);
-  
-  if (strncmp(raw.name, (char *) req->buf, NAMEMAX)) {
+  if (strncmp(raw.name, req->body.name, NAMEMAX)) {
     part = &raw;
   } else {
     for (i = 0; i < 4; i++) {
       if (parts[i].active) {
-	if (strncmp(parts[i].name, (char *) req->buf, NAMEMAX)) {
+	if (strncmp(parts[i].name, req->body.name, NAMEMAX)) {
 	  part = &parts[i];
 	  break;
 	}
@@ -216,176 +212,123 @@ bfid(struct request *req, struct response *resp)
   } 
 
   if (part == nil) {
-    resp->ret = ENOFILE;
+    resp->head.ret = ENOFILE;
     return;
   }
 
-  respfid = malloc(sizeof(struct response_fid));
-  if (respfid == nil) {
-    resp->ret = ENOMEM;
-    return;
-  }
-
-  respfid->fid = part->fid;
-  respfid->attr = part->stat.attr;
-  
-  resp->buf = (uint8_t *) respfid;
-  resp->lbuf = sizeof(struct response_fid);
-  resp->ret = OK;
+  resp->body.fid = part->fid;
+  resp->body.attr = part->stat.attr;
+  resp->head.ret = OK;
 }
 
 static void
-bclunk(struct request *req, struct response *resp)
+bclunk(struct request_clunk *req, struct response_clunk *resp)
 {
-  printf("mbr %s clunk %i\n", device->name, req->fid);
-  
-  resp->ret = OK;
+  resp->head.ret = OK;
 }
 
 static void
-bstat(struct request *req, struct response *resp)
+bstat(struct request_stat *req, struct response_stat *resp)
 {
   struct partition *part;
   struct stat *s = nil;
 
-  printf("mbr %s stat %i\n", device->name, req->fid);
-  
-  if (req->fid == ROOTFID) {
+  if (req->head.fid == ROOTFID) {
     s = &rootstat;
   } else {
-    part = fidtopart(req->fid);
+    part = fidtopart(req->head.fid);
     if (part != nil) {
       s = &(part->stat);
     }
   }
 
   if (s == nil) {
-    resp->ret = ENOFILE;
+    resp->head.ret = ENOFILE;
     return;
   } 
 
-  resp->buf = malloc(sizeof(struct stat));
-  if (resp->buf == nil) {
-    resp->ret = ENOMEM;
-    return;
-  }
-
-  memmove(resp->buf, s, sizeof(struct stat));
-  resp->lbuf = sizeof(struct stat);
-  resp->ret = OK;
+  memmove(&resp->body.stat, s, sizeof(struct stat));
+  resp->head.ret = OK;
 }
 
 static void
-bopen(struct request *req, struct response *resp)
+bopen(struct request_open *req, struct response_open *resp)
 {
-  resp->ret = OK;
+  resp->head.ret = OK;
 }
 
 static void
-bclose(struct request *req, struct response *resp)
+bclose(struct request_close *req, struct response_close *resp)
 {
-  resp->ret = OK;
+  resp->head.ret = OK;
 }
 
 static void
-breadroot(struct request *req, struct response *resp,
+breadroot(struct request_read *req, struct response_read *resp,
 	  uint32_t offset, uint32_t len)
 {
-  uint32_t rlen;
-
-  printf("mbr %s read root from %i len %i\n",
-	 device->name, offset, len);
-  
   if (offset + len >= rootstat.size) {
-    rlen = rootstat.size - offset;
-  } else {
-    rlen = len;
+    len = rootstat.size - offset;
   }
 
-  printf("mbr alloc %i\n", rlen);
-  
-  resp->buf = malloc(rlen);
-  if (resp->buf == nil) {
-    resp->ret = ENOMEM;
-    return;
-  }
-
-  printf("mbr copy %i\n", rlen);
-  memmove(resp->buf, rootbuf + offset, rlen);
-  resp->lbuf = rlen;
-  resp->ret = OK;
+  memmove(resp->body.data, rootbuf + offset, len);
+  resp->body.len = len;
+  resp->head.ret = OK;
 }
 
 static void
-breadblocks(struct request *req, struct response *resp,
+breadblocks(struct request_read *req, struct response_read *resp,
 	    struct partition *part,
 	    uint32_t blk, uint32_t nblk)
 {
   uint8_t *buf;
   uint32_t i;
 
-  resp->buf = malloc(nblk * 512);
-  if (resp->buf == nil) {
-    resp->ret = ENOMEM;
-    return;
-  }
-
-  buf = resp->buf;
-
+  buf = resp->body.data;
+  
   for (i = 0; i < nblk && part->lba + blk + i < part->sectors; i++) {
     printf("%s mbr read sector %i\n", device->name, part->lba + blk + i);
     if (!device->read(device->aux, part->lba + blk + i, buf)) {
-      free(resp->buf);
-      resp->ret = ERR;
+      resp->head.ret = ERR;
       return;
     }
     
     buf += 512;
   }
 
-  resp->lbuf = i * 512;
-  resp->ret = OK;
+  resp->body.len = i * 512;
+  resp->head.ret = OK;
 }
 
 static void
-bread(struct request *req, struct response *resp)
+bread(struct request_read *req, struct response_read *resp)
 {
-  struct request_read *rr;
   struct partition *part;
 
-  rr = (struct request_read *) req->buf;
-
-  if (req->fid == ROOTFID) {
-    breadroot(req, resp, rr->offset, rr->len);
-    return;
-  } else if (rr->len % 512 != 0 || rr->offset % 512 != 0) {
-    resp->ret = ENOIMPL;
-    return;
+  if (req->head.fid == ROOTFID) {
+    breadroot(req, resp, req->body.offset, req->body.len);
+  } else if (req->body.len % 512 != 0
+	     || req->body.offset % 512 != 0) {
+    resp->head.ret = ENOIMPL;
   } else {
-    part = fidtopart(req->fid);
+    part = fidtopart(req->head.fid);
     if (part == nil) {
-      resp->ret = ENOFILE;
+      resp->head.ret = ENOFILE;
     } else {
       breadblocks(req, resp, part,
-		  rr->offset / 512, rr->len / 512);
+		  req->body.offset / 512,
+		  req->body.len / 512);
     }
   }
 }
 
-static void
-bwrite(struct request *req, struct response *resp)
-{
-  resp->ret = ENOIMPL;
-}
-
 static struct fsmount mount = {
-  .fid = &bfid,
+  .getfid = &bgetfid,
   .clunk = &bclunk,
   .stat = &bstat,
   .open = &bopen,
   .close = &bclose,
   .read = &bread,
-  .write = &bwrite,
 };
 
 int

@@ -30,116 +30,78 @@
 
 #include <fs.h>
 
-#define FSBUFMAX        1024
+#define FSBUFMAX        512
 
 #define ROOTFID		0 /* Of any binding. */
 
 enum {
-  REQ_fid, REQ_clunk, REQ_stat,
+  REQ_getfid, REQ_clunk, REQ_stat,
   REQ_open, REQ_close,
   REQ_create, REQ_remove,
   REQ_read, REQ_write,
 };
 
-/* 
- * request/response->buf should be written/read after request/response 
- * has been written/read for any request/response that has lbuf > 0.
- */
 
-/*
- * All names will be at most NAMEMAX-1 bytes long and will include a
- * terminating null byte. They may be shorted than NAMEMAX and so
- * requests and responses should take care to stop when they get to 
- * a null byte.
- */
-
-struct request {
+struct request_head {
   uint32_t rid;
   uint32_t fid;
-  uint8_t type;
-  union {
-    struct request_fid fid;
-    struct request_clunk clunk;
-    struct request_stat stat;
-    struct request_open open;
-    struct request_close close;
-    struct request_create create;
-    struct request_remove remove;
-    struct request_read read;
-    struct request_write write;
-  } data;
+  uint32_t type;
 };
-
-struct response {
+struct response_head {
   uint32_t rid;
   int32_t ret;
-  union {
-    struct response_fid fid;
-    struct response_clunk clunk;
-    struct response_stat stat;
-    struct response_open open;
-    struct response_close close;
-    struct response_create create;
-    struct response_remove remove;
-    struct response_read read;
-    struct response_write write;
-  } data;
 };
 
 
-struct request_fid {
+struct request_getfid_b {
   char name[NAMEMAX];
 };
-
-struct response_fid {
+struct response_getfid_b {
   uint32_t fid;
   uint32_t attr;
 };
 
 
-struct request_clunk {
+struct request_clunk_b {
   uint32_t fid;
 };
+struct response_clunk_b {};
 
-struct response_clunk {};
 
-
-struct request_stat {};
-struct response_stat {
+struct request_stat_b {};
+struct response_stat_b {
   struct stat stat;
 };
 
 
-struct request_open {};
-struct response_open {};
+struct request_open_b {};
+struct response_open_b {};
 
 
-struct request_close {};
-struct response_close {};
+struct request_close_b {};
+struct response_close_b {};
 
 
-struct request_create {
+struct request_create_b {
   uint32_t attr;
   char name[NAMEMAX];
 };
-
-struct response_create {
-  /* ret is set to the created fid */
+struct response_create_b {
+  uint32_t fid;
 };
 
 
-struct request_remove {};
-struct response_remove {};
+struct request_remove_b {};
+struct response_remove_b {};
 
 
-struct request_read {
+struct request_read_b {
   uint32_t offset;
   uint32_t len;
 };
-
-struct response_read {
+struct response_read_b {
   uint32_t len;
-  uint8_t buf[FSBUFMAX]; /* Of len length. */
+  uint8_t data[FSBUFMAX];
   /*
    * If the file is a directory then the result should 
    * be in the format 
@@ -151,27 +113,166 @@ struct response_read {
 };
 
 
-struct request_write {
+struct request_write_b {
   uint32_t offset;
   uint32_t len;
-  /* Followed by len bytes of data to write. */
   uint8_t data[FSBUFMAX];
+};
+struct response_write_b {
+  uint32_t len;
+};
+
+
+struct request {
+  struct request_head head;
+  union {
+    struct request_getfid_b getfid;
+    struct request_clunk_b clunk;
+    struct request_stat_b stat;
+    struct request_open_b open;
+    struct request_close_b close;
+    struct request_create_b create;
+    struct request_remove_b remove;
+    struct request_read_b read;
+    struct request_write_b write;
+  };
+};
+
+
+/* rid should be sent first then the rest of the response */
+struct response {
+  struct response_head head;
+  union {
+    struct response_getfid_b getfid;
+    struct response_clunk_b clunk;
+    struct response_stat_b stat;
+    struct response_open_b open;
+    struct response_close_b close;
+    struct response_create_b create;
+    struct response_remove_b remove;
+    struct response_read_b read;
+    struct response_write_b write;
+  };
+};
+
+struct request_getfid {
+  struct request_head head;
+  struct request_getfid_b body;
+};
+
+struct response_getfid {
+  struct response_head head;
+  struct response_getfid_b body;
+};
+ 
+struct request_clunk {
+  struct request_head head;
+  struct request_clunk_b body;
+};
+
+struct response_clunk {
+  struct response_head head;
+  struct response_clunk_b body;
+};
+ 
+struct request_stat {
+  struct request_head head;
+  struct request_stat_b body;
+};
+
+struct response_stat {
+  struct response_head head;
+  struct response_stat_b body;
+};
+
+struct request_open {
+  struct request_head head;
+  struct request_open_b body;
+};
+
+struct response_open {
+  struct response_head head;
+  struct response_open_b body;
+};
+
+struct request_close {
+  struct request_head head;
+  struct request_close_b body;
+};
+
+struct response_close {
+  struct response_head head;
+  struct response_close_b body;
+};
+
+struct request_create {
+  struct request_head head;
+  struct request_create_b body;
+};
+
+struct response_create {
+  struct response_head head;
+  struct response_create_b body;
+};
+
+struct request_remove {
+  struct request_head head;
+  struct request_remove_b body;
+};
+
+struct response_remove {
+  struct response_head head;
+  struct response_remove_b body;
+};
+
+struct request_read {
+  struct request_head head;
+  struct request_read_b body;
+};
+
+struct response_read {
+  struct response_head head;
+  struct response_read_b body;
+};
+
+struct request_write {
+  struct request_head head;
+  struct request_write_b body;
 };
 
 struct response_write {
-  /* ret is set to the number of bytes written. */
+  struct response_head head;
+  struct response_write_b body;
 };
 
+
 struct fsmount {
-  void (*fid)(struct request *, struct response *);
-  void (*clunk)(struct request *, struct response *);
-  void (*stat)(struct request *, struct response *);
-  void (*open)(struct request *, struct response *);
-  void (*close)(struct request *, struct response *);
-  void (*create)(struct request *, struct response *);
-  void (*remove)(struct request *, struct response *);
-  void (*read)(struct request *, struct response *);
-  void (*write)(struct request *, struct response *);
+  void (*getfid)(struct request_getfid *,
+		 struct response_getfid *);
+
+  void (*clunk)(struct request_clunk *,
+		struct response_clunk *);
+
+  void (*stat)(struct request_stat *,
+	       struct response_stat *);
+
+  void (*open)(struct request_open *,
+	       struct response_open *);
+
+  void (*close)(struct request_close *,
+		struct response_close *);
+
+  void (*create)(struct request_create *,
+		 struct response_create *);
+
+  void (*remove)(struct request_remove *,
+		 struct response_remove *);
+  
+  void (*read)(struct request_read *,
+	       struct response_read *);
+
+  void (*write)(struct request_write *,
+		struct response_write *);
 };
 
 int

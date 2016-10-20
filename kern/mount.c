@@ -27,79 +27,45 @@
 
 #include "head.h"
 
-static bool
-respread(struct chan *c, struct response *resp)
-{
-  size_t size;
-
-  size = sizeof(resp->rid)
-    + sizeof(resp->ret)
-    + sizeof(resp->lbuf);
-  
-  if (piperead(c, (void *) resp, size) != size) {
-    return false;
-  }
-
-  if (resp->lbuf > 0) {
-    resp->buf = malloc(resp->lbuf);
-    if (resp->buf == nil) {
-      printf("kproc mount: error allocating resp buf\n");
-      return false;
-    }
-
-    if (piperead(c, resp->buf, resp->lbuf) != resp->lbuf) {
-      printf("kproc mount: Error reading resp buf\n");
-      return false;
-    }
-  }
-	
-  return true;
-}
-
 int
 mountproc(void *arg)
 {
+  struct response badresp, *resp;
   struct binding *b;
   struct proc *p, *pn;
-  struct response *resp;
-  bool found;
-
+  uint32_t rid;
+  
   b = (struct binding *) arg;
 
   while (true) {
-    resp = malloc(sizeof(struct response));
-    if (resp == nil) {
-      printf("kproc mount: error allocating response.\n");
-      break;
-    }
-
-    if (!respread(b->in, resp)) {
-      printf("kproc mount: error reading responses.\n");
+    if (piperead(b->in, (void *) &rid, sizeof(rid)) != sizeof(rid)) {
+      printf("kproc mount: error reading rid.\n");
       break;
     }
 
     lock(&b->lock);
 
-    found = false;
+    resp = &badresp;
     for (p = b->waiting; p != nil; p = p->next) {
-      if ((uint32_t) p->aux == resp->rid) {
-	found = true;
-	p->aux = (void *) resp;
-
-	setintr(INTR_OFF);
-	procready(p);
-	setintr(INTR_ON);
+      resp = (struct response *) p->aux;
+      if (resp->head.rid == rid) {
 	break;
       }
     }
 
-    if (!found) {
-      if (resp->lbuf > 0)
-	free(resp->buf);
-      free(resp);
-    }
-    
     unlock(&b->lock);
+
+    if (piperead(b->in, (void *) &resp->head.ret,
+		 sizeof(struct response) - sizeof(rid)) < 0) {
+      printf("kproc mount: error reading response.\n");
+      break;
+    }
+
+    if (p != nil) {
+      setintr(INTR_OFF);
+      procready(p);
+      setintr(INTR_ON);
+    }
   }
 
   lock(&b->lock);
@@ -115,7 +81,7 @@ mountproc(void *arg)
   while (p != nil) {
     pn = p->next;
 
-    p->aux = nil;
+    ((struct response *) p->aux)->head.ret = ELINK;
     procready(p);
 
     p = pn;
@@ -138,110 +104,86 @@ mountproc(void *arg)
 int
 kmountloop(struct chan *in, struct binding *b, struct fsmount *mount)
 {
-  struct request req;
   struct response *resp;
+  struct request req;
   struct proc *p;
-  size_t reqsize;
-  bool found;
-
-  reqsize = sizeof(req.rid)
-    + sizeof(req.type)
-    + sizeof(req.fid)
-    + sizeof(req.lbuf);
-
-  req.buf = malloc(FSBUFMAX);
-  if (req.buf == nil) {
-    panic("Kernel mount buf malloc failed!\n");
-  }
 
   while (true) {
-    resp = malloc(sizeof(struct response));
-    if (resp == nil) {
-      goto err;
+    if (piperead(in, (void *) &req, sizeof(req)) <= 0) {
+      return ELINK;
     }
 
-    if (piperead(in, (void *) &req, reqsize) != reqsize) {
-      goto err;
-    }
-
-    resp->rid = req.rid;
-    resp->ret = ENOIMPL;
-    resp->lbuf = 0;
-
-    if (req.lbuf > 0 &&
-	piperead(in, req.buf, req.lbuf) != req.lbuf) {
-      goto err;
-    }
-
-    switch (req.type) {
-    case REQ_fid:
-      if (mount->fid)
-	mount->fid(&req, resp);
-      break;
-    case REQ_stat:
-      if (mount->stat)
-	mount->stat(&req, resp);
-      break;
-    case REQ_open:
-      if (mount->open)
-	mount->open(&req, resp);
-      break;
-    case REQ_close:
-      if (mount->close)
-	mount->close(&req, resp);
-      break;
-    case REQ_create:
-      if (mount->create)
-	mount->create(&req, resp);
-      break;
-    case REQ_remove:
-      if (mount->remove)
-	mount->remove(&req, resp);
-      break;
-    case REQ_read:
-      if (mount->read)
-	mount->read(&req, resp);
-      break;
-    case REQ_write:
-      if (mount->write)
-	mount->write(&req, resp);
-      break;
-    }
-    
     lock(&b->lock);
 
-    found = false;
     for (p = b->waiting; p != nil; p = p->next) {
-      if ((uint32_t) p->aux == resp->rid) {
-	found = true;
-	p->aux = (void *) resp;
-
-	setintr(INTR_OFF);
-	procready(p);
-	setintr(INTR_ON);
+      if (((struct response *) p->aux)->head.rid == req.head.rid) {
 	break;
       }
     }
 
     unlock(&b->lock);
 
-    if (!found) {
-      printf("no proc waiting for request %i\n", resp->rid);
-      if (resp->lbuf > 0) {
-	free(resp->buf);
-      }
-
-      free(resp);
+    if (p == nil) {
+      printf("kmountloop: request %i doesnt have proc!\n",
+	     req.head.rid);
+      continue;
     }
+
+    resp = (struct response *) p->aux;
+    resp->head.ret = ENOIMPL;
+
+    switch (req.head.type) {
+    case REQ_getfid:
+      if (mount->getfid)
+	mount->getfid((struct request_getfid *) &req,
+		      (struct response_getfid *) resp);
+      break;
+    case REQ_clunk:
+      if (mount->clunk)
+	mount->clunk((struct request_clunk *) &req,
+		     (struct response_clunk*) resp);
+      break;
+    case REQ_stat:
+      if (mount->stat)
+	mount->stat((struct request_stat *) &req,
+		    (struct response_stat *) resp);
+      break;
+    case REQ_open:
+      if (mount->open)
+	mount->open((struct request_open *) &req,
+		    (struct response_open *) resp);
+      break;
+    case REQ_close:
+      if (mount->close)
+	mount->close((struct request_close *) &req,
+		     (struct response_close *) resp);
+      break;
+    case REQ_create:
+      if (mount->create)
+	mount->create((struct request_create *) &req,
+		      (struct response_create *) resp);
+      break;
+    case REQ_remove:
+      if (mount->remove)
+	mount->remove((struct request_remove *) &req,
+		      (struct response_remove *) resp);
+      break;
+    case REQ_read:
+      if (mount->read)
+	mount->read((struct request_read *) &req,
+		    (struct response_read *) resp);
+      break;
+    case REQ_write:
+      if (mount->write)
+	mount->write((struct request_write *) &req,
+		     (struct response_write *) resp);
+      break;
+    }
+
+    setintr(INTR_OFF);
+    procready(p);
+    setintr(INTR_ON);
   }
 
   return 0;
-
- err:
-
-  panic("Kernel mount errored!\n");
-
-  return -1;
 }
-
-

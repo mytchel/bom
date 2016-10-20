@@ -98,93 +98,77 @@ bfindfile(struct file *t, uint32_t fid)
 }
 
 static void
-bfid(struct request *req, struct response *resp)
+bgetfid(struct request_getfid *req, struct response_getfid *resp)
 {
   struct file *f, *c;
-  struct response_fid *fidresp;
 
-  f = bfindfile(root, req->fid);
+  f = bfindfile(root, req->head.fid);
   if (f == nil) {
-    resp->ret = ENOFILE;
+    resp->head.ret = ENOFILE;
     return;
   }
 
   for (c = f->children; c != nil; c = c->cnext) {
-    if (strncmp(c->name, (char *) req->buf, NAMEMAX)) {
+    if (strncmp(c->name, req->body.name, NAMEMAX)) {
       break;
     }
   }
 
   if (c == nil) {
-    resp->ret = ENOCHILD;
+    resp->head.ret = ENOCHILD;
     return;
   }
 
-  resp->buf = malloc(sizeof(struct response_fid));
-  if (resp->buf == nil) {
-    resp->ret = ENOMEM;
-    return;
-  }
-
-  resp->lbuf = sizeof(struct response_fid);
-
-  fidresp = (struct response_fid *) resp->buf;
-  fidresp->fid = c->fid;
-  fidresp->attr = c->stat.attr;
-  resp->ret = OK;
+  resp->body.attr = c->stat.attr;
+  resp->body.fid = c->fid;
+  resp->head.ret = OK;
 }
 
 static void
-bclunk(struct request *req, struct response *resp)
+bclunk(struct request_clunk *req, struct response_clunk *resp)
 {
-  resp->ret = OK;
+  resp->head.ret = OK;
 }
 
 static void
-bstat(struct request *req, struct response *resp)
+bstat(struct request_stat *req, struct response_stat *resp)
 {
   struct file *f;
 
-  f = bfindfile(root, req->fid);
+  f = bfindfile(root, req->head.fid);
   if (f == nil) {
-    resp->ret = ENOFILE;
+    resp->head.ret = ENOFILE;
     return;
   }
 
-  resp->buf = malloc(sizeof(struct stat));
-  if (resp->buf == nil) {
-    resp->ret = ENOMEM;
-  } else {
-    resp->ret = OK;
-    resp->lbuf = sizeof(struct stat);
-    memmove(resp->buf, &f->stat, sizeof(struct stat));
-  }
+  memmove(&resp->body.stat, &f->stat, sizeof(struct stat));
+  resp->head.ret = OK;
 }
 
 static void
-bopen(struct request *req, struct response *resp)
+bopen(struct request_open *req, struct response_open *resp)
 {
   struct file *f;
 
-  f = bfindfile(root, req->fid);
+  f = bfindfile(root, req->head.fid);
   if (f == nil) {
-    resp->ret = ENOFILE;
+    resp->head.ret = ENOFILE;
   } else {
-    resp->ret = OK;
+    resp->head.ret = OK;
     f->open++;
   }
 }
 
 static void
-bclose(struct request *req, struct response *resp)
+bclose(struct request_close *req, struct response_close *resp)
 {
   struct file *f;
 
-  f = bfindfile(root, req->fid);
+  f = bfindfile(root, req->head.fid);
   if (f == nil) {
-    resp->ret = ENOFILE;
+    resp->head.ret = ENOFILE;
   } else {
-    resp->ret = OK;
+    resp->head.ret = OK;
     f->open--;
   }
 }
@@ -233,9 +217,13 @@ removechild(struct file *p, struct file *f)
     return ENOTEMPTY;
   }
 
-  buf = malloc(p->lbuf - 1 - f->lname);
-  if (buf == nil) {
-    return ENOMEM;
+  if (p->lbuf - 1 - f->lname > 0) {
+    buf = malloc(p->lbuf - 1 - f->lname);
+    if (buf == nil) {
+      return ENOMEM;
+    }
+  } else {
+    buf = nil;
   }
 
   /* Remove from parent */
@@ -256,6 +244,8 @@ removechild(struct file *p, struct file *f)
     tbuf += c->lname;
   }
 
+  free(p->buf);
+  
   p->buf = buf;
   p->lbuf = p->lbuf - 1 - f->lname;
   
@@ -266,66 +256,63 @@ removechild(struct file *p, struct file *f)
 }
 
 static void
-bcreate(struct request *req, struct response *resp)
+bcreate(struct request_create *req, struct response_create *resp)
 {
-  struct request_create *creq;
   struct file *p, *new;
 
-  creq = (struct request_create *) req->buf;
-
-  p = bfindfile(root, req->fid);
+  p = bfindfile(root, req->head.fid);
   
   if (p == nil || (p->stat.attr & ATTR_dir) == 0) {
-    resp->ret = ENOFILE;
+    resp->head.ret = ENOFILE;
     return;
   }
 
   new = malloc(sizeof(struct file));
   if (new == nil) {
-    resp->ret = ENOMEM;
+    resp->head.ret = ENOMEM;
     return;
   }
 
   new->buf = 0;
   new->lbuf = 0;
-  new->stat.attr = creq->attr;
+  new->stat.attr = req->body.attr;
   new->stat.size = 0;
   new->fid = nfid++;
   new->open = 0;
   new->children = nil;
 
-  new->lname = strlcpy(new->name, creq->name, NAMEMAX);
+  new->lname = strlcpy(new->name, req->body.name, NAMEMAX);
 
-  resp->ret = addchild(p, new);
-  if (resp->ret != OK) {
+  resp->head.ret = addchild(p, new);
+  if (resp->head.ret != OK) {
     free(new);
   } else {
-    resp->ret = new->fid;
+    resp->body.fid = new->fid;
   }
 }
 
 static void
-bremove(struct request *req, struct response *resp)
+bremove(struct request_remove *req, struct response_remove *resp)
 {
   struct file *f;
 
-  f = bfindfile(root, req->fid);
+  f = bfindfile(root, req->head.fid);
   if (f == nil) {
-    resp->ret = ENOFILE;
+    resp->head.ret = ENOFILE;
     return;
   } else if (f->open > 0) {
-    resp->ret = ERR;
+    resp->head.ret = ERR;
     return;
   } else if (f->children != nil) {
-    resp->ret = ENOTEMPTY;
+    resp->head.ret = ENOTEMPTY;
     return;
   }
 
-  resp->ret = removechild(f->parent, f);
+  resp->head.ret = removechild(f->parent, f);
 }
 
 static void
-breaddir(struct request *req, struct response *resp,
+breaddir(struct request_read *req, struct response_read *resp,
 	 struct file *file,
 	 uint32_t offset, uint32_t len)
 {
@@ -333,39 +320,30 @@ breaddir(struct request *req, struct response *resp,
     len = file->lbuf - offset;
   }
   
-  resp->buf = malloc(len);
-  if (resp->buf == nil) {
-    resp->ret = ENOMEM;
-    return;
-  }
-
-  memmove(resp->buf, file->buf + offset, len);
-  resp->lbuf = len;
-  resp->ret = OK;
+  memmove(resp->body.data, file->buf + offset, len);
+  resp->body.len = len;
+  resp->head.ret = OK;
 }
 
 static void
-bread(struct request *req, struct response *resp)
+bread(struct request_read *req, struct response_read *resp)
 {
-  struct request_read *rc;
   struct file *f;
 
-  rc = (struct request_read *) req->buf;
-  
-  f = bfindfile(root, req->fid);
+  f = bfindfile(root, req->head.fid);
   if (f == nil) {
-    resp->ret = ENOFILE;
-  } else if (rc->offset >= f->lbuf) {
-    resp->ret = EOF;
+    resp->head.ret = ENOFILE;
+  } else if (req->body.offset >= f->lbuf) {
+    resp->head.ret = EOF;
   } else if (f->stat.attr & ATTR_dir) {
-    breaddir(req, resp, f, rc->offset, rc->len);
+    breaddir(req, resp, f, req->body.offset, req->body.len);
   } else {
-    resp->ret = ENOIMPL;
+    resp->head.ret = ENOIMPL;
   }
 }
 
 static struct fsmount rootmount = {
-  .fid = &bfid,
+  .getfid = &bgetfid,
   .clunk = &bclunk,
   .stat = &bstat,
   .open = &bopen,

@@ -33,92 +33,91 @@
 int
 fsmountloop(int in, int out, struct fsmount *mount)
 {
-  uint8_t buf[FSBUFMAX];
-  size_t reqsize, respsize;
   struct response resp;
   struct request req;
-
-  reqsize = sizeof(req.rid)
-    + sizeof(req.type)
-    + sizeof(req.fid)
-    + sizeof(req.lbuf);
-
-  respsize = sizeof(resp.rid)
-    + sizeof(resp.ret)
-    + sizeof(resp.lbuf);
+  size_t len;
   
-  req.buf = buf;
-
   while (true) {
-    if (read(in, &req, reqsize) != reqsize)
-      goto err;
-
-    resp.rid = req.rid;
-    resp.lbuf = 0;
-    resp.ret = ENOIMPL;
-
-    if (req.lbuf > 0 && read(in, req.buf, req.lbuf) != req.lbuf) {
-      goto err;
+    if (read(in, &req, sizeof(req)) <= 0) {
+      return ELINK;
     }
 
-    switch (req.type) {
-    case REQ_fid:
-      if (mount->fid)
-	mount->fid(&req, &resp);
+    resp.head.rid = req.head.rid;
+    resp.head.ret = ENOIMPL;
+
+    len = sizeof(resp.head) - sizeof(resp.head.rid);
+    
+    switch (req.head.type) {
+    case REQ_getfid:
+      len += sizeof(struct response_getfid_b);
+      if (mount->getfid)
+	mount->getfid((struct request_getfid *) &req,
+		      (struct response_getfid *) &resp);
       break;
     case REQ_clunk:
+      len += sizeof(struct response_clunk_b);
       if (mount->clunk)
-	mount->clunk(&req, &resp);
+	mount->clunk((struct request_clunk *) &req,
+		     (struct response_clunk*) &resp);
       break;
     case REQ_stat:
+      len += sizeof(struct response_stat_b);
       if (mount->stat)
-	mount->stat(&req, &resp);
+	mount->stat((struct request_stat *) &req,
+		    (struct response_stat *) &resp);
       break;
     case REQ_open:
+      len += sizeof(struct response_open_b);
       if (mount->open)
-	mount->open(&req, &resp);
+	mount->open((struct request_open *) &req,
+		    (struct response_open *) &resp);
       break;
     case REQ_close:
+      len += sizeof(struct response_close_b);
       if (mount->close)
-	mount->close(&req, &resp);
+	mount->close((struct request_close *) &req,
+		     (struct response_close *) &resp);
       break;
     case REQ_create:
+      len += sizeof(struct response_create_b);
       if (mount->create)
-	mount->create(&req, &resp);
+	mount->create((struct request_create *) &req,
+		      (struct response_create *) &resp);
       break;
     case REQ_remove:
+      len += sizeof(struct response_remove_b);
       if (mount->remove)
-	mount->remove(&req, &resp);
+	mount->remove((struct request_remove *) &req,
+		      (struct response_remove *) &resp);
       break;
     case REQ_read:
-      if (mount->read)
-	mount->read(&req, &resp);
+      if (mount->read) {
+	mount->read((struct request_read *) &req,
+		    (struct response_read *) &resp);
+
+	len += sizeof(resp.read.len) + resp.read.len;
+      } else {
+	resp.read.len = 0;
+	len += sizeof(resp.read.len);
+      }
       break;
     case REQ_write:
+      len += sizeof(struct response_write_b);
       if (mount->write)
-	mount->write(&req, &resp);
+	mount->write((struct request_write *) &req,
+		     (struct response_write *) &resp);
       break;
     }
 
-    if (write(out, &resp, respsize) != respsize)
-      goto err;
-		
-    if (resp.lbuf > 0) {
-      if (write(out, resp.buf, resp.lbuf) != resp.lbuf) {
-	goto err;
-      }
+    if (write(out, &resp.head.rid, sizeof(resp.head.rid))
+	!= sizeof(resp.head.rid)) {
+      return ELINK;
+    }
 
-      free(resp.buf);
+    if (write(out, &resp.head.ret, len) < 0) {
+      return ELINK;
     }
   }
 
   return 0;
-
- err:
-
-  if (resp.lbuf > 0) {
-    free(resp.buf);
-  }
-
-  return -1;
 }

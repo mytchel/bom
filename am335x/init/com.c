@@ -82,13 +82,31 @@ struct readreq {
 static volatile struct uart_struct *uart = nil;
 
 static struct readreq *readrequests;
-static int readreqlock, fsoutlock;
+static int lock;
 static int fsin, fsout;
 
 static struct stat comstatstruct = {
   ATTR_wr|ATTR_rd,
   0
 };
+
+static void
+getlock(void)
+{
+  int s;
+
+  s = 1;
+  while (!testandset(&lock)) {
+    sleep(s);
+    s *= 2;
+  }
+}
+
+static void
+freelock(void)
+{
+  lock = 0;
+}
 
 static size_t
 puts(uint8_t *s, size_t len)
@@ -130,75 +148,59 @@ dprintf(const char *fmt, ...)
 static int
 readloop(void)
 {
-  struct response resp;
+  struct response_read resp;
   struct readreq *req;
-  size_t respsize;
   uint32_t done;
-  uint8_t buf[FSBUFMAX];
-  uint32_t s;
-
-  respsize = sizeof(resp.rid)
-    + sizeof(resp.ret)
-    + sizeof(resp.lbuf);
-
+  size_t len;
+  
   uart->ier = 1;
 
   while (true) {
     while ((req = readrequests) == nil)
-      sleep(20);
+      sleep(0);
 
-    s = 1;
-    while (!testandset(&readreqlock)) {
-      sleep(s);
-      s *= 2;
-    }
- 
+    getlock();
+
     readrequests = req->next;
 
-    readreqlock = 0;
+    freelock();
 
     done = 0;
     while (done < req->len) {
       waitintr(UART0_INTR);
-      buf[done++] = uart->hr;
+      resp.body.data[done++] = uart->hr;
     }
 
-    resp.rid = req->rid;
-    resp.lbuf = done;
-    resp.ret = OK;
+    resp.head.rid = req->rid;
+    resp.head.ret = OK;
+    resp.body.len = done;
 
-    buf[done] = 0;
+    len = sizeof(resp.head) - sizeof(resp.head.rid)
+      + sizeof(resp.body.len) + resp.body.len;
 
-    s = 1;
-    while (!testandset(&fsoutlock)) {
-      sleep(s);
-      s *= 2;
-    }
-
-    if (write(fsout, &resp, respsize) != respsize) {
-      exit(ELINK);
-    }
-
-    if (write(fsout, buf, done) != done) {
-      exit(ELINK);
-    }
-
-    fsoutlock = 0;
-    
     free(req);
+
+    getlock();
+    
+    if (write(fsout, &resp.head.rid, sizeof(resp.head.rid))
+	!= sizeof(resp.head.rid)) {
+      return ELINK;
+    }
+    
+    if (write(fsout, &resp.head.ret, len) < 0) {
+      return ELINK;
+    }
+
+    freelock();
   }
 
-  return 0;
+  return OK;
 }
 
 static void
-addreadreq(struct request *req)
+addreadreq(struct request_read *req)
 {
-  struct request_read *rr;
   struct readreq *read, *r;
-  uint32_t s;
-
-  rr = (struct request_read *) req->buf;
 
   read = malloc(sizeof(struct readreq));
   if (read == nil) {
@@ -206,15 +208,11 @@ addreadreq(struct request *req)
     return;
   }
 
-  read->rid = req->rid;
-  read->len = rr->len;
+  read->rid = req->head.rid;
+  read->len = req->body.len;
   read->next = nil;
 
-  s = 1;
-  while (!testandset(&readreqlock)) {
-    sleep(s);
-    s *= 2;
-  }
+  getlock();
   
   for (r = readrequests; r != nil && r->next != nil; r = r->next)
     ;
@@ -225,120 +223,95 @@ addreadreq(struct request *req)
     r->next = read;
   }
 
-  readreqlock = 0;
+  freelock();
 }
 
 static void
-comstat(struct request *req, struct response *resp)
+comstat(struct request_stat *req, struct response_stat *resp)
 {
-  resp->buf = (uint8_t *) &comstatstruct;
-  resp->lbuf = sizeof(struct stat);
-  resp->ret = OK;
+  memmove(&resp->body.stat, &comstatstruct, sizeof(struct stat));
+  resp->head.ret = OK;
 }
 
 static void
-comopen(struct request *req, struct response *resp)
+comopen(struct request_open *req, struct response_open *resp)
 {
-  resp->ret = OK;
+  resp->head.ret = OK;
 }
 
 static void
-comclose(struct request *req, struct response *resp)
+comclose(struct request_close *req, struct response_close *resp)
 {
-  resp->ret = OK;
+  resp->head.ret = OK;
 }
 
 static void
-comwrite(struct request *req, struct response *resp)
+comwrite(struct request_write *req, struct response_write *resp)
 {
-  struct request_write *rw;
-  
-  rw = (struct request_write *) req->buf;
-
-  resp->ret = puts(rw->buf, rw->len);
+  resp->body.len = puts(req->body.data, req->body.len);
+  resp->head.ret = OK;
 }
 
 int
 comfsmountloop(void)
 {
-  uint8_t buf[FSBUFMAX];
-  size_t reqsize, respsize;
   struct response resp;
   struct request req;
-  uint32_t s;
-  int r;
-
-  reqsize = sizeof(req.rid)
-    + sizeof(req.type)
-    + sizeof(req.fid)
-    + sizeof(req.lbuf);
-
-  respsize = sizeof(resp.rid)
-    + sizeof(resp.ret)
-    + sizeof(resp.lbuf);
-  
-  req.buf = buf;
+  size_t len;
 
   while (true) {
-    if ((r = read(fsin, &req, reqsize)) != reqsize) {
-      goto err;
+    if (read(fsin, &req, sizeof(req)) <= 0) {
+      return ELINK;
     }
 
-    resp.rid = req.rid;
-    resp.lbuf = 0;
-    resp.ret = ENOIMPL;
+    resp.head.rid = req.head.rid;
+    resp.head.ret = ENOIMPL;
 
-    if (req.lbuf > 0 && read(fsin, req.buf, req.lbuf) != req.lbuf) {
-      dprintf("read buf failed!\n");
-      goto err;
-    }
+    len = sizeof(resp.head) - sizeof(resp.head.rid);
 
-    switch (req.type) {
+    switch (req.head.type) {
     case REQ_stat:
-      comstat(&req, &resp);
+      len += sizeof(struct response_stat_b);
+      comstat((struct request_stat *) &req,
+	      (struct response_stat *) &resp);
       break;
     case REQ_open:
-      comopen(&req, &resp);
+      len += sizeof(struct response_open_b);
+      comopen((struct request_open *) &req,
+	      (struct response_open *) &resp);
       break;
     case REQ_close:
-      comclose(&req, &resp);
+      len += sizeof(struct response_close_b);
+      comclose((struct request_close *) &req,
+	      (struct response_close *) &resp);
       break;
     case REQ_write:
-      comwrite(&req, &resp);
+      len += sizeof(struct response_write_b);
+      comwrite((struct request_write *) &req,
+	      (struct response_write *) &resp);
       break;
     case REQ_read:
-      addreadreq(&req);
+      addreadreq((struct request_read *) &req);
       /* Dont write a response */
       continue;
+      break;
     }
 
-    s = 1;
-    while (!testandset(&fsoutlock)) {
-      sleep(s);
-      s *= 2;
+    getlock();
+
+    if (write(fsout, &resp.head.rid, sizeof(resp.head.rid))
+	!= sizeof(resp.head.rid)) {
+      return ELINK;
     }
     
-    if (write(fsout, &resp, respsize) != respsize) {
-      goto err;
-    }
-		
-    if (resp.lbuf > 0) {
-      if (write(fsout, resp.buf, resp.lbuf) != resp.lbuf) {
-	goto err;
-      }
+    if (write(fsout, &resp.head.ret, len) < 0) {
+      return ELINK;
     }
 
-    fsoutlock = 0;
+    freelock();
   }
 
   return 0;
-
- err:
-
-  if (resp.lbuf > 0)
-    free(resp.buf);
-
-  return -1;
 }
  
 int

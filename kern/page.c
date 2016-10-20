@@ -189,8 +189,6 @@ fixfault(void *addr)
 {
   struct pagel *pl;
 
-  printf("fix fault 0x%h for %i\n", addr, up->pid);
-  
   pl = findpagel(up, addr);
   if (pl == nil) {
     return false;

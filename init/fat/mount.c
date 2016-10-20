@@ -39,168 +39,132 @@ static uint32_t nfid = ROOTFID;
 struct fat *fat;
 
 static void
-bfid(struct request *req, struct response *resp)
+bgetfid(struct request_getfid *req, struct response_getfid *resp)
 {
   struct fat_file *new, *parent;
-  struct response_fid *fidresp;
-  char *name;
-
-  name = (char *) req->buf;
 
   printf("fat mount find '%s' in %i and give fid %i\n",
-	 name, req->fid, nfid++);
+	 req->body.name, req->head.fid, nfid++);
 
-  parent = fatfindfid(fat, req->fid);
+  parent = fatfindfid(fat, req->head.fid);
   if (parent == nil) {
-    resp->ret = ENOFILE;
+    resp->head.ret = ENOFILE;
     return;
   }
 
-  new = fatfilefind(fat, parent, name, &resp->ret);
+  new = fatfilefind(fat, parent, req->body.name, &resp->head.ret);
   if (new == nil) {
-    resp->ret = ENOFILE;
     return;
   }
 
-  fidresp = malloc(sizeof(struct response_fid));
-  if (fidresp == nil) {
-    resp->ret = ENOMEM;
-    return;
-  }
-
-  fidresp->fid = new->fid;
-  fidresp->attr = new->attr;
-
-  resp->buf = (uint8_t *) fidresp;
-  resp->lbuf = sizeof(struct response_fid);
-  resp->ret = OK;
+  resp->body.fid = new->fid;
+  resp->body.attr = new->attr;
+  resp->head.ret = OK;
 }
 
 static void
-bclunk(struct request *req, struct response *resp)
+bclunk(struct request_clunk *req, struct response_clunk *resp)
 {
-  printf("fat mount should clunk %i\n", req->fid);
+  printf("fat mount should clunk %i\n", req->head.fid);
 
-  fatclunkfid(fat, req->fid);
-  resp->ret = OK;
+  fatclunkfid(fat, req->head.fid);
+  resp->head.ret = OK;
 }
 
 static void
-bstat(struct request *req, struct response *resp)
+bstat(struct request_stat *req, struct response_stat *resp)
 {
   struct fat_file *f;
-  struct stat *s;
 
-  printf("fat mount stat %i\n", req->fid);
+  printf("fat mount stat %i\n", req->head.fid);
 
-  f = fatfindfid(fat, req->fid);
+  f = fatfindfid(fat, req->head.fid);
   if (f == nil) {
-    resp->ret = ENOFILE;
+    resp->head.ret = ENOFILE;
     return;
   }
 
-  s = malloc(sizeof(struct stat));
-  if (s == nil) {
-    resp->ret = ENOMEM;
-    return;
-  }
-
-  s->attr = f->attr;
-  s->size = f->size;
-
-  resp->buf = (uint8_t *) s;
-  resp->lbuf = sizeof(struct stat);
-  resp->ret = ENOIMPL;
+  resp->body.stat.attr = f->attr;
+  resp->body.stat.size = f->size;
+  resp->head.ret = OK;
 }
 
 static void
-bopen(struct request *req, struct response *resp)
+bopen(struct request_open *req, struct response_open *resp)
 {
-  resp->ret = OK;
+  resp->head.ret = OK;
 }
 
 static void
-bclose(struct request *req, struct response *resp)
+bclose(struct request_close *req, struct response_close *resp)
 {
-  resp->ret = OK;
+  resp->head.ret = OK;
 }
 
 static void
-bread(struct request *req, struct response *resp)
+bread(struct request_read *req, struct response_read *resp)
 {
-  struct request_read *rr;
   struct fat_file *f;
-  uint32_t rlen;
+  uint32_t offset, len;
 
-  rr = (struct request_read *) req->buf;
+  offset = req->body.offset;
+  len = req->body.len;
 
   printf("fat mount should read %i from %i len %i\n",
-	 req->fid, rr->offset, rr->len);
+	 req->head.fid, offset, len);
 
-  f = fatfindfid(fat, req->fid);
+  f = fatfindfid(fat, req->head.fid);
   if (f == nil) {
-    resp->ret = ENOFILE;
+    resp->head.ret = ENOFILE;
     return;
   }
 
-  if (rr->offset >= f->size) {
-    resp->ret = EOF;
+  if (offset >= f->size) {
+    resp->head.ret = EOF;
     return;
-  } else if (rr->offset + rr->len >= f->size) {
-    rlen = f->size - rr->offset;
-  } else {
-    rlen = rr->len;
+  } else if (offset + len >= f->size) {
+    len = f->size - offset;
   }
 
-  resp->buf = malloc(rlen);
-  if (resp->buf == nil) {
-    resp->ret = ENOMEM;
-    return;
-  }
-  
-  resp->lbuf = rlen;
   if (f->attr & ATTR_dir) {
-    resp->ret = fatreaddir(fat, f, resp->buf, rr->offset, rr->len);
+    resp->head.ret = fatreaddir(fat, f, resp->body.data, offset, len);
   } else {
-    resp->ret = fatreadfile(fat, f, resp->buf, rr->offset, rr->len);
+    resp->head.ret = fatreadfile(fat, f, resp->body.data, offset, len);
   }
 }
 
 static void
-bwrite(struct request *req, struct response *resp)
+bwrite(struct request_write *req, struct response_write *resp)
 {
-  struct request_write *rw;
+  uint32_t offset, len;
 
-  rw = (struct request_write *) req->buf;
+  offset = req->body.offset;
+  len = req->body.len;
 
   printf("fat mount should write %i from %i len %i\n",
-	 req->fid, rw->offset, rw->len);
+	 req->head.fid, offset, len);
 
-  resp->ret = ENOIMPL;
+  resp->head.ret = ENOIMPL;
 }
 
 static void
-bcreate(struct request *req, struct response *resp)
+bcreate(struct request_create *req, struct response_create *resp)
 {
-  struct request_create *rc;
-
-  rc = (struct request_create *) req->buf;
-
   printf("fat mount should create in %i file with attr 0b%b, name '%s'\n",
-	 req->fid, rc->attr, rc->name);
+	 req->head.fid, req->body.attr, req->body.name);
 
-  resp->ret = ENOIMPL;
+  resp->head.ret = ENOIMPL;
 }
 
 static void
-bremove(struct request *req, struct response *resp)
+bremove(struct request_remove *req, struct response_remove *resp)
 {
-  printf("fat mount should remove %i\n", req->fid);
-  resp->ret = ENOIMPL;
+  printf("fat mount should remove %i\n", req->head.fid);
+  resp->head.ret = ENOIMPL;
 }
 
 static struct fsmount mount = {
-  .fid = &bfid,
+  .getfid = &bgetfid,
   .clunk  = &bclunk,
   .stat = &bstat,
   .open = &bopen,
