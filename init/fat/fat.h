@@ -27,11 +27,13 @@
 
 struct fat_file {
   uint32_t fid;
+
   char name[NAMEMAX];
   size_t opened;
   uint32_t fatattr, attr;
   uint32_t size;
   uint32_t startcluster;
+
   struct fat_file *next;
 };
 
@@ -132,7 +134,7 @@ struct fat_dir_entry {
 }__attribute__((packed));
 
 
-typedef enum { FAT12, FAT16, FAT32 } fat_t;
+typedef enum { FAT16, FAT32 } fat_t;
 
 struct fat {
   int fd;
@@ -149,14 +151,14 @@ struct fat {
 
   uint32_t nclusters;
   uint32_t nsectors;
+  uint32_t reserved;
 
   uint32_t rde;
   uint32_t rootdir;
   uint32_t dataarea;
 
-  uint8_t *table;
-
-  struct fat_bs bs;
+  /* Large enough to store a cluster */
+  uint8_t *buf;
 };
 
 struct fat *
@@ -174,8 +176,10 @@ fatclunkfid(struct fat *fat, uint32_t fid);
 
 int
 fatreadfile(struct fat *fat, struct fat_file *file,
-	    uint8_t *buf, uint32_t offset, uint32_t len);
+	    uint8_t *buf, uint32_t offset, uint32_t len,
+	    int *err);
 
 int
 fatreaddir(struct fat *fat, struct fat_file *file,
-	   uint8_t *buf, uint32_t offset, uint32_t len);
+	   uint8_t *buf, uint32_t offset, uint32_t len,
+	   int *err);

@@ -188,13 +188,37 @@ bool
 fixfault(void *addr)
 {
   struct pagel *pl;
+  struct page *pg;
 
   pl = findpagel(up, addr);
-  if (pl == nil) {
-    return false;
-  } else {
+  if (pl != nil) {
     mmuputpage(pl);
     return true;
+  } else if (up->ustack == nil) {
+    return false;
+  }
+
+  /* Possibly extend stack */
+  
+  for (pl = up->ustack; pl->next != nil; pl = pl->next)
+    ;
+
+  if (addr < pl->va && addr > pl->va - PAGE_SIZE) {
+    pg = getrampage();
+    if (pg == nil) {
+      return false;
+    }
+
+    pl->next = wrappage(pg, pl->va - PAGE_SIZE, true, true);
+    if (pl->next == nil) {
+      return false;
+    } else {
+      mmuputpage(pl->next);
+      return true;
+    }
+    
+  } else {
+    return false;
   }
 }
 

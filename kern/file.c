@@ -441,7 +441,7 @@ fileread(struct chan *c, uint8_t *buf, size_t n)
   struct request_read req;
   struct response_read resp;
   struct cfile *cfile;
-  
+
   cfile = (struct cfile *) c->aux;
 
   req.head.fid = cfile->fid->fid;

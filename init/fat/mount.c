@@ -34,17 +34,12 @@
 
 #include "fat.h"
 
-static uint32_t nfid = ROOTFID;
-
 struct fat *fat;
 
 static void
 bgetfid(struct request_getfid *req, struct response_getfid *resp)
 {
   struct fat_file *new, *parent;
-
-  printf("fat mount find '%s' in %i and give fid %i\n",
-	 req->body.name, req->head.fid, nfid++);
 
   parent = fatfindfid(fat, req->head.fid);
   if (parent == nil) {
@@ -65,8 +60,6 @@ bgetfid(struct request_getfid *req, struct response_getfid *resp)
 static void
 bclunk(struct request_clunk *req, struct response_clunk *resp)
 {
-  printf("fat mount should clunk %i\n", req->head.fid);
-
   fatclunkfid(fat, req->head.fid);
   resp->head.ret = OK;
 }
@@ -75,8 +68,6 @@ static void
 bstat(struct request_stat *req, struct response_stat *resp)
 {
   struct fat_file *f;
-
-  printf("fat mount stat %i\n", req->head.fid);
 
   f = fatfindfid(fat, req->head.fid);
   if (f == nil) {
@@ -110,9 +101,6 @@ bread(struct request_read *req, struct response_read *resp)
   offset = req->body.offset;
   len = req->body.len;
 
-  printf("fat mount should read %i from %i len %i\n",
-	 req->head.fid, offset, len);
-
   f = fatfindfid(fat, req->head.fid);
   if (f == nil) {
     resp->head.ret = ENOFILE;
@@ -127,23 +115,19 @@ bread(struct request_read *req, struct response_read *resp)
   }
 
   if (f->attr & ATTR_dir) {
-    resp->head.ret = fatreaddir(fat, f, resp->body.data, offset, len);
+    resp->body.len =
+      fatreaddir(fat, f, resp->body.data,
+		 offset, len, &resp->head.ret);
   } else {
-    resp->head.ret = fatreadfile(fat, f, resp->body.data, offset, len);
+    resp->body.len =
+      fatreadfile(fat, f, resp->body.data,
+		  offset, len, &resp->head.ret);
   }
 }
 
 static void
 bwrite(struct request_write *req, struct response_write *resp)
 {
-  uint32_t offset, len;
-
-  offset = req->body.offset;
-  len = req->body.len;
-
-  printf("fat mount should write %i from %i len %i\n",
-	 req->head.fid, offset, len);
-
   resp->head.ret = ENOIMPL;
 }
 

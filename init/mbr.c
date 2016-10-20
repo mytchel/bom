@@ -287,9 +287,9 @@ breadblocks(struct request_read *req, struct response_read *resp,
   buf = resp->body.data;
   
   for (i = 0; i < nblk && part->lba + blk + i < part->sectors; i++) {
-    printf("%s mbr read sector %i\n", device->name, part->lba + blk + i);
     if (!device->read(device->aux, part->lba + blk + i, buf)) {
       resp->head.ret = ERR;
+      resp->body.len = 0;
       return;
     }
     

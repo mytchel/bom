@@ -73,8 +73,6 @@ malloc(size_t size)
 
   size = roundptr(size);
 
-  printf("malloc size %i\n", size);
-
   p = nil;
   for (b = heap; b != nil; p = b, b = b->next) {
     if (b->size >= size) {
