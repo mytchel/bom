@@ -69,8 +69,8 @@ static uint8_t *
 builddirbufsectors(struct fat *fat, uint32_t sector,
 		   uint8_t *buf, size_t *len, size_t *mlen);
 
-static uint8_t *
-builddirbuf(struct fat *fat, uint32_t cluster, size_t *len);
+static bool
+builddirbuf(struct fat *fat, struct fat_file *f);
 
 static struct fat_file *
 fatfilefromentry(struct fat *fat, struct fat_dir_entry *entry,
@@ -316,7 +316,7 @@ writetableinfo(struct fat *fat, uint32_t cluster, uint32_t v)
 
   sec = off / fat->bps;
 
-  if (!readsectors(fat, fat->reserved, 1)) {
+  if (!readsectors(fat, fat->reserved + sec, 1)) {
     printf("fat mount failed to seek.\n");
     return;
   }
@@ -649,28 +649,40 @@ builddirbufsectors(struct fat *fat, uint32_t sector,
   return buf;
 } 
 
-uint8_t *
-builddirbuf(struct fat *fat, uint32_t cluster, size_t *len)
+bool
+builddirbuf(struct fat *fat, struct fat_file *f)
 {
-  uint8_t *buf;
+  uint32_t cluster;
   size_t mlen;
 
   mlen = 1;
-  buf = nil;
+  f->dirbuflen = 0;
 
-  *len = 0;
-  while (cluster != 0) {
-    buf = builddirbufsectors(fat, clustertosector(fat, cluster),
-			     buf, len, &mlen);
+  if (f->startcluster == 0) {
+    f->dirbuf =
+      builddirbufsectors(fat, fat->rootdir,
+			 f->dirbuf, &f->dirbuflen, &mlen);
 
-    if (buf == nil) {
-      return nil;
+    if (f->dirbuf == nil) {
+      return false;
     }
+  } else {
+    cluster = f->startcluster;
     
-    cluster = nextcluster(fat, cluster);
+    while (cluster != 0) {
+      f->dirbuf =
+	builddirbufsectors(fat, clustertosector(fat, cluster),
+			   f->dirbuf, &f->dirbuflen, &mlen);
+
+      if (f->dirbuf == nil) {
+	return false;
+      }
+      
+      cluster = nextcluster(fat, cluster);
+    }
   }
 
-  return buf;
+  return true;
 }
 
 int
@@ -795,22 +807,8 @@ fatdirread(struct fat *fat, struct fat_file *file,
 	   uint8_t *buf, uint32_t offset, uint32_t len,
 	   int *err)
 {
-  size_t mlen;
-  
   if (file->dirbuf == nil) {
-    if (file->startcluster == 0) {
-      mlen = 1;
-      file->dirbuflen = 0;
-      file->dirbuf =
-	builddirbufsectors(fat, fat->rootdir,
-			   nil, &file->dirbuflen, &mlen);
-
-    } else {
-      file->dirbuf = builddirbuf(fat, file->startcluster,
-				 &file->dirbuflen);
-    }
-
-    if (file->dirbuf == nil) {
+    if (!builddirbuf(fat, file)) {
       *err = ENOMEM;
       printf("fat mount failed to read dir\n");
       return 0;
@@ -836,6 +834,18 @@ fatfileremove(struct fat *fat, struct fat_file *file)
   struct fat_file *parent;
   uint32_t cluster, sector, n;
 
+  if (file->attr & ATTR_dir) {
+    if (file->dirbuf == nil) {
+      if (!builddirbuf(fat, file)) {
+	return ENOMEM;
+      }
+    }
+
+    if (file->dirbuflen > 0) {
+      return ENOTEMPTY;
+    }
+  }
+  
   parent = file->parent;
   if (parent == nil) {
     return ERR;
@@ -870,7 +880,7 @@ fatfileremove(struct fat *fat, struct fat_file *file)
 	  fat->spc * fat->bps - ((uint8_t *) direntry - fat->buf));
 
   printf("write buffer\n");
-  if (!writesectors(fat, sector, fat->bps)) {
+  if (!writesectors(fat, sector, fat->spc)) {
     printf("fat mount failed to write modified dir.\n");
     return ERR;
   }
@@ -880,8 +890,16 @@ fatfileremove(struct fat *fat, struct fat_file *file)
   cluster = file->startcluster;
   while (cluster != 0) {
     n = nextcluster(fat, cluster);
+    printf("next at %i\n", n);
     writetableinfo(fat, cluster, 0);
     cluster = n;
+  }
+
+  printf("removed\n");
+
+  if (parent->dirbuf != nil) {
+    free(parent->dirbuf);
+    parent->dirbuf = nil;
   }
 
   return OK;
@@ -893,20 +911,21 @@ fatfilecreate(struct fat *fat, struct fat_file *parent,
 {
   struct fat_dir_entry *direntry;
   struct fat_file *new;
-  uint32_t cluster, sector;
+  uint32_t cluster, sector, newcluster;
   uint8_t fattr;
   int i, j;
 
-  printf("fat mount create '%s'\n", name);
-  
+  newcluster = findfreecluster(fat);
+  if (newcluster == 0) {
+    return nil;
+  }
+
   if (parent->startcluster == 0) {
     sector = fat->rootdir;
-    printf("find emptyu in root\n");
     direntry = fatfindemptydirentryincluster(fat, sector);
   } else {
     cluster = parent->startcluster;
     while (cluster != 0) {
-      printf("find emptyu in cluster %i\n", cluster);
       sector = clustertosector(fat, cluster);
       direntry = fatfindemptydirentryincluster(fat, sector);
       if (direntry != nil) {
@@ -919,11 +938,10 @@ fatfilecreate(struct fat *fat, struct fat_file *parent,
 
   if (direntry == nil) {
     printf("create out of space, need to exspand dir. not yet implimented\n");
+    writetableinfo(fat, newcluster, 0);
     return nil;
   }
 
-  printf("copy info to direntry\n");
-  
   i = 0;
 
   for (j = 0; j < sizeof(direntry->name); j++) {
@@ -957,35 +975,43 @@ fatfilecreate(struct fat *fat, struct fat_file *parent,
 
   memmove(&direntry->attr, &fattr, sizeof(fattr));
 
-  printf("write\n");
+  intwritelittle16(direntry->cluster_low,
+		   (uint16_t) (newcluster & 0xffff));
+
+  intwritelittle16(direntry->cluster_high,
+		   (uint16_t) (newcluster >> 16));
+
   
   if (!writesectors(fat, sector, fat->spc)) {
     printf("fat mount failed to write updated dir.\n");
+    writetableinfo(fat, newcluster, 0);
+    return nil;
+  }
+
+  memset(fat->buf, 0, fat->spc * fat->bps);
+  if (!writesectors(fat, newcluster, fat->spc)) {
+    printf("fat mount failed to zero new cluster.\n");
     return nil;
   }
 
   /* Ignore time for now */
 
-  printf("create fat_file\n");
-  
   new = fatfilefromentry(fat, direntry, name);
   if (new == nil) {
     printf("fat mount failed to create fat_file\n");
     return nil;
   }
-
+  
   new->parent = parent;
 
   new->cnext = parent->children;
   parent->children = new;
 
   if (parent->dirbuf != nil) {
-    printf("clean parent dirbuf\n");
     free(parent->dirbuf);
     parent->dirbuf = nil;
   }
 
-  printf("done\n");
   return new;
 }
 

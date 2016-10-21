@@ -112,8 +112,8 @@ intwritelittle16(uint8_t *dest, uint16_t v)
 {
   size_t offset = sizeof(v);
 
-  while (offset >= 0) {
-    *dest++ = v >> (offset-- * 8);
+  while (offset > 0) {
+    *dest++ = v >> (--offset * 8);
   }
 }
 
@@ -122,8 +122,8 @@ intwritelittle32(uint8_t *dest, uint32_t v)
 {
   size_t offset = sizeof(v);
 
-  while (offset >= 0) {
-    *dest++ = v >> (offset-- * 8);
+  while (offset > 0) {
+    *dest++ = v >> (--offset * 8);
   }
 }
 
