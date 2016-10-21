@@ -96,10 +96,6 @@ static void
 bread(struct request_read *req, struct response_read *resp)
 {
   struct fat_file *f;
-  uint32_t offset, len;
-
-  offset = req->body.offset;
-  len = req->body.len;
 
   f = fatfindfid(fat, req->head.fid);
   if (f == nil) {
@@ -108,11 +104,15 @@ bread(struct request_read *req, struct response_read *resp)
   }
 
   if (f->attr & ATTR_dir) {
-    resp->body.len = fatreaddir(fat, f, resp->body.data,
-				offset, len, &resp->head.ret);
+    resp->body.len =
+      fatreaddir(fat, f, resp->body.data,
+		 req->body.offset, req->body.len,
+		 &resp->head.ret);
   } else {
-    resp->body.len = fatreadfile(fat, f, resp->body.data,
-				 offset, len, &resp->head.ret);
+    resp->body.len =
+      fatreadfile(fat, f, resp->body.data,
+		  req->body.offset, req->body.len,
+		  &resp->head.ret);
   }
 }
 
@@ -198,8 +198,8 @@ mountfat(char *device, char *dir)
     return i;
   }
 
-  mount.databuf = malloc(512);
-  mount.buflen = 512;
+  mount.databuf = malloc(fat->spc * fat->bps);
+  mount.buflen = fat->spc * fat->bps;
   
   i = fsmountloop(p1[0], p2[1], &mount);
 

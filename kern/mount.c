@@ -71,7 +71,8 @@ mountproc(void *arg)
     }
 
     if (trans->req->head.type == REQ_read && resp->head.ret == OK) {
-      if (piperead(b->in, resp->read.data, rlen) < 0) {
+      resp->read.len = piperead(b->in, resp->read.data, rlen);
+      if (resp->read.len < 0) {
 	printf("kproc mount: error reading response.\n");
 	break;
       }
