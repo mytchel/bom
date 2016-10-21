@@ -49,18 +49,21 @@ bgetfid(struct request_getfid *req, struct response_getfid *resp)
 
   new = fatfilefind(fat, parent, req->body.name, &resp->head.ret);
   if (new == nil) {
-    return;
+    resp->head.ret = ENOCHILD;
+  } else {
+    resp->body.fid = new->fid;
+    resp->body.attr = new->attr;
+    resp->head.ret = OK;
   }
-
-  resp->body.fid = new->fid;
-  resp->body.attr = new->attr;
-  resp->head.ret = OK;
 }
 
 static void
 bclunk(struct request_clunk *req, struct response_clunk *resp)
 {
-  fatclunkfid(fat, req->head.fid);
+  struct fat_file *f;
+
+  f = fatfindfid(fat, req->head.fid);
+  fatfileclunk(fat, f);
   resp->head.ret = OK;
 }
 
@@ -105,12 +108,12 @@ bread(struct request_read *req, struct response_read *resp)
 
   if (f->attr & ATTR_dir) {
     resp->body.len =
-      fatreaddir(fat, f, resp->body.data,
+      fatdirread(fat, f, resp->body.data,
 		 req->body.offset, req->body.len,
 		 &resp->head.ret);
   } else {
     resp->body.len =
-      fatreadfile(fat, f, resp->body.data,
+      fatfileread(fat, f, resp->body.data,
 		  req->body.offset, req->body.len,
 		  &resp->head.ret);
   }
@@ -119,23 +122,54 @@ bread(struct request_read *req, struct response_read *resp)
 static void
 bwrite(struct request_write *req, struct response_write *resp)
 {
-  resp->head.ret = ENOIMPL;
+  struct fat_file *f;
+
+  f = fatfindfid(fat, req->head.fid);
+  if (f == nil) {
+    resp->head.ret = ENOFILE;
+    return;
+  }
+
+  if (f->attr & ATTR_dir) {
+    resp->head.ret = EMODE;
+  } else {
+    resp->body.len =
+      fatfilewrite(fat, f, req->body.data,
+		  req->body.offset, req->body.len,
+		  &resp->head.ret);
+  }
 }
 
 static void
 bcreate(struct request_create *req, struct response_create *resp)
 {
-  printf("fat mount should create in %i file with attr 0b%b, name '%s'\n",
-	 req->head.fid, req->body.attr, req->body.name);
+  struct fat_file *f, *c;
 
-  resp->head.ret = ENOIMPL;
+  f = fatfindfid(fat, req->head.fid);
+  if (f == nil) {
+    resp->head.ret = ENOFILE;
+  } else {
+    c = fatfilecreate(fat, f, req->body.name, req->body.attr);
+    if (c == nil) {
+      resp->head.ret = ERR;
+    } else {
+      resp->body.fid = c->fid;
+      resp->head.ret = OK;
+    }
+  }
 }
 
 static void
 bremove(struct request_remove *req, struct response_remove *resp)
 {
-  printf("fat mount should remove %i\n", req->head.fid);
-  resp->head.ret = ENOIMPL;
+  struct fat_file *f;
+
+  f = fatfindfid(fat, req->head.fid);
+  if (f == nil) {
+    resp->head.ret = ENOFILE;
+  } else {
+    resp->head.ret = fatfileremove(fat, f);
+  }
 }
 
 static struct fsmount mount = {

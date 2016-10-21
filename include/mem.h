@@ -74,4 +74,10 @@ intcopybig16(uint8_t *src);
 uint32_t
 intcopybig32(uint8_t *src);
 
+void
+intwritelittle16(uint8_t *dest, uint16_t v);
+
+uint32_t
+intwritelittle32(uint8_t *dest, uint32_t v);
+
 #endif

@@ -42,6 +42,9 @@ struct func {
 int
 mounttmp(char *path);
 
+int
+mountfat(char *device, char *dir);
+
 static int funcexit(int argc, char **argv);
 static int funccd(int argc, char **argv);
 static int funcpwd(int argc, char **argv);
@@ -55,9 +58,6 @@ static int cmdcat(int argc, char **argv);
 static int cmdmounttmp(int argc, char **argv);
 static int cmdmountfat(int argc, char **argv);
 static int cmdblocktest(int argc, char **argv);
-
-int
-mountfat(char *device, char *dir);
 
 struct func funcs[] = {
   { "exit",      &funcexit },

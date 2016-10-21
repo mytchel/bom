@@ -106,3 +106,24 @@ intcopybig32(uint8_t *src)
 
   return d;
 }
+
+void
+intwritelittle16(uint8_t *dest, uint16_t v)
+{
+  size_t offset = sizeof(v);
+
+  while (offset >= 0) {
+    *dest++ = v >> (offset-- * 8);
+  }
+}
+
+void
+intwritelittle32(uint8_t *dest, uint32_t v)
+{
+  size_t offset = sizeof(v);
+
+  while (offset >= 0) {
+    *dest++ = v >> (offset-- * 8);
+  }
+}
+

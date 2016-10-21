@@ -106,7 +106,7 @@ mmchswaitintr(struct mmc *mmc, uint32_t mask)
 
       printf("%s unexpected interrupt 0b%b\n", mmc->name, v);
     }
-  } while (waitintr(mmc->intr) != ERR);
+  } while (true); /*waitintr(mmc->intr) != ERR);*/
 
   return false;
 }
@@ -194,12 +194,12 @@ mmchssendcmd(struct mmc *mmc, struct mmc_command *c)
     mmc->regs->blk = c->data_len;
 
     cmd |= MMCHS_SD_CMD_DP_DATA;
-  }
   
-  if (c->data_type == DATA_READ) {
-    cmd |= MMCHS_SD_CMD_DDIR_READ;
-  } else if (c->data_type == DATA_WRITE) {
-    cmd |= MMCHS_SD_CMD_DDIR_WRITE;
+    if (c->data_type == DATA_READ) {
+      cmd |= MMCHS_SD_CMD_DDIR_READ;
+    } else if (c->data_type == DATA_WRITE) {
+      cmd |= MMCHS_SD_CMD_DDIR_WRITE;
+    }
   }
 
   r = mmchssendrawcmd(mmc, cmd, c->arg);
@@ -563,13 +563,13 @@ writeblock(void *aux, uint32_t blk, uint8_t *buf)
   struct mmc *mmc = (struct mmc *) aux;
 
   cmd.cmd = MMC_WRITE_BLOCK_SINGLE;
+  cmd.arg = blk;
   cmd.resp_type = RESP_LEN_48;
   cmd.data_type = DATA_WRITE;
-  cmd.arg = blk;
   cmd.data = buf;
   cmd.data_len = 512;
 
-  if (!mmchssendcmd(aux, &cmd)) {
+  if (!mmchssendcmd(mmc, &cmd)) {
     mmc->regs->stat = 0xffffffff;
     return false;
   } else {

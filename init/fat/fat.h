@@ -134,10 +134,15 @@ struct fat_file {
   uint8_t *dirbuf;
   size_t dirbuflen;
 
-  struct fat_file *next;
+  struct fat_file *parent;
+  struct fat_file *children;
+  struct fat_file *cnext;
 };
 
 typedef enum { FAT16, FAT32 } fat_t;
+
+#define FAT16_END 0xfff8
+#define FAT32_END 0x0ffffff8
 
 struct fat {
   int fd;
@@ -160,6 +165,7 @@ struct fat {
   uint32_t rootdir;
   uint32_t dataarea;
 
+  uint32_t bufsector; /* Current cluster stored */
   /* Large enough to store a cluster */
   uint8_t *buf;
 };
@@ -175,14 +181,25 @@ struct fat_file *
 fatfindfid(struct fat *fat, uint32_t fid);
 
 void
-fatclunkfid(struct fat *fat, uint32_t fid);
+fatfileclunk(struct fat *fat, struct fat_file *);
 
 int
-fatreadfile(struct fat *fat, struct fat_file *file,
+fatfileread(struct fat *fat, struct fat_file *file,
+	    uint8_t *buf, uint32_t offset, uint32_t len,
+	    int *err);
+int
+fatfilewrite(struct fat *fat, struct fat_file *file,
 	    uint8_t *buf, uint32_t offset, uint32_t len,
 	    int *err);
 
 int
-fatreaddir(struct fat *fat, struct fat_file *file,
+fatdirread(struct fat *fat, struct fat_file *file,
 	   uint8_t *buf, uint32_t offset, uint32_t len,
 	   int *err);
+
+int
+fatfileremove(struct fat *fat, struct fat_file *file);
+
+struct fat_file *
+fatfilecreate(struct fat *fat, struct fat_file *parent,
+	      char *name, uint32_t attr);

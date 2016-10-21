@@ -272,7 +272,7 @@ bclose(struct request_close *req, struct response_close *resp)
 }
 
 static void
-breadroot(struct request_read *req, struct response_read *resp,
+readroot(struct request_read *req, struct response_read *resp,
 	  uint32_t offset, uint32_t len)
 {
   printf("read root from %i len %i\n", offset, len);
@@ -291,7 +291,7 @@ breadroot(struct request_read *req, struct response_read *resp,
 }
 
 static void
-breadblocks(struct request_read *req, struct response_read *resp,
+readblocks(struct request_read *req, struct response_read *resp,
 	    struct partition *part,
 	    uint32_t blk, uint32_t nblk)
 {
@@ -320,16 +320,55 @@ bread(struct request_read *req, struct response_read *resp)
   struct partition *part;
 
   if (req->head.fid == ROOTFID) {
-    breadroot(req, resp, req->body.offset, req->body.len);
+    readroot(req, resp, req->body.offset, req->body.len);
   } else {
     part = fidtopart(req->head.fid);
     if (part == nil) {
       resp->head.ret = ENOFILE;
     } else {
-      breadblocks(req, resp, part,
-		  req->body.offset / device->blksize,
-		  req->body.len / device->blksize);
+      readblocks(req, resp, part,
+		 req->body.offset / device->blksize,
+		 req->body.len / device->blksize);
     }
+  }
+}
+
+static void
+writeblocks(struct request_write *req, struct response_write *resp,
+	    struct partition *part,
+	    uint32_t blk, uint32_t nblk)
+{
+  uint8_t *buf;
+  uint32_t i;
+
+  buf = req->body.data;
+  
+  for (i = 0; i < nblk && part->lba + blk + i < part->sectors; i++) {
+    if (!device->write(device->aux, part->lba + blk + i, buf)) {
+      resp->head.ret = ERR;
+      resp->body.len = 0;
+      return;
+    }
+    
+    buf += device->blksize;
+  }
+
+  resp->body.len = i * device->blksize;
+  resp->head.ret = OK;
+}
+
+static void
+bwrite(struct request_write *req, struct response_write *resp)
+{
+  struct partition *part;
+
+  part = fidtopart(req->head.fid);
+  if (part == nil) {
+    resp->head.ret = ENOFILE;
+  } else {
+    writeblocks(req, resp, part,
+		req->body.offset / device->blksize,
+		req->body.len / device->blksize);
   }
 }
 
@@ -340,6 +379,7 @@ static struct fsmount mount = {
   .open = &bopen,
   .close = &bclose,
   .read = &bread,
+  .write = &bwrite,
 };
 
 int
