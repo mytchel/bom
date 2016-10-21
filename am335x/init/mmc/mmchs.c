@@ -632,6 +632,7 @@ mmchsproc(char *name, void *addr, int intr)
   device.read = &readblock;
   device.write = &writeblock;
   device.nblk = mmc.nblk;
+  device.blksize = 512;
   device.aux = &mmc;
 
   return mbrmount(&device, (uint8_t *) "/dev/");

@@ -457,7 +457,6 @@ fileread(struct chan *c, uint8_t *buf, size_t n)
   resp.body.len = n;
   resp.body.data = buf;
 
-  printf("make read request\n");
   if (!makereq(cfile->fid->binding, (struct request *) &req, sizeof(req),
 	       (struct response *) &resp)) {
     return ELINK;
@@ -473,13 +472,12 @@ fileread(struct chan *c, uint8_t *buf, size_t n)
 static int
 filewrite(struct chan *c, uint8_t *buf, size_t n)
 {
+  struct fstransaction trans;
   struct request_write req;
   struct response_write resp;
   struct binding *b;
   struct cfile *cfile;
 
-  printf("filewrite\n");
-  
   cfile = (struct cfile *) c->aux;
   b = cfile->fid->binding;
 
@@ -487,6 +485,9 @@ filewrite(struct chan *c, uint8_t *buf, size_t n)
     return ELINK;
   }
 
+  trans.req = (struct request *) &req;
+  trans.resp = (struct response *) &resp;
+  
   req.head.rid = atomicinc(&b->nreqid);
   req.head.type = REQ_write;
   req.head.fid = cfile->fid->fid;
@@ -498,8 +499,6 @@ filewrite(struct chan *c, uint8_t *buf, size_t n)
 
   lock(&b->lock);
 
-  printf("filewrite write head %i\n", req.head.rid);
-  
   if (pipewrite(b->out, (void *) &req,
 		sizeof(req.head) +
 		sizeof(req.body.offset) +
@@ -508,17 +507,13 @@ filewrite(struct chan *c, uint8_t *buf, size_t n)
     return ELINK;
   }
   
-  printf("filewrite write buf\n");
-
   if (pipewrite(b->out, buf, n) < 0) {
     unlock(&b->lock);
     return ELINK;
   }
 
-  up->aux = (void *) &resp;
+  up->aux = (void *) &trans;
 
-  printf("filewrite wait\n");
-  
   setintr(INTR_OFF);
 
   procwait(up, &b->waiting);
@@ -527,8 +522,6 @@ filewrite(struct chan *c, uint8_t *buf, size_t n)
   schedule();
   setintr(INTR_ON);
 
-  printf("filewrite got response %i\n", resp.head.rid);
-  
   if (resp.head.ret != OK) {
     return resp.head.ret;
   } else {

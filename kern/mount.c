@@ -34,7 +34,7 @@ mountproc(void *arg)
   struct response *resp;
   struct binding *b;
   struct proc *p, *pn;
-  uint32_t rid;
+  uint32_t rid, rlen = 0;
   
   b = (struct binding *) arg;
 
@@ -58,6 +58,8 @@ mountproc(void *arg)
     if (resp == nil) {
       printf("kproc mount: response has no waiter.\n");
       break;
+    } else if (trans->req->head.type == REQ_read) {
+      rlen = resp->read.len;
     }
     
     unlock(&b->lock);
@@ -68,9 +70,8 @@ mountproc(void *arg)
       break;
     }
 
-    if (trans->req->head.type == REQ_read) {
-      printf("mountproc read response data %i\n", resp->head.rid);
-      if (piperead(b->in, resp->read.data, resp->read.len) < 0) {
+    if (trans->req->head.type == REQ_read && resp->head.ret == OK) {
+      if (piperead(b->in, resp->read.data, rlen) < 0) {
 	printf("kproc mount: error reading response.\n");
 	break;
       }

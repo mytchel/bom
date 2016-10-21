@@ -332,14 +332,17 @@ bremove(struct request_remove *req, struct response_remove *resp)
 
 static void
 breaddir(struct request_read *req, struct response_read *resp,
-	 struct file *file,
-	 uint32_t offset, uint32_t len)
+	 struct file *file)
 {
-  if (offset + len > file->lbuf) {
-    len = file->lbuf - offset;
+  uint32_t len;
+  
+  if (req->body.offset + req->body.len > file->lbuf) {
+    len = file->lbuf - req->body.offset;
+  } else {
+    len = req->body.len;
   }
   
-  memmove(resp->body.data, file->buf + offset, len);
+  memmove(resp->body.data, file->buf + req->body.offset, len);
   resp->body.len = len;
   resp->head.ret = OK;
 }
@@ -355,7 +358,7 @@ bread(struct request_read *req, struct response_read *resp)
   } else if (req->body.offset >= f->lbuf) {
     resp->head.ret = EOF;
   } else if (f->stat.attr & ATTR_dir) {
-    breaddir(req, resp, f, req->body.offset, req->body.len);
+    breaddir(req, resp, f);
   } else {
     resp->head.ret = ENOIMPL;
   }
@@ -393,5 +396,8 @@ rootfsproc(void *arg)
   root->parent = nil;
   root->children = nil;
 
+  rootmount.databuf = malloc(512);
+  rootmount.buflen = 512;
+  
   return fsmountloop(in, out, &rootmount);
 }

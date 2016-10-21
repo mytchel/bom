@@ -106,7 +106,7 @@ initparts(void)
 
   initpart(&raw, "raw");
 
-  raw.stat.size = device->nblk * 512;
+  raw.stat.size = device->nblk * device->blksize;
   raw.active = true;
   raw.lba = 0;
   raw.sectors = device->nblk;
@@ -138,7 +138,7 @@ updatembr(void)
       memmove(&parts[i].sectors, &parts[i].mbr->sectors,
 	      sizeof(uint32_t));
 
-      parts[i].stat.size = parts[i].sectors * 512;
+      parts[i].stat.size = parts[i].sectors * device->blksize;
     } else {
       parts[i].active = false;
     }
@@ -254,6 +254,14 @@ bstat(struct request_stat *req, struct response_stat *resp)
 static void
 bopen(struct request_open *req, struct response_open *resp)
 {
+  if (req->head.fid == ROOTFID) {
+    resp->body.minchunk = 1;
+    resp->body.maxchunk = device->blksize;
+  } else {
+    resp->body.minchunk = device->blksize;
+    resp->body.maxchunk = device->blksize;
+  }
+  
   resp->head.ret = OK;
 }
 
@@ -267,13 +275,19 @@ static void
 breadroot(struct request_read *req, struct response_read *resp,
 	  uint32_t offset, uint32_t len)
 {
+  printf("read root from %i len %i\n", offset, len);
   if (offset + len >= rootstat.size) {
     len = rootstat.size - offset;
   }
 
-  memmove(resp->body.data, rootbuf + offset, len);
-  resp->body.len = len;
-  resp->head.ret = OK;
+  if (len == 0) {
+    resp->head.ret = EOF;
+  } else {
+    printf("read root len really %i\n", len);
+    memmove(resp->body.data, rootbuf + offset, len);
+    resp->body.len = len;
+    resp->head.ret = OK;
+  }
 }
 
 static void
@@ -293,10 +307,10 @@ breadblocks(struct request_read *req, struct response_read *resp,
       return;
     }
     
-    buf += 512;
+    buf += device->blksize;
   }
 
-  resp->body.len = i * 512;
+  resp->body.len = i * device->blksize;
   resp->head.ret = OK;
 }
 
@@ -307,17 +321,14 @@ bread(struct request_read *req, struct response_read *resp)
 
   if (req->head.fid == ROOTFID) {
     breadroot(req, resp, req->body.offset, req->body.len);
-  } else if (req->body.len % 512 != 0
-	     || req->body.offset % 512 != 0) {
-    resp->head.ret = ENOIMPL;
   } else {
     part = fidtopart(req->head.fid);
     if (part == nil) {
       resp->head.ret = ENOFILE;
     } else {
       breadblocks(req, resp, part,
-		  req->body.offset / 512,
-		  req->body.len / 512);
+		  req->body.offset / device->blksize,
+		  req->body.len / device->blksize);
     }
   }
 }
@@ -363,6 +374,9 @@ mbrmount(struct blkdevice *d, uint8_t *dir)
   close(p1[1]);
   close(p2[0]);
 
+  mount.databuf = malloc(device->blksize * 4);
+  mount.buflen = device->blksize * 4;
+  
   return fsmountloop(p1[0], p2[1], &mount);
 }
 

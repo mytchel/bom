@@ -128,6 +128,8 @@ bopen(struct request_open *req, struct response_open *resp)
     resp->head.ret = ENOFILE;
   } else {
     resp->head.ret = OK;
+    resp->body.minchunk = 1;
+    resp->body.maxchunk = 1;
     f->open++;
   }
 }

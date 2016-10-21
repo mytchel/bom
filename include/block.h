@@ -33,6 +33,7 @@ struct blkdevice {
   bool (*read)(void *aux, uint32_t blk, uint8_t *buf);
   bool (*write)(void *aux, uint32_t blk, uint8_t *buf);
   uint32_t nblk;
+  uint32_t blksize;
   void *aux;
 };
 

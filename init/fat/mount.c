@@ -198,9 +198,13 @@ mountfat(char *device, char *dir)
     return i;
   }
 
+  mount.databuf = malloc(512);
+  mount.buflen = 512;
+  
   i = fsmountloop(p1[0], p2[1], &mount);
-  exit(i);
 
-  return 0;
+  free(mount.databuf);
+  
+  return i;
 }
 

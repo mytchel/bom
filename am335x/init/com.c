@@ -36,7 +36,7 @@
 #define UART0_LEN   	0x1000
 #define UART0_INTR      72
 
-#define BUF_SIZE        512
+#define BUFMAX          512
 
 struct uart_struct {
   uint32_t hr;
@@ -150,7 +150,7 @@ readloop(void)
 {
   struct response_read resp;
   struct readreq *req;
-  uint8_t data[512];
+  uint8_t data[BUFMAX];
   uint32_t done;
   
   uart->ier = 1;
@@ -238,6 +238,8 @@ static void
 comopen(struct request_open *req, struct response_open *resp)
 {
   resp->head.ret = OK;
+  resp->body.minchunk = 1;
+  resp->body.maxchunk = BUFMAX;
 }
 
 static void
@@ -258,7 +260,7 @@ comfsmountloop(void)
 {
   struct response *resp;
   struct request *req;
-  uint8_t wdata[512];
+  uint8_t wdata[BUFMAX];
   size_t len;
 
   req = malloc(sizeof(struct request));
@@ -272,8 +274,6 @@ comfsmountloop(void)
     return ENOMEM;
   }
 
-  req->write.data = wdata;
-  
   while (true) {
     if (read(fsin, req, sizeof(struct request)) <= 0) {
       return ELINK;
@@ -303,11 +303,7 @@ comfsmountloop(void)
       break;
 
     case REQ_write:
-      /* For now. */
-      if (req->write.len > sizeof(wdata)) {
-	req->write.len = sizeof(wdata);
-      }
-      
+      req->write.data = wdata;
       if (read(fsin, wdata, req->write.len) < 0) {
 	return ELINK;
       }
