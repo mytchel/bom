@@ -111,6 +111,11 @@ struct bindingfid {
   struct bindingfid *cnext;
 };
 
+struct fstransaction {
+  struct request *req;
+  struct response *resp;
+};
+
 struct binding {
   int refs;
   struct lock lock;
@@ -344,7 +349,7 @@ struct ngroup *
 ngroupcopy(struct ngroup *);
 
 struct binding *
-bindingnew(struct chan *out, struct chan *in, uint32_t rootattr);
+bindingnew(struct chan *wr, struct chan *rd, uint32_t rootattr);
 
 void
 bindingfree(struct binding *);
@@ -366,7 +371,7 @@ int
 mountproc(void *);
 
 bool
-pipenew(struct chan **in, struct chan **out);
+pipenew(struct chan **rd, struct chan **wr);
 
 int
 piperead(struct chan *c, uint8_t *buf, size_t len);

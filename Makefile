@@ -77,6 +77,7 @@ KSRC_P := \
         kern/sysfile.c       \
         kern/syscall.c       \
         lib/string.c         \
+        lib/fssrv.c          \
 	lib/mem.c            \
         lib/ctype.c
 

@@ -107,21 +107,12 @@ bread(struct request_read *req, struct response_read *resp)
     return;
   }
 
-  if (offset >= f->size) {
-    resp->head.ret = EOF;
-    return;
-  } else if (offset + len >= f->size) {
-    len = f->size - offset;
-  }
-
   if (f->attr & ATTR_dir) {
-    resp->body.len =
-      fatreaddir(fat, f, resp->body.data,
-		 offset, len, &resp->head.ret);
+    resp->body.len = fatreaddir(fat, f, resp->body.data,
+				offset, len, &resp->head.ret);
   } else {
-    resp->body.len =
-      fatreadfile(fat, f, resp->body.data,
-		  offset, len, &resp->head.ret);
+    resp->body.len = fatreadfile(fat, f, resp->body.data,
+				 offset, len, &resp->head.ret);
   }
 }
 

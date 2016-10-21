@@ -25,19 +25,6 @@
  *
  */
 
-struct fat_file {
-  uint32_t fid;
-
-  char name[NAMEMAX];
-  size_t opened;
-  uint32_t fatattr, attr;
-  uint32_t size;
-  uint32_t startcluster;
-
-  struct fat_file *next;
-};
-
-
 struct fat_bs_ext32 {
   uint8_t spf[4];
   uint8_t extflags[2];
@@ -133,6 +120,22 @@ struct fat_dir_entry {
   uint8_t size[4];
 }__attribute__((packed));
 
+
+struct fat_file {
+  uint32_t fid;
+
+  char name[NAMEMAX];
+  uint32_t attr;
+  uint32_t size;
+  uint32_t startcluster;
+
+  struct fat_dir_entry direntry;
+
+  uint8_t *dirbuf;
+  size_t dirbuflen;
+
+  struct fat_file *next;
+};
 
 typedef enum { FAT16, FAT32 } fat_t;
 

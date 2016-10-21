@@ -150,8 +150,8 @@ readloop(void)
 {
   struct response_read resp;
   struct readreq *req;
+  uint8_t data[512];
   uint32_t done;
-  size_t len;
   
   uart->ier = 1;
 
@@ -168,15 +168,11 @@ readloop(void)
     done = 0;
     while (done < req->len) {
       waitintr(UART0_INTR);
-      resp.body.data[done++] = uart->hr;
+      data[done++] = uart->hr;
     }
 
     resp.head.rid = req->rid;
     resp.head.ret = OK;
-    resp.body.len = done;
-
-    len = sizeof(resp.head) - sizeof(resp.head.rid)
-      + sizeof(resp.body.len) + resp.body.len;
 
     free(req);
 
@@ -187,7 +183,12 @@ readloop(void)
       return ELINK;
     }
     
-    if (write(fsout, &resp.head.ret, len) < 0) {
+    if (write(fsout, &resp.head.ret,
+	      sizeof(resp.head) - sizeof(resp.head.rid)) < 0) {
+      return ELINK;
+    }
+
+    if (write(fsout, data, done) < 0) {
       return ELINK;
     }
 
@@ -255,56 +256,85 @@ comwrite(struct request_write *req, struct response_write *resp)
 int
 comfsmountloop(void)
 {
-  struct response resp;
-  struct request req;
+  struct response *resp;
+  struct request *req;
+  uint8_t wdata[512];
   size_t len;
 
+  req = malloc(sizeof(struct request));
+  if (req == nil) {
+    return ENOMEM;
+  }
+  
+  resp = malloc(sizeof(struct response));
+  if (resp == nil) {
+    free(req);
+    return ENOMEM;
+  }
+
+  req->write.data = wdata;
+  
   while (true) {
-    if (read(fsin, &req, sizeof(req)) <= 0) {
+    if (read(fsin, req, sizeof(struct request)) <= 0) {
       return ELINK;
     }
 
-    resp.head.rid = req.head.rid;
-    resp.head.ret = ENOIMPL;
+    resp->head.rid = req->head.rid;
 
-    len = sizeof(resp.head) - sizeof(resp.head.rid);
+    len = sizeof(resp->head) - sizeof(resp->head.rid);
 
-    switch (req.head.type) {
+    switch (req->head.type) {
     case REQ_stat:
       len += sizeof(struct response_stat_b);
-      comstat((struct request_stat *) &req,
-	      (struct response_stat *) &resp);
+      comstat((struct request_stat *) req,
+	      (struct response_stat *) resp);
       break;
+
     case REQ_open:
       len += sizeof(struct response_open_b);
-      comopen((struct request_open *) &req,
-	      (struct response_open *) &resp);
+      comopen((struct request_open *) req,
+	      (struct response_open *) resp);
       break;
+
     case REQ_close:
       len += sizeof(struct response_close_b);
-      comclose((struct request_close *) &req,
-	      (struct response_close *) &resp);
+      comclose((struct request_close *) req,
+	      (struct response_close *) resp);
       break;
+
     case REQ_write:
+      /* For now. */
+      if (req->write.len > sizeof(wdata)) {
+	req->write.len = sizeof(wdata);
+      }
+      
+      if (read(fsin, wdata, req->write.len) < 0) {
+	return ELINK;
+      }
+
       len += sizeof(struct response_write_b);
-      comwrite((struct request_write *) &req,
-	      (struct response_write *) &resp);
+      comwrite((struct request_write *) req,
+	      (struct response_write *) resp);
       break;
+
     case REQ_read:
-      addreadreq((struct request_read *) &req);
+      addreadreq((struct request_read *) req);
       /* Dont write a response */
       continue;
       break;
+
+    default:
+      resp->head.ret = ENOIMPL;
     }
 
     getlock();
 
-    if (write(fsout, &resp.head.rid, sizeof(resp.head.rid))
-	!= sizeof(resp.head.rid)) {
+    if (write(fsout, &resp->head.rid, sizeof(resp->head.rid))
+	!= sizeof(resp->head.rid)) {
       return ELINK;
     }
     
-    if (write(fsout, &resp.head.ret, len) < 0) {
+    if (write(fsout, &resp->head.ret, len) < 0) {
       return ELINK;
     }
 

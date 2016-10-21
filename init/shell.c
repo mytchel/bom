@@ -51,6 +51,7 @@ static int cmdecho(int argc, char **argv);
 static int cmdmkdir(int argc, char **argv);
 static int cmdtouch(int argc, char **argv);
 static int cmdrm(int argc, char **argv);
+static int cmdcat(int argc, char **argv);
 static int cmdmounttmp(int argc, char **argv);
 static int cmdmountfat(int argc, char **argv);
 static int cmdblocktest(int argc, char **argv);
@@ -70,6 +71,7 @@ struct func cmds[] = {
   { "mkdir",     &cmdmkdir },
   { "touch",     &cmdtouch },
   { "rm",        &cmdrm },
+  { "cat",       &cmdcat },
   { "mounttmp",  &cmdmounttmp },
   { "mountfat",  &cmdmountfat },
   { "blocktest", &cmdblocktest },
@@ -300,6 +302,28 @@ cmdrm(int argc, char **argv)
 
   return OK;
 }
+
+int
+cmdcat(int argc, char **argv)
+{
+  uint8_t buf[512];
+  int i, fd, l;
+
+  for (i = 1; i < argc; i++) {
+    fd = open(argv[i], O_RDONLY);
+    if (fd < 0) {
+      printf("cat %s failed ERR %i\n", argv[i], fd);
+      return fd;
+    } else {
+      while ((l = read(fd, buf, sizeof(buf))) > 0) {
+	write(stdout, buf, l);
+      }
+    }
+  }
+
+  return OK;
+}
+
 
 int
 cmdmounttmp(int argc, char **argv)

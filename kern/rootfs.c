@@ -46,8 +46,7 @@ struct file {
 
 static struct file *root = nil;
 static uint32_t nfid = ROOTFID;
-static struct chan *rootin;
-
+static int in, out;
 struct binding *rootfsbinding;
 
 static int
@@ -56,18 +55,25 @@ rootfsproc(void *);
 void
 rootfsinit(void)
 {
-  struct chan *out;
-  struct proc *pr;
+  struct chan *c1[2], *c2[2];
+  struct proc *pr, *pm;
 
-  if (!pipenew(&(rootin), &(out))) {
+  if (!pipenew(&(c1[0]), &(c1[1]))) {
     panic("rootfs: pipenew failed!\n");
   }
 
-  rootfsbinding = bindingnew(out, nil, ATTR_wr|ATTR_rd|ATTR_dir);
+  if (!pipenew(&(c2[0]), &(c2[1]))) {
+    panic("rootfs: pipenew failed!\n");
+  }
+
+  rootfsbinding = bindingnew(c1[1], c2[0], ATTR_wr|ATTR_rd|ATTR_dir);
   if (rootfsbinding == nil) {
     panic("rootfs: bindingnew failed!\n");
   }
 
+  chanfree(c1[1]);
+  chanfree(c2[0]);
+  
   pr = procnew(8);
   if (pr == nil) {
     panic("rootfs: procnew failed!\n");
@@ -75,8 +81,21 @@ rootfsinit(void)
 
   forkfunc(pr, &rootfsproc, nil);
 
+  pr->fgroup = fgroupnew();
+  in = fgroupaddchan(pr->fgroup, c1[0]);
+  out = fgroupaddchan(pr->fgroup, c2[1]);
+
+  pm = procnew(8);
+  if (pm == nil) {
+    panic("rootfs: procnew failed!\n");
+  }
+
+  forkfunc(pm, &mountproc, (void *) rootfsbinding);
+
   procready(pr);
+  procready(pm);
 }
+ 
 
 static struct file *
 bfindfile(struct file *t, uint32_t fid)
@@ -374,5 +393,5 @@ rootfsproc(void *arg)
   root->parent = nil;
   root->children = nil;
 
-  return kmountloop(rootin, rootfsbinding, &rootmount);
+  return fsmountloop(in, out, &rootmount);
 }

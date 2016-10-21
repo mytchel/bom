@@ -37,9 +37,14 @@ makereq(struct binding *b,
 	struct request *req, size_t len,
 	struct response *resp)
 {
+  struct fstransaction trans;
+  
   if (b->out == nil) {
     return false;
   }
+
+  trans.req = req;
+  trans.resp = resp;
 
   req->head.rid = atomicinc(&b->nreqid);
   resp->head.rid = req->head.rid;
@@ -51,7 +56,7 @@ makereq(struct binding *b,
     return false;
   }
 
-  up->aux = (void *) resp;
+  up->aux = (void *) &trans;
 
   setintr(INTR_OFF);
 
@@ -449,6 +454,10 @@ fileread(struct chan *c, uint8_t *buf, size_t n)
   req.body.offset = cfile->offset;
   req.body.len = n;
 
+  resp.body.len = n;
+  resp.body.data = buf;
+
+  printf("make read request\n");
   if (!makereq(cfile->fid->binding, (struct request *) &req, sizeof(req),
 	       (struct response *) &resp)) {
     return ELINK;
@@ -456,7 +465,6 @@ fileread(struct chan *c, uint8_t *buf, size_t n)
     return resp.head.ret;
   } else {
     n = n > resp.body.len ? resp.body.len : n;
-    memmove(buf, resp.body.data, n);
     cfile->offset += n;
     return n;
   }
@@ -467,21 +475,61 @@ filewrite(struct chan *c, uint8_t *buf, size_t n)
 {
   struct request_write req;
   struct response_write resp;
+  struct binding *b;
   struct cfile *cfile;
 
+  printf("filewrite\n");
+  
   cfile = (struct cfile *) c->aux;
+  b = cfile->fid->binding;
 
+  if (b->out == nil) {
+    return ELINK;
+  }
+
+  req.head.rid = atomicinc(&b->nreqid);
   req.head.type = REQ_write;
   req.head.fid = cfile->fid->fid;
 
   req.body.offset = cfile->offset;
   req.body.len = n;
-  memmove(req.body.data, buf, n);
+
+  resp.head.rid = req.head.rid;
+
+  lock(&b->lock);
+
+  printf("filewrite write head %i\n", req.head.rid);
   
-  if (!makereq(cfile->fid->binding, (struct request *) &req, sizeof(req),
-	       (struct response *) &resp)) {
+  if (pipewrite(b->out, (void *) &req,
+		sizeof(req.head) +
+		sizeof(req.body.offset) +
+		sizeof(req.body.len)) < 0) {
+    unlock(&b->lock);
     return ELINK;
-  } else if (resp.head.ret != OK) {
+  }
+  
+  printf("filewrite write buf\n");
+
+  if (pipewrite(b->out, buf, n) < 0) {
+    unlock(&b->lock);
+    return ELINK;
+  }
+
+  up->aux = (void *) &resp;
+
+  printf("filewrite wait\n");
+  
+  setintr(INTR_OFF);
+
+  procwait(up, &b->waiting);
+  unlock(&b->lock);
+
+  schedule();
+  setintr(INTR_ON);
+
+  printf("filewrite got response %i\n", resp.head.rid);
+  
+  if (resp.head.ret != OK) {
     return resp.head.ret;
   } else {
     cfile->offset += resp.body.len;

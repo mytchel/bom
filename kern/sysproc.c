@@ -202,7 +202,6 @@ insertpages(struct pagel *pagel, void *addr, size_t size)
   bool fix;
 
   fix = (addr == nil);
-
   pp = nil;
   for (p = up->mgroup->pages; p != nil; pp = p, p = p->next) {
     if (fix && pp != nil) {
@@ -214,20 +213,19 @@ insertpages(struct pagel *pagel, void *addr, size_t size)
       break;
     }
   }
-	
-  if (pp != nil) {
+
+  if (pp == nil) {
+    fixpagel(pagel, (reg_t) addr, nil);
+    up->mgroup->pages = pagel;
+  } else {
     if (fix) {
       addr = (uint8_t *) pp->va + PAGE_SIZE;
     }
     
     fixpagel(pagel, (reg_t) addr, p);
     pp->next = pagel;
-  } else {
-    /* First page */
-    fixpagel(pagel, (reg_t) addr, p);
-    up->mgroup->pages = pagel;
   }
-
+  
   return addr;
 }
 
@@ -295,6 +293,8 @@ sysgetmem(va_list args)
     } else {
       pp->next = pl;
     }
+
+    pp = pl;
 
     caddr += PAGE_SIZE;
     csize += PAGE_SIZE;

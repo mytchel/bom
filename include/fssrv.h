@@ -30,8 +30,6 @@
 
 #include <fs.h>
 
-#define FSBUFMAX        512
-
 #define ROOTFID		0 /* Of any binding. */
 
 enum {
@@ -47,6 +45,7 @@ struct request_head {
   uint32_t fid;
   uint32_t type;
 };
+
 struct response_head {
   uint32_t rid;
   int32_t ret;
@@ -100,8 +99,11 @@ struct request_read_b {
   uint32_t len;
 };
 struct response_read_b {
+  /* Data should be sent in a seperate pipe write after head. */
+  uint8_t *data;
+  /* Used internally, do not send */
   uint32_t len;
-  uint8_t data[FSBUFMAX];
+
   /*
    * If the file is a directory then the result should 
    * be in the format 
@@ -116,7 +118,8 @@ struct response_read_b {
 struct request_write_b {
   uint32_t offset;
   uint32_t len;
-  uint8_t data[FSBUFMAX];
+  /* Data should be read in a third pipe read */
+  uint8_t *data;
 };
 struct response_write_b {
   uint32_t len;
@@ -276,7 +279,7 @@ struct fsmount {
 };
 
 int
-fsmountloop(int, int, struct fsmount *);
+fsmountloop(int in, int out, struct fsmount *mount);
 
 #endif
 

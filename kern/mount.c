@@ -30,7 +30,8 @@
 int
 mountproc(void *arg)
 {
-  struct response badresp, *resp;
+  struct fstransaction *trans;
+  struct response *resp;
   struct binding *b;
   struct proc *p, *pn;
   uint32_t rid;
@@ -45,20 +46,34 @@ mountproc(void *arg)
 
     lock(&b->lock);
 
-    resp = &badresp;
+    resp = nil;
     for (p = b->waiting; p != nil; p = p->next) {
-      resp = (struct response *) p->aux;
-      if (resp->head.rid == rid) {
+      trans = (struct fstransaction *) p->aux;
+      if (trans->req->head.rid == rid) {
+	resp = trans->resp;
 	break;
       }
     }
 
+    if (resp == nil) {
+      printf("kproc mount: response has no waiter.\n");
+      break;
+    }
+    
     unlock(&b->lock);
 
     if (piperead(b->in, (void *) &resp->head.ret,
 		 sizeof(struct response) - sizeof(rid)) < 0) {
       printf("kproc mount: error reading response.\n");
       break;
+    }
+
+    if (trans->req->head.type == REQ_read) {
+      printf("mountproc read response data %i\n", resp->head.rid);
+      if (piperead(b->in, resp->read.data, resp->read.len) < 0) {
+	printf("kproc mount: error reading response.\n");
+	break;
+      }
     }
 
     if (p != nil) {
@@ -101,89 +116,3 @@ mountproc(void *arg)
   return 0;
 }
 
-int
-kmountloop(struct chan *in, struct binding *b, struct fsmount *mount)
-{
-  struct response *resp;
-  struct request req;
-  struct proc *p;
-
-  while (true) {
-    if (piperead(in, (void *) &req, sizeof(req)) <= 0) {
-      return ELINK;
-    }
-
-    lock(&b->lock);
-
-    for (p = b->waiting; p != nil; p = p->next) {
-      if (((struct response *) p->aux)->head.rid == req.head.rid) {
-	break;
-      }
-    }
-
-    unlock(&b->lock);
-
-    if (p == nil) {
-      printf("kmountloop: request %i doesnt have proc!\n",
-	     req.head.rid);
-      continue;
-    }
-
-    resp = (struct response *) p->aux;
-    resp->head.ret = ENOIMPL;
-
-    switch (req.head.type) {
-    case REQ_getfid:
-      if (mount->getfid)
-	mount->getfid((struct request_getfid *) &req,
-		      (struct response_getfid *) resp);
-      break;
-    case REQ_clunk:
-      if (mount->clunk)
-	mount->clunk((struct request_clunk *) &req,
-		     (struct response_clunk*) resp);
-      break;
-    case REQ_stat:
-      if (mount->stat)
-	mount->stat((struct request_stat *) &req,
-		    (struct response_stat *) resp);
-      break;
-    case REQ_open:
-      if (mount->open)
-	mount->open((struct request_open *) &req,
-		    (struct response_open *) resp);
-      break;
-    case REQ_close:
-      if (mount->close)
-	mount->close((struct request_close *) &req,
-		     (struct response_close *) resp);
-      break;
-    case REQ_create:
-      if (mount->create)
-	mount->create((struct request_create *) &req,
-		      (struct response_create *) resp);
-      break;
-    case REQ_remove:
-      if (mount->remove)
-	mount->remove((struct request_remove *) &req,
-		      (struct response_remove *) resp);
-      break;
-    case REQ_read:
-      if (mount->read)
-	mount->read((struct request_read *) &req,
-		    (struct response_read *) resp);
-      break;
-    case REQ_write:
-      if (mount->write)
-	mount->write((struct request_write *) &req,
-		     (struct response_write *) resp);
-      break;
-    }
-
-    setintr(INTR_OFF);
-    procready(p);
-    setintr(INTR_ON);
-  }
-
-  return 0;
-}
