@@ -275,7 +275,6 @@ static void
 readroot(struct request_read *req, struct response_read *resp,
 	  uint32_t offset, uint32_t len)
 {
-  printf("read root from %i len %i\n", offset, len);
   if (offset + len >= rootstat.size) {
     len = rootstat.size - offset;
   }
@@ -283,7 +282,6 @@ readroot(struct request_read *req, struct response_read *resp,
   if (len == 0) {
     resp->head.ret = EOF;
   } else {
-    printf("read root len really %i\n", len);
     memmove(resp->body.data, rootbuf + offset, len);
     resp->body.len = len;
     resp->head.ret = OK;

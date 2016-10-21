@@ -170,6 +170,9 @@ struct fat {
   uint8_t *buf;
 };
 
+#define clustertosector(fat, cluster) \
+  (fat->dataarea + ((cluster - 2) * fat->spc))
+
 struct fat *
 fatinit(int fd);
 
@@ -203,3 +206,38 @@ fatfileremove(struct fat *fat, struct fat_file *file);
 struct fat_file *
 fatfilecreate(struct fat *fat, struct fat_file *parent,
 	      char *name, uint32_t attr);
+
+bool
+readsectors(struct fat *fat, uint32_t sector, size_t n);
+
+bool
+writesectors(struct fat *fat, uint32_t sector, size_t n);
+
+uint32_t
+nextcluster(struct fat *fat, uint32_t prev);
+
+uint32_t
+findfreecluster(struct fat *fat);
+
+uint32_t
+tableinfo(struct fat *fat, uint32_t prev);
+
+void
+writetableinfo(struct fat *fat, uint32_t cluster, uint32_t v);
+
+struct fat_dir_entry *
+fatfindfileincluster(struct fat *fat, uint32_t sector, char *name);
+
+struct fat_dir_entry *
+fatfindemptydirentryincluster(struct fat *fat, uint32_t sector);
+
+struct fat_dir_entry *
+copyfileentryname(struct fat_dir_entry *start, char *name);
+
+bool
+rebuilddirbuf(struct fat *fat, struct fat_file *f);
+
+struct fat_file *
+fatfilefromentry(struct fat *fat, struct fat_dir_entry *entry,
+		 char *name);
+

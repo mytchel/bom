@@ -411,9 +411,9 @@ mounttmp(char *path)
     close(p1[0]);
     close(p2[1]);
     close(fd);
-    return f;
+    return OK;
   }
- 
+
   root = malloc(sizeof(struct file));
   if (root == nil) {
     printf("tmp root tree malloc failed!\n");
@@ -433,6 +433,15 @@ mounttmp(char *path)
   root->parent = nil;
   root->children = nil;
 
+  mount.databuf = malloc(512);
+  mount.buflen = 512;
+
   f = fsmountloop(p1[0], p2[1], &mount);
+
+  printf("tmp mount on %s exiting with %i\n",
+	 dir, i);
+  
+  free(mount.databuf);
+  
   exit(f);
 }

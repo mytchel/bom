@@ -458,7 +458,7 @@ processline(char *line)
 	ret = cmds[i].func(argc, argv);
 	exit(ret);
       } else {
-	wait(&ret);
+	i = wait(&ret);
 	return;
       }
     }

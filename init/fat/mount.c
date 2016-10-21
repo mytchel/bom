@@ -227,16 +227,24 @@ mountfat(char *device, char *dir)
   if (i != 0) {
     close(p1[0]);
     close(p2[1]);
-    close(fddev);
     close(fddir);
-    return i;
+    close(fddev);
+    return OK;
   }
 
-  mount.databuf = malloc(fat->spc * fat->bps);
   mount.buflen = fat->spc * fat->bps;
+  mount.databuf = malloc(mount.buflen);
+
+  if (mount.databuf == nil) {
+    printf("mountfat failed to alloc data buf.\n");
+    exit(ENOMEM);
+  }
   
   i = fsmountloop(p1[0], p2[1], &mount);
 
+  printf("fat mount for %s on %s exiting with %i\n",
+	 device, dir, i);
+  
   free(mount.databuf);
   
   return i;
