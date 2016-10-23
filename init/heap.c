@@ -62,7 +62,7 @@ void *
 malloc(size_t size)
 {
   struct block *b, *n, *p;
-  void *block;
+  void *ptr;
 
   if (size == 0)
     return nil;
@@ -83,10 +83,10 @@ malloc(size_t size)
     }
   }
 
-  block = (void *) ((uint8_t *) b + sizeof(size_t));
+  ptr = (void *) ((uint8_t *) b + sizeof(size_t));
 	
   if (b->size > size + sizeof(size_t) + sizeof(struct block)) {
-    n = (struct block *) ((uint8_t *) block + size);
+    n = (struct block *) ((uint8_t *) ptr + size);
 		
     n->size = b->size - size - sizeof(size_t);
     n->next = b->next;
@@ -103,7 +103,7 @@ malloc(size_t size)
     p->next = n;
   }
 
-  return block;
+  return ptr;
 }
 
 void

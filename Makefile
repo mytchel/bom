@@ -29,7 +29,8 @@ CLEAN =
 TARGET ?= am335x
 HOSTCC ?= cc
 
-CFLAGS := -std=c89 -Wall -Werror -O3 \
+CFLAGS := -std=c89 -O3 \
+	-Wall -Werror \
         -nostdinc -ffreestanding \
         -D_$(TARGET)_ \
         -I${.CURDIR}/include -I${.CURDIR}/$(TARGET)/

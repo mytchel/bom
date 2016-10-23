@@ -122,8 +122,6 @@ struct fat_dir_entry {
 
 
 struct fat_file {
-  uint32_t fid;
-
   char name[NAMEMAX];
   uint32_t attr;
   uint32_t size;
@@ -135,8 +133,6 @@ struct fat_file {
   size_t dirbuflen;
 
   struct fat_file *parent;
-  struct fat_file *children;
-  struct fat_file *cnext;
 };
 
 typedef enum { FAT16, FAT32 } fat_t;
@@ -144,12 +140,13 @@ typedef enum { FAT16, FAT32 } fat_t;
 #define FAT16_END 0xfff8
 #define FAT32_END 0x0ffffff8
 
+#define FIDSMAX 32
+
 struct fat {
   int fd;
   fat_t type;
 
-  uint32_t nfid;
-  struct fat_file *files;
+  struct fat_file files[FIDSMAX];
 
   uint32_t bps;
   uint32_t spc;
@@ -176,15 +173,12 @@ struct fat {
 struct fat *
 fatinit(int fd);
 
-struct fat_file *
+uint32_t
 fatfilefind(struct fat *fat, struct fat_file *parent,
 	    char *name, int *err);
 
-struct fat_file *
-fatfindfid(struct fat *fat, uint32_t fid);
-
 void
-fatfileclunk(struct fat *fat, struct fat_file *);
+fatfileclunk(struct fat *fat, struct fat_file *file);
 
 int
 fatfileread(struct fat *fat, struct fat_file *file,
@@ -203,7 +197,7 @@ fatdirread(struct fat *fat, struct fat_file *file,
 int
 fatfileremove(struct fat *fat, struct fat_file *file);
 
-struct fat_file *
+uint32_t
 fatfilecreate(struct fat *fat, struct fat_file *parent,
 	      char *name, uint32_t attr);
 
@@ -237,7 +231,7 @@ copyfileentryname(struct fat_dir_entry *start, char *name);
 bool
 rebuilddirbuf(struct fat *fat, struct fat_file *f);
 
-struct fat_file *
+uint32_t
 fatfilefromentry(struct fat *fat, struct fat_dir_entry *entry,
-		 char *name);
+		 char *name, struct fat_file *parent);
 

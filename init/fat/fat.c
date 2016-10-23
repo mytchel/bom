@@ -47,21 +47,13 @@ fatinit(int fd)
     return nil;
   }
 
-  fat->files = malloc(sizeof(struct fat_file));
-  if (fat->files == nil) {
-    printf("fat mount failed to alloc fat_file for root!\n");
-    return nil;
-  }
-
   fat->fd = fd;
-  fat->nfid = ROOTFID;
 
-  fat->files->fid = fat->nfid++;
-  fat->files->attr = ATTR_wr|ATTR_rd|ATTR_dir;
-  fat->files->dirbuf = nil;
-  fat->files->parent = nil;
-  fat->files->children = nil;
-  fat->files->cnext = nil;
+  memset(fat->files, 0, sizeof(fat->files));
+  
+  fat->files[0].attr = ATTR_wr|ATTR_rd|ATTR_dir;
+  fat->files[0].dirbuf = nil;
+  fat->files[0].parent = nil;
 
   if (read(fat->fd, &bs, sizeof(bs)) != sizeof(bs)) {
     printf("fat mount failed to read boot sector.\n");
@@ -166,13 +158,13 @@ fatfindemptydirentryincluster(struct fat *fat, uint32_t sector)
 }
 
 
-struct fat_file *
+uint32_t
 fatfilefind(struct fat *fat, struct fat_file *parent,
 	    char *name, int *err)
 {
   struct fat_dir_entry *direntry;
-  struct fat_file *child;
   uint32_t cluster;
+  uint32_t child;
 
   direntry = nil;
 
@@ -197,18 +189,13 @@ fatfilefind(struct fat *fat, struct fat_file *parent,
     return nil;
   }
 
-  child = fatfilefromentry(fat, direntry, name);
-  if (child == nil) {
+  child = fatfilefromentry(fat, direntry, name, parent);
+  if (child == 0) {
     *err = ENOMEM;
-    return nil;
+  } else {
+    *err = OK;
   }
 
-  child->parent = parent;
-
-  child->cnext = parent->children;
-  parent->children = child;
-
-  *err = OK;
   return child;
 }
 
@@ -423,13 +410,12 @@ fatfileremove(struct fat *fat, struct fat_file *file)
   return OK;
 }
 
-struct fat_file *
+uint32_t
 fatfilecreate(struct fat *fat, struct fat_file *parent,
 	      char *name, uint32_t attr)
 {
-  struct fat_dir_entry *direntry;
-  struct fat_file *new;
   uint32_t cluster, sector, newcluster;
+  struct fat_dir_entry *direntry;
   uint8_t fattr;
   int i, j;
 
@@ -515,22 +501,11 @@ fatfilecreate(struct fat *fat, struct fat_file *parent,
 
   /* Ignore time for now */
 
-  new = fatfilefromentry(fat, direntry, name);
-  if (new == nil) {
-    printf("fat mount failed to create fat_file\n");
-    return nil;
-  }
-  
-  new->parent = parent;
-
-  new->cnext = parent->children;
-  parent->children = new;
-
   if (parent->dirbuf != nil) {
     free(parent->dirbuf);
     parent->dirbuf = nil;
   }
 
-  return new;
+  return fatfilefromentry(fat, direntry, name, parent);
 }
 

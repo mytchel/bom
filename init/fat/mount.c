@@ -39,20 +39,16 @@ struct fat *fat;
 static void
 bgetfid(struct request_getfid *req, struct response_getfid *resp)
 {
-  struct fat_file *new, *parent;
+  uint32_t new;
 
-  parent = fatfindfid(fat, req->head.fid);
-  if (parent == nil) {
-    resp->head.ret = ENOFILE;
-    return;
-  }
+  new = fatfilefind(fat, &fat->files[req->head.fid],
+		    req->body.name, &resp->head.ret);
 
-  new = fatfilefind(fat, parent, req->body.name, &resp->head.ret);
-  if (new == nil) {
+  if (new == 0) {
     resp->head.ret = ENOCHILD;
   } else {
-    resp->body.fid = new->fid;
-    resp->body.attr = new->attr;
+    resp->body.fid = new;
+    resp->body.attr = fat->files[new].attr;
     resp->head.ret = OK;
   }
 }
@@ -60,26 +56,15 @@ bgetfid(struct request_getfid *req, struct response_getfid *resp)
 static void
 bclunk(struct request_clunk *req, struct response_clunk *resp)
 {
-  struct fat_file *f;
-
-  f = fatfindfid(fat, req->head.fid);
-  fatfileclunk(fat, f);
+  fatfileclunk(fat, &fat->files[req->head.fid]);
   resp->head.ret = OK;
 }
 
 static void
 bstat(struct request_stat *req, struct response_stat *resp)
 {
-  struct fat_file *f;
-
-  f = fatfindfid(fat, req->head.fid);
-  if (f == nil) {
-    resp->head.ret = ENOFILE;
-    return;
-  }
-
-  resp->body.stat.attr = f->attr;
-  resp->body.stat.size = f->size;
+  resp->body.stat.attr = fat->files[req->head.fid].attr;
+  resp->body.stat.size = fat->files[req->head.fid].size;
   resp->head.ret = OK;
 }
 
@@ -100,11 +85,7 @@ bread(struct request_read *req, struct response_read *resp)
 {
   struct fat_file *f;
 
-  f = fatfindfid(fat, req->head.fid);
-  if (f == nil) {
-    resp->head.ret = ENOFILE;
-    return;
-  }
+  f = &fat->files[req->head.fid];
 
   if (f->attr & ATTR_dir) {
     resp->body.len =
@@ -122,54 +103,32 @@ bread(struct request_read *req, struct response_read *resp)
 static void
 bwrite(struct request_write *req, struct response_write *resp)
 {
-  struct fat_file *f;
-
-  f = fatfindfid(fat, req->head.fid);
-  if (f == nil) {
-    resp->head.ret = ENOFILE;
-    return;
-  }
-
-  if (f->attr & ATTR_dir) {
-    resp->head.ret = EMODE;
-  } else {
-    resp->body.len =
-      fatfilewrite(fat, f, req->body.data,
+  resp->body.len =
+    fatfilewrite(fat, &fat->files[req->head.fid], req->body.data,
 		  req->body.offset, req->body.len,
 		  &resp->head.ret);
-  }
 }
 
 static void
 bcreate(struct request_create *req, struct response_create *resp)
 {
-  struct fat_file *f, *c;
+  uint32_t c;
 
-  f = fatfindfid(fat, req->head.fid);
-  if (f == nil) {
-    resp->head.ret = ENOFILE;
+  c = fatfilecreate(fat, &fat->files[req->head.fid],
+		    req->body.name, req->body.attr);
+
+  if (c == 0) {
+    resp->head.ret = ERR;
   } else {
-    c = fatfilecreate(fat, f, req->body.name, req->body.attr);
-    if (c == nil) {
-      resp->head.ret = ERR;
-    } else {
-      resp->body.fid = c->fid;
-      resp->head.ret = OK;
-    }
+    resp->body.fid = c;
+    resp->head.ret = OK;
   }
 }
 
 static void
 bremove(struct request_remove *req, struct response_remove *resp)
 {
-  struct fat_file *f;
-
-  f = fatfindfid(fat, req->head.fid);
-  if (f == nil) {
-    resp->head.ret = ENOFILE;
-  } else {
-    resp->head.ret = fatfileremove(fat, f);
-  }
+  resp->head.ret = fatfileremove(fat, &fat->files[req->head.fid]);
 }
 
 static struct fsmount mount = {

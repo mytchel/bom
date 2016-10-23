@@ -35,53 +35,14 @@
 
 #include "fat.h"
 
-static struct fat_file *
-fatfindfidh(struct fat_file *f, uint32_t fid)
-{
-  struct fat_file *c;
-
-  if (f == nil) {
-    return nil;
-  } else if (f->fid == fid) {
-    return f;
-  } else {
-    c = fatfindfidh(f->children, fid);
-    if (c == nil) {
-      c = fatfindfidh(f->cnext, fid);
-    }
-
-    return c;
-  }
-}
-
-struct fat_file *
-fatfindfid(struct fat *fat, uint32_t fid)
-{
-  return fatfindfidh(fat->files, fid);
-}
-
 void
 fatfileclunk(struct fat *fat, struct fat_file *f)
 {
-  struct fat_file *c;
-
-  if (f->parent->children == f) {
-    f->parent->children = f->cnext;
-  } else {
-    for (c = f->parent->children; c->cnext != f; c = c->cnext)
-      ;
-
-    c->cnext = f->cnext;
-  }
-
-  for (c = f->children; c != nil; c = c->cnext)
-    fatfileclunk(fat, c);
-  
   if (f->dirbuf != nil) {
     free(f->dirbuf);
   }
 
-  free(f);
+  memset(f, 0, sizeof(struct fat_file));
 }
 
 uint32_t
@@ -427,26 +388,31 @@ rebuilddirbuf(struct fat *fat, struct fat_file *f)
   return true;
 }
 
-struct fat_file *
+uint32_t
 fatfilefromentry(struct fat *fat, struct fat_dir_entry *entry,
-		 char *name)
+		 char *name, struct fat_file *parent)
 {
   struct fat_file *f;
   uint8_t attr;
-  
-  f = malloc(sizeof(struct fat_file));
-  if (f == nil) {
-    return nil;
+  int i;
+
+  /* Skip root fid and search for empty slot */
+  for (i = 1; i < FIDSMAX; i++) {
+    if (fat->files[i].name[0] == 0) {
+      f = &fat->files[i];
+      break;
+    }
   }
 
-  f->fid = fat->nfid++;
+  if (i == FIDSMAX) {
+    printf("fat mount fid table full!\n");
+    return nil;
+  }
 
   strlcpy(f->name, name, NAMEMAX);
 
   f->dirbuf = nil;
-  f->parent = nil;
-  f->children = nil;
-  f->cnext = nil;
+  f->parent = parent;
 
   memmove(&f->direntry, entry, sizeof(struct fat_dir_entry));
 
@@ -471,6 +437,6 @@ fatfilefromentry(struct fat *fat, struct fat_dir_entry *entry,
     f->size = fat->spc * fat->bps;
   }
 
-  return f;
+  return i;
 }
 
