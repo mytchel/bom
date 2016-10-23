@@ -123,14 +123,13 @@ struct fat_dir_entry {
 
 struct fat_file {
   char name[NAMEMAX];
+  
   uint32_t attr;
   uint32_t size;
+
   uint32_t startcluster;
 
   struct fat_dir_entry direntry;
-
-  uint8_t *dirbuf;
-  size_t dirbuflen;
 
   struct fat_file *parent;
 };
@@ -162,7 +161,7 @@ struct fat {
   uint32_t rootdir;
   uint32_t dataarea;
 
-  uint32_t bufsector; /* Current cluster stored */
+  uint32_t bufsector; 
   /* Large enough to store a cluster */
   uint8_t *buf;
 };
@@ -220,16 +219,7 @@ void
 writetableinfo(struct fat *fat, uint32_t cluster, uint32_t v);
 
 struct fat_dir_entry *
-fatfindfileincluster(struct fat *fat, uint32_t sector, char *name);
-
-struct fat_dir_entry *
-fatfindemptydirentryincluster(struct fat *fat, uint32_t sector);
-
-struct fat_dir_entry *
 copyfileentryname(struct fat_dir_entry *start, char *name);
-
-bool
-rebuilddirbuf(struct fat *fat, struct fat_file *f);
 
 uint32_t
 fatfilefromentry(struct fat *fat, struct fat_dir_entry *entry,

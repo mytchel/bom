@@ -38,10 +38,6 @@
 void
 fatfileclunk(struct fat *fat, struct fat_file *f)
 {
-  if (f->dirbuf != nil) {
-    free(f->dirbuf);
-  }
-
   memset(f, 0, sizeof(struct fat_file));
 }
 
@@ -297,97 +293,6 @@ copyfileentryname(struct fat_dir_entry *file, char *name)
   }
 }
 
-static uint8_t *
-builddirbufsectors(struct fat *fat, uint32_t sector,
-		   uint8_t *buf, size_t *len, size_t *mlen)
-{
-  struct fat_dir_entry *entry;
-  char name[NAMEMAX];
-  uint8_t *nbuf, l;
-
-  if (!readsectors(fat, sector, fat->spc)) {
-    return nil;
-  }
-
-  entry = (struct fat_dir_entry *) fat->buf;
-    
-  while ((uint8_t *) entry < fat->buf + fat->spc * fat->bps) {
-    entry = copyfileentryname(entry, name);
-    if (entry == nil) {
-      return buf;
-    } else {
-      entry++;
-    }
-
-    l = strlen(name) + 1;
-
-    if (*len + 1 + l >= *mlen) {
-      *mlen = *mlen + 1 + l;
-      nbuf = malloc(*mlen);
-      if (nbuf == nil) {
-	return nil;
-      }
-
-      if (buf != nil) {
-	memmove(nbuf, buf, *len);
-	free(buf);
-      }
-	
-      buf = nbuf;
-    }
-
-    memmove(buf + *len, &l, sizeof(uint8_t));
-    *len += 1;
-
-    memmove(buf + *len, name, l);
-    *len += l;
-  }
-
-  return buf;
-} 
-
-bool
-rebuilddirbuf(struct fat *fat, struct fat_file *f)
-{
-  uint32_t cluster;
-  size_t mlen;
-
-  mlen = 1;
-
-  if (f->dirbuf != nil) {
-    free(f->dirbuf);
-  }
-  
-  f->dirbuf = nil;
-  f->dirbuflen = 0;
-
-  if (f->startcluster == 0) {
-    f->dirbuf =
-      builddirbufsectors(fat, fat->rootdir,
-			 f->dirbuf, &f->dirbuflen, &mlen);
-
-    if (f->dirbuf == nil) {
-      return false;
-    }
-  } else {
-    cluster = f->startcluster;
-    
-    while (cluster != 0) {
-      f->dirbuf =
-	builddirbufsectors(fat, clustertosector(fat, cluster),
-			   f->dirbuf, &f->dirbuflen, &mlen);
-
-      if (f->dirbuf == nil) {
-	return false;
-      }
-      
-      cluster = nextcluster(fat, cluster);
-    }
-  }
-
-  return true;
-}
-
 uint32_t
 fatfilefromentry(struct fat *fat, struct fat_dir_entry *entry,
 		 char *name, struct fat_file *parent)
@@ -411,7 +316,6 @@ fatfilefromentry(struct fat *fat, struct fat_dir_entry *entry,
 
   strlcpy(f->name, name, NAMEMAX);
 
-  f->dirbuf = nil;
   f->parent = parent;
 
   memmove(&f->direntry, entry, sizeof(struct fat_dir_entry));
