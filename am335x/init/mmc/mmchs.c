@@ -357,6 +357,7 @@ cardgotoidle(struct mmc *mmc)
   cmd.resp_type = RESP_NO;
   cmd.data_type = DATA_NONE;
   cmd.data = nil;
+  cmd.arg = 0;
 
   if (mmchssendcmd(mmc, &cmd)) {
     return true;
