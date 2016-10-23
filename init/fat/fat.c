@@ -58,6 +58,7 @@ fatinit(int fd)
 
   fat->files->fid = fat->nfid++;
   fat->files->attr = ATTR_wr|ATTR_rd|ATTR_dir;
+  fat->files->dirbuf = nil;
   fat->files->parent = nil;
   fat->files->children = nil;
   fat->files->cnext = nil;
@@ -209,52 +210,6 @@ fatfilefind(struct fat *fat, struct fat_file *parent,
 
   *err = OK;
   return child;
-}
-
-struct fat_file *
-fatfilefromentry(struct fat *fat, struct fat_dir_entry *entry,
-		 char *name)
-{
-  struct fat_file *f;
-  uint8_t attr;
-  
-  f = malloc(sizeof(struct fat_file));
-  if (f == nil) {
-    return nil;
-  }
-
-  f->fid = fat->nfid++;
-
-  strlcpy(f->name, name, NAMEMAX);
-
-  f->dirbuf = nil;
-  f->parent = nil;
-  f->children = nil;
-  f->cnext = nil;
-
-  memmove(&f->direntry, entry, sizeof(struct fat_dir_entry));
-
-  f->size = intcopylittle32(entry->size);
-  
-  f->startcluster =
-    ((uint32_t) intcopylittle16(entry->cluster_high)) << 16;
-
-  f->startcluster |=
-    ((uint32_t) intcopylittle16(entry->cluster_low));
-
-  memmove(&attr, &entry->attr, sizeof(uint8_t));
-
-  if (attr & FAT_ATTR_read_only) {
-    f->attr = ATTR_rd;
-  } else {
-    f->attr = ATTR_rd | ATTR_wr;
-  }
-
-  if (attr & FAT_ATTR_directory) {
-    f->attr |= ATTR_dir;
-  }
-
-  return f;
 }
 
 int

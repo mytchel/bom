@@ -439,7 +439,7 @@ mounttmp(char *path)
   f = fsmountloop(p1[0], p2[1], &mount);
 
   printf("tmp mount on %s exiting with %i\n",
-	 dir, i);
+	 path, f);
   
   free(mount.databuf);
   
