@@ -38,7 +38,12 @@
 void
 fatfileclunk(struct fat *fat, struct fat_file *f)
 {
-  memset(f, 0, sizeof(struct fat_file));
+  if (f->refs == 0) {
+    /* File removed now wipe everything */
+    memset(f, 0, sizeof(struct fat_file));
+  } else {
+    f->refs = 0;
+  }
 }
 
 uint32_t
@@ -302,23 +307,29 @@ fatfilefromentry(struct fat *fat, struct fat_dir_entry *entry,
   int i;
 
   /* Skip root fid and search for empty slot */
+  f = nil;
   for (i = 1; i < FIDSMAX; i++) {
     if (fat->files[i].name[0] == 0) {
+      /* Slot completely unused */
       f = &fat->files[i];
       break;
+    } else if (f == nil && fat->files[i].refs == 0) {
+      /* Slot clunked but could be reused */
+      f = &fat->files[i];
     }
   }
 
-  if (i == FIDSMAX) {
+  if (f == nil) {
     printf("fat mount fid table full!\n");
     return nil;
+  } else {
+    memset(f, 0, sizeof(struct fat_file));
   }
 
   strlcpy(f->name, name, NAMEMAX);
 
+  f->refs = 1;
   f->parent = parent;
-
-  memmove(&f->direntry, entry, sizeof(struct fat_dir_entry));
 
   f->size = intcopylittle32(entry->size);
   
@@ -328,6 +339,7 @@ fatfilefromentry(struct fat *fat, struct fat_dir_entry *entry,
   f->startcluster |=
     ((uint32_t) intcopylittle16(entry->cluster_low));
 
+  memmove(&f->direntry, entry, sizeof(struct fat_dir_entry));
   memmove(&attr, &entry->attr, sizeof(uint8_t));
 
   if (attr & FAT_ATTR_read_only) {

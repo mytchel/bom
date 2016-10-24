@@ -141,6 +141,17 @@ fatfilefind(struct fat *fat, struct fat_file *parent,
   struct fat_dir_entry *direntry;
   uint32_t cluster;
   uint32_t child;
+  int i;
+
+  for (i = 1; i < FIDSMAX; i++) {
+    if (fat->files[i].parent != parent) continue;
+    if (fat->files[i].refs != 0) continue;
+    if (strncmp(fat->files[i].name, name, NAMEMAX)) {
+      /* Slot was clunked but still in array */
+      *err = OK;
+      return i;
+    }
+  }
 
   direntry = nil;
 
@@ -281,6 +292,10 @@ fatfilewrite(struct fat *fat, struct fat_file *file,
 
       cluster = n;
     }
+  }
+
+  if (offset + tlen > file->size) {
+    file->size = offset + tlen;
   }
 
   if (tlen > 0) {
@@ -444,6 +459,8 @@ fatfileremove(struct fat *fat, struct fat_file *file)
     writetableinfo(fat, cluster, 0);
     cluster = n;
   }
+
+  file->refs = 0;
 
   return OK;
 }

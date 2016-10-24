@@ -60,7 +60,6 @@ struct partition {
   uint8_t lname;
   char name[NAMEMAX];
   
-  uint32_t fid;
   struct stat stat;
 
   uint32_t lba, sectors;
@@ -75,8 +74,6 @@ static struct stat rootstat = {
 
 static uint8_t *rootbuf = nil;
 
-static uint32_t nfid = ROOTFID;
-
 static struct blkdevice *device = nil;
 
 static struct mbr mbr;
@@ -86,7 +83,6 @@ static void
 initpart(struct partition *p, char *name)
 {
   p->lname = strlcpy(p->name, name, NAMEMAX);
-  p->fid = ++nfid;
   p->stat.attr = ATTR_wr|ATTR_rd;
 }
 
@@ -173,52 +169,37 @@ updatembr(void)
 static struct partition *
 fidtopart(uint32_t fid)
 {
-  int i;
-
-  if (fid == raw.fid) {
+  if (fid == 1) {
     return &raw;
+  } else {
+    return &parts[fid - 2];
   }
-  
-  for (i = 0; i < 4; i++) {
-    if (parts[i].fid == fid) {
-      if (parts[i].active) {
-	return &parts[i];
-      } else {
-	return nil;
-      }
-    }
-  }
-
-  return nil;
 }
 
 static void
 bgetfid(struct request_getfid *req, struct response_getfid *resp)
 {
-  struct partition *part = nil;
   int i;
 
   if (strncmp(raw.name, req->body.name, NAMEMAX)) {
-    part = &raw;
+    resp->body.fid = 1;
+    resp->body.attr = raw.stat.attr;
+    resp->head.ret = OK;
+    return;
   } else {
     for (i = 0; i < 4; i++) {
       if (parts[i].active) {
 	if (strncmp(parts[i].name, req->body.name, NAMEMAX)) {
-	  part = &parts[i];
-	  break;
+	  resp->body.attr = parts[i].stat.attr;
+	  resp->body.fid = i + 2;
+	  resp->head.ret = OK;
+	  return;
 	}
       }
     }
   } 
 
-  if (part == nil) {
-    resp->head.ret = ENOFILE;
-    return;
-  }
-
-  resp->body.fid = part->fid;
-  resp->body.attr = part->stat.attr;
-  resp->head.ret = OK;
+  resp->head.ret = ENOFILE;
 }
 
 static void
@@ -237,18 +218,15 @@ bstat(struct request_stat *req, struct response_stat *resp)
     s = &rootstat;
   } else {
     part = fidtopart(req->head.fid);
-    if (part != nil) {
-      s = &(part->stat);
-    }
+    s = &(part->stat);
   }
 
   if (s == nil) {
     resp->head.ret = ENOFILE;
-    return;
-  } 
-
-  memmove(&resp->body.stat, s, sizeof(struct stat));
-  resp->head.ret = OK;
+  } else { 
+    memmove(&resp->body.stat, s, sizeof(struct stat));
+    resp->head.ret = OK;
+  }
 }
 
 static void

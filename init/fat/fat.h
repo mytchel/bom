@@ -122,6 +122,7 @@ struct fat_dir_entry {
 
 
 struct fat_file {
+  uint8_t refs;
   char name[NAMEMAX];
   
   uint32_t attr;
