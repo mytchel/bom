@@ -28,13 +28,8 @@
 #include "head.h"
 
 struct file {
-  uint32_t fid;
-
   uint8_t lname;
   char name[NAMEMAX];
-
-  uint8_t *buf;
-  size_t lbuf;
 
   struct stat stat;
   unsigned int open;
@@ -44,8 +39,11 @@ struct file {
   struct file *children;
 };
 
+#define FIDSMAX 512
+
+static struct file *fids[FIDSMAX] = { nil };
 static struct file *root = nil;
-static uint32_t nfid = ROOTFID;
+
 static int in, out;
 struct binding *rootfsbinding;
 
@@ -97,35 +95,13 @@ rootfsinit(void)
 }
  
 
-static struct file *
-bfindfile(struct file *t, uint32_t fid)
-{
-  struct file *c;
-
-  if (t == nil) {
-    return nil;
-  } else if (t->fid == fid) {
-    return t;
-  } else {
-    c = bfindfile(t->cnext, fid);
-    if (c != nil) {
-      return c;
-    }
-
-    return bfindfile(t->children, fid);
-  }
-}
-
 static void
 bgetfid(struct request_getfid *req, struct response_getfid *resp)
 {
   struct file *f, *c;
+  int i;
 
-  f = bfindfile(root, req->head.fid);
-  if (f == nil) {
-    resp->head.ret = ENOFILE;
-    return;
-  }
+  f = fids[req->head.fid];
 
   for (c = f->children; c != nil; c = c->cnext) {
     if (strncmp(c->name, req->body.name, NAMEMAX)) {
@@ -138,8 +114,21 @@ bgetfid(struct request_getfid *req, struct response_getfid *resp)
     return;
   }
 
+  for (i = 1; i < FIDSMAX; i++) {
+    if (fids[i] == nil) {
+      break;
+    }
+  }
+
+  if (i == FIDSMAX) {
+    resp->head.ret = ENOMEM;
+    return;
+  }
+
+  fids[i] = c;
+  
   resp->body.attr = c->stat.attr;
-  resp->body.fid = c->fid;
+  resp->body.fid = i;
   resp->head.ret = OK;
 }
 
@@ -147,142 +136,48 @@ static void
 bclunk(struct request_clunk *req, struct response_clunk *resp)
 {
   resp->head.ret = OK;
+  fids[req->head.fid] = nil;
 }
 
 static void
 bstat(struct request_stat *req, struct response_stat *resp)
 {
-  struct file *f;
+  memmove(&resp->body.stat, &fids[req->head.fid]->stat,
+	  sizeof(struct stat));
 
-  f = bfindfile(root, req->head.fid);
-  if (f == nil) {
-    resp->head.ret = ENOFILE;
-    return;
-  }
-
-  memmove(&resp->body.stat, &f->stat, sizeof(struct stat));
   resp->head.ret = OK;
 }
 
 static void
 bopen(struct request_open *req, struct response_open *resp)
 {
-  struct file *f;
-
-  f = bfindfile(root, req->head.fid);
-  if (f == nil) {
-    resp->head.ret = ENOFILE;
-  } else {
-    resp->head.ret = OK;
-    f->open++;
-  }
+  fids[req->head.fid]->open++;
+  resp->head.ret = OK;
 }
 
 static void
 bclose(struct request_close *req, struct response_close *resp)
 {
-  struct file *f;
-
-  f = bfindfile(root, req->head.fid);
-  if (f == nil) {
-    resp->head.ret = ENOFILE;
-  } else {
-    resp->head.ret = OK;
-    f->open--;
-  }
-}
-
-static int
-addchild(struct file *p, struct file *c)
-{
-  uint8_t *buf, *tbuf;
-
-  buf = malloc(p->lbuf + sizeof(uint8_t) + c->lname);
-  if (buf == nil) {
-    return ENOMEM;
-  }
-
-  tbuf = buf;
-  if (p->lbuf > 0) {
-    memmove(tbuf, p->buf, p->lbuf);
-    tbuf += p->lbuf;
-    free(p->buf);
-  }
-  
-  memmove(tbuf, &c->lname, sizeof(uint8_t));
-  tbuf += sizeof(uint8_t);
-  memmove(tbuf, c->name, c->lname);
-
-  p->buf = buf;
-  p->lbuf = p->lbuf + sizeof(uint8_t) + c->lname;
-  
-  p->stat.size = p->lbuf;
-
-  c->cnext = p->children;
-  p->children = c;
-
-  c->parent = p;
-
-  return OK;
-}
-
-static int
-removechild(struct file *p, struct file *f)
-{
-  struct file *c;
-  uint8_t *buf, *tbuf;
-
-  if ((f->stat.attr & ATTR_dir) && f->lbuf > 0) {
-    return ENOTEMPTY;
-  }
-
-  if (p->lbuf - 1 - f->lname > 0) {
-    buf = malloc(p->lbuf - 1 - f->lname);
-    if (buf == nil) {
-      return ENOMEM;
-    }
-  } else {
-    buf = nil;
-  }
-
-  /* Remove from parent */
-  for (c = p->children; c != nil && c->cnext != f; c = c->cnext)
-    ;
-
-  if (c == nil) {
-    p->children = f->cnext;
-  } else {
-    c->cnext = f->cnext;
-  }
-
-  tbuf = buf;
-  for (c = p->children; c != nil; c = c->cnext) {
-    memmove(tbuf, &c->lname, sizeof(uint8_t));
-    tbuf += sizeof(uint8_t);
-    memmove(tbuf, c->name, c->lname);
-    tbuf += c->lname;
-  }
-
-  free(p->buf);
-  
-  p->buf = buf;
-  p->lbuf = p->lbuf - 1 - f->lname;
-  
-  p->stat.size = p->lbuf;
-
-  free(f);
-  return OK;
+  fids[req->head.fid]->open--;
+  resp->head.ret = OK;
 }
 
 static void
 bcreate(struct request_create *req, struct response_create *resp)
 {
   struct file *p, *new;
+  int i;
 
-  p = bfindfile(root, req->head.fid);
+  for (i = 1; i < FIDSMAX; i++) {
+    if (fids[i] == nil) {
+      break;
+    }
+  }
+
+  p = fids[req->head.fid];
   
-  if (p == nil || (p->stat.attr & ATTR_dir) == 0) {
-    resp->head.ret = ENOFILE;
+  if (!(p->stat.attr & ATTR_dir)) {
+    resp->head.ret = ERR;
     return;
   }
 
@@ -292,59 +187,105 @@ bcreate(struct request_create *req, struct response_create *resp)
     return;
   }
 
-  new->buf = 0;
-  new->lbuf = 0;
+  fids[i] = new;
+  
   new->stat.attr = req->body.attr;
-  new->stat.size = 0;
-  new->fid = nfid++;
+  new->stat.size = sizeof(struct file);
   new->open = 0;
   new->children = nil;
 
   new->lname = strlcpy(new->name, req->body.name, NAMEMAX);
 
-  resp->head.ret = addchild(p, new);
-  if (resp->head.ret != OK) {
-    free(new);
-  } else {
-    resp->body.fid = new->fid;
-  }
+  new->parent = p;
+
+  new->cnext = p->children;
+  p->children = new;
+
+  resp->head.ret = OK;
+  resp->body.fid = i;
 }
 
 static void
 bremove(struct request_remove *req, struct response_remove *resp)
 {
-  struct file *f;
+  struct file *f, *c;
 
-  f = bfindfile(root, req->head.fid);
-  if (f == nil) {
-    resp->head.ret = ENOFILE;
-    return;
-  } else if (f->open > 0) {
+  f = fids[req->head.fid];
+  if (f->open > 0) {
     resp->head.ret = ERR;
-    return;
   } else if (f->children != nil) {
     resp->head.ret = ENOTEMPTY;
-    return;
   }
 
-  resp->head.ret = removechild(f->parent, f);
+  /* Remove from parent */
+  for (c = f->parent->children;
+       c != nil && c->cnext != f; c = c->cnext)
+    ;
+
+  if (c == nil) {
+    f->parent->children = f->cnext;
+  } else {
+    c->cnext = f->cnext;
+  }
+
+  free(f);
+  resp->head.ret = OK;
 }
 
 static void
 breaddir(struct request_read *req, struct response_read *resp,
 	 struct file *file)
 {
-  uint32_t len;
-  
-  if (req->body.offset + req->body.len > file->lbuf) {
-    len = file->lbuf - req->body.offset;
-  } else {
-    len = req->body.len;
+  uint32_t tlen, offset, len, l;
+  struct file *c;
+  uint8_t *buf;
+
+  buf = resp->body.data;
+  offset = req->body.offset;
+  len = req->body.len;
+  tlen = 0;
+
+  for (c = file->children; c != nil; c = c->cnext) {
+    l = c->lname;
+    if (offset >= l + sizeof(uint8_t)) {
+      offset -= l + sizeof(uint8_t);
+      continue;
+    }
+    
+    if (offset == 0) { 
+      memmove(buf + tlen, &l, sizeof(uint8_t));
+      tlen += sizeof(uint8_t);
+    } else {
+      offset -= sizeof(uint8_t);
+    }
+    
+    if (tlen >= len) {
+      break;
+    } else if (tlen + l - offset > len) {
+      l = len - tlen;
+    }
+
+    if (offset == 0) {
+      memmove(buf + tlen, c->name, l);
+    } else {
+      l -= offset;
+      memmove(buf + tlen, c->name + offset, l);
+      offset = 0;
+    }
+
+    tlen += l;
+
+    if (tlen >= len) {
+      break;
+    }
   }
-  
-  memmove(resp->body.data, file->buf + req->body.offset, len);
-  resp->body.len = len;
-  resp->head.ret = OK;
+
+  resp->body.len = tlen;
+  if (tlen > 0) {
+    resp->head.ret = OK;
+  } else {
+    resp->head.ret = EOF;
+  }
 }
 
 static void
@@ -352,12 +293,8 @@ bread(struct request_read *req, struct response_read *resp)
 {
   struct file *f;
 
-  f = bfindfile(root, req->head.fid);
-  if (f == nil) {
-    resp->head.ret = ENOFILE;
-  } else if (req->body.offset >= f->lbuf) {
-    resp->head.ret = EOF;
-  } else if (f->stat.attr & ATTR_dir) {
+  f = fids[req->head.fid];
+  if (f->stat.attr & ATTR_dir) {
     breaddir(req, resp, f);
   } else {
     resp->head.ret = ENOIMPL;
@@ -383,19 +320,17 @@ rootfsproc(void *arg)
     panic("rootfs: root tree malloc failed!\n");
   }
 
-  root->fid = nfid++;
   root->lname = 0;
 
-  root->lbuf = 0;
-  root->buf = nil;
-  
   root->stat.attr = ATTR_rd|ATTR_wr|ATTR_dir;
-  root->stat.size = 0;
+  root->stat.size = sizeof(struct file);
   root->open = 0;
   root->cnext = nil;
   root->parent = nil;
   root->children = nil;
 
+  fids[ROOTFID] = root;
+  
   rootmount.databuf = malloc(512);
   rootmount.buflen = 512;
   

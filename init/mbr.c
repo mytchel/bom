@@ -55,7 +55,7 @@ struct mbr {
 };
 
 struct partition {
-  bool active;
+  uint8_t type;
   
   uint8_t lname;
   char name[NAMEMAX];
@@ -97,13 +97,13 @@ initparts(void)
     name[0]++;
 
     parts[i].mbr = &mbr.parts[i];
-    parts[i].active = false;
+    parts[i].type = 0;
   }
 
   initpart(&raw, "raw");
 
   raw.stat.size = device->nblk * device->blksize;
-  raw.active = true;
+  raw.type = 1;
   raw.lba = 0;
   raw.sectors = device->nblk;
   raw.mbr = nil;
@@ -123,9 +123,8 @@ updatembr(void)
   rootstat.size = 1 + raw.lname;
 
   for (i = 0; i < 4; i++) {
-    if (parts[i].mbr->type != 0) {
-      parts[i].active = true;
-
+    parts[i].type = parts[i].mbr->type;
+    if (parts[i].type != 0) {
       rootstat.size += 1 + parts[i].lname;
 
       memmove(&parts[i].lba, &parts[i].mbr->lba,
@@ -135,8 +134,6 @@ updatembr(void)
 	      sizeof(uint32_t));
 
       parts[i].stat.size = parts[i].sectors * device->blksize;
-    } else {
-      parts[i].active = false;
     }
   }
 
@@ -157,12 +154,12 @@ updatembr(void)
   buf += sizeof(uint8_t) * raw.lname;
 
   for (i = 0; i < 4; i++) {
-    if (parts[i].active == false) continue;
-
-    memmove(buf, &parts[i].lname, sizeof(uint8_t));
-    buf += sizeof(uint8_t);
-    memmove(buf, parts[i].name, parts[i].lname);
-    buf += parts[i].lname;
+    if (parts[i].type != 0) {
+      memmove(buf, &parts[i].lname, sizeof(uint8_t));
+      buf += sizeof(uint8_t);
+      memmove(buf, parts[i].name, parts[i].lname);
+      buf += parts[i].lname;
+    }
   }
 }
 
@@ -188,13 +185,13 @@ bgetfid(struct request_getfid *req, struct response_getfid *resp)
     return;
   } else {
     for (i = 0; i < 4; i++) {
-      if (parts[i].active) {
-	if (strncmp(parts[i].name, req->body.name, NAMEMAX)) {
-	  resp->body.attr = parts[i].stat.attr;
-	  resp->body.fid = i + 2;
-	  resp->head.ret = OK;
-	  return;
-	}
+      if (parts[i].type != 0 &&
+	  strncmp(parts[i].name, req->body.name, NAMEMAX)) {
+
+	resp->body.attr = parts[i].stat.attr;
+	resp->body.fid = i + 2;
+	resp->head.ret = OK;
+	return;
       }
     }
   } 
@@ -299,13 +296,9 @@ bread(struct request_read *req, struct response_read *resp)
     readroot(req, resp, req->body.offset, req->body.len);
   } else {
     part = fidtopart(req->head.fid);
-    if (part == nil) {
-      resp->head.ret = ENOFILE;
-    } else {
-      readblocks(req, resp, part,
-		 req->body.offset / device->blksize,
-		 req->body.len / device->blksize);
-    }
+    readblocks(req, resp, part,
+	       req->body.offset / device->blksize,
+	       req->body.len / device->blksize);
   }
 }
 
@@ -339,13 +332,9 @@ bwrite(struct request_write *req, struct response_write *resp)
   struct partition *part;
 
   part = fidtopart(req->head.fid);
-  if (part == nil) {
-    resp->head.ret = ENOFILE;
-  } else {
-    writeblocks(req, resp, part,
-		req->body.offset / device->blksize,
-		req->body.len / device->blksize);
-  }
+  writeblocks(req, resp, part,
+	      req->body.offset / device->blksize,
+	      req->body.len / device->blksize);
 }
 
 static struct fsmount mount = {
