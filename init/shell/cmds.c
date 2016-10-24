@@ -39,6 +39,7 @@ mounttmp(char *path);
 int
 mountfat(char *device, char *dir);
 
+static int cmdpwd(int argc, char **argv);
 static int cmdls(int argc, char **argv);
 static int cmdecho(int argc, char **argv);
 static int cmdmkdir(int argc, char **argv);
@@ -49,6 +50,7 @@ static int cmdmounttmp(int argc, char **argv);
 static int cmdmountfat(int argc, char **argv);
 
 struct func cmds[] = {
+  { "pwd",       &cmdpwd },
   { "ls",        &cmdls },
   { "echo",      &cmdecho },
   { "mkdir",     &cmdmkdir },
@@ -58,6 +60,20 @@ struct func cmds[] = {
   { "mounttmp",  &cmdmounttmp },
   { "mountfat",  &cmdmountfat },
 };
+
+int
+cmdpwd(int argc, char **argv)
+{
+  char pwd[NAMEMAX * 10] = ".";
+
+  cleanpath(pwd, pwd + 1, sizeof(pwd) - 1);
+
+  pwd[0] = '/';
+
+  printf("%s\n", pwd);
+
+  return OK;
+}
 
 int
 cmdlsh(char *filename)

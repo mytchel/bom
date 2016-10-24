@@ -35,16 +35,13 @@
 
 static int funcexit(int argc, char **argv);
 static int funccd(int argc, char **argv);
-static int funcpwd(int argc, char **argv);
 
 struct func funcs[] = {
   { "exit",      &funcexit },
   { "cd",        &funccd },
-  { "pwd",       &funcpwd },
 };
 
 static int ret = 0;
-static char pwd[NAMEMAX * 10] = "/";
 
 int
 funcexit(int argc, char **argv)
@@ -79,18 +76,7 @@ funccd(int argc, char **argv)
     return ERR;
   }
 
-  memmove(pwd, ".", 2);
-  cleanpath(pwd, pwd+1, sizeof(pwd));
-  pwd[0] = '/';
-  
   return 0;
-}
-
-int
-funcpwd(int argc, char **argv)
-{
-  printf("%s\n", pwd);
-  return OK;
 }
 
 bool

@@ -35,7 +35,7 @@ main(int argc, char *argv[])
 	int l = 0;
 	
 	printf("char %s[] = {", argv[1]);
-	while (read(0, &b, sizeof(char))) {
+	while (read(0, &b, sizeof(char)) > 0) {
 		printf("%i,", b);
 		l++;
 	}

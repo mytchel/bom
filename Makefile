@@ -41,18 +41,20 @@ LIBS:=
 HOST_CFLAGS := -Wall -Werror -std=c89
 HOST_LDFLAGS :=
 
-TARGETS := $(TARGET).elf $(TARGET).list init.elf init.list
+
+TARGETS := $(TARGET).elf $(TARGET).list init.list
+
 include $(TARGET)/local.mk
 
 
 ISRC_P := \
-        init/main.c          \
+        init/main.c         \
         init/printf.c        \
         init/heap.c          \
-        init/tmp.c           \
+        init/tmp.c          \
         init/mbr.c           \
         init/fat/fat.c       \
-        init/fat/util.c      \
+        init/fat/util.c     \
         init/fat/mount.c     \
         init/shell/shell.c   \
         init/shell/cmds.c    \
