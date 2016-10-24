@@ -57,7 +57,6 @@ static int cmdrm(int argc, char **argv);
 static int cmdcat(int argc, char **argv);
 static int cmdmounttmp(int argc, char **argv);
 static int cmdmountfat(int argc, char **argv);
-static int cmdblocktest(int argc, char **argv);
 
 struct func funcs[] = {
   { "exit",      &funcexit },
@@ -74,7 +73,6 @@ struct func cmds[] = {
   { "cat",       &cmdcat },
   { "mounttmp",  &cmdmounttmp },
   { "mountfat",  &cmdmountfat },
-  { "blocktest", &cmdblocktest },
 };
 
 static int ret = 0;
@@ -128,47 +126,11 @@ funcpwd(int argc, char **argv)
 }
 
 int
-cmdblocktest(int argc, char **argv)
-{
-  uint8_t block[512];
-  int blk, nblk, fd, i;
-  char *dev;
-
-  if (argc != 3) {
-    printf("usage: %s device nblk\n", argv[0]);
-    return ERR;
-  }
-  
-  dev = argv[1];
-  nblk = strtol(argv[2], nil, 10);
-
-  fd = open(dev, O_RDONLY);
-  if (fd < 0) {
-    printf("failed to open %s\n", dev);
-    return fd;
-  }
-
-  blk = 0;
-  while (nblk-- > 0 && read(fd, block, sizeof(block)) > 0) {
-    printf("Block %i\n", blk++);
-
-    i = 0;
-    while (i < 512) {
-      printf("%h ", block[i]);
-      if (++i % 8 == 0)
-	printf("\n");
-    }
-  }
-
-  return 0;
-}
- 
-int
 cmdlsh(char *filename)
 {
-  uint8_t buf[NAMEMAX], len;
+  uint8_t buf[NAMEMAX + 1], len;
   struct stat s;
-  int r, fd;
+  int r, fd, i;
 
   if (stat(filename, &s) != OK) {
     printf("Error statting '%s'\n", filename);
@@ -191,15 +153,31 @@ cmdlsh(char *filename)
     return ERR;
   }
 
-  while ((r = read(fd, &len, sizeof(uint8_t))) > 0) {
-    if (read(fd, buf, len) <= 0) {
-      break;
+  i = 0;
+  while ((r = read(fd, &buf[i], sizeof(buf) - i)) > 0) {
+    while (i < r) {
+      len = buf[i];
+
+      if (i + len >= r) {
+	/* copy remander of buf to start */
+	memmove(buf, &buf[i], r - i);
+	i = r - i;
+	break;
+      }
+
+      i++;
+
+      if (stat((const char *) &buf[i], &s) != OK) {
+	printf("stat error %s\n", buf);
+      } else {
+	printf("%b %u %s\n", s.attr, s.size, &buf[i]);
+      }
+
+      i += len;
     }
 
-    if (stat((const char *) buf, &s) != OK) {
-      printf("stat error %s\n", buf);
-    } else {
-      printf("%b %u %s\n", s.attr, s.size, buf);
+    if (i == r) {
+      i = 0;
     }
   }
 
