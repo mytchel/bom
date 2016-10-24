@@ -54,7 +54,8 @@ ISRC_P := \
         init/fat/fat.c       \
         init/fat/util.c      \
         init/fat/mount.c     \
-        init/shell.c         \
+        init/shell/shell.c   \
+        init/shell/cmds.c    \
         lib/fssrv.c          \
         lib/mem.c            \
         lib/string.c         \
