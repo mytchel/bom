@@ -33,6 +33,9 @@
 .global droptouser
 .global fsrstatus
 .global faultaddr
+.global cachedisable
+.global cacheenable
+.global cacheflush
 .global mmuloadttb
 .global mmuenable
 .global mmudisable
@@ -54,11 +57,11 @@ _start:
 	cmp r0, r1
 	blt 1b
 
-	@ Disable cache
+	bl cachedisable
+	bl mmudisable
+
 	mrc p15, 0, r0, c1, c0, 0
-	bic r0, r0, #(1<<12)
-	bic r0, r0, #(1<<2)
-	bic r1, r1, #(1<<0)
+	orr r0, r0, #(1<<1) @ enable branch prediction
 	mcr p15, 0, r0, c1, c0, 0
 	
 	cps #MODE_IRQ
@@ -99,7 +102,7 @@ setlabel:
 	mov r1, #1
 	str r1, [r0]
 	mov r0, #0
-	bx lr
+	mov pc, lr
 	
 
 gotolabel:
@@ -118,43 +121,65 @@ droptouser:
 
 fsrstatus:
 	mrc p15, 0, r0, c5, c0, 0
-	bx lr
+	mov pc, lr
 	
 	
 faultaddr:
 	mrc p15, 0, r0, c6, c0, 0
-	bx lr
+	mov pc, lr
+
+
+cachedisable:
+	@ Disable cache and mmu
+	mrc p15, 0, r0, c1, c0, 0
+	bic r0, r0, #(1<<2) @ unified cache
+	mcr p15, 0, r0, c1, c0, 0
+	mov pc, lr
+
+	
+cacheenable:
+	mrc p15, 0, r0, c1, c0, 0
+	orr r0, r0, #(1<<2) @ unified cache
+	mcr p15, 0, r0, c1, c0, 0
+	mov pc, lr
+	
+	
+cacheflush:
+	mov r0, #0
+	mcr p15, 0, r0, c7, c7, 0
+	mov pc, lr
 
 
 mmuloadttb:
 	push {lr}
 	mcr p15, 0, r0, c2, c0, 0
+
 	@ set domain mode to client
 	mov r0, #1
 	mcr p15, 0, r0, c3, c0, 0
+
 	pop {pc}
 	
 
 mmuinvalidate:
-	mcr p15, 0, r1, c8, c7, 0
-	bx lr
+	mcr p15, 0, r0, c8, c7, 0
+	mov pc, lr
 	
 
 mmuenable:
-	push {r1, lr}
+	push {lr}
 	bl mmuinvalidate
-	mrc p15, 0, r1, c1, c0, 0
-	orr r1, r1, #1
-	mcr p15, 0, r1, c1, c0, 0
-	pop {r1, pc}
+	mrc p15, 0, r0, c1, c0, 0
+	orr r0, r0, #1
+	mcr p15, 0, r0, c1, c0, 0
+	pop {pc}
 	
 
 mmudisable:
-	push {r1, lr}
-	mrc p15, 0, r1, c1, c0, 0
-	bic r1, r1, #1
-	mcr p15, 0, r1, c1, c0, 0
-	pop {r1, pc}
+	mrc p15, 0, r0, c1, c0, 0
+	bic r0, r0, #1
+	mcr p15, 0, r0, c1, c0, 0
+	mov pc, lr
 
 
 @ this is horrible but i cant get anything

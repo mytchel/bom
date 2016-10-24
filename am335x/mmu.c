@@ -64,7 +64,7 @@ mmuswitch(struct proc *p)
     ttb[L1X((uint32_t) pl->va)] 
       = ((uint32_t) pl->p->pa) | L1_COARSE;
   }
-	
+
   mmuinvalidate();
 }
 
@@ -75,7 +75,7 @@ imap(void *start, void *end, int ap, bool cachable)
   uint32_t mask = (ap << 10) | L1_SECTION;
 
   if (cachable) {
-    mask |= (7 << 12) | (1 << 3) | (1 << 2);
+    mask |= (7 << 12) | (1 << 3) | (0 << 2);
   } else {
     mask |= (0 << 12) | (0 << 3) | (1 << 2);
   }
@@ -145,7 +145,12 @@ mmuputpage(struct pagel *p)
   if (p->c) {
     tex = 7;
     c = 1;
+    b = 0;
+    /*
+    tex = 7;
+    c = 1;
     b = 1;
+    */
   } else {
     tex = 0;
     c = 0;

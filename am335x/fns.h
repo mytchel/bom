@@ -53,6 +53,18 @@ void
 intcaddhandler(uint32_t, void (*)(uint32_t));
 
 void
+cachedisable(void);
+
+void
+cacheenable(void);
+
+void
+cacheflush(void);
+
+void
+cacheclean(void);
+
+void
 mmuinvalidate(void);
 
 void

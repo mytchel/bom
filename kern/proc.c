@@ -175,12 +175,11 @@ schedule(void)
   up = nextproc();
   up->state = PROC_oncpu;
 
-  mmuswitch(up);
-
   cticks();
   setsystick(queues[up->priority].quanta
 	     - up->timeused);
 
+  mmuswitch(up);
   gotolabel(&up->label);
 }
 	
