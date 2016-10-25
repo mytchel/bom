@@ -79,7 +79,7 @@ bindingfidfree(struct bindingfid *fid)
   if (atomicdec(&fid->refs) > 0) {
     return;
   }
-  
+
   req.head.type = REQ_clunk;
   req.head.fid = fid->fid;
 

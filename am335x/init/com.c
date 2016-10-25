@@ -152,6 +152,7 @@ readloop(void)
   struct readreq *req;
   uint8_t data[BUFMAX];
   uint32_t done;
+  uint8_t i;
   
   uart->ier = 1;
 
@@ -167,8 +168,17 @@ readloop(void)
 
     done = 0;
     while (done < req->len) {
-      waitintr(UART0_INTR);
-      data[done++] = uart->hr;
+      for (i = 0; i < 0xff; i++) {
+	if (uart->lsr & 1) {
+	  break;
+	}
+      }
+
+      if (i == 0xff) {
+	waitintr(UART0_INTR);
+      }
+      
+      data[done++] = uart->hr & 0xff;
     }
 
     resp.head.rid = req->rid;
