@@ -36,6 +36,34 @@
 #include "fat.h"
 
 void
+fatinitbufs(struct fat *fat)
+{
+  void *addr;
+  size_t s;
+  int i;
+
+  i = 0;
+  
+  while (true) {
+    s = fat->spc * fat->bps;
+    addr = getmem(MEM_ram, nil, &s);
+
+    while (s > fat->spc * fat->bps) {
+      fat->bufs[i].addr = addr;
+      fat->bufs[i].sector = 0;
+      fat->bufs[i].uses = 0;
+
+      addr = (void *) ((uint8_t *) addr + fat->spc * fat->bps);
+      s -= fat->spc * fat->bps;
+
+      if (++i == BUFSMAX) {
+	return;
+      }
+    }
+  }
+}
+
+void
 fatfileclunk(struct fat *fat, struct fat_file *f)
 {
   if (f->refs == 0) {
@@ -75,36 +103,35 @@ uint32_t
 findfreecluster(struct fat *fat)
 {
   uint32_t sec, off, v;
+  struct buf *buf;
 
-  if (seek(fat->fd, fat->reserved * fat->bps, SEEK_SET) < 0) {
-    printf("fat mount failed to seek.\n");
-    return 0;
-  }
-
-  for (sec = 0; sec < fat->spf; sec++) {
-    if (read(fat->fd, fat->buf, fat->bps) != fat->bps) {
+  for (sec = 0; sec < fat->spf; sec += 4) {
+    buf = readsectors(fat, fat->reserved + sec);
+    if (buf == nil) {
       printf("fat mount failed to read table!\n");
       return 0;
     }
 
     off = 0;
-    while (off < fat->bps) {
+    while (off < fat->spc * fat->bps
+	   && sec * fat->bps + off < fat->spf * fat->bps) {
+
       switch (fat->type) {
       case FAT16:
-	v = intcopylittle16(fat->buf + off);
+	v = intcopylittle16(buf->addr + off);
 	if (v == 0) {
 	  v = FAT16_END;
-	  memmove(fat->buf + off, &v, sizeof(uint16_t));
+	  memmove(buf->addr + off, &v, sizeof(uint16_t));
 	  goto found;
 	} else {
 	  off += sizeof(uint16_t);
 	}
 	break;
       case FAT32:
-	v = intcopylittle32(fat->buf + off);
+	v = intcopylittle32(buf->addr + off);
 	if (v == 0) {
 	  v = FAT32_END;
-	  memmove(fat->buf + off, &v, sizeof(uint32_t));
+	  memmove(buf->addr + off, &v, sizeof(uint32_t));
 	  goto found;
 	} else {
 	  off += sizeof(uint32_t);
@@ -118,12 +145,7 @@ findfreecluster(struct fat *fat)
 
   found:
 
-  if (seek(fat->fd, -fat->bps, SEEK_CUR) < 0) {
-    printf("fat mount failed to seek back sector.\n");
-    return 0;
-  }
-  
-  if (write(fat->fd, fat->buf, fat->bps) != fat->bps) {
+  if (!writesectors(fat, buf)) {
     printf("fat mount failed to write modified fat table.\n");
     return 0;
   }
@@ -142,6 +164,7 @@ void
 writetableinfo(struct fat *fat, uint32_t cluster, uint32_t v)
 {
   uint32_t sec, off = 0;
+  struct buf *buf;
 
   switch (fat->type) {
   case FAT16:
@@ -154,8 +177,9 @@ writetableinfo(struct fat *fat, uint32_t cluster, uint32_t v)
 
   sec = off / fat->bps;
 
-  if (!readsectors(fat, fat->reserved + sec, 1)) {
-    printf("fat mount failed to seek.\n");
+  buf = readsectors(fat, fat->reserved + sec);
+  if (buf == nil) {
+    printf("fat mount failed to read table info.\n");
     return;
   }
 
@@ -163,14 +187,14 @@ writetableinfo(struct fat *fat, uint32_t cluster, uint32_t v)
 
   switch (fat->type) {
   case FAT16:
-    intwritelittle16(fat->buf + off, (uint16_t) v);
+    intwritelittle16(buf->addr + off, (uint16_t) v);
     break;
   case FAT32:
-    intwritelittle32(fat->buf + off, v);
+    intwritelittle32(buf->addr + off, v);
     break;
   }
 
-  if (!writesectors(fat, fat->reserved + sec, 1)) {
+  if (!writesectors(fat, buf)) {
     printf("fat mount failed to write altered table!\n");
     return;
   }
@@ -179,8 +203,9 @@ writetableinfo(struct fat *fat, uint32_t cluster, uint32_t v)
 uint32_t
 tableinfo(struct fat *fat, uint32_t cluster)
 {
-  uint32_t v = 0;
+  struct buf *buf;
   uint32_t sec, off = 0;
+  uint32_t v = 0;
 
   switch (fat->type) {
   case FAT16:
@@ -193,7 +218,8 @@ tableinfo(struct fat *fat, uint32_t cluster)
 
   sec = off / fat->bps;
 
-  if (!readsectors(fat, fat->reserved + sec, 1)) {
+  buf = readsectors(fat, fat->reserved + sec);
+  if (buf == nil) {
     return 0;
   }
 
@@ -201,55 +227,68 @@ tableinfo(struct fat *fat, uint32_t cluster)
 
   switch (fat->type) {
   case FAT16:
-    v = intcopylittle16(fat->buf + off);
+    v = intcopylittle16(buf->addr + off);
     break;
   case FAT32:
-    v = intcopylittle32(fat->buf + off);
+    v = intcopylittle32(buf->addr + off);
     break;
   }
 
   return v;
 }
 
-bool
-readsectors(struct fat *fat, uint32_t sector, size_t n)
+struct buf *
+readsectors(struct fat *fat, uint32_t sector)
 {
+  struct buf *buf;
   int i;
 
-  if (fat->bufsector == sector) {
-    return true;
-  }
-  
-  fat->bufsector = sector;
-  
-  if (seek(fat->fd, sector * fat->bps, SEEK_SET) < 0) {
-    printf("fat mount failed to seek to sector %i\n", sector);
-    return false;
-  }
-
-  for (i = 0; i < n; i++) {
-    if (read(fat->fd, fat->buf + i * fat->bps, fat->bps) < 0) {
-      printf("fat mount failed to read sector %i\n", sector + i);
-      return false;
+  buf = nil;
+  for (i = 0; i < BUFSMAX; i++) {
+    if (fat->bufs[i].sector == sector) {
+      fat->bufs[i].uses++;
+      return &fat->bufs[i];
+    } else if (buf == nil) {
+      buf = &fat->bufs[i];
+    } else if (buf->uses > fat->bufs[i].uses) {
+      buf = &fat->bufs[i];
     }
   }
 
-  return true;
-}
-
-bool
-writesectors(struct fat *fat, uint32_t sector, size_t n)
-{
-  int i;
+  buf->sector = sector;
+  buf->uses = 1;
   
   if (seek(fat->fd, sector * fat->bps, SEEK_SET) < 0) {
     printf("fat mount failed to seek to sector %i\n", sector);
+    return nil;
+  }
+
+  for (i = 0; i < fat->spc; i++) {
+    if (read(fat->fd, (uint8_t *) buf->addr + i * fat->bps,
+	     fat->bps) < 0) {
+      printf("fat mount failed to read sector %i\n", sector + i);
+      return nil;
+    }
+  }
+
+  return buf;
+}
+
+bool
+writesectors(struct fat *fat, struct buf *buf)
+{
+  int i;
+  
+  if (seek(fat->fd, buf->sector * fat->bps, SEEK_SET) < 0) {
+    printf("fat mount failed to seek to sector %i\n", buf->sector);
     return false;
   }
 
-  for (i = 0; i < n; i++) {
-    if (write(fat->fd, fat->buf + i * fat->bps, fat->bps) < 0) {
-      printf("fat mount failed to write sector %i\n", sector + i);
+  for (i = 0; i < fat->spc; i++) {
+    if (write(fat->fd, (uint8_t *) buf->addr + i * fat->bps,
+	      fat->bps) < 0) {
+      printf("fat mount failed to write sector %i\n",
+	     buf->sector + i);
       return false;
     }
   }

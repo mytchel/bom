@@ -100,26 +100,19 @@ fatinit(int fd)
 
   fat->nclusters = (fat->nsectors - fat->dataarea) / fat->spc;
 
-  fat->buf = malloc(fat->spc * fat->bps);
-  if (fat->buf == nil) {
-    return nil;
-  }
+  fatinitbufs(fat);
 
   return fat;
 }
 
 static struct fat_dir_entry *
-fatfindfileincluster(struct fat *fat, uint32_t sector, char *name)
+fatfindfileincluster(struct fat *fat, uint8_t *buf, char *name)
 {
   struct fat_dir_entry *file;
   char fname[NAMEMAX];
 
-  if (!readsectors(fat, sector, fat->spc)) {
-    return nil;
-  }
- 
-  file = (struct fat_dir_entry *) fat->buf;
-  while ((uint8_t *) file < fat->buf + fat->spc * fat->bps) {
+  file = (struct fat_dir_entry *) buf;
+  while ((uint8_t *) file < buf + fat->spc * fat->bps) {
 
     file = copyfileentryname(file, fname);
     if (file == nil) {
@@ -139,6 +132,7 @@ fatfilefind(struct fat *fat, struct fat_file *parent,
 	    char *name, int *err)
 {
   struct fat_dir_entry *direntry;
+  struct buf *buf;
   uint32_t cluster;
   uint32_t child;
   int i;
@@ -156,12 +150,22 @@ fatfilefind(struct fat *fat, struct fat_file *parent,
   direntry = nil;
 
   if (parent->startcluster == 0) {
-    direntry = fatfindfileincluster(fat, fat->rootdir, name);
+    buf = readsectors(fat, fat->rootdir);
+    if (buf == nil) {
+      return nil;
+    }
+ 
+    direntry = fatfindfileincluster(fat, buf->addr, name);
   } else {
     cluster = parent->startcluster;
     while (cluster != 0) {
+      buf = readsectors(fat, clustertosector(fat, cluster));
+      if (buf == nil) {
+	return nil;
+      }
+
       direntry =
-	fatfindfileincluster(fat, clustertosector(fat, cluster), name);
+	fatfindfileincluster(fat, buf->addr, name);
 
       if (direntry != nil) {
 	break;
@@ -192,7 +196,8 @@ fatfileread(struct fat *fat, struct fat_file *file,
 	    int *err)
 {
   uint32_t cluster, rlen, tlen;
-
+  struct buf *fbuf;
+  
   if (offset >= file->size) {
     *err = EOF;
     return 0;
@@ -210,7 +215,8 @@ fatfileread(struct fat *fat, struct fat_file *file,
       continue;
     }
 
-    if (!readsectors(fat, clustertosector(fat, cluster), fat->spc)) {
+    fbuf = readsectors(fat, clustertosector(fat, cluster));
+    if (fbuf == nil) {
       *err = ERR;
     }
 
@@ -220,7 +226,7 @@ fatfileread(struct fat *fat, struct fat_file *file,
       rlen = len;
     }
 
-    memmove(buf, fat->buf + offset, rlen);
+    memmove(buf, fbuf->addr + offset, rlen);
     offset = 0;
 
     len -= rlen;
@@ -234,11 +240,12 @@ fatfileread(struct fat *fat, struct fat_file *file,
 
 int
 fatfilewrite(struct fat *fat, struct fat_file *file,
-	    uint8_t *buf, uint32_t offset, uint32_t len,
-	    int *err)
+	     uint8_t *buf, uint32_t offset, uint32_t len,
+	     int *err)
 {
   uint32_t cluster, n, rlen, tlen, sector;
-
+  struct buf *fbuf;
+  
   tlen = 0;
   cluster = file->startcluster;
 
@@ -251,11 +258,9 @@ fatfilewrite(struct fat *fat, struct fat_file *file,
 
     sector = clustertosector(fat, cluster);
 
-    if (offset > 0 || len - tlen < fat->spc * fat->bps) {
-      /* Read sector if we are using it */
-      if (!readsectors(fat, sector, fat->spc)) {
-	*err = ERR;
-      }
+    fbuf = readsectors(fat, sector);
+    if (fbuf == nil) {
+      *err = ERR;
     }
 
     if (offset + (len - tlen) >= fat->spc * fat->bps) {
@@ -264,9 +269,9 @@ fatfilewrite(struct fat *fat, struct fat_file *file,
       rlen = len - tlen;
     }
 
-    memmove(fat->buf + offset, buf, rlen);
+    memmove(fbuf->addr + offset, buf, rlen);
 
-    if (!writesectors(fat, sector, fat->spc)) {
+    if (!writesectors(fat, fbuf)) {
       *err = ERR;
     }
 
@@ -313,17 +318,19 @@ readdirsectors(struct fat *fat, uint32_t sector,
 {
   struct fat_dir_entry *entry;
   char name[NAMEMAX];
+  struct buf *fbuf;
   size_t tlen;
   uint8_t l;
 
-  if (!readsectors(fat, sector, fat->spc)) {
+  fbuf = readsectors(fat, sector);
+  if (fbuf == nil) {
     return nil;
   }
 
   tlen = 0;
-  entry = (struct fat_dir_entry *) fat->buf;
+  entry = (struct fat_dir_entry *) fbuf->addr;
     
-  while ((uint8_t *) entry < fat->buf + fat->spc * fat->bps) {
+  while ((uint8_t *) entry < fbuf->addr + fat->spc * fat->bps) {
     entry = copyfileentryname(entry, name);
     if (entry == nil) {
       break;
@@ -411,7 +418,8 @@ fatfileremove(struct fat *fat, struct fat_file *file)
 {
   struct fat_dir_entry *direntry;
   struct fat_file *parent;
-  uint32_t cluster, sector, n;
+  uint32_t cluster, n;
+  struct buf *buf;
 
   if (file->attr & ATTR_dir) {
     /* Need to check if the dir is empty somehow */
@@ -425,13 +433,21 @@ fatfileremove(struct fat *fat, struct fat_file *file)
   direntry = nil;
 
   if (parent->startcluster == 0) {
-    sector = fat->rootdir;
-    direntry = fatfindfileincluster(fat, sector, file->name);
+    buf = readsectors(fat, fat->rootdir);
+    if (buf == nil) {
+      return nil;
+    }
+
+    direntry = fatfindfileincluster(fat, buf->addr, file->name);
   } else {
     cluster = parent->startcluster;
     while (cluster != 0) {
-      sector = clustertosector(fat, cluster);
-      direntry = fatfindfileincluster(fat, sector, file->name);
+      buf = readsectors(fat, clustertosector(fat, cluster));
+      if (buf == nil) {
+	return nil;
+      }
+
+      direntry = fatfindfileincluster(fat, buf->addr, file->name);
       if (direntry != nil) {
 	break;
       } else {
@@ -446,9 +462,9 @@ fatfileremove(struct fat *fat, struct fat_file *file)
   }
 
   memmove(direntry, direntry + 1,
-	  fat->spc * fat->bps - ((uint8_t *) direntry - fat->buf));
+	  fat->spc * fat->bps - ((uint8_t *) direntry - buf->addr));
 
-  if (!writesectors(fat, sector, fat->spc)) {
+  if (!writesectors(fat, buf)) {
     printf("fat mount failed to write modified dir.\n");
     return ERR;
   }
@@ -466,16 +482,12 @@ fatfileremove(struct fat *fat, struct fat_file *file)
 }
 
 static struct fat_dir_entry *
-fatfindemptydirentryincluster(struct fat *fat, uint32_t sector)
+fatfindemptydirentryincluster(struct fat *fat, uint8_t *buf)
 {
   struct fat_dir_entry *file;
 
-  if (!readsectors(fat, sector, fat->spc)) {
-    return nil;
-  }
- 
-  file = (struct fat_dir_entry *) fat->buf;
-  while ((uint8_t *) file < fat->buf + fat->spc * fat->bps) {
+  file = (struct fat_dir_entry *) buf;
+  while ((uint8_t *) file < buf + fat->spc * fat->bps) {
     if (file->name[0] == 0) {
       return file;
     }
@@ -490,8 +502,9 @@ uint32_t
 fatfilecreate(struct fat *fat, struct fat_file *parent,
 	      char *name, uint32_t attr)
 {
-  uint32_t cluster, sector, newcluster;
   struct fat_dir_entry *direntry;
+  uint32_t cluster, newcluster;
+  struct buf *buf;
   uint8_t fattr;
   int i, j;
 
@@ -501,13 +514,21 @@ fatfilecreate(struct fat *fat, struct fat_file *parent,
   }
 
   if (parent->startcluster == 0) {
-    sector = fat->rootdir;
-    direntry = fatfindemptydirentryincluster(fat, sector);
+    buf = readsectors(fat, fat->rootdir);
+    if (buf == nil) {
+      return nil;
+    }
+    
+    direntry = fatfindemptydirentryincluster(fat, buf->addr);
   } else {
     cluster = parent->startcluster;
     while (cluster != 0) {
-      sector = clustertosector(fat, cluster);
-      direntry = fatfindemptydirentryincluster(fat, sector);
+      buf = readsectors(fat, clustertosector(fat, cluster));
+      if (buf == nil) {
+	return nil;
+      }
+
+      direntry = fatfindemptydirentryincluster(fat, buf->addr);
       if (direntry != nil) {
 	break;
       } else {
@@ -561,17 +582,11 @@ fatfilecreate(struct fat *fat, struct fat_file *parent,
   intwritelittle16(direntry->cluster_high,
 		   (uint16_t) (newcluster >> 16));
 
+  intwritelittle32(direntry->size, 0);
   
-  if (!writesectors(fat, sector, fat->spc)) {
+  if (!writesectors(fat, buf)) {
     printf("fat mount failed to write updated dir.\n");
     writetableinfo(fat, newcluster, 0);
-    return nil;
-  }
-
-  memset(fat->buf, 0, fat->spc * fat->bps);
-
-  if (!writesectors(fat, newcluster, fat->spc)) {
-    printf("fat mount failed to zero new cluster.\n");
     return nil;
   }
 

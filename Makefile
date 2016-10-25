@@ -33,7 +33,7 @@ CFLAGS := -std=c89 -O3 \
 	-Wall -Werror \
         -nostdinc -ffreestanding \
         -D_$(TARGET)_ \
-        -I${.CURDIR}/include -I${.CURDIR}/$(TARGET)/
+        -I${.CURDIR}/include 
 
 LDFLAGS := -nostdlib -nodefaultlibs
 LIBS:=

@@ -135,6 +135,15 @@ struct fat_file {
   struct fat_file *parent;
 };
 
+
+#define BUFSMAX 16
+
+struct buf {
+  uint8_t *addr;
+  uint32_t sector;
+  size_t uses;
+};
+
 typedef enum { FAT16, FAT32 } fat_t;
 
 #define FAT16_END 0xfff8
@@ -162,9 +171,7 @@ struct fat {
   uint32_t rootdir;
   uint32_t dataarea;
 
-  uint32_t bufsector; 
-  /* Large enough to store a cluster */
-  uint8_t *buf;
+  struct buf bufs[BUFSMAX];
 };
 
 #define clustertosector(fat, cluster) \
@@ -172,6 +179,9 @@ struct fat {
 
 struct fat *
 fatinit(int fd);
+
+void
+fatinitbufs(struct fat *fat);
 
 uint32_t
 fatfilefind(struct fat *fat, struct fat_file *parent,
@@ -201,11 +211,12 @@ uint32_t
 fatfilecreate(struct fat *fat, struct fat_file *parent,
 	      char *name, uint32_t attr);
 
-bool
-readsectors(struct fat *fat, uint32_t sector, size_t n);
+/* n can not be larger that fat->spc */
+struct buf *
+readsectors(struct fat *fat, uint32_t sector);
 
 bool
-writesectors(struct fat *fat, uint32_t sector, size_t n);
+writesectors(struct fat *fat, struct buf *buf);
 
 uint32_t
 nextcluster(struct fat *fat, uint32_t prev);

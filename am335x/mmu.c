@@ -41,7 +41,8 @@
 #define L2_SMALL	2
 #define L2_TINY		3
 
-uint32_t ttb[4096] __attribute__((__aligned__(16*1024))) = { L1_FAULT };
+uint32_t
+ttb[4096]__attribute__((__aligned__(16*1024))) = { L1_FAULT };
 
 void
 mmuinit(void)
