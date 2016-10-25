@@ -39,10 +39,11 @@ struct priority_queue {
 static uint32_t nextpid = 1;
 
 static struct priority_queue queues[17];
+static struct proc *nullproc;
+
 static struct proc *waitchildren = nil;
 static struct proc *sleeping = nil;
 static struct proc *suspended = nil;
-static struct proc *nullproc = nil;
 
 struct proc *up = nil;
 

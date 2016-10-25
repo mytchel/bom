@@ -50,7 +50,7 @@ makereq(struct binding *b,
   resp->head.rid = req->head.rid;
 
   lock(&b->lock);
-  
+
   if (pipewrite(b->out, (void *) req, len) < 0) {
     unlock(&b->lock);
     return false;
@@ -135,6 +135,7 @@ findfileindir(struct bindingfid *fid, char *name, int *err)
   struct request_getfid req;
   struct response_getfid resp;
   struct bindingfid *nfid;
+  size_t len;
 
   for (nfid = fid->children; nfid != nil; nfid = nfid->cnext) {
     if (strncmp(nfid->name, name, NAMEMAX)) {
@@ -146,9 +147,11 @@ findfileindir(struct bindingfid *fid, char *name, int *err)
 
   req.head.type = REQ_getfid;
   req.head.fid = fid->fid;
-  strlcpy(req.body.name, name, NAMEMAX);
 
-  if (!makereq(fid->binding, (struct request *) &req, sizeof(req),
+  len = sizeof(req.head);
+  len += strlcpy(req.body.name, name, NAMEMAX);
+
+  if (!makereq(fid->binding, (struct request *) &req, len,
 	       (struct response *) &resp)) {
     *err = ELINK;
     return nil;
@@ -256,14 +259,17 @@ filecreate(struct bindingfid *parent,
   struct request_create req;
   struct response_create resp;
   struct bindingfid *nfid;
+  size_t len;
 
   req.head.type = REQ_create;
   req.head.fid = parent->fid;
-	
   req.body.attr = cattr;
-  strlcpy(req.body.name, name, NAMEMAX);
+
+  len = sizeof(req.head) + sizeof(req.body.attr);
+
+  len += strlcpy(req.body.name, name, NAMEMAX);
   
-  if (!makereq(parent->binding, (struct request *) &req, sizeof(req),
+  if (!makereq(parent->binding, (struct request *) &req, len,
 	       (struct response *) &resp)) {
     *err = ELINK;
     return nil;
@@ -463,9 +469,8 @@ fileread(struct chan *c, uint8_t *buf, size_t n)
   } else if (resp.head.ret != OK) {
     return resp.head.ret;
   } else {
-    n = n > resp.body.len ? resp.body.len : n;
-    cfile->offset += n;
-    return n;
+    cfile->offset += resp.body.len;
+    return resp.body.len;
   }
 }
 
@@ -487,8 +492,10 @@ filewrite(struct chan *c, uint8_t *buf, size_t n)
 
   trans.req = (struct request *) &req;
   trans.resp = (struct response *) &resp;
-  
+
   req.head.rid = atomicinc(&b->nreqid);
+  resp.head.rid = req.head.rid;
+
   req.head.type = REQ_write;
   req.head.fid = cfile->fid->fid;
 

@@ -168,16 +168,16 @@ readloop(void)
 
     done = 0;
     while (done < req->len) {
-      for (i = 0; i < 0xff; i++) {
+      i = 0xff;
+      while (i-- > 0) {
 	if (uart->lsr & 1) {
-	  break;
+	  goto copy;
 	}
       }
 
-      if (i == 0xff) {
-	waitintr(UART0_INTR);
-      }
-      
+      waitintr(UART0_INTR);
+
+    copy:
       data[done++] = uart->hr & 0xff;
     }
 

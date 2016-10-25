@@ -85,25 +85,20 @@ mountproc(void *arg)
     }
   }
 
-  printf("lock binding\n");
-  
   lock(&b->lock);
 
-  printf("close chans\n");
-  
   chanfree(b->in);
+  b->in = nil;
   chanfree(b->out);
+  b->out = nil;
 
   /* Wake up any waiting processes so they can error. */
-  printf("wake up waiters \n");
 
   setintr(INTR_OFF);
 
   p = b->waiting;
   while (p != nil) {
     pn = p->next;
-
-    printf("wake %i\n", p->pid);
     
     trans = (struct fstransaction *) p->aux;
     trans->resp->head.ret = ELINK;
@@ -112,14 +107,8 @@ mountproc(void *arg)
     p = pn;
   }
 
-  printf("free and exit\n");
-
-  /* Free binding and exit. */
-
   unlock(&b->lock);
   bindingfree(b);
-
-  setintr(INTR_OFF);
 
   procexit(up, ERR);
   schedule();

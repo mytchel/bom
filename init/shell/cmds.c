@@ -237,12 +237,18 @@ cmdcat(int argc, char **argv)
   for (i = 1; i < argc; i++) {
     fd = open(argv[i], O_RDONLY);
     if (fd < 0) {
-      printf("cat %s failed ERR %i\n", argv[i], fd);
+      printf("cat %s failed %i\n", argv[i], fd);
       return fd;
     } else {
       while ((l = read(fd, buf, sizeof(buf))) > 0) {
 	write(stdout, buf, l);
       }
+
+      if (l != EOF) {
+	printf("read %s failed %i\n", argv[i], l);
+      }
+
+      close(fd);
     }
   }
 
