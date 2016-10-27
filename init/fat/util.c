@@ -160,7 +160,7 @@ findfreecluster(struct fat *fat)
   }
 }
 
-void
+bool
 writetableinfo(struct fat *fat, uint32_t cluster, uint32_t v)
 {
   uint32_t sec, off = 0;
@@ -180,7 +180,7 @@ writetableinfo(struct fat *fat, uint32_t cluster, uint32_t v)
   buf = readsectors(fat, fat->reserved + sec, 1);
   if (buf == nil) {
     printf("fat mount failed to read table info.\n");
-    return;
+    return false;
   }
 
   off = off % fat->bps;
@@ -197,7 +197,9 @@ writetableinfo(struct fat *fat, uint32_t cluster, uint32_t v)
   if (!writesectors(fat, buf, 1)) {
     printf("fat mount failed to write altered table!\n");
     readsectors(fat, buf->sector, buf->n);
-    return;
+    return false;
+  } else {
+    return true;
   }
 }
 
@@ -276,6 +278,8 @@ readsectors(struct fat *fat, uint32_t sector, size_t n)
     if (read(fat->fd, (uint8_t *) buf->addr + i * fat->bps,
 	     fat->bps) < 0) {
       printf("fat mount failed to read sector %i\n", sector + i);
+
+      buf->n = i;
       return nil;
     }
   }
@@ -346,33 +350,48 @@ copyfileentryname(struct fat_dir_entry *file, char *name)
 }
 
 uint32_t
-fatfilefromentry(struct fat *fat, struct fat_dir_entry *entry,
-		 char *name, struct fat_file *parent)
+fatfindfreefid(struct fat *fat)
 {
-  struct fat_file *f;
-  uint8_t attr;
-  int i;
+  int i, b;
 
   /* Skip root fid and search for empty slot */
-  f = nil;
+  b = 0;
   for (i = 1; i < FIDSMAX; i++) {
     if (fat->files[i].name[0] == 0) {
       /* Slot completely unused */
-      f = &fat->files[i];
+      b = i;
       break;
-    } else if (f == nil && fat->files[i].refs == 0) {
+    } else if (b == 0 && fat->files[i].refs == 0) {
       /* Slot clunked but could be reused */
-      f = &fat->files[i];
+      b = i;
     }
   }
 
-  if (f == nil) {
+  if (b == 0) {
     printf("fat mount fid table full!\n");
-    return nil;
+    return 0;
   } else {
-    memset(f, 0, sizeof(struct fat_file));
+    memset(&fat->files[b], 0, sizeof(struct fat_file));
   }
 
+  return b;
+}
+
+uint32_t
+fatfilefromentry(struct fat *fat, struct buf *buf,
+		 struct fat_dir_entry *entry,
+		 char *name, struct fat_file *parent)
+{
+  struct fat_file *f;
+  int i;
+
+  i = fatfindfreefid(fat);
+  if (i == 0) {
+    return 0;
+  }
+  
+  f = &fat->files[i];
+  
   strlcpy(f->name, name, NAMEMAX);
 
   f->refs = 1;
@@ -386,20 +405,78 @@ fatfilefromentry(struct fat *fat, struct fat_dir_entry *entry,
   f->startcluster |=
     ((uint32_t) intcopylittle16(entry->cluster_low));
 
-  memmove(&f->direntry, entry, sizeof(struct fat_dir_entry));
-  memmove(&attr, &entry->attr, sizeof(uint8_t));
+  f->direntrysector = buf->sector;
+  f->direntryoffset = (uint32_t) entry - (uint32_t) buf->addr;
 
-  if (attr & FAT_ATTR_read_only) {
+  if (entry->attr & FAT_ATTR_read_only) {
     f->attr = ATTR_rd;
   } else {
     f->attr = ATTR_rd | ATTR_wr;
   }
 
-  if (attr & FAT_ATTR_directory) {
+  if (entry->attr & FAT_ATTR_directory) {
     f->attr |= ATTR_dir;
     f->size = fat->spc * fat->bps;
   }
 
   return i;
+}
+
+bool
+fatupdatedirentry(struct fat *fat, struct fat_file *file)
+{
+  struct fat_dir_entry *direntry;
+  struct buf *buf;
+  int i, j;
+
+  buf = readsectors(fat, file->direntrysector,
+		    fat->spc);
+  if (buf == nil) {
+    printf("fat mount failed to read dir entry cluster!\n");
+    return false;
+  }
+
+  direntry = (struct fat_dir_entry *)
+    (buf->addr + file->direntryoffset);
+
+  intwritelittle16(direntry->cluster_high,
+		   file->startcluster >> 16);
+  intwritelittle16(direntry->cluster_low,
+		   file->startcluster & 0xffff);
+
+  intwritelittle32(direntry->size, file->size);
+
+  direntry->attr = 0;
+  if (!(file->attr & ATTR_wr)) {
+    direntry->attr |= FAT_ATTR_read_only;
+  }
+
+  if (file->attr & ATTR_dir) {
+    direntry->attr |= FAT_ATTR_directory;
+  }
+
+  i = 0;
+
+  for (j = 0; j < sizeof(direntry->name); j++) {
+    if (file->name[i] != 0 && file->name[i] != '.') {
+      direntry->name[j] = file->name[i++];
+    } else {
+      direntry->name[j] = ' ';
+    }
+  }
+
+  if (file->name[i] == '.') {
+    i++;
+  }
+    
+  for (j = 0; j < sizeof(direntry->ext); j++) {
+    if (file->name[i] != 0) {
+      direntry->ext[j] = file->name[i++];
+    } else {
+      direntry->ext[j] = ' ';
+    }
+  }
+
+  return writesectors(fat, buf, fat->spc);
 }
 

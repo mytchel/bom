@@ -130,9 +130,8 @@ struct fat_file {
 
   uint32_t startcluster;
 
-  uint32_t direntrycluster;
+  uint32_t direntrysector;
   uint32_t direntryoffset;
-  struct fat_dir_entry direntry;
 
   struct fat_file *parent;
 };
@@ -230,13 +229,19 @@ findfreecluster(struct fat *fat);
 uint32_t
 tableinfo(struct fat *fat, uint32_t prev);
 
-void
+bool
 writetableinfo(struct fat *fat, uint32_t cluster, uint32_t v);
 
 struct fat_dir_entry *
 copyfileentryname(struct fat_dir_entry *start, char *name);
 
 uint32_t
-fatfilefromentry(struct fat *fat, struct fat_dir_entry *entry,
+fatfilefromentry(struct fat *fat, struct buf *buf,
+		 struct fat_dir_entry *entry,
 		 char *name, struct fat_file *parent);
 
+uint32_t
+fatfindfreefid(struct fat *fat);
+
+bool
+fatupdatedirentry(struct fat *fat, struct fat_file *file);

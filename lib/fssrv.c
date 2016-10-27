@@ -122,7 +122,7 @@ fsmountloop(int in, int out, struct fsmount *mount)
 	return ELINK;
       }
 
-      len = sizeof(struct response_write_b);
+      len = sizeof(struct response_write);
       if (mount->write) {
 	mount->write((struct request_write *) &req,
 		     (struct response_write *) &resp);

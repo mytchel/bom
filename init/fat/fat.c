@@ -180,7 +180,7 @@ fatfilefind(struct fat *fat, struct fat_file *parent,
     return nil;
   }
 
-  child = fatfilefromentry(fat, direntry, name, parent);
+  child = fatfilefromentry(fat, buf, direntry, name, parent);
   if (child == 0) {
     *err = ENOMEM;
   } else {
@@ -272,8 +272,10 @@ fatfilewrite(struct fat *fat, struct fat_file *file,
     memmove(fbuf->addr + offset, buf, rlen);
 
     if (!writesectors(fat, fbuf, fat->spc)) {
+      printf("write updated sectors failed\n");
       readsectors(fat, fbuf->sector, fbuf->n);
       *err = ERR;
+      return 0;
     }
 
     offset = 0;
@@ -294,7 +296,9 @@ fatfilewrite(struct fat *fat, struct fat_file *file,
 
       n = findfreecluster(fat);
 
-      writetableinfo(fat, cluster, n);
+      if (!writetableinfo(fat, cluster, n)) {
+	return ERR;
+      }
 
       cluster = n;
     }
@@ -302,6 +306,9 @@ fatfilewrite(struct fat *fat, struct fat_file *file,
 
   if (offset + tlen > file->size) {
     file->size = offset + tlen;
+    if (!fatupdatedirentry(fat, file)) {
+      printf("fat mount failed to update dir entry!\n");
+    }
   }
 
   if (tlen > 0) {
@@ -506,9 +513,9 @@ fatfilecreate(struct fat *fat, struct fat_file *parent,
 {
   struct fat_dir_entry *direntry;
   uint32_t cluster, newcluster;
+  struct fat_file *f;
   struct buf *buf;
-  uint8_t fattr;
-  int i, j;
+  int i;
 
   newcluster = findfreecluster(fat);
   if (newcluster == 0) {
@@ -545,56 +552,35 @@ fatfilecreate(struct fat *fat, struct fat_file *parent,
     return 0;
   }
 
-  i = 0;
-
-  for (j = 0; j < sizeof(direntry->name); j++) {
-    if (name[i] == 0 || name[i] == '.') {
-      direntry->name[j] = ' ';
-    } else {
-      direntry->name[j] = name[i++];
-    }
-  }
-
-  if (name[i] == '.')
-    i++;
-  
-  for (j = 0; j < sizeof(direntry->ext); j++) {
-    if (name[i] == 0) {
-      direntry->ext[j] = ' ';
-    } else {
-      direntry->ext[j] = name[i++];
-    }
-  }
-
-  if (attr & ATTR_wr) {
-    fattr = 0;
-  } else {
-    fattr = FAT_ATTR_read_only;
-  }
-
-  if (attr & ATTR_dir) {
-    fattr |= FAT_ATTR_directory;
-  }
-
-  memmove(&direntry->attr, &fattr, sizeof(fattr));
-
-  intwritelittle16(direntry->cluster_low,
-		   (uint16_t) (newcluster & 0xffff));
-
-  intwritelittle16(direntry->cluster_high,
-		   (uint16_t) (newcluster >> 16));
-
-  intwritelittle32(direntry->size, 0);
-  
-  if (!writesectors(fat, buf, fat->spc)) {
-    printf("fat mount failed to write updated dir.\n");
-    readsectors(fat, buf->sector, buf->n);
-    writetableinfo(fat, newcluster, 0);
+  i = fatfindfreefid(fat);
+  if (i == 0) {
+    printf("fat mount out of fid spaces!\n");
     return 0;
   }
+  
+  f = &fat->files[i];
 
-  /* Ignore time for now */
+  f->refs = 1;
+  f->parent = parent;
 
-  return fatfilefromentry(fat, direntry, name, parent);
+  strlcpy(f->name, name, NAMEMAX);
+
+  f->direntrysector = buf->sector;
+  f->direntryoffset = (uint32_t) direntry - (uint32_t) buf->addr;
+  
+  f->startcluster = newcluster;
+
+  f->attr = attr;
+  if (attr & FAT_ATTR_directory) {
+    f->size = fat->spc * fat->bps;
+  } else {
+    f->size = 0;
+  }
+
+  if (!fatupdatedirentry(fat, f)) {;
+    printf("fat mount failed to update dir entry\n");
+    return 0;
+  } else {
+    return i;
+  }
 }
-

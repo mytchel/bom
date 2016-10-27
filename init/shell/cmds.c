@@ -261,7 +261,7 @@ int
 cmdcp(int argc, char **argv)
 {
   uint8_t buf[512];
-  int r, in, out;
+  int r, w, in, out;
 
   in = open(argv[1], O_RDONLY);
   if (in < 0) {
@@ -275,23 +275,28 @@ cmdcp(int argc, char **argv)
     return out;
   }
 
-  printf("in and out open, copy\n");
-				      
-  while ((r = read(in, buf, sizeof(buf))) > 0) {
-    if ((r = write(out, buf, r)) < 0) {
-      printf("cp failed to write %s %i\n", argv[2], r);
-      return r;
+  while (true) {
+    if ((r = read(in, buf, sizeof(buf))) < 0) {
+      if (r == EOF) {
+	r = OK;
+      } else {
+	printf("cp failed to read %s %i\n", argv[1], r);
+      }
+      
+      break;
+    }
+
+    if ((w = write(out, buf, r)) != r) {
+      printf("cp failed to write %s %i\n", argv[2], w);
+      r = w;
+      break;
     }
   }
-
-  if (r != EOF) {
-    printf("cp failed to read %s %i\n", argv[1], r);
-  } 
 
   close(in);
   close(out);
 
-  return OK;
+  return r;
 }
 
 int

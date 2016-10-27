@@ -311,19 +311,19 @@ writeblocks(struct request_write *req, struct response_write *resp,
   uint32_t i;
 
   buf = req->body.data;
+
+  resp->head.ret = OK;
   
   for (i = 0; i < nblk && part->lba + blk + i < part->sectors; i++) {
     if (!device->write(device->aux, part->lba + blk + i, buf)) {
       resp->head.ret = ERR;
-      resp->body.len = 0;
-      return;
+      break;
     }
     
     buf += device->blksize;
   }
 
   resp->body.len = i * device->blksize;
-  resp->head.ret = OK;
 }
 
 static void
@@ -332,6 +332,13 @@ bwrite(struct request_write *req, struct response_write *resp)
   struct partition *part;
 
   part = fidtopart(req->head.fid);
+
+  if (req->body.offset % device->blksize != 0) {
+    resp->head.ret = ENOIMPL;
+  } else if (req->body.len % device->blksize != 0) {
+    resp->head.ret = ENOIMPL;
+  }
+
   writeblocks(req, resp, part,
 	      req->body.offset / device->blksize,
 	      req->body.len / device->blksize);

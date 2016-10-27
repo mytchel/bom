@@ -75,7 +75,7 @@ intcopylittle32(uint8_t *src)
   uint32_t d = 0;
 
   while (offset < sizeof(d)) {
-    d |= *src++ << offset++;
+    d |= *src++ << (offset++ * 8);
   }
 
   return d;
@@ -88,7 +88,7 @@ intcopybig16(uint8_t *src)
   size_t offset = sizeof(d);
 
   while (offset-- > 0) {
-    d |= *src++ << offset;
+    d |= *src++ << (offset * 8);
   }
 
   return d;
@@ -99,9 +99,9 @@ intcopybig32(uint8_t *src)
 {
   uint32_t d = 0;
   size_t offset = sizeof(d);
-
+  
   while (offset-- > 0) {
-    d |= *src++ << offset;
+    d |= *src++ << (offset * 8);
   }
 
   return d;
@@ -110,20 +110,20 @@ intcopybig32(uint8_t *src)
 void
 intwritelittle16(uint8_t *dest, uint16_t v)
 {
-  size_t offset = sizeof(v);
+  size_t offset;
 
-  while (offset > 0) {
-    *dest++ = v >> (--offset * 8);
+  for (offset = 0; offset < sizeof(v) * 8; offset += 8) {
+    *dest++ = (v >> offset) & 0xff;
   }
 }
 
 void
 intwritelittle32(uint8_t *dest, uint32_t v)
 {
-  size_t offset = sizeof(v);
+  size_t offset;
 
-  while (offset > 0) {
-    *dest++ = v >> (--offset * 8);
+  for (offset = 0; offset < sizeof(v) * 8; offset += 8) {
+    *dest++ = (v >> offset) & 0xff;
   }
 }
 
