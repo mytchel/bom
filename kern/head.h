@@ -112,6 +112,7 @@ struct bindingfid {
 };
 
 struct fstransaction {
+  size_t len;
   struct request *req;
   struct response *resp;
 };
@@ -173,7 +174,6 @@ struct proc {
 
   int priority;
   uint32_t timeused;
-  uint32_t cputime;
 
   struct page *kstack;
   struct pagel *mmu, *ustack;

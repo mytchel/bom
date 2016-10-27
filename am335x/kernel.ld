@@ -12,6 +12,8 @@ SECTIONS
 		*(.text)
 	}
 	
+	. = ALIGN(4096);
+
 	.rodata : 
 	{
 		*(.rodata)
@@ -26,6 +28,8 @@ SECTIONS
 		*(.data.*)
 	}
 	
+	. = ALIGN(4096);
+
 	_kernel_bss_start = .;
 	.bss : 
 	{

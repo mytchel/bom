@@ -150,7 +150,7 @@ fatfilefind(struct fat *fat, struct fat_file *parent,
   direntry = nil;
 
   if (parent->startcluster == 0) {
-    buf = readsectors(fat, fat->rootdir);
+    buf = readsectors(fat, fat->rootdir, fat->spc);
     if (buf == nil) {
       return nil;
     }
@@ -159,7 +159,7 @@ fatfilefind(struct fat *fat, struct fat_file *parent,
   } else {
     cluster = parent->startcluster;
     while (cluster != 0) {
-      buf = readsectors(fat, clustertosector(fat, cluster));
+      buf = readsectors(fat, clustertosector(fat, cluster), fat->spc);
       if (buf == nil) {
 	return nil;
       }
@@ -215,7 +215,7 @@ fatfileread(struct fat *fat, struct fat_file *file,
       continue;
     }
 
-    fbuf = readsectors(fat, clustertosector(fat, cluster));
+    fbuf = readsectors(fat, clustertosector(fat, cluster), fat->spc);
     if (fbuf == nil) {
       *err = ERR;
     }
@@ -258,7 +258,7 @@ fatfilewrite(struct fat *fat, struct fat_file *file,
 
     sector = clustertosector(fat, cluster);
 
-    fbuf = readsectors(fat, sector);
+    fbuf = readsectors(fat, sector, fat->spc);
     if (fbuf == nil) {
       *err = ERR;
     }
@@ -271,7 +271,8 @@ fatfilewrite(struct fat *fat, struct fat_file *file,
 
     memmove(fbuf->addr + offset, buf, rlen);
 
-    if (!writesectors(fat, fbuf)) {
+    if (!writesectors(fat, fbuf, fat->spc)) {
+      readsectors(fat, fbuf->sector, fbuf->n);
       *err = ERR;
     }
 
@@ -322,7 +323,7 @@ readdirsectors(struct fat *fat, uint32_t sector,
   size_t tlen;
   uint8_t l;
 
-  fbuf = readsectors(fat, sector);
+  fbuf = readsectors(fat, sector, fat->spc);
   if (fbuf == nil) {
     return nil;
   }
@@ -433,18 +434,18 @@ fatfileremove(struct fat *fat, struct fat_file *file)
   direntry = nil;
 
   if (parent->startcluster == 0) {
-    buf = readsectors(fat, fat->rootdir);
+    buf = readsectors(fat, fat->rootdir, fat->spc);
     if (buf == nil) {
-      return nil;
+      return ERR;
     }
 
     direntry = fatfindfileincluster(fat, buf->addr, file->name);
   } else {
     cluster = parent->startcluster;
     while (cluster != 0) {
-      buf = readsectors(fat, clustertosector(fat, cluster));
+      buf = readsectors(fat, clustertosector(fat, cluster), fat->spc);
       if (buf == nil) {
-	return nil;
+	return ERR;
       }
 
       direntry = fatfindfileincluster(fat, buf->addr, file->name);
@@ -464,8 +465,9 @@ fatfileremove(struct fat *fat, struct fat_file *file)
   memmove(direntry, direntry + 1,
 	  fat->spc * fat->bps - ((uint8_t *) direntry - buf->addr));
 
-  if (!writesectors(fat, buf)) {
+  if (!writesectors(fat, buf, fat->spc)) {
     printf("fat mount failed to write modified dir.\n");
+    readsectors(fat, buf->sector, buf->n);
     return ERR;
   }
 
@@ -510,22 +512,22 @@ fatfilecreate(struct fat *fat, struct fat_file *parent,
 
   newcluster = findfreecluster(fat);
   if (newcluster == 0) {
-    return nil;
+    return 0;
   }
 
   if (parent->startcluster == 0) {
-    buf = readsectors(fat, fat->rootdir);
+    buf = readsectors(fat, fat->rootdir, fat->spc);
     if (buf == nil) {
-      return nil;
+      return 0;
     }
     
     direntry = fatfindemptydirentryincluster(fat, buf->addr);
   } else {
     cluster = parent->startcluster;
     while (cluster != 0) {
-      buf = readsectors(fat, clustertosector(fat, cluster));
+      buf = readsectors(fat, clustertosector(fat, cluster), fat->spc);
       if (buf == nil) {
-	return nil;
+	return 0;
       }
 
       direntry = fatfindemptydirentryincluster(fat, buf->addr);
@@ -540,7 +542,7 @@ fatfilecreate(struct fat *fat, struct fat_file *parent,
   if (direntry == nil) {
     printf("create out of space, need to exspand dir. not yet implimented\n");
     writetableinfo(fat, newcluster, 0);
-    return nil;
+    return 0;
   }
 
   i = 0;
@@ -584,10 +586,11 @@ fatfilecreate(struct fat *fat, struct fat_file *parent,
 
   intwritelittle32(direntry->size, 0);
   
-  if (!writesectors(fat, buf)) {
+  if (!writesectors(fat, buf, fat->spc)) {
     printf("fat mount failed to write updated dir.\n");
+    readsectors(fat, buf->sector, buf->n);
     writetableinfo(fat, newcluster, 0);
-    return nil;
+    return 0;
   }
 
   /* Ignore time for now */

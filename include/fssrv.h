@@ -122,7 +122,7 @@ struct response_read_b {
 struct request_write_b {
   uint32_t offset;
   uint32_t len;
-  /* Data should be read in a third pipe read */
+  /* Data should be read in a second pipe read */
   uint8_t *data;
 };
 struct response_write_b {
@@ -146,7 +146,6 @@ struct request {
 };
 
 
-/* rid should be sent first then the rest of the response */
 struct response {
   struct response_head head;
   union {

@@ -34,8 +34,8 @@ struct cfile {
 
 static bool
 makereq(struct binding *b,
-	struct request *req, size_t len,
-	struct response *resp)
+	struct request *req, size_t reqlen,
+	struct response *resp, size_t resplen)
 {
   struct fstransaction trans;
   
@@ -45,13 +45,13 @@ makereq(struct binding *b,
 
   trans.req = req;
   trans.resp = resp;
+  trans.len = resplen;
 
   req->head.rid = atomicinc(&b->nreqid);
-  resp->head.rid = req->head.rid;
 
   lock(&b->lock);
 
-  if (pipewrite(b->out, (void *) req, len) < 0) {
+  if (pipewrite(b->out, (void *) req, reqlen) < 0) {
     unlock(&b->lock);
     return false;
   }
@@ -83,8 +83,9 @@ bindingfidfree(struct bindingfid *fid)
   req.head.type = REQ_clunk;
   req.head.fid = fid->fid;
 
-  makereq(fid->binding, (struct request *) &req, sizeof(req),
-	  (struct response *) &resp);
+  makereq(fid->binding,
+	  (struct request *) &req, sizeof(req),
+	  (struct response *) &resp, sizeof(resp));
 
   if (fid->parent) {
     lock(&fid->binding->lock);
@@ -118,8 +119,9 @@ filestatfid(struct bindingfid *fid, struct stat *stat)
   req.head.type = REQ_stat;
   req.head.fid = fid->fid;
 
-  if (!makereq(fid->binding, (struct request *) &req, sizeof(req),
-	       (struct response *) &resp)) {
+  if (!makereq(fid->binding,
+	       (struct request *) &req, sizeof(req),
+	       (struct response *) &resp, sizeof(resp))) {
     return ELINK;
   } else if (resp.head.ret == OK) {
     memmove(stat, &resp.body.stat, sizeof(struct stat));
@@ -151,8 +153,9 @@ findfileindir(struct bindingfid *fid, char *name, int *err)
   len = sizeof(req.head);
   len += strlcpy(req.body.name, name, NAMEMAX);
 
-  if (!makereq(fid->binding, (struct request *) &req, len,
-	       (struct response *) &resp)) {
+  if (!makereq(fid->binding,
+	       (struct request *) &req, len,
+	       (struct response *) &resp, sizeof(resp))) {
     *err = ELINK;
     return nil;
   } else if (resp.head.ret != OK) {
@@ -266,11 +269,11 @@ filecreate(struct bindingfid *parent,
   req.body.attr = cattr;
 
   len = sizeof(req.head) + sizeof(req.body.attr);
-
   len += strlcpy(req.body.name, name, NAMEMAX);
   
-  if (!makereq(parent->binding, (struct request *) &req, len,
-	       (struct response *) &resp)) {
+  if (!makereq(parent->binding,
+	       (struct request *) &req, len,
+	       (struct response *) &resp, sizeof(resp))) {
     *err = ELINK;
     return nil;
   } else if (resp.head.ret != OK) {
@@ -378,8 +381,9 @@ fileopen(struct path *path, uint32_t mode, uint32_t cmode, int *err)
 
   req.head.type = REQ_open;
   req.head.fid = fid->fid;
-  if (!makereq(fid->binding, (struct request *) &req, sizeof(req), 
-	       (struct response *) &resp)) {
+  if (!makereq(fid->binding,
+	       (struct request *) &req, sizeof(req), 
+	       (struct response *) &resp, sizeof(resp))) {
     *err = ELINK;
     bindingfidfree(fid);
     return nil;
@@ -433,8 +437,9 @@ fileremove(struct path *path)
   req.head.type = REQ_remove;
   req.head.fid = fid->fid;
 
-  if (!makereq(fid->binding, (struct request *) &req, sizeof(req),
-	       (struct response *) &resp)) {
+  if (!makereq(fid->binding,
+	       (struct request *) &req, sizeof(req),
+	       (struct response *) &resp, sizeof(resp))) {
     ret = ELINK;
   } else if (resp.head.ret != OK) {
     ret =  resp.head.ret;
@@ -463,8 +468,9 @@ fileread(struct chan *c, uint8_t *buf, size_t n)
   resp.body.len = n;
   resp.body.data = buf;
 
-  if (!makereq(cfile->fid->binding, (struct request *) &req, sizeof(req),
-	       (struct response *) &resp)) {
+  if (!makereq(cfile->fid->binding,
+	       (struct request *) &req, sizeof(req),
+	       (struct response *) &resp, sizeof(resp.head))) {
     return ELINK;
   } else if (resp.head.ret != OK) {
     return resp.head.ret;
@@ -492,17 +498,15 @@ filewrite(struct chan *c, uint8_t *buf, size_t n)
 
   trans.req = (struct request *) &req;
   trans.resp = (struct response *) &resp;
+  trans.len = sizeof(resp);
 
   req.head.rid = atomicinc(&b->nreqid);
-  resp.head.rid = req.head.rid;
 
   req.head.type = REQ_write;
   req.head.fid = cfile->fid->fid;
 
   req.body.offset = cfile->offset;
   req.body.len = n;
-
-  resp.head.rid = req.head.rid;
 
   lock(&b->lock);
 
@@ -573,8 +577,9 @@ fileclose(struct chan *c)
   req.head.type = REQ_close;
   req.head.fid = cfile->fid->fid;
 
-  makereq(cfile->fid->binding, (struct request *) &req, sizeof(req),
-	  (struct response *) &resp);
+  makereq(cfile->fid->binding,
+	  (struct request *) &req, sizeof(req),
+	  (struct response *) &resp, sizeof(resp));
 
   bindingfidfree(cfile->fid);
   free(cfile);

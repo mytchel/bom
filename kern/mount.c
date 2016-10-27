@@ -31,16 +31,15 @@ int
 mountproc(void *arg)
 {
   struct fstransaction *trans;
-  struct response *resp;
+  struct response *resp, tresp;
   struct binding *b;
   struct proc *p, *pn;
-  uint32_t rid, rlen = 0;
   
   b = (struct binding *) arg;
 
   while (true) {
-    if (piperead(b->in, (void *) &rid, sizeof(rid)) != sizeof(rid)) {
-      printf("kproc mount: error reading rid.\n");
+    if (piperead(b->in, (void *) &tresp, sizeof(tresp)) < 0) {
+      printf("kproc mount: error reading response.\n");
       break;
     }
 
@@ -49,40 +48,32 @@ mountproc(void *arg)
     resp = nil;
     for (p = b->waiting; p != nil; p = p->next) {
       trans = (struct fstransaction *) p->aux;
-      if (trans->req->head.rid == rid) {
+      if (trans->req->head.rid == tresp.head.rid) {
 	resp = trans->resp;
 	break;
       }
     }
 
+    unlock(&b->lock);
+
     if (resp == nil) {
       printf("kproc mount: response has no waiter.\n");
       break;
-    } else if (trans->req->head.type == REQ_read) {
-      rlen = resp->read.len;
-    }
-    
-    unlock(&b->lock);
+    } 
 
-    if (piperead(b->in, (void *) &resp->head.ret,
-		 sizeof(struct response) - sizeof(rid)) < 0) {
-      printf("kproc mount: error reading response.\n");
-      break;
-    }
+    memmove(resp, &tresp, trans->len);
 
     if (trans->req->head.type == REQ_read && resp->head.ret == OK) {
-      resp->read.len = piperead(b->in, resp->read.data, rlen);
+      resp->read.len = piperead(b->in, resp->read.data, resp->read.len);
       if (resp->read.len < 0) {
-	printf("kproc mount: error reading response.\n");
+	printf("kproc mount: error reading read response.\n");
 	break;
       }
     }
-
-    if (p != nil) {
-      setintr(INTR_OFF);
-      procready(p);
-      setintr(INTR_ON);
-    }
+    
+    setintr(INTR_OFF);
+    procready(p);
+    setintr(INTR_ON);
   }
 
   lock(&b->lock);

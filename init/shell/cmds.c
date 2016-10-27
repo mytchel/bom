@@ -46,6 +46,7 @@ static int cmdmkdir(int argc, char **argv);
 static int cmdtouch(int argc, char **argv);
 static int cmdrm(int argc, char **argv);
 static int cmdcat(int argc, char **argv);
+static int cmdcp(int argc, char **argv);
 static int cmdmounttmp(int argc, char **argv);
 static int cmdmountfat(int argc, char **argv);
 
@@ -57,6 +58,7 @@ struct func cmds[] = {
   { "touch",     &cmdtouch },
   { "rm",        &cmdrm },
   { "cat",       &cmdcat },
+  { "cp",        &cmdcp },
   { "mounttmp",  &cmdmounttmp },
   { "mountfat",  &cmdmountfat },
 };
@@ -255,6 +257,42 @@ cmdcat(int argc, char **argv)
   return OK;
 }
 
+int
+cmdcp(int argc, char **argv)
+{
+  uint8_t buf[512];
+  int r, in, out;
+
+  in = open(argv[1], O_RDONLY);
+  if (in < 0) {
+    printf("cp failed to open %s %i\n", argv[1], in);
+    return in;
+  }
+
+  out = open(argv[2], O_WRONLY|O_CREATE, ATTR_rd|ATTR_wr);
+  if (out < 0) {
+    printf("cp failed to open %s %i\n", argv[2], out);
+    return out;
+  }
+
+  printf("in and out open, copy\n");
+				      
+  while ((r = read(in, buf, sizeof(buf))) > 0) {
+    if ((r = write(out, buf, r)) < 0) {
+      printf("cp failed to write %s %i\n", argv[2], r);
+      return r;
+    }
+  }
+
+  if (r != EOF) {
+    printf("cp failed to read %s %i\n", argv[1], r);
+  } 
+
+  close(in);
+  close(out);
+
+  return OK;
+}
 
 int
 cmdmounttmp(int argc, char **argv)

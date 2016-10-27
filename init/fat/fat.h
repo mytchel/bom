@@ -130,6 +130,8 @@ struct fat_file {
 
   uint32_t startcluster;
 
+  uint32_t direntrycluster;
+  uint32_t direntryoffset;
   struct fat_dir_entry direntry;
 
   struct fat_file *parent;
@@ -141,6 +143,7 @@ struct fat_file {
 struct buf {
   uint8_t *addr;
   uint32_t sector;
+  size_t n;
   size_t uses;
 };
 
@@ -213,10 +216,10 @@ fatfilecreate(struct fat *fat, struct fat_file *parent,
 
 /* n can not be larger that fat->spc */
 struct buf *
-readsectors(struct fat *fat, uint32_t sector);
+readsectors(struct fat *fat, uint32_t sector, size_t n);
 
 bool
-writesectors(struct fat *fat, struct buf *buf);
+writesectors(struct fat *fat, struct buf *buf, size_t n);
 
 uint32_t
 nextcluster(struct fat *fat, uint32_t prev);

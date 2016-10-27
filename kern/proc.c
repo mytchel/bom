@@ -53,12 +53,13 @@ schedulerinit(void)
  int i;
   
   for (i = 0; i < 17; i++) {
-    /* Remember to change */
-    queues[i].quanta = mstoticks((18 - i) * 5 + 5);
+    queues[i].quanta = mstoticks((18 - i) * 5 + 10);
     queues[i].ready = nil;
     queues[i].used = nil;
   }
 
+  queues[0].quanta = mstoticks(10);
+  
   nullproc = procnew(0);
   if (nullproc == nil) {
     panic("Failed to create null proc!\n");
@@ -108,7 +109,6 @@ nextproc(void)
   }
 
   removefromlist(nullproc->list, nullproc);
-  nullproc->list = nil;
   nullproc->timeused = 0;
   return nullproc;
 }
@@ -156,13 +156,12 @@ schedule(void)
 
   if (up != nil) {
     up->timeused += t;
-    up->cputime += t;
 
     if (up->state == PROC_oncpu) {
       up->state = PROC_ready;
 
       q = queues[up->priority].quanta;
-      if (up->timeused < q) {
+      if (up->timeused + 50 < q) {
 	addtolistback(&queues[up->priority].ready, up);
       } else {
 	up->timeused = 0;
@@ -176,11 +175,12 @@ schedule(void)
   up = nextproc();
   up->state = PROC_oncpu;
 
+  mmuswitch(up);
+
   cticks();
   setsystick(queues[up->priority].quanta
 	     - up->timeused);
 
-  mmuswitch(up);
   gotolabel(&up->label);
 }
 	
@@ -200,7 +200,6 @@ procnew(unsigned int priority)
   p->ureg = nil;
 
   p->timeused = 0;
-  p->cputime = 0;
 
   p->deadchildren = nil;
   p->nchildren = 0;

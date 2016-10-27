@@ -132,12 +132,12 @@ puts(uint8_t *s, size_t len)
 void
 dprintf(const char *fmt, ...)
 {
-  char str[128];
+  char str[32];
   size_t i;
   va_list ap;
 
   va_start(ap, fmt);
-  i = vsnprintf(str, 128, fmt, ap);
+  i = vsnprintf(str, sizeof(str), fmt, ap);
   va_end(ap);
 
   if (i > 0) {
@@ -148,7 +148,7 @@ dprintf(const char *fmt, ...)
 static int
 readloop(void)
 {
-  struct response_read resp;
+  struct response_head resp;
   struct readreq *req;
   uint8_t data[BUFMAX];
   uint32_t done;
@@ -181,23 +181,17 @@ readloop(void)
       data[done++] = uart->hr & 0xff;
     }
 
-    resp.head.rid = req->rid;
-    resp.head.ret = OK;
+    resp.rid = req->rid;
+    resp.ret = OK;
 
     free(req);
 
     getlock();
     
-    if (write(fsout, &resp.head.rid, sizeof(resp.head.rid))
-	!= sizeof(resp.head.rid)) {
+    if (write(fsout, &resp, sizeof(resp)) < 0) {
       return ELINK;
     }
     
-    if (write(fsout, &resp.head.ret,
-	      sizeof(resp.head) - sizeof(resp.head.rid)) < 0) {
-      return ELINK;
-    }
-
     if (write(fsout, data, done) < 0) {
       return ELINK;
     }
@@ -285,29 +279,27 @@ comfsmountloop(void)
   }
 
   while (true) {
-    if (read(fsin, req, sizeof(struct request)) <= 0) {
+    if ((len = read(fsin, req, sizeof(struct request))) < 0) {
       return ELINK;
     }
 
     resp->head.rid = req->head.rid;
 
-    len = sizeof(resp->head) - sizeof(resp->head.rid);
-
     switch (req->head.type) {
     case REQ_stat:
-      len += sizeof(struct response_stat_b);
+      len = sizeof(struct response_stat);
       comstat((struct request_stat *) req,
 	      (struct response_stat *) resp);
       break;
 
     case REQ_open:
-      len += sizeof(struct response_open_b);
+      len = sizeof(struct response_open);
       comopen((struct request_open *) req,
 	      (struct response_open *) resp);
       break;
 
     case REQ_close:
-      len += sizeof(struct response_close_b);
+      len = sizeof(struct response_close);
       comclose((struct request_close *) req,
 	      (struct response_close *) resp);
       break;
@@ -318,7 +310,7 @@ comfsmountloop(void)
 	return ELINK;
       }
 
-      len += sizeof(struct response_write_b);
+      len = sizeof(struct response_write);
       comwrite((struct request_write *) req,
 	      (struct response_write *) resp);
       break;
@@ -331,19 +323,16 @@ comfsmountloop(void)
 
     default:
       resp->head.ret = ENOIMPL;
+      len = sizeof(struct response_head);
     }
 
     getlock();
 
-    if (write(fsout, &resp->head.rid, sizeof(resp->head.rid))
-	!= sizeof(resp->head.rid)) {
+    if (write(fsout, resp, len) < 0) {
+      dprintf("com failed to write response %i\n", resp->head.rid);
       return ELINK;
     }
     
-    if (write(fsout, &resp->head.ret, len) < 0) {
-      return ELINK;
-    }
-
     freelock();
   }
 

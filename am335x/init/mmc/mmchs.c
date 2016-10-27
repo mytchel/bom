@@ -106,7 +106,7 @@ mmchswaitintr(struct mmc *mmc, uint32_t mask)
 
       printf("%s unexpected interrupt 0b%b\n", mmc->name, v);
     }
-  } while (true); /*waitintr(mmc->intr) != ERR);*/
+  } while (waitintr(mmc->intr) != ERR);
 
   return false;
 }
@@ -132,7 +132,7 @@ mmchssendrawcmd(struct mmc *mmc, uint32_t cmd, uint32_t arg)
   if (mmc->regs->stat != 0) {
     printf("%s stat in bad shape 0b%b\n",
 	   mmc->name, mmc->regs->stat);
-    return false;
+    mmc->regs->stat = 0xffffffff;
   }
 
   mmc->regs->arg = arg;

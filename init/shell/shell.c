@@ -203,7 +203,7 @@ processline(char *line)
 int
 shell(void)
 {
-  uint8_t line[LINE_MAX];
+  uint8_t line[LINE_MAX] = {0};
 
   while (true) {
     printf("%% ");
