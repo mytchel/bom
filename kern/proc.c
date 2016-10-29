@@ -53,12 +53,12 @@ schedulerinit(void)
  int i;
   
   for (i = 0; i < 17; i++) {
-    queues[i].quanta = mstoticks((18 - i) * 5 + 10);
+    queues[i].quanta = mstoticks((18 - i) * 1000 + 10);
     queues[i].ready = nil;
     queues[i].used = nil;
   }
 
-  queues[0].quanta = mstoticks(10);
+  queues[0].quanta = mstoticks(5);
   
   nullproc = procnew(0);
   if (nullproc == nil) {

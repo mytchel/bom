@@ -33,23 +33,29 @@
 #include "sdmmcreg.h"
 #include "sdhcreg.h"
 #include "omap_mmc.h"
-#include "mmc.h"
+#include "mmchs.h"
 
 static bool
 cardscr(struct mmc *mmc)
 {
-  struct mmc_command cmd;
+  uint32_t cmd;
   uint8_t *p, buf[8];
   int i;
 
-  cmd.cmd = SD_APP_SEND_SCR;
-  cmd.resp_type = RESP_LEN_48;
-  cmd.arg = 0xaaaaaaaa;
-  cmd.data_type = DATA_READ;
-  cmd.data_len = 8;
-  cmd.data = buf;
+  cmd = MMCHS_SD_CMD_INDEX_CMD(SD_APP_SEND_SCR)
+    | MMCHS_SD_CMD_RSP_TYPE_48B
+    | MMCHS_SD_CMD_DP_DATA
+    | MMCHS_SD_CMD_DDIR_READ;
 
-  if (!mmchssendappcmd(mmc, &cmd)) {
+  mmc->regs->blk = sizeof(buf);
+
+  if (!mmchssendappcmd(mmc, cmd, 0xaaaaaaaa)) {
+    printf("%s failed to send app cmd\n", mmc->name);
+    return false;
+  }
+
+  if (!mmchsreaddata(mmc, (uint32_t *) buf, sizeof(buf))) {
+    printf("%s failed to read data\n", mmc->name);
     return false;
   }
 
@@ -64,16 +70,14 @@ cardscr(struct mmc *mmc)
 static bool
 cardenable4bitmode(struct mmc *mmc)
 {
-  struct mmc_command cmd;
-
+  uint32_t cmd;
+  
   if (SCR_SD_BUS_WIDTHS(mmc->scr) & SCR_SD_BUS_WIDTHS_4BIT) {
 
-    cmd.cmd = SD_APP_SET_BUS_WIDTH;
-    cmd.resp_type = RESP_LEN_48;
-    cmd.data_type = DATA_NONE;
-    cmd.arg = 2;
-
-    if (!mmchssendappcmd(mmc, &cmd)) {
+    cmd = MMCHS_SD_CMD_INDEX_CMD(SD_APP_SET_BUS_WIDTH)
+      | MMCHS_SD_CMD_RSP_TYPE_48B;
+ 
+    if (!mmchssendappcmd(mmc, cmd, 2)) {
       return false;
     }
 

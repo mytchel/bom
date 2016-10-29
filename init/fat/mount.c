@@ -154,28 +154,35 @@ mountfat(char *device, char *dir)
     return fddev;
   }
 
-  fat = fatinit(fddev);
-  if (fat == nil) {
-    printf("fat init failed on %s\n", device);
-    return ERR;
-  }
-  
   fddir = open(dir, O_RDONLY);
   if (fddir < 0) {
     printf("failed to open mount dir %s\n", dir);
     return fddev;
   }
 
+  fat = fatinit(fddev);
+  if (fat == nil) {
+    printf("fat init failed on %s\n", device);
+    close(fddir);
+    return ERR;
+  }
+  
   if (pipe(p1) == ERR) {
     printf("pipe failed\n");
+    close(fddev);
+    close(fddir);
     return ERR;
   } else if (pipe(p2) == ERR) {
     printf("pipe failed\n");
+    close(fddev);
+    close(fddir);
     return ERR;
   }
 
   if (bind(p1[1], p2[0], dir) == ERR) {
     printf("failed to bind to %s\n", dir);
+    close(fddev);
+    close(fddir);
     return ERR;
   }
 
@@ -205,7 +212,10 @@ mountfat(char *device, char *dir)
 	 device, dir, i);
   
   free(mount.databuf);
-  
+
+  close(fddev);
+  close(fddir);
+   
   return i;
 }
 

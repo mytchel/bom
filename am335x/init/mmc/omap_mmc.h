@@ -77,8 +77,8 @@ struct mmchs_regs {
 #define MMCHS_SD_BLK_BLEN             (0xfff << 0)     /* Transfer block size */
 #define MMCHS_SD_BLK_BLEN_NOTRANSFER  (0x0 << 0)       /* No transfer */
 
-#define MMCHS_SD_CMD_INDX                 (0x3f << 24) /* Command index */
-#define MMCHS_SD_CMD_INDX_CMD(x)          (x << 24)    /* MMC command index binary encoded values from 0 to 63 */
+#define MMCHS_SD_CMD_INDEX                (0x3f << 24) /* Command index */
+#define MMCHS_SD_CMD_INDEX_CMD(x)         (x << 24)    /* MMC command index binary encoded values from 0 to 63 */
 
 #define MMCHS_SD_ARG_MASK                 (0xffffffffu)      /* Mask everything */
 #define MMCHS_SD_ARG_CMD8_VHS             (0x1 << (16 - 8))  /* Voltage between 2.7 and 3.6 v*/

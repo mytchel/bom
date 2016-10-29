@@ -131,7 +131,7 @@ procwaitintr(int irqn)
 
   procwait(up, &intrwait);
   up->aux = (void *) irqn;
-	
+
   unmaskintr(irqn);
 
   schedule();

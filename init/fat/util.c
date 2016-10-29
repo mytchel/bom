@@ -64,6 +64,92 @@ fatinitbufs(struct fat *fat)
   }
 }
 
+bool
+forcerereadbuf(struct fat *fat, struct buf *buf)
+{
+  int i;
+  
+  if (seek(fat->fd, buf->sector * fat->bps, SEEK_SET) < 0) {
+    printf("fat mount failed to seek to sector %i\n",
+	   buf->sector);
+    return false;
+  }
+
+  for (i = 0; i < buf->n; i++) {
+    if (read(fat->fd, (uint8_t *) buf->addr + i * fat->bps,
+	     fat->bps) < 0) {
+
+      printf("fat mount failed to read sector %i\n",
+	     buf->sector + i);
+
+      return false;
+    }
+  }
+
+  return true;
+}
+
+struct buf *
+readsectors(struct fat *fat, uint32_t sector, size_t n)
+{
+  struct buf *buf;
+  int i;
+
+  buf = nil;
+  for (i = 0; i < BUFSMAX; i++) {
+    if (fat->bufs[i].sector == sector) {
+      fat->bufs[i].uses++;
+      if (fat->bufs[i].n >= n) {
+	return &fat->bufs[i];
+      } else {
+	break;
+      }
+    } else if (buf == nil) {
+      buf = &fat->bufs[i];
+    } else if (buf->uses > fat->bufs[i].uses) {
+      buf = &fat->bufs[i];
+    }
+  }
+
+  if (buf->sector != sector) {
+    buf->sector = sector;
+    buf->uses = 1;
+  }
+
+  buf->n = n;
+
+  if (forcerereadbuf(fat, buf)) {
+    return buf;
+  } else {
+    buf->sector = 0;
+    buf->n = 0;
+    buf->uses = 0;
+    return nil;
+  }
+}
+
+bool
+writesectors(struct fat *fat, struct buf *buf, size_t n)
+{
+  int i;
+  
+  if (seek(fat->fd, buf->sector * fat->bps, SEEK_SET) < 0) {
+    printf("fat mount failed to seek to sector %i\n", buf->sector);
+    return false;
+  }
+
+  for (i = 0; i < n; i++) {
+    if (write(fat->fd, buf->addr + i * fat->bps, fat->bps) < 0) {
+      printf("fat mount failed to write sector %i\n",
+	     buf->sector + i);
+
+      return false;
+    }
+  }
+
+  return true;
+}
+
 void
 fatfileclunk(struct fat *fat, struct fat_file *f)
 {
@@ -114,7 +200,7 @@ findfreecluster(struct fat *fat)
     }
 
     off = 0;
-    while (off < fat->spc * fat->bps) {
+    while (off < fat->bps) {
       switch (fat->type) {
       case FAT16:
 	v = intcopylittle16(buf->addr + off);
@@ -146,7 +232,7 @@ findfreecluster(struct fat *fat)
 
   if (!writesectors(fat, buf, 1)) {
     printf("fat mount failed to write modified fat table.\n");
-    readsectors(fat, buf->sector, buf->n);
+    forcerereadbuf(fat, buf);
     return 0;
   }
 
@@ -238,74 +324,6 @@ tableinfo(struct fat *fat, uint32_t cluster)
   }
 
   return v;
-}
-
-struct buf *
-readsectors(struct fat *fat, uint32_t sector, size_t n)
-{
-  struct buf *buf;
-  int i;
-
-  buf = nil;
-  for (i = 0; i < BUFSMAX; i++) {
-    if (fat->bufs[i].sector == sector) {
-      fat->bufs[i].uses++;
-      if (fat->bufs[i].n >= n) {
-	return &fat->bufs[i];
-      } else {
-	break;
-      }
-    } else if (buf == nil) {
-      buf = &fat->bufs[i];
-    } else if (buf->uses > fat->bufs[i].uses) {
-      buf = &fat->bufs[i];
-    }
-  }
-
-  if (buf->sector != sector) {
-    buf->sector = sector;
-    buf->uses = 1;
-  }
-
-  buf->n = n;
-  
-  if (seek(fat->fd, sector * fat->bps, SEEK_SET) < 0) {
-    printf("fat mount failed to seek to sector %i\n", sector);
-    return nil;
-  }
-
-  for (i = 0; i < n; i++) {
-    if (read(fat->fd, (uint8_t *) buf->addr + i * fat->bps,
-	     fat->bps) < 0) {
-      printf("fat mount failed to read sector %i\n", sector + i);
-
-      buf->n = i;
-      return nil;
-    }
-  }
-
-  return buf;
-}
-
-bool
-writesectors(struct fat *fat, struct buf *buf, size_t n)
-{
-  int i;
-  
-  if (seek(fat->fd, buf->sector * fat->bps, SEEK_SET) < 0) {
-    printf("fat mount failed to seek to sector %i\n", buf->sector);
-    return false;
-  }
-
-  for (i = 0; i < n; i++) {
-    if (write(fat->fd, buf->addr + i * fat->bps, fat->bps) < 0) {
-      printf("fat mount failed to write sector %i\n",
-	     buf->sector + i);
-      return false;
-    }
-  }
-
-  return true;
 }
 
 struct fat_dir_entry *

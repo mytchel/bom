@@ -243,42 +243,50 @@ fatfilewrite(struct fat *fat, struct fat_file *file,
 	     uint8_t *buf, uint32_t offset, uint32_t len,
 	     int *err)
 {
-  uint32_t cluster, n, rlen, tlen, sector;
+  uint32_t cluster, n, rlen, tlen, pos;
   struct buf *fbuf;
-  
-  tlen = 0;
-  cluster = file->startcluster;
 
+  pos = 0;
+  tlen = 0;
+  *err = OK;
+  cluster = file->startcluster;
   while (cluster != 0) {
-    if (offset > fat->spc * fat->bps) {
-      offset -= fat->spc * fat->bps;
+    if (offset > pos + fat->spc * fat->bps) {
+      pos += fat->spc * fat->bps;
       cluster = nextcluster(fat, cluster);
       continue;
     }
 
-    sector = clustertosector(fat, cluster);
-
-    fbuf = readsectors(fat, sector, fat->spc);
+    fbuf = readsectors(fat, clustertosector(fat, cluster), fat->spc);
     if (fbuf == nil) {
       *err = ERR;
+      break;
     }
 
-    if (offset + (len - tlen) >= fat->spc * fat->bps) {
-      rlen = fat->spc * fat->bps - offset;
+    rlen = len - tlen;
+    if (pos >= offset) {
+      if (rlen > fat->spc * fat->bps) {
+	rlen = fat->spc * fat->bps;
+      } 
+
+      memmove(fbuf->addr, buf, rlen);
     } else {
-      rlen = len - tlen;
+      if ((offset - pos) + rlen > fat->spc * fat->bps) {
+	rlen = fat->spc * fat->bps - (offset - pos);
+      }
+
+      memmove(fbuf->addr + (offset - pos), buf, rlen);
+      pos = offset;
     }
-
-    memmove(fbuf->addr + offset, buf, rlen);
-
+    
     if (!writesectors(fat, fbuf, fat->spc)) {
       printf("write updated sectors failed\n");
-      readsectors(fat, fbuf->sector, fbuf->n);
+      forcerereadbuf(fat, fbuf);
       *err = ERR;
-      return 0;
+      break;
     }
 
-    offset = 0;
+    pos += rlen;
     tlen += rlen;
     buf += rlen;
 
@@ -287,35 +295,33 @@ fatfilewrite(struct fat *fat, struct fat_file *file,
     } else {
       n = nextcluster(fat, cluster);
 
-      if (n != 0) {
-	cluster = n;
-	continue;
-      }
+      if (n == 0) {
+	/* Need to find another cluster to use */
+	n = findfreecluster(fat);
 
-      /* Need to find another cluster to use */
-
-      n = findfreecluster(fat);
-
-      if (!writetableinfo(fat, cluster, n)) {
-	return ERR;
+	if (!writetableinfo(fat, cluster, n)) {
+	  printf("failed to update file info\n");
+	  *err = ERR;
+	  break;
+	}
       }
 
       cluster = n;
     }
   }
 
-  if (offset + tlen > file->size) {
-    file->size = offset + tlen;
+  if (pos > file->size) {
+    file->size = pos;
+
     if (!fatupdatedirentry(fat, file)) {
       printf("fat mount failed to update dir entry!\n");
+      *err = ERR;
     }
   }
 
-  if (tlen > 0) {
-    *err = OK;
+  if (*err == OK) {
     return tlen;
   } else {
-    *err = EOF;
     return 0;
   }
 }
@@ -474,7 +480,7 @@ fatfileremove(struct fat *fat, struct fat_file *file)
 
   if (!writesectors(fat, buf, fat->spc)) {
     printf("fat mount failed to write modified dir.\n");
-    readsectors(fat, buf->sector, buf->n);
+    forcerereadbuf(fat, buf);
     return ERR;
   }
 
@@ -579,6 +585,7 @@ fatfilecreate(struct fat *fat, struct fat_file *parent,
 
   if (!fatupdatedirentry(fat, f)) {;
     printf("fat mount failed to update dir entry\n");
+    forcerereadbuf(fat, buf);
     return 0;
   } else {
     return i;

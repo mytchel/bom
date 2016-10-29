@@ -218,6 +218,9 @@ struct buf *
 readsectors(struct fat *fat, uint32_t sector, size_t n);
 
 bool
+forcerereadbuf(struct fat *fat, struct buf *buf);
+
+bool
 writesectors(struct fat *fat, struct buf *buf, size_t n);
 
 uint32_t

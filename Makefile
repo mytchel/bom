@@ -143,7 +143,7 @@ initcode.c: init.elf tools/bintoarray/bintoarray
 
 
 CLEAN += $(TARGET).elf $(TARGET).list
-$(TARGET).elf: $(TARGET)/kernel.ld initcode.o $(KOBJECTS)
+$(TARGET).elf: $(TARGET)/kernel.ld $(KOBJECTS) initcode.o 
 	@echo LD $@
 	@$(LD) $(LDFLAGS) -T $(TARGET)/kernel.ld -o $@ \
 		$(KOBJECTS) initcode.o \

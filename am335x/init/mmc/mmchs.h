@@ -27,27 +27,11 @@
 #ifndef _MMC_H_
 #define _MMC_H_
 
-enum { RESP_NO, RESP_LEN_48, RESP_LEN_48_CHK_BUSY, RESP_LEN_136 };
-enum { DATA_NONE, DATA_READ, DATA_WRITE };
-
-struct mmc_command {
-  uint32_t cmd;
-  uint32_t arg;
-  int resp_type;
-  uint32_t resp[4];
-  uint8_t *data;
-  uint32_t data_len;
-  int data_type;
-};
-
 enum { MMC_EMMC, MMC_SD };
 
 struct mmc {
   volatile struct mmchs_regs *regs;
   
-  uint8_t *data;
-  size_t data_len;
-
   int intr;
 
   int type;
@@ -62,16 +46,16 @@ struct mmc {
 };
 
 bool
-mmchssendcmd(struct mmc *mmc, struct mmc_command *c);
+mmchssendcmd(struct mmc *mmc, uint32_t cmd, uint32_t arg);
 
 bool
-mmchssendappcmd(struct mmc *mmc, struct mmc_command *c);
+mmchssendappcmd(struct mmc *mmc, uint32_t cmd, uint32_t arg);
 
 bool
 mmchssoftreset(struct mmc *mmc);
 
 void
-mmccmdreset(struct mmc *mmc);
+mmcreset(struct mmc *mmc, uint32_t line);
 
 bool
 cardgotoidle(struct mmc *mmc);
@@ -90,6 +74,12 @@ cardselect(struct mmc *mmc);
 
 bool
 cardcsd(struct mmc *mmc);
+
+bool
+mmchsreaddata(struct mmc *mmc, uint32_t *buf, size_t l);
+
+bool
+mmchswritedata(struct mmc *mmc, uint32_t *buf, size_t l);
 
 bool
 mmcinit(struct mmc *mmc);

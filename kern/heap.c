@@ -93,6 +93,11 @@ malloc(size_t size)
   if (size > PAGE_SIZE - sizeof(struct pagel) - sizeof(size_t)) {
     printf("%i trying to malloc something too large %i\n",
 	   up->pid, size);
+
+    setintr(INTR_OFF);
+    procexit(up, ENOMEM);
+    schedule();
+
     return nil;
   }
 

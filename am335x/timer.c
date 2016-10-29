@@ -88,11 +88,6 @@ timersinit(void)
 void
 systickhandler(uint32_t irqn)
 {
-  /* Clear irq status. */
-  writel(3, TIMER2 + TIMER_IRQSTATUS);
-
-  writel(0, TIMER2 + TIMER_TCLR); /* disable timer */
-
   schedule();
 }
 

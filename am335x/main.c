@@ -123,7 +123,7 @@ initmainproc(void)
   struct pagel *pl;
   struct page *pg;
 		
-  p = procnew(10);
+  p = procnew(1);
   if (p == nil) {
     printf("Failed to create main proc\n");
     return;

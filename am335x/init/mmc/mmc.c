@@ -33,11 +33,12 @@
 #include "sdmmcreg.h"
 #include "sdhcreg.h"
 #include "omap_mmc.h"
-#include "mmc.h"
+#include "mmchs.h"
 
 bool
 mmcinit(struct mmc *mmc)
 {
   mmc->nblk = MMC_CSD_CAPACITY(mmc->csd);
+
   return true;
 }
