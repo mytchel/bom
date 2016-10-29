@@ -308,18 +308,23 @@ writeblocks(struct request_write *req, struct response_write *resp,
 	    uint32_t blk, uint32_t nblk)
 {
   uint8_t *buf;
-  uint32_t i;
+  uint32_t i, j;
 
   buf = req->body.data;
 
   resp->head.ret = OK;
   
   for (i = 0; i < nblk && part->lba + blk + i < part->sectors; i++) {
-    if (!device->write(device->aux, part->lba + blk + i, buf)) {
-      resp->head.ret = ERR;
-      break;
+    for (j = 0; j < 5; j++) {
+      if (device->write(device->aux, part->lba + blk + i, buf)) {
+	goto next;
+      }
     }
+
+    resp->head.ret = ERR;
+    break;
     
+  next:
     buf += device->blksize;
   }
 

@@ -158,7 +158,7 @@ readloop(void)
 
   while (true) {
     while ((req = readrequests) == nil)
-      sleep(0);
+      sleep(20);
 
     getlock();
 
@@ -168,8 +168,7 @@ readloop(void)
 
     done = 0;
     while (done < req->len) {
-      i = 0xff;
-      while (i-- > 0) {
+      for (i = 0; i < 0xf; i++) {
 	if (uart->lsr & 1) {
 	  goto copy;
 	}

@@ -56,9 +56,17 @@ mmcreset(struct mmc *mmc, uint32_t line)
   while (!(mmc->regs->sysctl & line) && i-- > 0)
     ;
 
-  i = 100;
+  if (i == 0) {
+    printf("%s reset timeout waiting for set\n", mmc->name);
+  }
+
+  i = 10000;
   while ((mmc->regs->sysctl & line) && i-- > 0)
     ;
+
+  if (i == 0) {
+    printf("%s reset timeout waiting for clear\n", mmc->name);
+  }
 }
 
 bool
@@ -450,6 +458,7 @@ mmchswritedata(struct mmc *mmc, uint32_t *buf, size_t l)
   }
 
   if (mmc->regs->stat & MMCHS_SD_STAT_BWR) {
+    printf("%s got bwr\n", mmc->name);
     mmc->regs->stat = MMCHS_SD_STAT_BWR;
 
     while (l > 0) {
@@ -458,10 +467,12 @@ mmchswritedata(struct mmc *mmc, uint32_t *buf, size_t l)
     }
   }
 
+  printf("%s wait for tc\n", mmc->name);
   if (waitintr(mmc->intr) != OK) {
     return false;
   }
 
+  printf("%s got intr\n", mmc->name);
   stat = mmc->regs->stat;
   mmc->regs->stat = MMCHS_SD_STAT_TC
     | MMCHS_SD_STAT_DCRC
@@ -485,6 +496,8 @@ readblock(void *aux, uint32_t blk, uint8_t *buf)
   struct mmc *mmc = (struct mmc *) aux;
   uint32_t cmd;
 
+  printf("%s read %i\n", mmc->name, blk);
+  
   cmd = MMCHS_SD_CMD_INDEX_CMD(MMC_READ_BLOCK_SINGLE)
     | MMCHS_SD_CMD_RSP_TYPE_48B
     | MMCHS_SD_CMD_DP_DATA
@@ -506,6 +519,8 @@ writeblock(void *aux, uint32_t blk, uint8_t *buf)
 {
   struct mmc *mmc = (struct mmc *) aux;
   uint32_t cmd;
+
+  printf("%s write %i\n", mmc->name, blk);
 
   cmd = MMCHS_SD_CMD_INDEX_CMD(MMC_WRITE_BLOCK_SINGLE)
     | MMCHS_SD_CMD_RSP_TYPE_48B

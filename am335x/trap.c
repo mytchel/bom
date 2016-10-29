@@ -148,7 +148,7 @@ irqhandler(void)
   uint32_t irq;
 	
   irq = readl(INTC + INTC_SIR_IRQ);
-	
+
   /* Allow new interrupts */
   writel(1, INTC + INTC_CONTROL);
 

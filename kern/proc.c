@@ -176,7 +176,7 @@ schedule(void)
   up->state = PROC_oncpu;
 
   mmuswitch(up);
-
+  
   cticks();
   setsystick(queues[up->priority].quanta
 	     - up->timeused);

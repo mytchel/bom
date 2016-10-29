@@ -70,17 +70,12 @@ forcerereadbuf(struct fat *fat, struct buf *buf)
   int i;
   
   if (seek(fat->fd, buf->sector * fat->bps, SEEK_SET) < 0) {
-    printf("fat mount failed to seek to sector %i\n",
-	   buf->sector);
     return false;
   }
 
   for (i = 0; i < buf->n; i++) {
     if (read(fat->fd, (uint8_t *) buf->addr + i * fat->bps,
 	     fat->bps) < 0) {
-
-      printf("fat mount failed to read sector %i\n",
-	     buf->sector + i);
 
       return false;
     }
@@ -134,15 +129,11 @@ writesectors(struct fat *fat, struct buf *buf, size_t n)
   int i;
   
   if (seek(fat->fd, buf->sector * fat->bps, SEEK_SET) < 0) {
-    printf("fat mount failed to seek to sector %i\n", buf->sector);
     return false;
   }
 
   for (i = 0; i < n; i++) {
     if (write(fat->fd, buf->addr + i * fat->bps, fat->bps) < 0) {
-      printf("fat mount failed to write sector %i\n",
-	     buf->sector + i);
-
       return false;
     }
   }
