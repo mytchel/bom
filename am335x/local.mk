@@ -45,7 +45,7 @@ ISRC_A := \
 ISRC_C := \
 	am335x/init/com.c              \
 	am335x/init/mmc/mmchs.c        \
-	am335x/init/mmc/mmc.c          \
+	am335x/init/mmc/emmc.c         \
 	am335x/init/mmc/sd.c           \
         am335x/init/mmc/misc.c
 

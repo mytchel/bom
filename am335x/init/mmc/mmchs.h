@@ -27,71 +27,62 @@
 #ifndef _MMC_H_
 #define _MMC_H_
 
-enum { MMC_EMMC, MMC_SD };
+typedef enum { MMC_EMMC, MMC_SD } mmc_t;
 
-struct mmc {
-  volatile struct mmchs_regs *regs;
-  
-  int intr;
-
-  int type;
-  uint32_t nblk;
-
-  uint32_t rca;
-  uint32_t csd[4];
-  uint32_t scr[2];
-
-  char *name;
-  int mbrpid;
-};
+extern volatile struct mmchs_regs *regs;
+extern char *name;
+extern int intr;
+extern uint32_t csd[4];
+extern uint32_t rca;
+extern uint32_t nblk;
 
 bool
-mmchssendcmd(struct mmc *mmc, uint32_t cmd, uint32_t arg);
+mmchssendcmd(uint32_t cmd, uint32_t arg);
 
 bool
-mmchssendappcmd(struct mmc *mmc, uint32_t cmd, uint32_t arg);
+mmchssendappcmd(uint32_t cmd, uint32_t arg);
 
 bool
-mmchssoftreset(struct mmc *mmc);
+mmchssoftreset(void);
 
 void
-mmcreset(struct mmc *mmc, uint32_t line);
+mmcreset(uint32_t line);
 
 bool
-cardgotoidle(struct mmc *mmc);
+cardgotoidle(void);
 
 bool
-cardidentification(struct mmc *mmc);
+cardidentification(void);
 
 bool
-cardqueryvolttype(struct mmc *mmc);
+cardqueryvolttype(void);
 
 bool
-cardidentify(struct mmc *mmc);
+cardidentify(void);
 
 bool
-cardselect(struct mmc *mmc);
+cardselect(void);
 
 bool
-cardcsd(struct mmc *mmc);
+cardcsd(void);
 
 bool
-mmchsreaddata(struct mmc *mmc, uint32_t *buf, size_t l);
+mmchsreaddata(uint32_t *buf, size_t l);
 
 bool
-mmchswritedata(struct mmc *mmc, uint32_t *buf, size_t l);
+mmchswritedata(uint32_t *buf, size_t l);
 
 bool
-mmcinit(struct mmc *mmc);
+mmcinit(void);
 
 bool
-sdinit(struct mmc *mmc);
+sdinit(void);
 
 bool
-readblock(void *aux, uint32_t blk, uint8_t *buf);
+readblock(uint32_t blk, uint8_t *buf);
 
 bool
-writeblock(void *aux, uint32_t blk, uint8_t *buf);
+writeblock(uint32_t blk, uint8_t *buf);
 
 int
 __bitfield(uint32_t *src, int start, int len);

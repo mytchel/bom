@@ -115,7 +115,7 @@ updatembr(void)
   int i;
   uint8_t *buf;
 
-  if (!(device->read(device->aux, 0, (uint8_t *) &mbr))) {
+  if (!(device->read(0, (uint8_t *) &mbr))) {
     printf("mbr read failed\n");
     exit(ERR);
   }
@@ -274,7 +274,7 @@ readblocks(struct request_read *req, struct response_read *resp,
   buf = resp->body.data;
   
   for (i = 0; i < nblk && part->lba + blk + i < part->sectors; i++) {
-    if (!device->read(device->aux, part->lba + blk + i, buf)) {
+    if (!device->read(part->lba + blk + i, buf)) {
       resp->head.ret = ERR;
       resp->body.len = 0;
       return;
@@ -308,23 +308,18 @@ writeblocks(struct request_write *req, struct response_write *resp,
 	    uint32_t blk, uint32_t nblk)
 {
   uint8_t *buf;
-  uint32_t i, j;
+  uint32_t i;
 
   buf = req->body.data;
 
   resp->head.ret = OK;
   
   for (i = 0; i < nblk && part->lba + blk + i < part->sectors; i++) {
-    for (j = 0; j < 5; j++) {
-      if (device->write(device->aux, part->lba + blk + i, buf)) {
-	goto next;
-      }
+    if (!device->write(part->lba + blk + i, buf)) {
+      resp->head.ret = ERR;
+      break;
     }
-
-    resp->head.ret = ERR;
-    break;
     
-  next:
     buf += device->blksize;
   }
 

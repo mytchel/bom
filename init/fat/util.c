@@ -77,6 +77,9 @@ forcerereadbuf(struct fat *fat, struct buf *buf)
     if (read(fat->fd, (uint8_t *) buf->addr + i * fat->bps,
 	     fat->bps) < 0) {
 
+      printf("fat mount read sector %i failed\n",
+	     buf->sector + i);
+      
       return false;
     }
   }
@@ -103,6 +106,10 @@ readsectors(struct fat *fat, uint32_t sector, size_t n)
       buf = &fat->bufs[i];
     } else if (buf->uses > fat->bufs[i].uses) {
       buf = &fat->bufs[i];
+    }
+
+    if (buf->uses == 0) {
+      break;
     }
   }
 

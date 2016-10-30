@@ -35,11 +35,13 @@
 #include "omap_mmc.h"
 #include "mmchs.h"
 
+static uint32_t scr[2];
+
 static bool
-cardscr(struct mmc *mmc)
+cardscr(void)
 {
-  uint32_t cmd;
   uint8_t *p, buf[8];
+  uint32_t cmd;
   int i;
 
   cmd = MMCHS_SD_CMD_INDEX_CMD(SD_APP_SEND_SCR)
@@ -47,19 +49,21 @@ cardscr(struct mmc *mmc)
     | MMCHS_SD_CMD_DP_DATA
     | MMCHS_SD_CMD_DDIR_READ;
 
-  mmc->regs->blk = sizeof(buf);
+  regs->blk = sizeof(buf);
 
-  if (!mmchssendappcmd(mmc, cmd, 0xaaaaaaaa)) {
-    printf("%s failed to send app cmd\n", mmc->name);
+  if (!mmchssendappcmd(cmd, 0xaaaaaaaa)) {
+    printf("%s failed to send app cmd\n", name);
     return false;
   }
 
-  if (!mmchsreaddata(mmc, (uint32_t *) buf, sizeof(buf))) {
-    printf("%s failed to read data\n", mmc->name);
+  if (!mmchsreaddata((uint32_t *) buf, sizeof(buf))) {
+    printf("%s failed to read data\n", name);
     return false;
   }
 
-  p = (uint8_t *) mmc->scr;
+  regs->blk = 512;
+  
+  p = (uint8_t *) scr;
   for (i = 7; i >= 0; i--) {
     *p++ = buf[i];
   }
@@ -68,51 +72,51 @@ cardscr(struct mmc *mmc)
 }
 
 static bool
-cardenable4bitmode(struct mmc *mmc)
+cardenable4bitmode(void)
 {
   uint32_t cmd;
   
-  if (SCR_SD_BUS_WIDTHS(mmc->scr) & SCR_SD_BUS_WIDTHS_4BIT) {
+  if (SCR_SD_BUS_WIDTHS(scr) & SCR_SD_BUS_WIDTHS_4BIT) {
 
     cmd = MMCHS_SD_CMD_INDEX_CMD(SD_APP_SET_BUS_WIDTH)
       | MMCHS_SD_CMD_RSP_TYPE_48B;
  
-    if (!mmchssendappcmd(mmc, cmd, 2)) {
+    if (!mmchssendappcmd(cmd, 2 /* 4 bits */)) {
       return false;
     }
 
-    mmc->regs->hctl |= MMCHS_SD_HCTL_DTW_4BIT;
+    regs->hctl |= MMCHS_SD_HCTL_DTW_4BIT;
     
   } else {
-    printf("%s sd card doesn't support 4 bit access!\n", mmc->name);
+    printf("%s sd card doesn't support 4 bit access!\n", name);
   }
 
   return true;
 }
 
 static bool
-cardenablehighspeedmode(struct mmc *mmc)
+cardenablehighspeedmode(void)
 {
   return true;
 }
 
 bool
-sdinit(struct mmc *mmc)
+sdinit(void)
 {
-  mmc->nblk = SD_CSD_V2_CAPACITY(mmc->csd);
+  nblk = SD_CSD_V2_CAPACITY(csd);
 
-  if (!cardscr(mmc)) {
-    printf("%s failed to get scr\n", mmc->name);
+  if (!cardscr()) {
+    printf("%s failed to get scr\n", name);
     return false;
   }
 
-  if (!cardenable4bitmode(mmc)) {
-    printf("%s failed to enable 4 bit mode.\n", mmc->name);
+  if (!cardenable4bitmode()) {
+    printf("%s failed to enable 4 bit mode.\n", name);
     return false;
   }
  
-  if (!cardenablehighspeedmode(mmc)) {
-    printf("%s failed to enable high speed mode.\n", mmc->name);
+  if (!cardenablehighspeedmode()) {
+    printf("%s failed to enable high speed mode.\n", name);
     return false;
   }
 

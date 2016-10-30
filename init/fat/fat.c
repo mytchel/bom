@@ -257,7 +257,8 @@ fatfilewrite(struct fat *fat, struct fat_file *file,
       continue;
     }
 
-    fbuf = readsectors(fat, clustertosector(fat, cluster), fat->spc);
+    fbuf = readsectors(fat, clustertosector(fat, cluster),
+		       fat->spc);
     if (fbuf == nil) {
       *err = ERR;
       break;
@@ -280,7 +281,7 @@ fatfilewrite(struct fat *fat, struct fat_file *file,
     }
     
     if (!writesectors(fat, fbuf, fat->spc)) {
-      printf("write updated sectors failed\n");
+      printf("fat mount failed to write updated sectors\n");
       forcerereadbuf(fat, fbuf);
       *err = ERR;
       break;
@@ -475,6 +476,13 @@ fatfileremove(struct fat *fat, struct fat_file *file)
     return ENOFILE;
   }
 
+  cluster = file->startcluster;
+  while (cluster != 0) {
+    n = nextcluster(fat, cluster);
+    writetableinfo(fat, cluster, 0);
+    cluster = n;
+  }
+
   memmove(direntry, direntry + 1,
 	  fat->spc * fat->bps - ((uint8_t *) direntry - buf->addr));
 
@@ -482,13 +490,6 @@ fatfileremove(struct fat *fat, struct fat_file *file)
     printf("fat mount failed to write modified dir.\n");
     forcerereadbuf(fat, buf);
     return ERR;
-  }
-
-  cluster = file->startcluster;
-  while (cluster != 0) {
-    n = nextcluster(fat, cluster);
-    writetableinfo(fat, cluster, 0);
-    cluster = n;
   }
 
   file->refs = 0;
