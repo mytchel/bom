@@ -33,6 +33,11 @@
 
 #include "shell.h"
 
+struct part {
+  int argc;
+  char **argv;
+};
+
 static int funcexit(int argc, char **argv);
 static int funccd(int argc, char **argv);
 
@@ -191,12 +196,14 @@ processline(char *line)
     argc++;
   }
 
-  if (runcmd(argc, argv, &ret)) {
+  if (runfunc(argc, argv, &ret)) {
     return;
-  } else if (runfunc(argc, argv, &ret)) {
-    return;
+  }
+
+  if (fork(FORK_sngroup) == 0) {
+    runcmd(argc, argv);
   } else {
-    printf("%s: command not found\n", argv[0]);
+    wait(&ret);
   }
 }
 

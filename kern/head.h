@@ -81,8 +81,8 @@ struct chan {
 };
 
 struct chantype {
-  int (*read)(struct chan *, uint8_t *, size_t);
-  int (*write)(struct chan *, uint8_t *, size_t);
+  int (*read)(struct chan *, void *, size_t);
+  int (*write)(struct chan *, void *, size_t);
   int (*seek)(struct chan *, size_t, int);
   void (*close)(struct chan *);
 };
@@ -165,6 +165,8 @@ struct proc {
   struct label *ureg;
   struct label label;
 
+  struct mmu *mmu;
+  
   procstate_t state;
   uint32_t pid;
   struct proc *parent;
@@ -176,7 +178,7 @@ struct proc {
   uint32_t timeused;
 
   struct page *kstack;
-  struct pagel *mmu, *ustack;
+  struct pagel *ustack;
 
   struct mgroup *mgroup;
   struct fgroup *fgroup;
@@ -293,7 +295,10 @@ fixfault(void *);
  * 0 byte. If it failes any of these checks returns nil.
  */
 void *
-kaddr(struct proc *p, void *addr, size_t size);
+kaddr(struct proc *p, const void *addr, size_t size);
+
+int
+kexec(struct chan *f, int argc, char *argv[]);
 
 /* Channels */
 
@@ -374,10 +379,10 @@ bool
 pipenew(struct chan **rd, struct chan **wr);
 
 int
-piperead(struct chan *c, uint8_t *buf, size_t len);
+piperead(struct chan *c, void *buf, size_t len);
 
 int
-pipewrite(struct chan *c, uint8_t *buf, size_t len);
+pipewrite(struct chan *c, void *buf, size_t len);
 
 int
 filestat(struct path *path, struct stat *stat);
@@ -392,6 +397,15 @@ findfile(struct path *path, int *err);
 
 int
 fileremove(struct path *);
+
+int
+fileread(struct chan *c, void *buf, size_t len);
+
+int
+filewrite(struct chan *c, void *buf, size_t len);
+
+int
+fileseek(struct chan *c, size_t offset, int whence);
 
 int
 kmountloop(struct chan *in, struct binding *b, struct fsmount *mount);
@@ -409,6 +423,7 @@ panic(const char *, ...);
 
 reg_t sysexit(va_list);
 reg_t sysfork(va_list);
+reg_t sysexec(va_list);
 reg_t syssleep(va_list);
 reg_t sysgetpid(va_list);
 reg_t syswait(va_list);
@@ -477,6 +492,12 @@ mmuswitch(struct proc *);
 
 void
 mmuputpage(struct pagel *);
+
+struct mmu *
+mmunew(void);
+
+void
+mmufree(struct mmu *mmu);
 
 bool
 procwaitintr(int);

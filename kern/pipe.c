@@ -34,7 +34,7 @@ struct pipe {
 
   bool waiting;	
   struct proc *proc;
-  uint8_t *buf;
+  void *buf;
   size_t n;
 };
 
@@ -75,7 +75,7 @@ pipenew(struct chan **c0, struct chan **c1)
 }
 
 static int
-pipedocopy(struct pipe *p, uint8_t *buf, size_t n, bool writing)
+pipedocopy(struct pipe *p, void *buf, size_t n, bool writing)
 {
   int r;
 
@@ -122,7 +122,7 @@ pipedocopy(struct pipe *p, uint8_t *buf, size_t n, bool writing)
 }
 
 int
-piperead(struct chan *c, uint8_t *buf, size_t n)
+piperead(struct chan *c, void *buf, size_t n)
 {
   struct pipe *p;
 	
@@ -132,7 +132,7 @@ piperead(struct chan *c, uint8_t *buf, size_t n)
 }
 
 int
-pipewrite(struct chan *c, uint8_t *buf, size_t n)
+pipewrite(struct chan *c, void *buf, size_t n)
 {
   struct pipe *p;
 	

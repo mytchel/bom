@@ -46,6 +46,9 @@ int
 fork(int flags);
 
 int
+exec(const char *path, int argc, char *argv[]);
+
+int
 sleep(int ms);
 
 int

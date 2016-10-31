@@ -48,13 +48,13 @@ include $(TARGET)/local.mk
 
 
 ISRC_P := \
-        init/main.c         \
+        init/main.c          \
         init/printf.c        \
         init/heap.c          \
-        init/tmp.c          \
+        init/tmp.c           \
         init/mbr.c           \
         init/fat/fat.c       \
-        init/fat/util.c     \
+        init/fat/util.c      \
         init/fat/mount.c     \
         init/shell/shell.c   \
         init/shell/cmds.c    \
@@ -81,6 +81,7 @@ KSRC_P := \
         kern/sysproc.c       \
         kern/sysfile.c       \
         kern/syscall.c       \
+        kern/exec.c          \
         lib/string.c         \
         lib/fssrv.c          \
 	lib/mem.c            \

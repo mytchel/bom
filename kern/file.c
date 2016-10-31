@@ -346,8 +346,10 @@ fileopen(struct path *path, uint32_t mode, uint32_t cmode, int *err)
 
   fid = findfile(path, err);
   if (*err != OK) {
-    if (*err != ENOCHILD || fid == nil || cmode == 0) {
-      *err = ERR;
+    if (cmode == 0) {
+      if (*err == ENOCHILD || fid == nil) {
+	*err = ENOFILE;
+      }
       return nil;
     } else if ((fid->attr & ATTR_wr) == 0) {
       bindingfidfree(fid);
@@ -451,8 +453,8 @@ fileremove(struct path *path)
   return ret;
 }
 
-static int
-fileread(struct chan *c, uint8_t *buf, size_t n)
+int
+fileread(struct chan *c, void *buf, size_t n)
 {
   struct request_read req;
   struct response_read resp;
@@ -480,8 +482,8 @@ fileread(struct chan *c, uint8_t *buf, size_t n)
   }
 }
 
-static int
-filewrite(struct chan *c, uint8_t *buf, size_t n)
+int
+filewrite(struct chan *c, void *buf, size_t n)
 {
   struct fstransaction trans;
   struct request_write req;
@@ -541,7 +543,7 @@ filewrite(struct chan *c, uint8_t *buf, size_t n)
   }
 }
 
-static int
+int
 fileseek(struct chan *c, size_t offset, int whence)
 {
   struct cfile *cfile;
@@ -559,10 +561,10 @@ fileseek(struct chan *c, size_t offset, int whence)
     return ERR;
   }
 
-  return cfile->offset;
+  return OK;
 }
 
-static void
+void
 fileclose(struct chan *c)
 {
   struct request_close req;

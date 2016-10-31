@@ -1,5 +1,4 @@
 /*
- *
  * Copyright (c) 2016 Mytchel Hammond <mytchel@openmailbox.org>
  * 
  * Permission is hereby granted, free of charge, to any person
@@ -25,31 +24,57 @@
  *
  */
 
-#include "head.h"
+#include <libc.h>
+#include <fs.h>
+#include <stdarg.h>
+#include <string.h>
+#include <mem.h>
+#include <block.h>
 
-reg_t (*syscalltable[NSYSCALLS])(va_list) = {
-	[SYSCALL_EXIT] 		= sysexit,
-	[SYSCALL_FORK] 		= sysfork,
-	[SYSCALL_EXEC] 		= sysexec,
-	[SYSCALL_SLEEP]		= syssleep,
-	[SYSCALL_GETPID]	= sysgetpid,
-	[SYSCALL_WAIT]	        = syswait,
+#include "sdmmcreg.h"
+#include "sdhcreg.h"
+#include "omap_mmc.h"
+#include "mmchs.h"
 
-	[SYSCALL_CHDIR]	        = syschdir,
-	
-	[SYSCALL_GETMEM]	= sysgetmem,
-	[SYSCALL_RMMEM]		= sysrmmem,
-	[SYSCALL_WAITINTR]	= syswaitintr,
-	
-	[SYSCALL_PIPE]		= syspipe,
-	[SYSCALL_READ]		= sysread,
-	[SYSCALL_WRITE]		= syswrite,
-	[SYSCALL_SEEK]		= sysseek,
-	[SYSCALL_CLOSE]		= sysclose,
-	
-	[SYSCALL_STAT]		= sysstat,
-	[SYSCALL_BIND]		= sysbind,
-	[SYSCALL_OPEN]		= sysopen,
-	[SYSCALL_REMOVE]	= sysremove,
-	[SYSCALL_CLEANPATH]	= syscleanpath,
-};
+static uint8_t ext_csd[512];
+
+static bool
+cardextcsd(void)
+{
+  uint32_t cmd;
+
+  cmd = MMCHS_SD_CMD_INDEX_CMD(MMC_SEND_EXT_CSD)
+    | MMCHS_SD_CMD_RSP_TYPE_48B
+    | MMCHS_SD_CMD_DP_DATA
+    | MMCHS_SD_CMD_DDIR_READ;
+
+  if (!mmchssendcmd(cmd, 0)) {
+    return false;
+  }
+
+  if (!mmchsreaddata((uint32_t *) ext_csd, 512)) {
+    return false;
+  }
+
+  return true;
+}
+
+bool
+mmcinit(void)
+{
+  uint32_t ecsdcount;
+  
+  if (!cardextcsd()) {
+    printf("%s failed to read extended csd\n", name);
+    return false;
+  }
+
+  ecsdcount = intcopylittle32(&ext_csd[212]);
+  if (ecsdcount > 0) {
+    nblk = ecsdcount;
+  } else {
+    nblk = MMC_CSD_CAPACITY(csd);
+  }
+
+  return true;
+}

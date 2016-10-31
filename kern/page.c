@@ -157,7 +157,7 @@ wrappage(struct page *p, void *va, bool rw, bool c)
 }
 
 static struct pagel *
-findpagelinlist(struct pagel *p, void *addr)
+findpagelinlist(struct pagel *p, const void *addr)
 {
   while (p != nil) {
     if (p->va <= addr && p->va + PAGE_SIZE > addr) {
@@ -171,7 +171,7 @@ findpagelinlist(struct pagel *p, void *addr)
 }
 
 static struct pagel *
-findpagel(struct proc *p, void *addr)
+findpagel(struct proc *p, const void *addr)
 {
   struct pagel *pl = nil;
 
@@ -271,7 +271,7 @@ leninrange(struct pagel *pl, reg_t offset, size_t len)
 }
 
 void *
-kaddr(struct proc *p, void *addr, size_t len)
+kaddr(struct proc *p, const void *addr, size_t len)
 {
   struct pagel *pl;
   uint32_t offset;

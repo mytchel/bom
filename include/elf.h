@@ -25,31 +25,49 @@
  *
  */
 
-#include "head.h"
+struct elf_header_head {
+  uint8_t e_ident[4];
+  uint8_t e_class;
+  uint8_t e_machine;
+  uint8_t e_version;
+  uint8_t e_entry;
+  uint8_t e_phoff;
+  uint8_t pad1[7];
+}__attribute((packed));
 
-reg_t (*syscalltable[NSYSCALLS])(va_list) = {
-	[SYSCALL_EXIT] 		= sysexit,
-	[SYSCALL_FORK] 		= sysfork,
-	[SYSCALL_EXEC] 		= sysexec,
-	[SYSCALL_SLEEP]		= syssleep,
-	[SYSCALL_GETPID]	= sysgetpid,
-	[SYSCALL_WAIT]	        = syswait,
+struct elf_header32 {
+  uint16_t e_type;
+  uint16_t e_machine;
+  uint32_t e_version;
+  uint32_t e_entry;
+  uint32_t e_phoff;
+  uint32_t e_shoff;
+  uint32_t e_flags;
+  uint16_t e_ehsize;
+  uint16_t e_phentsize;
+  uint16_t e_phnum;
+  uint16_t e_shentsize;
+  uint16_t e_shnum;
+  uint16_t e_shstrndx;
+}__attribute((packed));
 
-	[SYSCALL_CHDIR]	        = syschdir,
-	
-	[SYSCALL_GETMEM]	= sysgetmem,
-	[SYSCALL_RMMEM]		= sysrmmem,
-	[SYSCALL_WAITINTR]	= syswaitintr,
-	
-	[SYSCALL_PIPE]		= syspipe,
-	[SYSCALL_READ]		= sysread,
-	[SYSCALL_WRITE]		= syswrite,
-	[SYSCALL_SEEK]		= sysseek,
-	[SYSCALL_CLOSE]		= sysclose,
-	
-	[SYSCALL_STAT]		= sysstat,
-	[SYSCALL_BIND]		= sysbind,
-	[SYSCALL_OPEN]		= sysopen,
-	[SYSCALL_REMOVE]	= sysremove,
-	[SYSCALL_CLEANPATH]	= syscleanpath,
-};
+struct elf_pheader32 {
+  uint32_t p_type;
+  uint32_t p_offset;
+  uint32_t p_vaddr;
+  uint32_t p_paddr;
+  uint32_t p_filesz;
+  uint32_t p_memsz;
+  uint32_t p_flags;
+  uint32_t p_align;
+}__attribute((packed));
+
+struct elf_sheader32 {
+  uint32_t name;
+  uint32_t type;
+  uint32_t flags;
+  uint32_t addr;
+  uint32_t offset;
+  uint32_t size;
+}__attribute((packed));
+

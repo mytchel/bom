@@ -321,24 +321,33 @@ cmdmountfat(int argc, char **argv)
   return mountfat(argv[1], argv[2]);
 }
 
-bool
-runcmd(int argc, char *argv[], int *ret)
+void
+runcmd(int argc, char *argv[])
 {
-  int i, r;
+  char path[NAMEMAX*2];
+  int i;
+
+  if (argv[0][0] == '.' || argv[0][0] == '/') {
+    i = exec(argv[0], argc, argv);
+  } else {
+    snprintf(path, sizeof(path), "/bin/%s", argv[0]);
+    i = exec(path, argc, argv);
+  }
+  
+  if (i != ENOFILE) {
+    printf("%s: elf error\n", argv[0]);
+    exit(i);
+  }
   
   for (i = 0; i < sizeof(cmds) / sizeof(cmds[0]); i++) {
     if (strcmp(cmds[i].name, argv[0])) {
-      r = fork(FORK_sngroup);
-      if (r == 0) {
-	r = cmds[i].func(argc, argv);
-	exit(r);
-      } else {
-	wait(ret);
-	return true;
-      }
+      i = cmds[i].func(argc, argv);
+      exit(i);
     }
   }
 
-  return false;
+  printf("%s: command not found\n", argv[0]);
+
+  exit(ERR);
 }
 

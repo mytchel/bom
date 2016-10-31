@@ -30,6 +30,7 @@
 .global _start
 .global exit
 .global fork
+.global exec
 .global sleep
 .global getpid
 .global wait
@@ -63,7 +64,7 @@ exit:
 	mov r0, #SYSCALL_EXIT
 	svc 0
 	add sp, sp, #4
-	bx lr
+	mov pc, lr
 
 
 fork:
@@ -71,7 +72,15 @@ fork:
 	mov r0, #SYSCALL_FORK
 	svc 0
 	add sp, sp, #4
-	bx lr
+	mov pc, lr
+
+	
+exec:
+	push {r0, r1, r2}
+	mov r0, #SYSCALL_EXEC
+	svc 0
+	add sp, sp, #(4 * 3)
+	mov pc, lr
 
 
 sleep:
@@ -79,13 +88,13 @@ sleep:
 	mov r0, #SYSCALL_SLEEP
 	svc 0
 	add sp, sp, #4
-	bx lr
+	mov pc, lr
 	
 	
 getpid:
 	mov r0, #SYSCALL_GETPID
 	svc 0
-	bx lr
+	mov pc, lr
 
 
 wait:
@@ -93,7 +102,7 @@ wait:
 	mov r0, #SYSCALL_WAIT
 	svc 0
 	add sp, sp, #4
-	bx lr
+	mov pc, lr
 
 
 getmem:
@@ -101,7 +110,7 @@ getmem:
 	mov r0, #SYSCALL_GETMEM
 	svc 0
 	add sp, sp, #(4 * 3)
-	bx lr
+	mov pc, lr
 
 
 rmmem:
@@ -109,14 +118,14 @@ rmmem:
 	mov r0, #SYSCALL_RMMEM
 	svc 0
 	add sp, sp, #(4 * 2)
-	bx lr
+	mov pc, lr
 			
 chdir:
 	push {r0}
 	mov r0, #SYSCALL_CHDIR
 	svc 0
 	add sp, sp, #(4)
-	bx lr
+	mov pc, lr
 
 
 pipe:
@@ -124,7 +133,7 @@ pipe:
 	mov r0, #SYSCALL_PIPE
 	svc 0
 	add sp, sp, #4
-	bx lr
+	mov pc, lr
 
 
 read:
@@ -132,7 +141,7 @@ read:
 	mov r0, #SYSCALL_READ
 	svc 0
 	add sp, sp, #(4 * 3)
-	bx lr
+	mov pc, lr
 
 
 write:
@@ -140,7 +149,7 @@ write:
 	mov r0, #SYSCALL_WRITE
 	svc 0 
 	add sp, sp, #(4 * 3)
-	bx lr
+	mov pc, lr
 
 
 seek:
@@ -148,7 +157,7 @@ seek:
 	mov r0, #SYSCALL_SEEK
 	svc 0 
 	add sp, sp, #(4 * 3)
-	bx lr
+	mov pc, lr
 
 	
 stat:
@@ -156,7 +165,7 @@ stat:
 	mov r0, #SYSCALL_STAT
 	svc 0
 	add sp, sp, #(4 * 2)
-	bx lr
+	mov pc, lr
 
 
 close:
@@ -164,7 +173,7 @@ close:
 	mov r0, #SYSCALL_CLOSE
 	svc 0
 	add sp, sp, #4
-	bx lr
+	mov pc, lr
 
 
 bind:
@@ -172,14 +181,14 @@ bind:
 	mov r0, #SYSCALL_BIND
 	svc 0
 	add sp, sp, #(4 *3)
-	bx lr
+	mov pc, lr
 
 open:
 	push {r0, r1, r2}
 	mov r0, #SYSCALL_OPEN
 	svc 0
 	add sp, sp, #(4 * 3)
-	bx lr
+	mov pc, lr
 
 
 remove:
@@ -187,7 +196,7 @@ remove:
 	mov r0, #SYSCALL_REMOVE
 	svc 0
 	add sp, sp, #4
-	bx lr
+	mov pc, lr
 
 
 cleanpath:
@@ -195,7 +204,7 @@ cleanpath:
 	mov r0, #SYSCALL_CLEANPATH
 	svc 0
 	add sp, sp, #(4 * 3)
-	bx lr
+	mov pc, lr
 
 	
 waitintr:
@@ -203,7 +212,7 @@ waitintr:
 	mov r0, #SYSCALL_WAITINTR
 	svc 0
 	add sp, sp, #4
-	bx lr
+	mov pc, lr
 
 
 @ this is horrible but i cant get anything

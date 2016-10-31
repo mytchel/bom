@@ -32,5 +32,5 @@ struct func {
   int (*func)(int argc, char **argv);
 };
 
-bool
-runcmd(int argc, char *argv[], int *ret);
+void
+runcmd(int argc, char *argv[]);

@@ -214,9 +214,9 @@ procnew(unsigned int priority)
     return nil;
   }
   
-  p->ustack = nil;
-  p->mmu = nil;
+  p->mmu = mmunew();
 
+  p->ustack = nil;
   p->mgroup = nil;
   p->fgroup = nil;
   p->ngroup = nil;
@@ -253,10 +253,12 @@ procexit(struct proc *p, int code)
 
   pagelfree(p->ustack);
   p->ustack = nil;
-  
-  pagelfree(p->mmu);
-  p->mmu = nil;
 
+  if (p->mmu != nil) {
+    mmufree(p->mmu);
+    p->mmu = nil;
+  }
+  
   if (p->mgroup != nil) {
     mgroupfree(p->mgroup);
     p->mgroup = nil;

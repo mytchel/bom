@@ -158,7 +158,7 @@ readloop(void)
 
   while (true) {
     while ((req = readrequests) == nil)
-      sleep(40);
+      sleep(0);
 
     getlock();
 

@@ -54,6 +54,25 @@ mmuinit(void)
   mmuloadttb(ttb);
 }
 
+struct mmu *
+mmunew(void)
+{
+  struct mmu *m;
+
+  m = malloc(sizeof(struct mmu));
+  m->dom = 0;
+  m->pages = nil;
+
+  return m;
+}
+
+void
+mmufree(struct mmu *m)
+{
+  pagelfree(m->pages);
+  free(m);
+}
+
 void
 mmuswitch(struct proc *p)
 {
@@ -61,7 +80,7 @@ mmuswitch(struct proc *p)
 
   mmuempty1();
 
-  for (pl = p->mmu; pl != nil; pl = pl->next) {
+  for (pl = p->mmu->pages; pl != nil; pl = pl->next) {
     ttb[L1X((uint32_t) pl->va)] 
       = ((uint32_t) pl->p->pa) | L1_COARSE;
   }
@@ -122,12 +141,13 @@ mmuputpage(struct pagel *p)
     
     pn = wrappage(pg, (void *) (x & ~((1 << 20) - 1)),
 		  true, true);
+
     if (pn == nil) {
       panic("mmu failed to wrap page\n");
     }
  
-    pn->next = up->mmu;
-    up->mmu = pn;
+    pn->next = up->mmu->pages;
+    up->mmu->pages = pn;
 
     for (i = 0; i < 256; i++)
       ((uint32_t *) pg->pa)[i] = L2_FAULT;

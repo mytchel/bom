@@ -41,3 +41,8 @@ struct label {
   uint32_t regs[13];
   uint32_t pc;
 } __attribute__((__packed__));
+
+struct mmu {
+  uint32_t dom;
+  struct pagel *pages;
+};

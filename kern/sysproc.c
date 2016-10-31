@@ -127,6 +127,47 @@ sysfork(va_list args)
   return ENOMEM;
 }
 
+reg_t
+sysexec(va_list args)
+{
+  const char *upath;
+  struct path *path;
+  struct chan *c;
+  char **argv;
+  int r, i, argc;
+
+  upath = va_arg(args, char *);
+  argc = va_arg(args, int);
+  argv = va_arg(args, char **);
+
+  if (kaddr(up, upath, 0) == nil) {
+    return ERR;
+  }
+
+  if (kaddr(up, argv, sizeof(char *) * argc) == nil) {
+    return ERR;
+  }
+
+  for (i = 0; i < argc; i++) {
+    if (kaddr(up, argv[i], 0) == nil) {
+      return ERR;
+    }
+  }
+
+  path = realpath(up->dot, upath);
+
+  c = fileopen(path, O_RDONLY, 0, &r);
+  if (r != OK) {
+    return r;
+  }
+
+  r = kexec(c, argc, argv);
+
+  chanfree(c);
+  
+  return r;
+}
+
 int
 getpid(void)
 {
