@@ -1,5 +1,7 @@
-*.o
 docs
+
+*.o
+*.out
 *.elf
 *.bin
 *.list

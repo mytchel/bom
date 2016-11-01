@@ -60,10 +60,15 @@ swi_ex:
 
 	mrs r1, spsr
 	sub r0, sp, #(4 * 3)
-	cps #MODE_SYS
+
+	mov r5, #(MODE_SYS|MODE_DI)
+	msr cpsr, r5
+
 	stmia r0, {r1, sp, lr}
-	cps #MODE_SVC
-	
+
+	mov r5, #(MODE_SVC|MODE_DI)
+	msr cpsr, r5
+
 	mov sp, r0
 	bl syscall
 	add sp, sp, #(4 * 17)
@@ -71,25 +76,25 @@ swi_ex:
 	
 
 irq_ex:
-	stmfd sp, {r0 - r4}
+	stmfd sp, {r0 - r5}
 	mov r1, #ABORT_INTERRUPT
 	b switch
 	
 
 undefined_instruction:
-	stmfd sp, {r0 - r4}
+	stmfd sp, {r0 - r5}
 	mov r1, #ABORT_INSTRUCTION
 	b switch
 
 
 prefetch_abort:
-	stmfd sp, {r0 - r4}
+	stmfd sp, {r0 - r5}
 	mov r1, #ABORT_PREFETCH
 	b switch
 
 
 data_abort:
-	stmfd sp, {r0 - r4}
+	stmfd sp, {r0 - r5}
 	mov r1, #ABORT_DATA
 	b switch
 
@@ -97,20 +102,21 @@ data_abort:
 switch:
 	mrs r2, spsr
 	mov r3, lr
-	sub r4, sp, #(4 * 5)
+	sub r4, sp, #(4 * 6)
 	
 	clrex
-	
-	cps #MODE_SVC
 
-	sub r0, sp, #(4 * 9)
-	stmia r0!, {r5 - r12}
+	mov r5, #(MODE_SVC|MODE_DI)
+	msr cpsr, r5
+
+	sub r0, sp, #(4 * 8)
+	stmia r0!, {r6 - r12}
 	str r3, [r0]
 	sub r0, r0, #(4 * 13)
 
-	@ retrieve and store r0 - r4
-	ldmfd r4, {r5 - r9}
-	stmia r0, {r5 - r9}
+	@ retrieve and store r0 - r5
+	ldmfd r4, {r5 - r10}
+	stmia r0, {r5 - r10}
 	sub r0, r0, #(4 * 3)
 
 	ands r3, r2, #0xf
@@ -132,9 +138,13 @@ switch:
 
 _user:  @ user mode interrupted
 
-	cps #MODE_SYS
+	mov r5, #(MODE_SYS|MODE_DI)
+	msr cpsr, r5
+
 	stmia r0, {r2, sp, lr}
-	cps #MODE_SVC
+
+	mov r5, #(MODE_SVC|MODE_DI)
+	msr cpsr, r5
 
 	mov sp, r0
 	@ r0 -> interrupted label, r1 -> type

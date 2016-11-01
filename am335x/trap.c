@@ -161,6 +161,7 @@ irqhandler(void)
       if ((uint32_t) p->aux == irq) {
 	procready(p);
 	maskintr(irq);
+	schedule();
 	break;
       }
     }

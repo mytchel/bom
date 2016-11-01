@@ -31,15 +31,17 @@
 #define L1X(va)		(va >> 20)
 #define L2X(va)		((va >> 12) & ((1 << 8) - 1))
 
-#define L1_FAULT	0
-#define L1_COARSE	1
-#define L1_SECTION	2
-#define L1_FINE		3
+#define L1_TYPE 	0b11
+#define L1_FAULT	0b00
+#define L1_COARSE	0b01
+#define L1_SECTION	0b10
+#define L1_FINE		0b11
 
-#define L2_FAULT	0
-#define L2_LARGE	1
-#define L2_SMALL	2
-#define L2_TINY		3
+#define L2_TYPE 	0b11
+#define L2_FAULT	0b00
+#define L2_LARGE	0b01
+#define L2_SMALL	0b10
+#define L2_TINY		0b11
 
 uint32_t
 ttb[4096]__attribute__((__aligned__(16*1024))) = { L1_FAULT };
@@ -60,7 +62,6 @@ mmunew(void)
   struct mmu *m;
 
   m = malloc(sizeof(struct mmu));
-  m->dom = 0;
   m->pages = nil;
 
   return m;
@@ -91,8 +92,11 @@ mmuswitch(struct proc *p)
 void
 imap(void *start, void *end, int ap, bool cachable)
 {
-  uint32_t x = (uint32_t) start & ~((1 << 20) - 1);
-  uint32_t mask = (ap << 10) | L1_SECTION;
+  uint32_t x, mask;
+
+  x = (uint32_t) start & ~((1 << 20) - 1);
+
+  mask = (ap << 10) | L1_SECTION;
 
   if (cachable) {
     mask |= (7 << 12) | (1 << 3) | (0 << 2);
@@ -114,7 +118,7 @@ mmuempty1(void)
   uint32_t i;
 
   for (i = 0; i < 4096; i++) {
-    if ((ttb[i] & L1_COARSE) == L1_COARSE)
+    if ((ttb[i] & L1_TYPE) == L1_COARSE)
       ttb[i] = L1_FAULT;
   }
 }
@@ -167,11 +171,6 @@ mmuputpage(struct pagel *p)
     tex = 7;
     c = 1;
     b = 0;
-    /*
-    tex = 7;
-    c = 1;
-    b = 1;
-    */
   } else {
     tex = 0;
     c = 0;

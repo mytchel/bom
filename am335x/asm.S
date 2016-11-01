@@ -27,6 +27,7 @@
 
 .section .text
 
+.global getcpsr
 .global _start
 .global setlabel
 .global gotolabel
@@ -45,9 +46,8 @@
 .global atomicinc 
 .global atomicdec
 
-_start:
-	cpsid if
 
+_start:
 	ldr r0, = _kernel_bss_start
 	ldr r1, = _kernel_bss_end
 	mov r2, #0
@@ -77,18 +77,27 @@ _start:
 
 	b main
 
+getcpsr:
+	mrs r0, cpsr
+	mov pc, lr
 
+	
 setintr:
 	push {r1, lr}
 
 	mrs r1, cpsr
 
-	mvn r0, r0
+	cmp r0, #MODE_DI
 
-	and r0, r0, r1
+	@ disable intr
+	orreq r0, r1, #MODE_DI
+
+	@ enable intr
+	bicne r0, r1, #MODE_DI
+	
 	msr cpsr, r0
-
-	and r0, r1, #(1 << 7) @ INTR_OFF
+	
+	and r0, r1, #MODE_DI
 
 	pop {r1, pc}
 
@@ -114,9 +123,14 @@ gotolabel:
 
 
 droptouser:
-	cps #MODE_SYS
+	mov r2, #(MODE_SYS|MODE_DI|MODE_DF)
+	msr cpsr, r2
+
 	ldmia r0!, {r1, sp, lr}
-	cps #MODE_SVC
+
+	mov r2, #(MODE_SVC|MODE_DI|MODE_DF)
+	msr cpsr, r2
+
 	msr spsr, r1
 	ldmia r0, {r0 - r12, pc}^
 

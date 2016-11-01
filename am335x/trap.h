@@ -36,6 +36,9 @@
 #define MODE_SYS		31
 #define MODE_USR		16
 
+#define MODE_DI              (1<<7)
+#define MODE_DF              (1<<6)
+
 #define ABORT_INTERRUPT		0
 #define ABORT_INSTRUCTION	1
 #define ABORT_PREFETCH		2

@@ -25,6 +25,8 @@
  *
  */
 
+#include "trap.h"
+
 #define PAGE_SHIFT 	 12
 #define PAGE_SIZE	 (1UL << PAGE_SHIFT)
 #define PAGE_MASK	 (~(PAGE_SIZE - 1))
@@ -34,7 +36,10 @@
 #define USTACK_TOP	 0x20000000
 #define UTEXT		 0
 
-typedef enum { INTR_ON = 0, INTR_OFF = (1 << 7) } intrstate_t;
+typedef enum {
+  INTR_ON  = (uint32_t) 0,
+  INTR_OFF = (uint32_t) MODE_DI,
+} intrstate_t;
 
 struct label {
   uint32_t psr, sp, lr;
@@ -43,6 +48,8 @@ struct label {
 } __attribute__((__packed__));
 
 struct mmu {
-  uint32_t dom;
   struct pagel *pages;
 };
+
+uint32_t
+getcpsr(void);
