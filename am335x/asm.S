@@ -77,11 +77,7 @@ _start:
 
 	b main
 
-getcpsr:
-	mrs r0, cpsr
-	mov pc, lr
 
-	
 setintr:
 	push {r1, lr}
 

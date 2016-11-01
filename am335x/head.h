@@ -51,5 +51,3 @@ struct mmu {
   struct pagel *pages;
 };
 
-uint32_t
-getcpsr(void);
