@@ -27,6 +27,11 @@
 
 #include "head.h"
 
+static struct {
+  struct path *free;
+  struct lock lock;
+} pathalloc = {0};
+
 static struct path *
 strtopathh(struct path *prev, const char *str)
 {
@@ -41,12 +46,21 @@ strtopathh(struct path *prev, const char *str)
   } else if (i >= NAMEMAX) {
     return nil;
   }
-	
-  p = malloc(sizeof(struct path));
-  /* Best to cause some more major issue in the case of a failed
-   * malloc, as I have no way to check if there was an error
-   * (or end of the path).
-   */
+
+  lock(&pathalloc.lock);
+
+  p = pathalloc.free;
+  if (p == nil) {
+    p = malloc(sizeof(struct path));
+    /* Best to cause some more major issue in the case of a failed
+     * malloc, as I have no way to check if there was an error
+     * (or end of the path).
+     */
+  } else {
+    pathalloc.free = p->next;
+  }
+
+  unlock(&pathalloc.lock);
 	
   for (j = 0; j < i; j++)
     p->s[j] = str[j];
@@ -146,8 +160,13 @@ realpath(struct path *po, const char *str)
       }
 			
       pp = pp->next;
-			
-      free(pt);
+
+      lock(&pathalloc.lock);
+
+      pt->next = pathalloc.free;
+      pathalloc.free = pt;
+
+      unlock(&pathalloc.lock);
     } else {
       pp = pp->next;
     }
@@ -173,7 +192,18 @@ pathcopy(struct path *o)
 
     o = o->next;
     if (o != nil) {
-      nn->next = malloc(sizeof(struct path));
+      lock(&pathalloc.lock);
+
+      nn->next = pathalloc.free;
+
+      if (nn->next == nil) {
+	nn->next = malloc(sizeof(struct path));
+      } else {
+	pathalloc.free = nn->next;
+      }
+      
+      unlock(&pathalloc.lock);
+
       nn->next->prev = nn;
       nn = nn->next;
     } 
@@ -191,6 +221,12 @@ pathfree(struct path *p)
     return;
 		
   pathfree(p->next);
-	
-  free(p);
+
+
+  lock(&pathalloc.lock);
+
+  p->next = pathalloc.free;
+  pathalloc.free = p;
+
+  unlock(&pathalloc.lock);
 }

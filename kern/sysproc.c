@@ -79,9 +79,13 @@ sysfork(va_list args)
   }
 
   p->dot = pathcopy(up->dot);
+
   p->dotchan = up->dotchan;
   atomicinc(&p->dotchan->refs);
 
+  p->root = up->root;
+  atomicinc(&p->root->refs);
+  
   p->ustack = pagelcopy(up->ustack);
 
   if (flags & FORK_smem) {

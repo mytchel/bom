@@ -39,7 +39,7 @@ static struct pagel *pages = nil;
 void
 heapinit(void *start, size_t size)
 {
-  lockinit(&heaplock);
+  memset(&heaplock, 0, sizeof(heaplock));
   heap = (struct block *) start;
   heap->size = size - sizeof(size_t);
   heap->next = nil;

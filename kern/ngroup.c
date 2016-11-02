@@ -38,7 +38,7 @@ ngroupnew(void)
   }
 
   n->refs = 1;
-  lockinit(&n->lock);
+  memset(&n->lock, 0, sizeof(n->lock));
 
   n->bindings = nil;
 	
@@ -114,7 +114,7 @@ ngroupcopy(struct ngroup *o)
   unlock(&o->lock);
 	
   n->refs = 1;
-  lockinit(&n->lock);
+  memset(&n->lock, 0, sizeof(n->lock));
 
   return n;
 }
@@ -145,7 +145,7 @@ bindingnew(struct chan *out, struct chan *in, uint32_t rootattr)
 
   b->refs = 1;
 
-  lockinit(&b->lock);
+  memset(&b->lock, 0, sizeof(b->lock));
 
   b->in = in;
   b->out = out;

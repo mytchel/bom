@@ -207,9 +207,6 @@ heapinit(void *, size_t);
 /****** General Functions ******/
 
 void
-lockinit(struct lock *);
-
-void
 lock(struct lock *);
 
 void

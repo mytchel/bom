@@ -44,7 +44,7 @@ channew(int type, int mode)
     return nil;
   }
 
-  lockinit(&c->lock);
+  memset(&c->lock, 0, sizeof(c->lock));
   c->refs = 1;
   c->type = type;
   c->mode = mode;

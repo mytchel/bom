@@ -193,11 +193,11 @@ findfileindir(struct bindingfid *fid, char *name, int *err)
 struct bindingfid *
 findfile(struct path *path, int *err)
 {
-  struct bindingl *b, *bp;
   struct bindingfid *nfid, *fid;
+  struct bindingl *b;
   struct path *p;
 
-  bp = b = ngroupfindbindingl(up->ngroup, up->root);
+  b = ngroupfindbindingl(up->ngroup, up->root);
   if (b == nil) {
     *err = ENOFILE;
     return nil;
@@ -229,14 +229,7 @@ findfile(struct path *path, int *err)
     bindingfidfree(fid);
 
     b = ngroupfindbindingl(up->ngroup, nfid);
-    if (b == nil) {
-      *err = ENOFILE;
-      bindingfidfree(nfid);
-      return nil;
-    } else if (b != bp) {
-      /* If we havent encountered this binding yet then it is the
-       * root of the binding. */
-      bp = b;
+    if (b != nil) {
       bindingfidfree(nfid);
       fid = b->rootfid;
       atomicinc(&fid->refs);

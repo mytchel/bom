@@ -46,7 +46,7 @@ fgroupnew(void)
   f->chans[0] = nil;
   f->nchans = 1;
   f->refs = 1;
-  lockinit(&f->lock);
+  memset(&f->lock, 0, sizeof(f->lock));
 	
   return f;
 }
@@ -100,7 +100,7 @@ fgroupcopy(struct fgroup *fo)
   }
 	
   f->refs = 1;
-  lockinit(&f->lock);
+  memset(&f->lock, 0, sizeof(f->lock));
 
   unlock(&fo->lock);
   return f;

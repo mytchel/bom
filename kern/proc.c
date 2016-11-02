@@ -196,7 +196,15 @@ procnew(unsigned int priority)
 	
   p->pid = nextpid++;
   p->priority = priority;
-  
+
+  p->mmu = mmunew();
+
+  p->kstack = getrampage();
+  if (p->kstack == nil) {
+    free(p);
+    return nil;
+  }
+ 
   p->ureg = nil;
 
   p->timeused = 0;
@@ -207,14 +215,7 @@ procnew(unsigned int priority)
 
   p->dot = nil;
   p->dotchan = nil;
-
-  p->kstack = getrampage();
-  if (p->kstack == nil) {
-    free(p);
-    return nil;
-  }
-  
-  p->mmu = mmunew();
+  p->root = nil;
 
   p->ustack = nil;
   p->mgroup = nil;

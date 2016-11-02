@@ -28,14 +28,6 @@
 #include "head.h"
 
 void
-lockinit(struct lock *l)
-{
-  l->lock = 0;
-  l->wlist = nil;
-  l->holder = nil;
-}
-
-void
 lock(struct lock *l)
 {
   intrstate_t i;
