@@ -133,7 +133,7 @@ struct binding {
 struct bindingl {
   struct binding *binding;
 
-  struct path *path;
+  struct bindingfid *boundfid;
   struct bindingfid *rootfid;
 
   struct bindingl *next;
@@ -171,6 +171,7 @@ struct proc {
   uint32_t pid;
   struct proc *parent;
 
+  struct bindingfid *root;
   struct path *dot;
   struct chan *dotchan;
 
@@ -360,12 +361,12 @@ void
 bindingfree(struct binding *);
 
 struct bindingl *
-ngroupfindbindingl(struct ngroup *n, struct path *path,
-		  int depth);
+ngroupfindbindingl(struct ngroup *n, struct bindingfid *fid);
 
 int
 ngroupaddbinding(struct ngroup *n, struct binding *b,
-	   struct path *p, struct bindingfid *rootfid);
+		 struct bindingfid *boundfid, 
+		 struct bindingfid *rootfid);
 
 void
 ngrouprmbinding(struct ngroup *n, struct binding *b);
@@ -391,6 +392,9 @@ struct chan *
 fileopen(struct path *path,
 	 uint32_t mode, uint32_t cattr,
 	 int *err);
+
+void
+bindingfidfree(struct bindingfid *fid);
 
 struct bindingfid *
 findfile(struct path *path, int *err);

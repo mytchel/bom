@@ -353,7 +353,7 @@ sysbind(va_list args)
   forkfunc(p, &mountproc, (void *) b);
   b->srv = p;
 
-  ret = ngroupaddbinding(up->ngroup, b, path, b->fids);
+  ret = ngroupaddbinding(up->ngroup, b, fid, b->fids);
   if (ret != OK) {
     procexit(p, 0);
     bindingfree(b);

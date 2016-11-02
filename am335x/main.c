@@ -125,8 +125,7 @@ initmainproc(void)
 		
   p = procnew(1);
   if (p == nil) {
-    printf("Failed to create main proc\n");
-    return;
+    panic("Failed to create main proc\n");
   }
 	
   forkfunc(p, &mainproc, nil);
@@ -153,8 +152,19 @@ initmainproc(void)
   p->fgroup = fgroupnew();
   p->ngroup = ngroupnew();
 
+  p->root = malloc(sizeof(struct bindingfid));
+  if (p->root == nil) {
+    panic("failed to alloc p->root\n");
+  }
+
+  p->root->refs = 1;
+  p->root->binding = nil;
+
+  p->root->fid = 0;
+  p->root->attr = ATTR_dir|ATTR_rd;
+
   ngroupaddbinding(p->ngroup, rootfsbinding,
-		   nil, rootfsbinding->fids);
+		   p->root, rootfsbinding->fids);
 
   procready(p);
 }

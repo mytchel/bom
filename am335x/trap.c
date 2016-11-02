@@ -51,9 +51,9 @@
 #define nirq 128
 
 static void
-maskintr(int irqn);
+maskintr(uint32_t irqn);
 static void
-unmaskintr(int irqn);
+unmaskintr(uint32_t irqn);
 
 static void (*handlers[nirq])(uint32_t) = {0};
 static struct proc *intrwait = nil;
@@ -80,7 +80,7 @@ intcinit(void)
 }
 
 void
-maskintr(int irqn)
+maskintr(uint32_t irqn)
 {
   uint32_t mask, mfield;
 
@@ -91,7 +91,7 @@ maskintr(int irqn)
 }
 
 void
-unmaskintr(int irqn)
+unmaskintr(uint32_t irqn)
 {
   uint32_t mask, mfield;
 

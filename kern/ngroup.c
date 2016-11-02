@@ -59,7 +59,8 @@ ngroupfree(struct ngroup *n)
     bb = b;
     b = b->next;
     bindingfree(bb->binding);
-    pathfree(bb->path);
+    bindingfidfree(bb->boundfid);
+    bindingfidfree(bb->rootfid);
     free(bb);
   }
 
@@ -92,8 +93,11 @@ ngroupcopy(struct ngroup *o)
     bn->binding = bo->binding;
     atomicinc(&bn->binding->refs);
 
-    bn->path = pathcopy(bo->path);
+    bn->boundfid = bo->boundfid;
     bn->rootfid = bo->rootfid;
+
+    atomicinc(&bn->boundfid->refs);
+    atomicinc(&bn->rootfid->refs);
 			
     bo = bo->next;
 
@@ -175,7 +179,8 @@ bindingfree(struct binding *b)
 
 int
 ngroupaddbinding(struct ngroup *n, struct binding *b,
-		 struct path *p, struct bindingfid *rootfid)
+		 struct bindingfid *boundfid,
+		 struct bindingfid *rootfid)
 {
   struct bindingl *bl;
   
@@ -188,7 +193,7 @@ ngroupaddbinding(struct ngroup *n, struct binding *b,
   
   bl->binding = b;
   bl->rootfid = rootfid;
-  bl->path = p;
+  bl->boundfid = boundfid;
 
   lock(&n->lock);
 
@@ -206,8 +211,8 @@ ngroupremovebinding(struct ngroup *n, struct binding *b)
   struct bindingl *bl, *prev;
 
   lock(&n->lock);
+
   prev = nil;
-  
   for (bl = n->bindings;
        bl != nil && bl->binding != b;
        prev = bl, bl = bl->next)
@@ -221,51 +226,27 @@ ngroupremovebinding(struct ngroup *n, struct binding *b)
 
   unlock(&n->lock);
 
-  pathfree(bl->path);
+  bindingfidfree(bl->boundfid);
+  bindingfidfree(bl->rootfid);
+
   free(bl);
 
   bindingfree(b);
 }
 
-/*
- * Find the binding that matches path to at most a depth of depth
- * return the best binding.
- */
- 
 struct bindingl *
-ngroupfindbindingl(struct ngroup *ngroup, struct path *path,
-		  int depth)
+ngroupfindbindingl(struct ngroup *ngroup, struct bindingfid *fid)
 {
-  struct bindingl *bl, *best;
-  struct path *pp, *bp;
-  int d, bestd;
+  struct bindingl *bl;
 	
   lock(&ngroup->lock);
 
-  best = nil;
-  bestd = -1;
   for (bl = ngroup->bindings; bl != nil; bl = bl->next) {
-    d = 0;
-    pp = path;
-
-    bp = bl->path;
-    while (d < depth && pp != nil && bp != nil) {
-      if (!strcmp(pp->s, bp->s)) {
-	break;
-      }
-			
-      d++;
-      pp = pp->next;
-      bp = bp->next;
-    }
-		
-    if (bp == nil && d > bestd) {
-      bestd = d;
-      best = bl;
+    if (bl->boundfid == fid) {
+      break;
     }
   }
-	
-  unlock(&ngroup->lock);
 
-  return best;
+  unlock(&ngroup->lock);
+  return bl;
 }

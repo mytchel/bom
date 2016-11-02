@@ -69,7 +69,7 @@ makereq(struct binding *b,
   return true;
 }
 
-static void
+void
 bindingfidfree(struct bindingfid *fid)
 {
   struct bindingfid *p, *o;
@@ -196,11 +196,8 @@ findfile(struct path *path, int *err)
   struct bindingl *b, *bp;
   struct bindingfid *nfid, *fid;
   struct path *p;
-  size_t depth;
 
-  depth = 0;
-
-  bp = b = ngroupfindbindingl(up->ngroup, path, depth++);
+  bp = b = ngroupfindbindingl(up->ngroup, up->root);
   if (b == nil) {
     *err = ENOFILE;
     return nil;
@@ -231,7 +228,7 @@ findfile(struct path *path, int *err)
      * reference to its child. */
     bindingfidfree(fid);
 
-    b = ngroupfindbindingl(up->ngroup, path, depth++);
+    b = ngroupfindbindingl(up->ngroup, nfid);
     if (b == nil) {
       *err = ENOFILE;
       bindingfidfree(nfid);
