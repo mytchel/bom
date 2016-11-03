@@ -222,7 +222,7 @@ fixfault(void *addr)
   }
 }
 
-bool
+static bool
 nilbyteinrange(struct pagel *pl, reg_t offset)
 {
   struct pagel *pn;
@@ -249,7 +249,7 @@ nilbyteinrange(struct pagel *pl, reg_t offset)
   return false;
 }
 
-bool
+static bool
 leninrange(struct pagel *pl, reg_t offset, size_t len)
 {
   struct pagel *pn;

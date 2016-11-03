@@ -38,8 +38,6 @@ initblockdevs(void);
 int
 shell(void);
 
-int stdin, stdout, stderr;
-
 int
 main(void)
 {
@@ -47,26 +45,29 @@ main(void)
 
   fd = open("/dev", O_WRONLY|O_CREATE,
 	    ATTR_wr|ATTR_rd|ATTR_dir);
+
   if (fd < 0) {
     return -1;
   }
+
+  close(fd);
 
   f = commount("/dev/com");
   if (f < 0) {
     return -1;
   }
 
-  stdin = open("/dev/com", O_RDONLY);
-  stdout = open("/dev/com", O_WRONLY);
-  stderr = open("/dev/com", O_WRONLY);
-
-  if (stdin < 0) return -2;
-  if (stdout < 0) return -3;
-  if (stderr < 0) return -3;
+  if (open("/dev/com", O_RDONLY) != STDIN) {
+    return -2;
+  } else if (open("/dev/com", O_WRONLY) != STDOUT) {
+    return -2;
+  } else if (open("/dev/com", O_WRONLY) != STDERR) {
+    return -2;
+  }
 
   f = initblockdevs();
   if (f < 0) {
-    return -1;
+    return -3;
   }
 
   f = fork(FORK_sngroup);

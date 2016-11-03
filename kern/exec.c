@@ -34,6 +34,12 @@ kexec(struct chan *f, int argc, char *argv[])
   struct elf_header_head head;
   struct elf_header32 hdr;
   struct elf_pheader32 phdr;
+  struct pagel *pl, *plprev;
+  struct mgroup *mnew;
+  struct mmu *nmmu;
+  struct label ureg;
+  struct page *pg;
+  size_t s, ss;
   int r, i;
 
   if ((r = fileread(f, &head, sizeof(head))) != sizeof(head)) {
@@ -62,14 +68,33 @@ kexec(struct chan *f, int argc, char *argv[])
   printf("pheader at 0x%h\n", hdr.e_phoff);
   printf("sheader at 0x%h\n", hdr.e_shoff);
 
-  if ((r = fileseek(f, hdr.e_phoff, SEEK_SET)) != OK) {
-    return r;
+  memset(&ureg, 0, sizeof(ureg));
+  ureg.psr = MODE_USR;
+  ureg.pc = hdr.e_entry;
+  ureg.sp = USTACK_TOP - PAGE_SIZE;
+  
+  mnew = mgroupnew();
+  if (mnew == nil) {
+    return ERR;
   }
-
+  
+  plprev = nil;
+  
   printf("read %i program headers\n", hdr.e_phnum);
+
   for (i = 0; i < hdr.e_phnum; i++) {
+
+    if ((r = fileseek(f, hdr.e_phoff
+		      + i * hdr.e_phentsize,
+		      SEEK_SET)) != OK) {
+
+      mgroupfree(mnew);
+      return r;
+    }
+
     if ((r = fileread(f, &phdr, sizeof(phdr))) != sizeof(phdr)) {
       printf("failed to read phdr\n");
+      mgroupfree(mnew);
       return r;
     }
 
@@ -81,7 +106,87 @@ kexec(struct chan *f, int argc, char *argv[])
     printf("msize = 0x%h\n", phdr.p_memsz);
     printf("flags = 0x%h\n", phdr.p_flags);
     printf("align = %i\n", phdr.p_align);
+    
+    if ((r = fileseek(f, phdr.p_offset, SEEK_SET)) != OK) {
+      mgroupfree(mnew);
+      return r;
+    }
+
+    s = 0;
+    while (s < phdr.p_filesz) {
+      printf("get page for va 0x%h\n", phdr.p_vaddr + s);
+      
+      pg = getrampage();
+      if (pg == nil) {
+	mgroupfree(mnew);
+	return ERR;
+      }
+
+      if (phdr.p_filesz - s > PAGE_SIZE) {
+	ss = PAGE_SIZE;
+      } else {
+	ss = phdr.p_filesz - s;
+      }
+
+      printf("read ss bytes of page\n", ss);
+      
+      if ((r = fileread(f, pg->pa, ss)) != ss) {
+	pagefree(pg);
+	mgroupfree(mnew);
+	return r;
+      }
+
+      if (ss < PAGE_SIZE) {
+	printf("set rest of page zero\n");
+	memset(pg->pa + ss, 0, PAGE_SIZE - ss);
+      }
+    
+      printf("wrap page\n");
+      pl = wrappage(pg, (void *) (phdr.p_vaddr + s), true, true);
+      if (pl == nil) {
+	pagefree(pg);
+	mgroupfree(mnew);
+	return ERR;
+      }
+
+      printf("add to list\n");
+      if (plprev == nil) {
+	mnew->pages = pl;
+      } else {
+	plprev->next = pl;
+      }
+
+      plprev = pl;
+
+      printf("move on to next page\n");
+      s += ss;
+    }
   }
 
+  printf("good, now free mgroup\n");
+  
+  nmmu = mmunew();
+  if (nmmu == nil) {
+    mgroupfree(mnew);
+    return ERR;
+  }
+
+  mmufree(up->mmu);
+  up->mmu = nmmu;
+
+  mgroupfree(up->mgroup);
+  up->mgroup = mnew;
+ 
+  setintr(INTR_OFF);
+
+  printf("switch mmu, may work?\n");
+
+  mmuswitch(up);
+  
+  printf("drop to user\n");
+
+  droptouser(&ureg, up->kstack->pa + PAGE_SIZE);
+
+  setintr(INTR_ON);
   return ERR;
 }

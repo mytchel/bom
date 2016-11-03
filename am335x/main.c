@@ -111,7 +111,7 @@ mainproc(void *arg)
   ureg.psr = MODE_USR;
   ureg.pc = 4;
 
-  droptouser(&ureg);
+  droptouser(&ureg, up->kstack->pa + PAGE_SIZE);
 
   return 0; /* Never reached. */
 }

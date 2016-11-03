@@ -25,14 +25,36 @@
  *
  */
 
-#include <libc.h>
+#include "head.h"
 
-int
-main(void)
-{
-  char buf[] = "Hello, World.\n";
-  int r;
+reg_t (*syscalltable[NSYSCALLS])(va_list) = {
+	[SYSCALL_EXIT] 		= sysexit,
+	[SYSCALL_FORK] 		= sysfork,
+	[SYSCALL_EXEC] 		= sysexec,
+	[SYSCALL_SLEEP]		= syssleep,
+	[SYSCALL_GETPID]	= sysgetpid,
+	[SYSCALL_WAIT]	        = syswait,
 
-  r = write(STDOUT, buf, sizeof(buf));
-  return r;
-}
+	[SYSCALL_CHDIR]	        = syschdir,
+	
+	[SYSCALL_MMAP]   	= sysmmap,
+	[SYSCALL_MUNMAP]	= sysmunmap,
+
+	[SYSCALL_WAITINTR]	= syswaitintr,
+	
+	[SYSCALL_PIPE]		= syspipe,
+	[SYSCALL_READ]		= sysread,
+	[SYSCALL_WRITE]		= syswrite,
+	[SYSCALL_SEEK]		= sysseek,
+	[SYSCALL_CLOSE]		= sysclose,
+	
+	[SYSCALL_STAT]		= sysstat,
+
+	[SYSCALL_MOUNT]		= sysmount,
+	[SYSCALL_BIND]		= sysbind,
+	[SYSCALL_UNBIND]	= sysunbind,
+
+	[SYSCALL_OPEN]		= sysopen,
+	[SYSCALL_REMOVE]	= sysremove,
+	[SYSCALL_CLEANPATH]	= syscleanpath,
+};

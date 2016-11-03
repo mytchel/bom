@@ -107,7 +107,7 @@ readline(uint8_t *data, size_t max)
 
   i = 0;
   while (i < max) {
-    if (read(stdin, &c, sizeof(char)) < 0) {
+    if (read(STDIN, &c, sizeof(char)) < 0) {
       return -1;
     } else if (c == '\n') {
       data[i] = '\0';

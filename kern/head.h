@@ -444,7 +444,7 @@ reg_t syscleanpath(va_list);
 
 /* Type and psr are ignored. */
 void
-droptouser(struct label *) __attribute__((noreturn));
+droptouser(struct label *regs, void *kstack)__attribute__((noreturn));
 
 void
 dumpregs(struct label *);

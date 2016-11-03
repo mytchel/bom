@@ -41,6 +41,6 @@ printf(const char *fmt, ...)
   va_end(ap);
 
   if (i > 0) {
-    write(stdout, str, i);
+    write(STDOUT, str, i);
   }
 }

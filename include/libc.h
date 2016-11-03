@@ -31,8 +31,6 @@
 #include <types.h>
 #include <err.h>
 
-extern int stdin, stdout, stderr;
-
 int
 exit(int code) __attribute__((noreturn));
 
@@ -104,6 +102,10 @@ open(const char *path, uint32_t mode, ...);
 
 int
 remove(const char *path);
+
+#define STDIN    0
+#define STDOUT   1
+#define STDERR   2
 
 void
 printf(const char *, ...);

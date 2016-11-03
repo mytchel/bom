@@ -247,7 +247,7 @@ cmdcat(int argc, char **argv)
       return fd;
     } else {
       while ((l = read(fd, buf, sizeof(buf))) > 0) {
-	write(stdout, buf, l);
+	write(STDOUT, buf, l);
       }
 
       if (l != EOF) {
