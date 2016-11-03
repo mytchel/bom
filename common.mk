@@ -23,62 +23,30 @@
 #  OTHER DEALINGS IN THE SOFTWARE
 #
 
-.PHONY: all
-all: $(TARGETS) am335x.umg
+.SUFFIXES: .S .c .h .o .elf .bin .list
 
-CROSS_COMPILE ?= arm-none-eabi-
-
-CC := $(CROSS_COMPILE)gcc
-LD := $(CROSS_COMPILE)ld
-OBJCOPY := $(CROSS_COMPILE)objcopy
-OBJDUMP := $(CROSS_COMPILE)objdump
-
-CFLAGS += -mcpu=cortex-a8
-
-LDFLAGS += -L/usr/local/lib/gcc/arm-none-eabi/4.9.3/
-LIBS += -lgcc
-
-ISRC_A := \
-	am335x/init/syscalls.S		\
+.c.o .S.o:
+	@echo CC $<
+	@$(CC) $(CFLAGS) -c -o $@ $<
 
 
-ISRC_C := \
-	am335x/init/com.c              \
-	am335x/init/mmc/mmchs.c        \
-	am335x/init/mmc/emmc.c         \
-	am335x/init/mmc/sd.c           \
-        am335x/init/mmc/misc.c
+.elf.bin:
+	@echo OBJCOPY $@
+	@$(OBJCOPY) -Obinary $< $@
 
 
-KSRC_A := \
-        am335x/asm.S                   \
-        am335x/vectors.S
-
-
-KSRC_C := \
-        am335x/main.c                  \
-        am335x/trap.c                  \
-        am335x/uart.c                  \
-        am335x/timer.c                 \
-        am335x/mem.c                   \
-        am335x/proc.c                  \
-        am335x/syscall.c               \
-        am335x/mmu.c
-
-
-loadaddr=0x82000000
-
-CLEAN += am335x.umg am335x.bin
-am335x.umg: am335x.bin tools/mkuboot/mkuboot
-	@echo MKUBOOT $@
-	@./tools/mkuboot/mkuboot -a arm \
-		-e ${loadaddr} -l ${loadaddr} -o linux \
-		am335x.bin am335x.umg
-	cp am335x.umg /var/ftpd
+.elf.list:
+	@echo OBJDUMP $@
+	@$(OBJDUMP) -S $< > $@
 
 
 .PHONY: clean 
 clean: 
 	@echo cleaning
+	@for sub in $(SUBCLEAN); do \
+		$(MAKE) -C $$sub clean \
+			BASE="$(BASE)" \
+		; \
+	done
 	@rm -f $(CLEAN)
 

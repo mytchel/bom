@@ -23,10 +23,15 @@
 #  OTHER DEALINGS IN THE SOFTWARE
 #
 
-bintoarray_src = tools/bintoarray/bintoarray.c
+include ../../config.mk
 
-CLEAN += tools/bintoarray/bintoarray
-tools/bintoarray/bintoarray: $(bintoarray_src)
+src = bintoarray.c
+
+bintoarray: $(src)
 	@echo HOSTCC $@
-	@$(HOSTCC) $(HOST_CFLAGS) -o $@ $(bintoarray_src) $(HOST_LDFLAGS)
+	@$(HOSTCC) $(HOSTCFLAGS) -o $@ $(src) $(HOSTLDFLAGS)
 
+
+.PHONY: clean
+clean:
+	@rm -f bintoarray

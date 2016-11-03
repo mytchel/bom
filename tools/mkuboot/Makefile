@@ -23,11 +23,16 @@
 #  OTHER DEALINGS IN THE SOFTWARE
 #
 
-mkuboot_src = tools/mkuboot/mkuboot.c \
-	tools/mkuboot/copy_elf32.c \
-	tools/mkuboot/copy_elf64.c
+include ../../config.mk
 
-CLEAN += tools/mkuboot/mkuboot
-tools/mkuboot/mkuboot: $(mkuboot_src)
+src = mkuboot.c copy_elf32.c copy_elf64.c
+
+mkuboot: $(src)
 	@echo HOSTCC $@
-	@$(HOSTCC) $(HOST_CFLAGS) -o $@ $(mkuboot_src) $(HOST_LDFLAGS) -lz
+	@$(HOSTCC) -o $@ $(src) $(HOSTLDFLAGS) -lz
+
+
+.PHONY: clean
+clean:
+	@rm -f mkuboot
+
