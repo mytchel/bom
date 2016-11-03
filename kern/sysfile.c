@@ -296,7 +296,7 @@ sysremove(va_list args)
 }
 
 reg_t
-sysbind(va_list args)
+sysmount(va_list args)
 {
   const char *upath, *kpath;
   struct bindingfid *fid;
@@ -339,12 +339,14 @@ sysbind(va_list args)
   
   b = bindingnew(out, in, fid->attr);
   if (b == nil) {
+    bindingfidfree(fid);
     pathfree(path);
     return ENOMEM;
   }
 
   p = procnew(up->priority);
   if (p == nil) {
+    bindingfidfree(fid);
     bindingfree(b);
     pathfree(path);
     return ENOMEM;
@@ -357,6 +359,7 @@ sysbind(va_list args)
   if (ret != OK) {
     procexit(p, 0);
     bindingfree(b);
+    bindingfidfree(fid);
     pathfree(path);
     return ret;
   }
@@ -366,6 +369,83 @@ sysbind(va_list args)
   setintr(INTR_ON);
  
   return OK;
+}
+
+reg_t
+sysbind(va_list args)
+{
+  struct bindingfid *bo, *bn;
+  struct path *po, *pn;
+  char *old, *new;
+  int ret;
+
+  old = va_arg(args, char *);
+  new = va_arg(args, char *);
+
+  if (kaddr(up, old, 0) == nil || kaddr(up, new, 0) == nil) {
+    return ERR;
+  }
+
+  po = realpath(up->dot, old);
+  pn = realpath(up->dot, new);
+
+  bo = findfile(po, &ret);
+  if (ret != OK) {
+    pathfree(po);
+    pathfree(pn);
+    return ret;
+  }
+
+  bn = findfile(pn, &ret);
+  if (ret != OK) {
+    bindingfidfree(bo);
+    pathfree(po);
+    pathfree(pn);
+    return ret;
+  }
+
+  ret = ngroupaddbinding(up->ngroup, bo->binding, bn, bo);
+  if (ret != OK) {
+    bindingfidfree(bo);
+    bindingfidfree(bn);
+    pathfree(po);
+    pathfree(pn);
+    return ret;
+  }
+
+  return OK;
+}
+
+reg_t
+sysunbind(va_list args)
+{
+  struct bindingfid *fid;
+  struct path *path;
+  char *upath;
+  int ret;
+  
+  upath = va_arg(args, char *);
+
+  if (kaddr(up, upath, 0) == nil) {
+    return ERR;
+  }
+
+  path = realpath(up->dot, upath);
+
+  fid = findfile(path, &ret);
+  if (ret != OK) {
+    printf("failed to find file\n");
+    pathfree(path);
+    return ret;
+  }
+
+  ret = ngroupremovebinding(up->ngroup, fid);
+  printf("ret = %i\n", ret);
+  
+  bindingfidfree(fid);
+  pathfree(path);
+
+  return ret;
 }
 
 reg_t

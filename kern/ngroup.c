@@ -205,8 +205,8 @@ ngroupaddbinding(struct ngroup *n, struct binding *b,
   return OK;
 }
 
-void
-ngroupremovebinding(struct ngroup *n, struct binding *b)
+int
+ngroupremovebinding(struct ngroup *n, struct bindingfid *fid)
 {
   struct bindingl *bl, *prev;
 
@@ -214,11 +214,14 @@ ngroupremovebinding(struct ngroup *n, struct binding *b)
 
   prev = nil;
   for (bl = n->bindings;
-       bl != nil && bl->binding != b;
+       bl != nil && bl->rootfid != fid;
        prev = bl, bl = bl->next)
     ;
 
-  if (prev == nil) {
+  if (bl == nil) {
+    unlock(&n->lock);
+    return ERR;
+  } else if (prev != nil) {
     prev->next = bl->next;
   } else {
     n->bindings = bl->next;
@@ -229,9 +232,11 @@ ngroupremovebinding(struct ngroup *n, struct binding *b)
   bindingfidfree(bl->boundfid);
   bindingfidfree(bl->rootfid);
 
+  bindingfree(bl->binding);
+
   free(bl);
 
-  bindingfree(b);
+  return OK;
 }
 
 struct bindingl *

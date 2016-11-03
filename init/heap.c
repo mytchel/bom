@@ -41,7 +41,7 @@ growheap(struct block *prev, size_t size)
   struct block *b;
   void *pg;
 
-  pg = getmem(MEM_ram, nil, &size);
+  pg = mmap(MEM_ram, nil, &size);
   if (pg == nil) {
     return nil;
   }

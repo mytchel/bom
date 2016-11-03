@@ -31,29 +31,33 @@
 #define SYSCALL_EXIT            1
 #define SYSCALL_FORK            2
 #define SYSCALL_EXEC            3 
-#define SYSCALL_WAIT           20
-#define SYSCALL_SLEEP           4 
-#define SYSCALL_GETPID          5
-#define SYSCALL_CHDIR           6
+#define SYSCALL_WAIT            4
+#define SYSCALL_SLEEP           5 
+#define SYSCALL_GETPID          6 
+#define SYSCALL_CHDIR           7 
 
-#define SYSCALL_PIPE	        7
+#define SYSCALL_PIPE	        8
 
-#define SYSCALL_READ	        8	
-#define SYSCALL_WRITE	        9	
-#define SYSCALL_SEEK	       10	
-#define SYSCALL_CLOSE	       11	
+#define SYSCALL_READ	        9
+#define SYSCALL_WRITE	       10	
+#define SYSCALL_SEEK	       11	
+#define SYSCALL_CLOSE	       12	
 
-#define SYSCALL_STAT	       12	
-#define SYSCALL_OPEN           13 
-#define SYSCALL_REMOVE	       14
-#define SYSCALL_BIND           15
-#define SYSCALL_CLEANPATH      16
+#define SYSCALL_STAT	       13	
+#define SYSCALL_OPEN           14 
+#define SYSCALL_REMOVE	       15
 
-#define SYSCALL_GETMEM         17
-#define SYSCALL_RMMEM          18
+#define SYSCALL_MOUNT          16
+#define SYSCALL_BIND           17
+#define SYSCALL_UNBIND         18
 
-#define SYSCALL_WAITINTR       19
+#define SYSCALL_CLEANPATH      19
 
-#define NSYSCALLS              21
+#define SYSCALL_MMAP           20
+#define SYSCALL_MUNMAP         21
+
+#define SYSCALL_WAITINTR       22
+
+#define NSYSCALLS              23
 
 #endif

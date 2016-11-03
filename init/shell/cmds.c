@@ -47,6 +47,8 @@ static int cmdtouch(int argc, char **argv);
 static int cmdrm(int argc, char **argv);
 static int cmdcat(int argc, char **argv);
 static int cmdcp(int argc, char **argv);
+static int cmdbind(int argc, char **argv);
+static int cmdunbind(int argc, char **argv);
 static int cmdmounttmp(int argc, char **argv);
 static int cmdmountfat(int argc, char **argv);
 
@@ -59,6 +61,8 @@ struct func cmds[] = {
   { "rm",        &cmdrm },
   { "cat",       &cmdcat },
   { "cp",        &cmdcp },
+  { "bind",      &cmdbind },
+  { "unbind",    &cmdunbind },
   { "mounttmp",  &cmdmounttmp },
   { "mountfat",  &cmdmountfat },
 };
@@ -295,6 +299,42 @@ cmdcp(int argc, char **argv)
 
   close(in);
   close(out);
+
+  return r;
+}
+
+int
+cmdbind(int argc, char **argv)
+{
+  int r;
+  
+  if (argc != 3) {
+    printf("usage: %s old new\n", argv[0]);
+    return ERR;
+  }
+
+  r = bind(argv[1], argv[2]);
+  if (r != OK) {
+    printf("binding %s to %s failed\n", argv[1], argv[2]);
+  }
+
+  return r;
+}
+
+int
+cmdunbind(int argc, char **argv)
+{
+  int r;
+  
+  if (argc != 2) {
+    printf("usage: %s path\n", argv[0]);
+    return ERR;
+  }
+
+  r = unbind(argv[1]);
+  if (r != OK) {
+    printf("unbinding %s failed\n", argv[1]);
+  }
 
   return r;
 }

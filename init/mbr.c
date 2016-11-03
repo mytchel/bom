@@ -344,7 +344,7 @@ bwrite(struct request_write *req, struct response_write *resp)
 	      req->body.len / device->blksize);
 }
 
-static struct fsmount mount = {
+static struct fsmount fsmount = {
   .getfid = &bgetfid,
   .clunk = &bclunk,
   .stat = &bstat,
@@ -379,16 +379,16 @@ mbrmount(struct blkdevice *d, uint8_t *dir)
     return -2;
   }
 
-  if (bind(p1[1], p2[0], filename) == ERR) {
+  if (mount(p1[1], p2[0], filename) == ERR) {
     return -3;
   }
 
   close(p1[1]);
   close(p2[0]);
 
-  mount.databuf = malloc(device->blksize * 4);
-  mount.buflen = device->blksize * 4;
+  fsmount.databuf = malloc(device->blksize * 4);
+  fsmount.buflen = device->blksize * 4;
   
-  return fsmountloop(p1[0], p2[1], &mount);
+  return fsmountloop(p1[0], p2[1], &fsmount);
 }
 

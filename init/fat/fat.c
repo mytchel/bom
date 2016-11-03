@@ -282,7 +282,10 @@ fatfilewrite(struct fat *fat, struct fat_file *file,
     
     if (!writesectors(fat, fbuf, fat->spc)) {
       printf("fat mount failed to write updated sectors\n");
-      forcerereadbuf(fat, fbuf);
+      if (!forcerereadbuf(fat, fbuf)) {
+	printf("fat mount failed to read failed write!\n");
+	exit(ERR);
+      }
       *err = ERR;
       break;
     }
@@ -488,7 +491,10 @@ fatfileremove(struct fat *fat, struct fat_file *file)
 
   if (!writesectors(fat, buf, fat->spc)) {
     printf("fat mount failed to write modified dir.\n");
-    forcerereadbuf(fat, buf);
+    if (!forcerereadbuf(fat, buf)) {
+      printf("fat mount failed to read failed write!\n");
+      exit(ERR);
+    }
     return ERR;
   }
 
@@ -586,7 +592,10 @@ fatfilecreate(struct fat *fat, struct fat_file *parent,
 
   if (!fatupdatedirentry(fat, f)) {;
     printf("fat mount failed to update dir entry\n");
-    forcerereadbuf(fat, buf);
+    if (!forcerereadbuf(fat, buf)) {
+      printf("fat mount failed to read failed write!\n");
+      exit(ERR);
+    }
     return 0;
   } else {
     return i;

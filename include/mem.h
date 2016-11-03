@@ -40,7 +40,7 @@ enum { MEM_ram, MEM_io };
  * This is so you can request memory mapped IO.
  */
 void *
-getmem(int type, void *addr, size_t *size);
+mmap(int type, void *addr, size_t *size);
 
 /*
  * Unmaps the pages starting at addr. 
@@ -48,7 +48,7 @@ getmem(int type, void *addr, size_t *size);
  * from getmem. Size should be a multiple of a page.
  */
 int
-rmmem(void *addr, size_t size);
+munmap(void *addr, size_t size);
 
 void *
 malloc(size_t size);

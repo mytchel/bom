@@ -221,7 +221,7 @@ removechild(struct file *p, struct file *f)
   p->stat.size = p->lbuf;
 
   if (f->buf != nil) {
-    rmmem(f->buf, f->stat.size);
+    munmap(f->buf, f->stat.size);
   }
 
   free(f);
@@ -347,7 +347,7 @@ bwrite(struct request_write *req, struct response_write *resp)
 
   if (req->body.offset + req->body.len > f->stat.size) {
     nsize = req->body.offset + req->body.len;
-    nbuf = getmem(MEM_ram, nil, &nsize);
+    nbuf = mmap(MEM_ram, nil, &nsize);
     if (nbuf == nil) {
       resp->head.ret = ENOMEM;
       return;
@@ -355,7 +355,7 @@ bwrite(struct request_write *req, struct response_write *resp)
 
     if (f->stat.size > 0) {
       memmove(nbuf, f->buf, f->stat.size);
-      rmmem(f->buf, f->stat.size);
+      munmap(f->buf, f->stat.size);
     }
 
     f->stat.size = nsize;
@@ -371,7 +371,7 @@ bwrite(struct request_write *req, struct response_write *resp)
   resp->head.ret = OK;
 }
  
-static struct fsmount mount = {
+static struct fsmount fsmount = {
   .getfid = &bgetfid,
   .clunk = &bclunk,
   .stat = &bstat,
@@ -399,7 +399,7 @@ mounttmp(char *path)
     return ERR;
   }
 
-  if (bind(p1[1], p2[0], path) == ERR) {
+  if (mount(p1[1], p2[0], path) == ERR) {
     return ERR;
   }
 	
@@ -433,15 +433,15 @@ mounttmp(char *path)
   root->parent = nil;
   root->children = nil;
 
-  mount.databuf = malloc(512);
-  mount.buflen = 512;
+  fsmount.databuf = malloc(512);
+  fsmount.buflen = 512;
 
-  f = fsmountloop(p1[0], p2[1], &mount);
+  f = fsmountloop(p1[0], p2[1], &fsmount);
 
   printf("tmp mount on %s exiting with %i\n",
 	 path, f);
   
-  free(mount.databuf);
+  free(fsmount.databuf);
   
   exit(f);
 }

@@ -275,7 +275,7 @@ insertpages(struct pagel *pagel, void *addr, size_t size)
 }
 
 reg_t
-sysgetmem(va_list args)
+sysmmap(va_list args)
 {
   struct pagel *pagel, *pp, *pl;
   struct page *pg;
@@ -359,7 +359,7 @@ sysgetmem(va_list args)
 }
 
 reg_t
-sysrmmem(va_list args)
+sysmunmap(va_list args)
 {
   struct pagel *p, *pt, *pp;
   void *addr;

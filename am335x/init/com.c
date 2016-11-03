@@ -355,7 +355,7 @@ commount(char *path)
     return -2;
   }
   
-  if (bind(p1[1], p2[0], path) == ERR) {
+  if (mount(p1[1], p2[0], path) == ERR) {
     return -3;
   }
 
@@ -374,7 +374,7 @@ commount(char *path)
   fsin = p1[0];
  
   uart = (struct uart_struct *)
-    getmem(MEM_io, (void *) UART0, &size);
+    mmap(MEM_io, (void *) UART0, &size);
 
   if (uart == nil) {
     exit(-4);

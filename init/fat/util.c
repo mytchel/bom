@@ -46,7 +46,7 @@ fatinitbufs(struct fat *fat)
   
   while (true) {
     s = fat->spc * fat->bps;
-    addr = getmem(MEM_ram, nil, &s);
+    addr = mmap(MEM_ram, nil, &s);
 
     while (s > fat->spc * fat->bps) {
       fat->bufs[i].addr = addr;
@@ -230,7 +230,10 @@ findfreecluster(struct fat *fat)
 
   if (!writesectors(fat, buf, 1)) {
     printf("fat mount failed to write modified fat table.\n");
-    forcerereadbuf(fat, buf);
+    if (!forcerereadbuf(fat, buf)) {
+      printf("fat mount failed to read failed write!\n");
+      exit(ERR);
+    }
     return 0;
   }
 

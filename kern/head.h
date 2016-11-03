@@ -217,12 +217,6 @@ unlock(struct lock *);
 struct proc *
 procnew(unsigned int priority);
 
-void
-procfsaddproc(struct proc *);
-
-void
-procfsrmproc(struct proc *);
-
 struct proc *
 procwaitchildren(void);
 
@@ -365,8 +359,8 @@ ngroupaddbinding(struct ngroup *n, struct binding *b,
 		 struct bindingfid *boundfid, 
 		 struct bindingfid *rootfid);
 
-void
-ngrouprmbinding(struct ngroup *n, struct binding *b);
+int
+ngroupremovebinding(struct ngroup *n, struct bindingfid *fid);
 
 /* IPC */
 
@@ -428,8 +422,8 @@ reg_t sysexec(va_list);
 reg_t syssleep(va_list);
 reg_t sysgetpid(va_list);
 reg_t syswait(va_list);
-reg_t sysgetmem(va_list);
-reg_t sysrmmem(va_list);
+reg_t sysmmap(va_list);
+reg_t sysmunmap(va_list);
 reg_t syswaitintr(va_list);
 reg_t syschdir(va_list);
 reg_t syspipe(va_list);
@@ -438,7 +432,9 @@ reg_t syswrite(va_list);
 reg_t sysseek(va_list);
 reg_t sysstat(va_list);
 reg_t sysclose(va_list);
+reg_t sysmount(va_list);
 reg_t sysbind(va_list);
+reg_t sysunbind(va_list);
 reg_t sysopen(va_list);
 reg_t sysremove(va_list);
 reg_t syscleanpath(va_list);

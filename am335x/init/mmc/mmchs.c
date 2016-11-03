@@ -526,7 +526,7 @@ mmchsproc(char *n, void *addr, int i)
   name = n;
   intr = i;
 
-  regs = (struct mmchs_regs *) getmem(MEM_io, addr, &regsize);
+  regs = (struct mmchs_regs *) mmap(MEM_io, addr, &regsize);
   if (regs == nil) {
     printf("%s failed to map register space!\n", name);
     return ERR;

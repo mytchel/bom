@@ -34,8 +34,8 @@
 .global sleep
 .global getpid
 .global wait
-.global getmem
-.global rmmem
+.global mmap 
+.global munmap
 .global pipe
 .global read
 .global write
@@ -43,7 +43,9 @@
 .global stat 
 .global chdir
 .global close
+.global mount
 .global bind
+.global unbind
 .global open
 .global remove
 .global cleanpath
@@ -105,17 +107,17 @@ wait:
 	mov pc, lr
 
 
-getmem:
+mmap:
 	push {r0, r1, r2}
-	mov r0, #SYSCALL_GETMEM
+	mov r0, #SYSCALL_MMAP
 	svc 0
 	add sp, sp, #(4 * 3)
 	mov pc, lr
 
 
-rmmem:
+munmap:
 	push {r0, r1}
-	mov r0, #SYSCALL_RMMEM
+	mov r0, #SYSCALL_MUNMAP
 	svc 0
 	add sp, sp, #(4 * 2)
 	mov pc, lr
@@ -176,12 +178,29 @@ close:
 	mov pc, lr
 
 
-bind:
+mount:
 	push {r0, r1,  r2}
-	mov r0, #SYSCALL_BIND
+	mov r0, #SYSCALL_MOUNT
 	svc 0
 	add sp, sp, #(4 *3)
 	mov pc, lr
+
+
+bind:
+	push {r0, r1}
+	mov r0, #SYSCALL_BIND
+	svc 0
+	add sp, sp, #(4 *2)
+	mov pc, lr
+
+
+unbind:
+	push {r0}
+	mov r0, #SYSCALL_UNBIND
+	svc 0
+	add sp, sp, #(4)
+	mov pc, lr
+
 
 open:
 	push {r0, r1, r2}

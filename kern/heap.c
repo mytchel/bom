@@ -32,14 +32,13 @@ struct block {
   struct block *next;
 };
 
-static struct lock heaplock;
+static struct lock heaplock = {0};
 static struct block *heap = nil;
 static struct pagel *pages = nil;
 
 void
 heapinit(void *start, size_t size)
 {
-  memset(&heaplock, 0, sizeof(heaplock));
   heap = (struct block *) start;
   heap->size = size - sizeof(size_t);
   heap->next = nil;

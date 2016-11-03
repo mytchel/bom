@@ -131,7 +131,7 @@ bremove(struct request_remove *req, struct response_remove *resp)
   resp->head.ret = fatfileremove(fat, &fat->files[req->head.fid]);
 }
 
-static struct fsmount mount = {
+static struct fsmount fsmount = {
   .getfid = &bgetfid,
   .clunk  = &bclunk,
   .stat = &bstat,
@@ -179,8 +179,8 @@ mountfat(char *device, char *dir)
     return ERR;
   }
 
-  if (bind(p1[1], p2[0], dir) == ERR) {
-    printf("failed to bind to %s\n", dir);
+  if (mount(p1[1], p2[0], dir) == ERR) {
+    printf("failed to mount to %s\n", dir);
     close(fddev);
     close(fddir);
     return ERR;
@@ -198,20 +198,20 @@ mountfat(char *device, char *dir)
     return OK;
   }
 
-  mount.buflen = fat->spc * fat->bps;
-  mount.databuf = malloc(mount.buflen);
+  fsmount.buflen = fat->spc * fat->bps;
+  fsmount.databuf = malloc(fsmount.buflen);
 
-  if (mount.databuf == nil) {
+  if (fsmount.databuf == nil) {
     printf("mountfat failed to alloc data buf.\n");
     exit(ENOMEM);
   }
   
-  i = fsmountloop(p1[0], p2[1], &mount);
+  i = fsmountloop(p1[0], p2[1], &fsmount);
 
   printf("fat mount for %s on %s exiting with %i\n",
 	 device, dir, i);
   
-  free(mount.databuf);
+  free(fsmount.databuf);
 
   close(fddev);
   close(fddir);

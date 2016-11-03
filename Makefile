@@ -80,7 +80,7 @@ KSRC_P := \
         kern/heap.c          \
         kern/sysproc.c       \
         kern/sysfile.c       \
-        kern/syscall.c       \
+        kern/systab.c        \
         kern/exec.c          \
         lib/string.c         \
         lib/fssrv.c          \
