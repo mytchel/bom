@@ -28,11 +28,17 @@
 #include <libc.h>
 
 int
-main(void)
+main(int argc, char *argv[])
 {
   char buf[] = "Hello, World.\n";
-  int r;
+  int r, i;
 
-  r = write(STDOUT, buf, sizeof(buf));
-  return r;
+  for (i = 0; i < argc; i++) {
+    r = write(STDOUT, buf, sizeof(buf));
+    if (r != sizeof(buf)) {
+      return r;
+    }
+  }
+  
+  return 0;
 }

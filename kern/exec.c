@@ -128,9 +128,10 @@ kexec(struct chan *f, int argc, char *argv[])
 	ss = phdr.p_filesz - s;
       }
 
-      printf("read ss bytes of page\n", ss);
+      printf("read %i bytes of page\n", ss);
       
       if ((r = fileread(f, pg->pa, ss)) != ss) {
+	printf("file read failed %i\n", r);
 	pagefree(pg);
 	mgroupfree(mnew);
 	return r;

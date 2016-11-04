@@ -23,12 +23,12 @@
 #  OTHER DEALINGS IN THE SOFTWARE
 #
 
-include ../../config.mk
+BASE ?= ../..
+include $(BASE)/config.mk
 
 src = bintoarray.c
 
 bintoarray: $(src)
-	@echo HOSTCC $@
 	@$(HOSTCC) $(HOSTCFLAGS) -o $@ $(src) $(HOSTLDFLAGS)
 
 

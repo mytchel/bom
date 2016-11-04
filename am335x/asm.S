@@ -28,7 +28,6 @@
 .section .text
 
 .global getcpsr
-.global _start
 .global setlabel
 .global gotolabel
 .global droptouser
@@ -45,37 +44,6 @@
 .global testandset
 .global atomicinc 
 .global atomicdec
-
-
-_start:
-	ldr r0, = _kernel_bss_start
-	ldr r1, = _kernel_bss_end
-	mov r2, #0
-	mov r3, #0
-1:
-	stmia r0!, {r2, r3}
-	cmp r0, r1
-	blt 1b
-
-	bl cachedisable
-	bl mmudisable
-
-	mrc p15, 0, r0, c1, c0, 0
-	orr r0, r0, #(1<<1) @ enable branch prediction
-	mcr p15, 0, r0, c1, c0, 0
-	
-	cps #MODE_IRQ
-	ldr sp, =_ex_stack_top
-	cps #MODE_ABORT
-	ldr sp, =_ex_stack_top
-	cps #MODE_UND
-	ldr sp, =_ex_stack_top
-	cps #MODE_SVC
-	ldr sp, =_ex_stack_top
-	
-	bl vectortableinit
-
-	b main
 
 
 setintr:

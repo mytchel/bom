@@ -34,9 +34,6 @@
 #include "shell.h"
 
 int
-mounttmp(char *path);
-
-int
 mountfat(char *device, char *dir);
 
 static int cmdpwd(int argc, char **argv);
@@ -49,7 +46,6 @@ static int cmdcat(int argc, char **argv);
 static int cmdcp(int argc, char **argv);
 static int cmdbind(int argc, char **argv);
 static int cmdunbind(int argc, char **argv);
-static int cmdmounttmp(int argc, char **argv);
 static int cmdmountfat(int argc, char **argv);
 
 struct func cmds[] = {
@@ -63,7 +59,6 @@ struct func cmds[] = {
   { "cp",        &cmdcp },
   { "bind",      &cmdbind },
   { "unbind",    &cmdunbind },
-  { "mounttmp",  &cmdmounttmp },
   { "mountfat",  &cmdmountfat },
 };
 
@@ -337,17 +332,6 @@ cmdunbind(int argc, char **argv)
   }
 
   return r;
-}
-
-int
-cmdmounttmp(int argc, char **argv)
-{
-  if (argc != 2) {
-    printf("usage: %s dir\n", argv[0]);
-    return ERR;
-  }
-
-  return mounttmp(argv[1]);
 }
 
 int

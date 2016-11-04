@@ -23,51 +23,48 @@
 #  OTHER DEALINGS IN THE SOFTWARE
 #
 
-.SUFFIXES: .umg
+.SUFFIXES:
+.SUFFIXES: .c .S .h .o .a .elf .bin .list .umg
+
+BASE = $(.CURDIR)/..
 
 CLEAN += am335x.umg am335x.list init.list
 
 .PHONY: all
-all: am335x.umg am335x.list init.list
+all: am335x.umg $(BASE)/lib/libc.a am335x.list init.list
 
-include ../common.mk
-include ../config.mk
+include $(BASE)/config.mk
 
-CC = $(CROSS_COMPILE)gcc
-LD = $(CROSS_COMPILE)ld
-OBJCOPY = $(CROSS_COMPILE)objcopy
-OBJDUMP = $(CROSS_COMPILE)objdump
+SUBDIR =
+SUBDIR += $(BASE)/lib
+SUBDIR += $(BASE)/tools/mkuboot
+SUBDIR += $(BASE)/tools/bintoarray
 
-CFLAGS += -mcpu=cortex-a8 \
-	-nostdinc -ffreestanding \
-        -D_$(TARGET)_ \
-        -I../include 
+ISRC = \
+	com/com.c               \
+	mmc/mmchs.c             \
+	mmc/emmc.c              \
+	mmc/sd.c                \
+        mmc/misc.c              \
+        ../init/main.c          \
+        ../init/mbr.c           \
+        ../init/fat/fat.c       \
+        ../init/fat/util.c      \
+        ../init/fat/mount.c     \
+        ../init/shell/shell.c   \
+        ../init/shell/cmds.c
 
 
-LDFLAGS += -nostdlib -nodefaultlibs \
-	-L/usr/local/lib/gcc/arm-none-eabi/4.9.3/
-
-LIBS += -lgcc
-
-ISRC_A := \
-	init/syscalls.S		\
-
-
-ISRC_C := \
-	init/com.c              \
-	init/mmc/mmchs.c        \
-	init/mmc/emmc.c         \
-	init/mmc/sd.c           \
-        init/mmc/misc.c
+IOBJECTS := $(ISRC:%.c=%.o)
+CLEAN += $(IOBJECTS)
 
 
 KSRC_A := \
-        asm.S                   \
-        vectors.S
+        vectors.S               \
+        asm.S
 
 
 KSRC_C := \
-	initcode.c              \
         main.c                  \
         trap.c                  \
         uart.c                  \
@@ -75,44 +72,117 @@ KSRC_C := \
         mem.c                   \
         proc.c                  \
         syscall.c               \
-        mmu.c
+        mmu.c                   \
+	initcode.c              \
+        ../kern/com.c           \
+        ../kern/proc.c          \
+        ../kern/lock.c          \
+        ../kern/page.c          \
+        ../kern/fgroup.c        \
+        ../kern/ngroup.c        \
+        ../kern/chan.c          \
+        ../kern/pipe.c          \
+        ../kern/file.c          \
+        ../kern/mount.c         \
+        ../kern/rootfs.c        \
+        ../kern/path.c          \
+        ../kern/heap.c          \
+        ../kern/sysproc.c       \
+        ../kern/sysfile.c       \
+        ../kern/systab.c        \
+        ../kern/exec.c          \
+        ../lib/string/string.c  \
+        ../lib/fssrv/fssrv.c    \
+	../lib/mem/mem.c        \
+        ../lib/ctype/ctype.c
 
 
-include ../kern/local.mk
-include ../init/local.mk
+KOBJECTS := \
+	$(KSRC_A:%.S=%.o) \
+	$(KSRC_C:%.c=%.o)
 
 
-SUBCLEAN += ../tools/mkuboot
-MKUBOOT := ../tools/mkuboot/mkuboot
-$(MKUBOOT):
-	@$(MAKE) -C ../tools/mkuboot
+CLEAN += $(KOBJECTS)
 
 
-SUBCLEAN += ../tools/bintoarray
-BINTOARRAY := ../tools/bintoarray/bintoarray
-$(BINTOARRAY):
-	@$(MAKE) -C ../tools/bintoarray
+.c.o .S.o:
+	$(CC) $(CFLAGS) -c $< -o $@
+
+
+.o.a:
+	$(AR) rcs $@ $<
+
+
+.elf.bin:
+	@$(OBJCOPY) -Obinary $< $@
+
+
+.elf.list:
+	@$(OBJDUMP) -S $< > $@
+
+
+.PHONY: $(SUBDIR)
+.for sub in $(SUBDIR)
+$(sub):
+	$(MAKE) -C $(sub) BASE="$(BASE)"
+.endfor
+
+
+CLEAN += c.a c.o
+c.a: c.o
+
+CLEAN += $(BASE)/lib/libc.a c.a
+$(BASE)/lib/libc.a: c.a
+	cp c.a $(BASE)/lib/libc.a	
+
+
+CLEAN += init.elf init.list
+init.elf: init.ld $(BASE)/lib/libc.a $(BASE)/lib $(IOBJECTS)
+	$(LD) -nostdlib -nodefaultlibs \
+		-L/usr/local/lib/gcc/arm-none-eabi/4.9.3/ \
+		-L$(BASE)/lib \
+		-T init.ld -o $@  \
+		$(IOBJECTS) \
+		-lc -lgcc -lstd \
+		-lctype -lfssrv -lstring -lmem
 
 
 CLEAN += initcode.c initcode.o
-initcode.c: init.elf $(BINTOARRAY)
+initcode.c: init.elf $(BASE)/tools/bintoarray
 	@echo Generate initcode.c
-	@$(OBJCOPY) init.elf /dev/null \
+	$(OBJCOPY) init.elf /dev/null \
 		--dump-section .text=/dev/stdout | \
-		$(BINTOARRAY) initcodetext > initcode.c
-	@$(OBJCOPY) init.elf /dev/null \
+		$(BASE)/tools/bintoarray/bintoarray initcodetext > initcode.c
+	$(OBJCOPY) init.elf /dev/null \
 		--dump-section .data=/dev/stdout | \
-		$(BINTOARRAY) initcodedata >> initcode.c
+		$(BASE)/tools/bintoarray/bintoarray initcodedata >> initcode.c
+
+
+CLEAN += $(TARGET).elf $(TARGET).list
+am335x.elf: kernel.ld $(KOBJECTS)
+	$(LD) -nostdlib -nodefaultlibs \
+		-L/usr/local/lib/gcc/arm-none-eabi/4.9.3/ \
+		-T kernel.ld -o $@  \
+		$(KOBJECTS) \
+		-lgcc
 
 
 loadaddr=0x82000000
 
 CLEAN += am335x.elf am335x.bin
-am335x.umg: am335x.bin $(MKUBOOT)
-	@echo MKUBOOT $@
-	@../tools/mkuboot/mkuboot -a arm \
+am335x.umg: am335x.bin $(BASE)/tools/mkuboot
+	$(BASE)/tools/mkuboot/mkuboot -a arm \
 		-e ${loadaddr} -l ${loadaddr} -o linux \
 		am335x.bin am335x.umg
 	cp am335x.umg /var/ftpd
 
+
+.PHONY: clean 
+clean: 
+	@echo cleaning
+	rm -f $(CLEAN)
+.for sub in $(SUBDIR)
+	$(MAKE) -C $(sub) clean \
+		BASE="$(BASE)"
+.endfor
 

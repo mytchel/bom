@@ -6,6 +6,7 @@ SECTIONS
 
 	.text :
 	{
+		libc.a(.text)
 		*(.text)
 		*(.text.*)
 		. = ALIGN(4096);
