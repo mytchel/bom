@@ -1,5 +1,4 @@
 /*
- *
  * Copyright (c) 2016 Mytchel Hammond <mytchel@openmailbox.org>
  * 
  * Permission is hereby granted, free of charge, to any person
@@ -25,21 +24,35 @@
  *
  */
 
-#include <libc.h>
+#include <types.h>
 
 int
-main(int argc, char *argv[])
+__bitfield(uint32_t *src, int start, int len)
 {
-  char buf[] = "Hello, World.\n";
-  int r, i, l;
+	uint8_t *sp;
+	uint32_t dst, mask;
+	int shift, bs, bc;
 
-  l = strlen(buf);
-  
-  for (i = 0; i < argc; i++) {
-    if ((r = write(STDOUT, buf, l)) != l) {
-      return r;
-    }
-  }
-  
-  return 0;
+	if (start < 0 || len < 0 || len > 32)
+		return 0;
+
+	dst = 0;
+	mask = len % 32 ? UINT_MAX >> (32 - (len % 32)) : UINT_MAX;
+	shift = 0;
+
+	while (len > 0) {
+		sp = (uint8_t *)src + start / 8;
+		bs = start % 8;
+		bc = 8 - bs;
+		if (bc > len)
+			bc = len;
+		dst |= (*sp >> bs) << shift;
+		shift += bc;
+		start += bc;
+		len -= bc;
+	}
+
+	dst &= mask;
+	return (int)dst;
 }
+

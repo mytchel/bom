@@ -29,7 +29,6 @@
 
 .global _start
 
-
 _start:
 	ldr r0, = _kernel_bss_start
 	ldr r1, = _kernel_bss_end
@@ -103,7 +102,7 @@ swi_ex:
 
 	mov sp, r0
 	bl syscall
-	add sp, sp, #(4 * 17)
+	add r1, sp, #(4 * 17)
 	b droptouser
 	
 
@@ -182,7 +181,7 @@ _user:  @ user mode interrupted
 	@ r0 -> interrupted label, r1 -> type
 	bl trap
 	@ r0 -> interrupted label
-	add sp, sp, #(4 * 17)
+	add r1, sp, #(4 * 17)
 	b droptouser
 
 

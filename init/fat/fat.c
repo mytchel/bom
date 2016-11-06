@@ -218,18 +218,18 @@ fatfileread(struct fat *fat, struct fat_file *file,
     fbuf = readsectors(fat, clustertosector(fat, cluster), fat->spc);
     if (fbuf == nil) {
       *err = ERR;
+      break;
     }
 
-    if (offset + len >= fat->spc * fat->bps) {
+    if (offset + (len - tlen) >= fat->spc * fat->bps) {
       rlen = fat->spc * fat->bps - offset;
     } else {
-      rlen = len;
+      rlen = (len - tlen);
     }
 
     memmove(buf, fbuf->addr + offset, rlen);
     offset = 0;
 
-    len -= rlen;
     tlen += rlen;
     buf += rlen;
   }

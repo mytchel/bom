@@ -1,5 +1,4 @@
 /*
- *
  * Copyright (c) 2016 Mytchel Hammond <mytchel@openmailbox.org>
  * 
  * Permission is hereby granted, free of charge, to any person
@@ -26,20 +25,35 @@
  */
 
 #include <libc.h>
+#include <fs.h>
+#include <stdarg.h>
+#include <string.h>
+
+int
+mounttmp(char *path);
 
 int
 main(int argc, char *argv[])
 {
-  char buf[] = "Hello, World.\n";
-  int r, i, l;
-
-  l = strlen(buf);
+  int fd, r;
   
-  for (i = 0; i < argc; i++) {
-    if ((r = write(STDOUT, buf, l)) != l) {
-      return r;
-    }
+  if (argc != 2) {
+    printf("usage: %s /path/to/mount\n", argv[0]);
+    return -1;
   }
-  
-  return 0;
+
+  fd = open(argv[1], O_WRONLY|O_CREATE, ATTR_wr|ATTR_rd|ATTR_dir);
+  if (fd < 0) {
+    printf("failed to open %s\n", argv[1]);
+    return ERR;
+  }
+
+  r = mounttmp(argv[1]);
+
+  if (r == OK) {
+    return OK;
+  }
+
+  printf("tmp mount error on %s, %i\n", argv[1], r);
+  return r;
 }

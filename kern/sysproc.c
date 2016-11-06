@@ -115,12 +115,14 @@ sysfork(va_list args)
     }
   }
 
+  p->parent = up;
   forkchild(p, up->ureg);
 
-  up->nchildren++;
-  p->parent = up;
-
   setintr(INTR_OFF);
+
+  p->cnext = up->children;
+  up->children = p;
+
   procready(p);
   setintr(INTR_ON);
 

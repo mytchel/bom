@@ -37,9 +37,8 @@ mountproc(void *arg)
   
   b = (struct binding *) arg;
 
-  while (true) {
+  while (b->refs > 1) {
     if (piperead(b->in, (void *) &tresp, sizeof(tresp)) < 0) {
-      printf("kproc mount: error reading response.\n");
       break;
     }
 
@@ -78,10 +77,15 @@ mountproc(void *arg)
 
   lock(&b->lock);
 
-  chanfree(b->in);
-  b->in = nil;
-  chanfree(b->out);
-  b->out = nil;
+  if (b->in != nil) {
+    chanfree(b->in);
+    b->in = nil;
+  }
+
+  if (b->out != nil) {
+    chanfree(b->out);
+    b->out = nil;
+  }
 
   /* Wake up any waiting processes so they can error. */
 

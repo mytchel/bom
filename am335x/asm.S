@@ -87,6 +87,8 @@ gotolabel:
 
 
 droptouser:
+	mov sp, r1
+	
 	mov r2, #(MODE_SYS|MODE_DI|MODE_DF)
 	msr cpsr, r2
 

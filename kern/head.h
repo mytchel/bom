@@ -155,12 +155,13 @@ typedef enum {
 } procstate_t;
 
 struct proc {
-  struct proc *next; /* For list of procs in list */
   struct proc **list;
+  struct proc *next; /* For list of procs in list */
 
-  size_t nchildren;
   int exitcode;
-  struct proc *deadchildren;
+
+  struct proc *cnext; /* For child procs list */
+  struct proc *children, *deadchildren;
   
   struct label *ureg;
   struct label label;
@@ -483,6 +484,9 @@ forkfunc(struct proc *, int (*func)(void *), void *);
 
 void
 forkchild(struct proc *, struct label *);
+
+void
+readyexec(struct label *ureg, void *entry, int argc, char *argv[]);
 
 void
 mmuswitch(struct proc *);

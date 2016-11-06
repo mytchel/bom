@@ -440,7 +440,6 @@ sysunbind(va_list args)
   }
 
   ret = ngroupremovebinding(up->ngroup, fid);
-  printf("ret = %i\n", ret);
   
   bindingfidfree(fid);
   pathfree(path);

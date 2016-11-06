@@ -76,4 +76,39 @@ forkchild(struct proc *p, struct label *ureg)
 
   p->label.pc = (uint32_t) &droptouser;
   p->label.regs[0] = (uint32_t) nreg;
+  p->label.regs[1] = p->label.sp;
+}
+
+void
+readyexec(struct label *ureg, void *entry,
+	  int argc, char *argv[])
+{
+  char **largv;
+  size_t l;
+  int i;
+  
+  memset(ureg, 0, sizeof(struct label));
+
+  ureg->psr = MODE_USR;
+  ureg->pc = (uint32_t) entry;
+  ureg->sp = USTACK_TOP;
+
+  ureg->regs[0] = argc;
+
+  ureg->sp -= sizeof(char *) * argc;
+  
+  ureg->regs[1] = ureg->sp;
+  largv = (char **) ureg->sp;
+		     
+  for (i = 0; i < argc; i++) {
+    l = strlen(argv[i]) + 1;
+
+    ureg->sp -= l;
+    ureg->sp -= ureg->sp % sizeof(reg_t);
+    
+    printf("copy arg %i to stack at 0x%h\n", i, ureg->sp);
+    largv[i] = (char *) ureg->sp;
+    memmove((void *) ureg->sp, argv[i], l);
+    printf("0x%h has '%s'\n", ureg->sp, ureg->sp);
+  }
 }

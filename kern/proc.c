@@ -209,8 +209,9 @@ procnew(unsigned int priority)
 
   p->timeused = 0;
 
+  p->cnext = nil;
+  p->children = nil;
   p->deadchildren = nil;
-  p->nchildren = 0;
   p->parent = nil;
 
   p->dot = nil;
@@ -231,6 +232,8 @@ procnew(unsigned int priority)
 void
 procexit(struct proc *p, int code)
 {
+  struct proc *c, *cprev;
+  
   p->state = PROC_dead;
   p->exitcode = code;
   
@@ -249,11 +252,15 @@ procexit(struct proc *p, int code)
     p->ngroup = nil;
   }
 
-  pathfree(p->dot);
-  p->dot = nil;
+  if (p->dot != nil) {
+    pathfree(p->dot);
+    p->dot = nil;
+  }
 
-  pagelfree(p->ustack);
-  p->ustack = nil;
+  if (p->ustack != nil) {
+    pagelfree(p->ustack);
+    p->ustack = nil;
+  }
 
   if (p->mmu != nil) {
     mmufree(p->mmu);
@@ -268,21 +275,58 @@ procexit(struct proc *p, int code)
   removefromlist(p->list, p);
   p->list = nil;
 
+  /* Update childrens parent to be their grandparent */
+
+  cprev = nil;
+  for (c = p->children; c != nil; cprev = c, c = c->cnext) {
+    c->parent = p->parent;
+  }
+
+  if (cprev == nil) {
+    p->children = p->cnext;
+  } else {
+    cprev->cnext = p->cnext;
+  }
+
   if (p->parent != nil) {
+    /* Remove proc from parents child list */
+    cprev = nil;
+    for (c = p->parent->children; c != nil; cprev = c, c = c->cnext) {
+      if (c == p) {
+	/* And add procs children to parents child list */
+	if (cprev == nil) {
+	  p->parent->children = p->children;
+	} else {
+	  cprev->cnext = p->children;
+	}
+
+	p->children = nil;
+
+	break;
+      }
+    }
+
+    if (c == nil) {
+      goto err;
+    }
+    
     addtolistback(&p->parent->deadchildren, p);
 
     p->next = p->deadchildren;
-    p->parent->nchildren += p->nchildren;
 
     if (p->parent->state == PROC_waiting
 	&& p->parent->list == &waitchildren) {
       procready(p->parent);
     }
 
-  } else {
-    procfree(p);
+    goto norm;
   }
 
+  /* Not really an error but what ever */
+ err:
+  procfree(p);
+
+ norm:
   if (p == up) {
     up = nil;
   }
@@ -300,17 +344,18 @@ procwaitchildren(void)
 {
   struct proc *p;
 
-  if (up->nchildren == 0) {
+  if (up->children == nil) {
     return nil;
   } else if (up->deadchildren == nil) {
     setintr(INTR_OFF);
     procwait(up, &waitchildren);
     schedule();
-    setintr(INTR_ON);
   }
 
   p = up->deadchildren;
   up->deadchildren = p->next;
+
+  setintr(INTR_ON);
 
   return p;
 }

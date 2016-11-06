@@ -26,20 +26,50 @@
  */
 
 #include <libc.h>
+#include <types.h>
+#include <ctype.h>
 
-int
-main(int argc, char *argv[])
+bool
+isspace(int c)
 {
-  char buf[] = "Hello, World.\n";
-  int r, i, l;
+  switch (c) {
+  case ' ':
+  case '\n':
+  case '\r':
+  case '\t':
+  case '\v':
+    return true;
+  default:
+    return false;
+  };
+}
 
-  l = strlen(buf);
-  
-  for (i = 0; i < argc; i++) {
-    if ((r = write(STDOUT, buf, l)) != l) {
-      return r;
-    }
+long
+strtol(const char *nptr, char **endptr, int base)
+{
+  long n = 0;
+  bool positive = true;
+
+  while (isspace(*nptr))
+    nptr++;
+
+  if (*nptr == '+') {
+    positive = true;
+    nptr++;
+  } else if (*nptr == '-') {
+    positive = false;
+    nptr++;
+  }
+
+  while (*nptr != 0 && !isspace(*nptr)) {
+    n = n * base;
+    n += (*nptr - '0');
+    nptr++;
+  }
+
+  if (!positive) {
+    n = -n;
   }
   
-  return 0;
+  return n;
 }

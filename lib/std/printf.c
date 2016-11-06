@@ -26,20 +26,21 @@
  */
 
 #include <libc.h>
+#include <stdarg.h>
+#include <string.h>
 
-int
-main(int argc, char *argv[])
+void
+printf(const char *fmt, ...)
 {
-  char buf[] = "Hello, World.\n";
-  int r, i, l;
+  char str[128];
+  size_t i;
+  va_list ap;
 
-  l = strlen(buf);
-  
-  for (i = 0; i < argc; i++) {
-    if ((r = write(STDOUT, buf, l)) != l) {
-      return r;
-    }
+  va_start(ap, fmt);
+  i = vsnprintf(str, 128, fmt, ap);
+  va_end(ap);
+
+  if (i > 0) {
+    write(STDOUT, str, i);
   }
-  
-  return 0;
 }

@@ -171,10 +171,22 @@ bindingfree(struct binding *b)
     return;
   }
 
+  if (b->in != nil) {
+    chanfree(b->in);
+    b->in = nil;
+  }
+
+  if (b->out != nil) {
+    chanfree(b->out);
+    b->out = nil;
+  }
+  
   /* There should only be the root binding left, which
    * bindingfidfree releasing after calling this. */
 
-  free(b);
+  if (b->refs < 0) {
+    free(b);
+  }
 }
 
 int

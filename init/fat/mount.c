@@ -198,8 +198,8 @@ mountfat(char *device, char *dir)
     return OK;
   }
 
-  fsmount.buflen = fat->spc * fat->bps;
-  fsmount.databuf = malloc(fsmount.buflen);
+  fsmount.buflen = fat->bps * fat->spc;
+  fsmount.databuf = mmap(MEM_ram, nil, &fsmount.buflen);
 
   if (fsmount.databuf == nil) {
     printf("mountfat failed to alloc data buf.\n");

@@ -193,7 +193,7 @@ static void
 processline(char *line)
 {
   char *argv[MAX_ARGS];
-  int argc;
+  int argc, pid, p;
 
   argv[0] = strsection(line);
   if (argv[0] == nil) {
@@ -210,10 +210,12 @@ processline(char *line)
     return;
   }
 
-  if (fork(FORK_sngroup) == 0) {
+  pid = fork(FORK_sngroup);
+  if (pid == 0) {
     runcmd(argc, argv);
   } else {
-    wait(&ret);
+    while ((p = wait(&ret)) != pid)
+      ;
   }
 }
 

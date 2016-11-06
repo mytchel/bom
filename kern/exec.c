@@ -51,12 +51,10 @@ kexec(struct chan *f, int argc, char *argv[])
       head.e_ident[2] != 'L' ||
       head.e_ident[3] != 'F') {
 
-    printf("not an elf file.\n");
     return ERR;
   }
 
   if (head.e_class != 1) {
-    printf("is not 32 bit.\n");
     return ERR;
   }
 
@@ -64,15 +62,6 @@ kexec(struct chan *f, int argc, char *argv[])
     return r;
   }
 
-  printf("entry at 0x%h\n", hdr.e_entry);
-  printf("pheader at 0x%h\n", hdr.e_phoff);
-  printf("sheader at 0x%h\n", hdr.e_shoff);
-
-  memset(&ureg, 0, sizeof(ureg));
-  ureg.psr = MODE_USR;
-  ureg.pc = hdr.e_entry;
-  ureg.sp = USTACK_TOP - PAGE_SIZE;
-  
   mnew = mgroupnew();
   if (mnew == nil) {
     return ERR;
@@ -80,8 +69,6 @@ kexec(struct chan *f, int argc, char *argv[])
   
   plprev = nil;
   
-  printf("read %i program headers\n", hdr.e_phnum);
-
   for (i = 0; i < hdr.e_phnum; i++) {
 
     if ((r = fileseek(f, hdr.e_phoff
@@ -93,56 +80,43 @@ kexec(struct chan *f, int argc, char *argv[])
     }
 
     if ((r = fileread(f, &phdr, sizeof(phdr))) != sizeof(phdr)) {
-      printf("failed to read phdr\n");
       mgroupfree(mnew);
       return r;
     }
 
-    printf("pheader %i\n", i);
-    printf("type = %i\n", phdr.p_type);
-    printf("offset = 0x%h\n", phdr.p_offset);
-    printf("vaddr = 0x%h\n", phdr.p_vaddr);
-    printf("fsize = 0x%h\n", phdr.p_filesz);
-    printf("msize = 0x%h\n", phdr.p_memsz);
-    printf("flags = 0x%h\n", phdr.p_flags);
-    printf("align = %i\n", phdr.p_align);
-    
     if ((r = fileseek(f, phdr.p_offset, SEEK_SET)) != OK) {
       mgroupfree(mnew);
       return r;
     }
 
     s = 0;
-    while (s < phdr.p_filesz) {
-      printf("get page for va 0x%h\n", phdr.p_vaddr + s);
-      
+    while (s < phdr.p_memsz) {
       pg = getrampage();
       if (pg == nil) {
 	mgroupfree(mnew);
 	return ERR;
       }
 
-      if (phdr.p_filesz - s > PAGE_SIZE) {
-	ss = PAGE_SIZE;
+      if (phdr.p_filesz > s) {
+	if (phdr.p_filesz - s > PAGE_SIZE) {
+	  ss = PAGE_SIZE;
+	} else {
+	  ss = phdr.p_filesz - s;
+	}
+
+	if ((r = fileread(f, pg->pa, ss)) != ss) {
+	  pagefree(pg);
+	  mgroupfree(mnew);
+	  return r;
+	}
       } else {
-	ss = phdr.p_filesz - s;
+	ss = 0;
       }
-
-      printf("read %i bytes of page\n", ss);
-      
-      if ((r = fileread(f, pg->pa, ss)) != ss) {
-	printf("file read failed %i\n", r);
-	pagefree(pg);
-	mgroupfree(mnew);
-	return r;
-      }
-
+    
       if (ss < PAGE_SIZE) {
-	printf("set rest of page zero\n");
 	memset(pg->pa + ss, 0, PAGE_SIZE - ss);
       }
     
-      printf("wrap page\n");
       pl = wrappage(pg, (void *) (phdr.p_vaddr + s), true, true);
       if (pl == nil) {
 	pagefree(pg);
@@ -150,7 +124,6 @@ kexec(struct chan *f, int argc, char *argv[])
 	return ERR;
       }
 
-      printf("add to list\n");
       if (plprev == nil) {
 	mnew->pages = pl;
       } else {
@@ -159,12 +132,11 @@ kexec(struct chan *f, int argc, char *argv[])
 
       plprev = pl;
 
-      printf("move on to next page\n");
-      s += ss;
+      s += PAGE_SIZE;
     }
   }
 
-  printf("good, now free mgroup\n");
+  chanfree(f);
   
   nmmu = mmunew();
   if (nmmu == nil) {
@@ -177,15 +149,13 @@ kexec(struct chan *f, int argc, char *argv[])
 
   mgroupfree(up->mgroup);
   up->mgroup = mnew;
+
+  readyexec(&ureg, (void *) hdr.e_entry, argc, argv);
  
   setintr(INTR_OFF);
 
-  printf("switch mmu, may work?\n");
-
   mmuswitch(up);
   
-  printf("drop to user\n");
-
   droptouser(&ureg, up->kstack->pa + PAGE_SIZE);
 
   setintr(INTR_ON);
