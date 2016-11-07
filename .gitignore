@@ -1,6 +1,7 @@
 docs
 
 *.o
+*.a
 *.out
 *.elf
 *.bin

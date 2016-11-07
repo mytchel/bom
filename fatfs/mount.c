@@ -195,7 +195,7 @@ mountfat(char *device, char *dir)
     close(p2[1]);
     close(fddir);
     close(fddev);
-    return OK;
+    return 0;
   }
 
   fsmount.buflen = fat->bps * fat->spc;

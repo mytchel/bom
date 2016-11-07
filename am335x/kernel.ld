@@ -1,8 +1,6 @@
 SECTIONS
 {
-	. = 0x80000000;
-	_ram_start = .;
-	. = 0x82000000;
+	_ram_start = 0x80000000;
 
 	_kernel_start = .;
 	.text :
