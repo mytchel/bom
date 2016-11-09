@@ -53,7 +53,7 @@ schedulerinit(void)
  int i;
   
   for (i = 0; i < 17; i++) {
-    queues[i].quanta = mstoticks((18 - i) * 1000 + 10);
+    queues[i].quanta = mstoticks((18 - i) * 10 + 50);
     queues[i].ready = nil;
     queues[i].used = nil;
   }
@@ -175,8 +175,8 @@ schedule(void)
   up = nextproc();
   up->state = PROC_oncpu;
 
-  mmuswitch(up);
-  
+  mmuswitch();
+
   cticks();
   setsystick(queues[up->priority].quanta
 	     - up->timeused);
@@ -193,7 +193,9 @@ procnew(unsigned int priority)
   if (p == nil) {
     return nil;
   }
-	
+
+  memset(p, 0, sizeof(struct proc));
+  
   p->pid = nextpid++;
   p->priority = priority;
 
@@ -205,24 +207,6 @@ procnew(unsigned int priority)
     return nil;
   }
  
-  p->ureg = nil;
-
-  p->timeused = 0;
-
-  p->cnext = nil;
-  p->children = nil;
-  p->deadchildren = nil;
-  p->parent = nil;
-
-  p->dot = nil;
-  p->dotchan = nil;
-  p->root = nil;
-
-  p->ustack = nil;
-  p->mgroup = nil;
-  p->fgroup = nil;
-  p->ngroup = nil;
-
   p->state = PROC_suspend;
   addtolistfront(&suspended, p);
 

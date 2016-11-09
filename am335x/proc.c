@@ -99,16 +99,14 @@ readyexec(struct label *ureg, void *entry,
   
   ureg->regs[1] = ureg->sp;
   largv = (char **) ureg->sp;
-		     
+
   for (i = 0; i < argc; i++) {
     l = strlen(argv[i]) + 1;
 
     ureg->sp -= l;
-    ureg->sp -= ureg->sp % sizeof(reg_t);
+    ureg->sp -= ureg->sp % sizeof(void *);
     
-    printf("copy arg %i to stack at 0x%h\n", i, ureg->sp);
     largv[i] = (char *) ureg->sp;
     memmove((void *) ureg->sp, argv[i], l);
-    printf("0x%h has '%s'\n", ureg->sp, ureg->sp);
   }
 }

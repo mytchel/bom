@@ -64,10 +64,23 @@ struct elf_pheader32 {
 
 struct elf_sheader32 {
   uint32_t name;
+
+#define NULL 0
+#define PROGBITS 1
+#define SYMTAB 2
+#define STRTAB 3
   uint32_t type;
+
+#define SHF_WRITE 0x1
+#define SHF_ALLOC 0x2
+#define SHF_EXEC  0x4
+#define SHF_TLS   0x400
+  
   uint32_t flags;
+
   uint32_t addr;
   uint32_t offset;
   uint32_t size;
+
 }__attribute((packed));
 

@@ -49,8 +49,6 @@ main(void)
   rootfsinit();
   initmainproc();
 
-  puts("Starting procs...\n");
-  
   schedule();
 	
   /* Should never be reached. */

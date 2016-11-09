@@ -52,11 +52,11 @@ memoryinit(void)
 
   heapinit(&_heap_start, heap_size);
 
- addrampages(PAGE_ALIGN_UP((uint32_t) &_kernel_end),
-	   (uint32_t) &_ram_end);
+  addrampages(PAGE_ALIGN_UP((uint32_t) &_kernel_end),
+	      (uint32_t) &_ram_end);
   
   addrampages((uint32_t) &_ram_start,
-	   PAGE_ALIGN_DN((uint32_t) &_kernel_start));
+	      PAGE_ALIGN_DN((uint32_t) &_kernel_start));
 
   addiopages(0x47400000, 0x47404000); /* USB */
   addiopages(0x44E31000, 0x44E32000); /* DMTimer1 */

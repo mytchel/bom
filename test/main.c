@@ -26,6 +26,8 @@
  */
 
 #include <libc.h>
+#include <stdarg.h>
+#include <string.h>
 
 int
 main(int argc, char *argv[])

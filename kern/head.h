@@ -163,7 +163,6 @@ struct proc {
   struct proc *cnext; /* For child procs list */
   struct proc *children, *deadchildren;
   
-  struct label *ureg;
   struct label label;
 
   struct mmu *mmu;
@@ -289,6 +288,10 @@ fixfault(void *);
  */
 void *
 kaddr(struct proc *p, const void *addr, size_t size);
+
+void *
+insertpages(struct mgroup *m, struct pagel *pagel,
+	    void *addr, size_t size, bool fix);
 
 int
 kexec(struct chan *f, int argc, char *argv[]);
@@ -417,28 +420,28 @@ panic(const char *, ...);
 
 /****** Syscalls ******/
 
-reg_t sysexit(va_list);
-reg_t sysfork(va_list);
-reg_t sysexec(va_list);
-reg_t syssleep(va_list);
-reg_t sysgetpid(va_list);
-reg_t syswait(va_list);
-reg_t sysmmap(va_list);
-reg_t sysmunmap(va_list);
-reg_t syswaitintr(va_list);
-reg_t syschdir(va_list);
-reg_t syspipe(va_list);
-reg_t sysread(va_list);
-reg_t syswrite(va_list);
-reg_t sysseek(va_list);
-reg_t sysstat(va_list);
-reg_t sysclose(va_list);
-reg_t sysmount(va_list);
-reg_t sysbind(va_list);
-reg_t sysunbind(va_list);
-reg_t sysopen(va_list);
-reg_t sysremove(va_list);
-reg_t syscleanpath(va_list);
+reg_t sysexit(va_list, struct label *);
+reg_t sysfork(va_list, struct label *);
+reg_t sysexec(va_list, struct label *);
+reg_t syssleep(va_list, struct label *);
+reg_t sysgetpid(va_list, struct label *);
+reg_t syswait(va_list, struct label *);
+reg_t sysmmap(va_list, struct label *);
+reg_t sysmunmap(va_list, struct label *);
+reg_t syswaitintr(va_list, struct label *);
+reg_t syschdir(va_list, struct label *);
+reg_t syspipe(va_list, struct label *);
+reg_t sysread(va_list, struct label *);
+reg_t syswrite(va_list, struct label *);
+reg_t sysseek(va_list, struct label *);
+reg_t sysstat(va_list, struct label *);
+reg_t sysclose(va_list, struct label *);
+reg_t sysmount(va_list, struct label *);
+reg_t sysbind(va_list, struct label *);
+reg_t sysunbind(va_list, struct label *);
+reg_t sysopen(va_list, struct label *);
+reg_t sysremove(va_list, struct label *);
+reg_t syscleanpath(va_list, struct label *);
 
 
 /****** Machine Implimented ******/
@@ -489,7 +492,7 @@ void
 readyexec(struct label *ureg, void *entry, int argc, char *argv[]);
 
 void
-mmuswitch(struct proc *);
+mmuswitch(void);
 
 void
 mmuputpage(struct pagel *);
@@ -517,7 +520,7 @@ setintr(intrstate_t);
 
 extern struct proc *up;
 
-extern reg_t (*syscalltable[NSYSCALLS])(va_list);
+extern reg_t (*syscalltable[NSYSCALLS])(va_list, struct label *);
 
 extern struct chantype *chantypes[CHAN_max];
 

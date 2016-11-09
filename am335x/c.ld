@@ -2,8 +2,6 @@ ENTRY(_start)
 
 SECTIONS
 {
-	. = 0;
-
 	.text :
 	{
 		libc.a(.text)
@@ -34,4 +32,6 @@ SECTIONS
 		*(.bss)
 		*(.bss.*)
 	}
+
+	. = ALIGN(4096);
 }

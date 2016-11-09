@@ -31,7 +31,7 @@ src = main.c
 
 test: $(src)
 	@echo $(CC) $@
-	$(CC) $(CFLAGS) -o $@ $(src) $(LDFLAGS) $(LIBS)
+	$(CC) $(CFLAGS) -o $@ $(src) $(LDFLAGS) -lc -lstring
 
 
 .PHONY: clean

@@ -29,13 +29,15 @@ include $(BASE)/config.mk
 
 TARGET = ../lib$(LIB).a
 
-all: $(TARGET)
+all: $(TARGET) $(LIB).list
+
+objs = $(src:%.c=%.o)
 
 .c.o:
 	$(CC) $(CFLAGS) -c $< -o $@ 
 
-
-objs = $(src:%.c=%.o)
+$(LIB).list: $(TARGET)
+	$(OBJDUMP) -S $(TARGET) > $@
 
 
 $(TARGET): $(objs)

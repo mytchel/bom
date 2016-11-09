@@ -28,7 +28,7 @@
 #include "head.h"
 
 reg_t
-syschdir(va_list args)
+syschdir(va_list args, struct label *ureg)
 {
   const char *upath, *kpath;
   struct path *path;
@@ -85,7 +85,7 @@ read(int fd, void *buf, size_t len)
 }
 
 reg_t
-sysread(va_list args)
+sysread(va_list args, struct label *ureg)
 {
   int fd;
   size_t len;
@@ -127,7 +127,7 @@ write(int fd, void *buf, size_t len)
 }
 
 reg_t
-syswrite(va_list args)
+syswrite(va_list args, struct label *ureg)
 {
   int fd;
   size_t len;
@@ -165,7 +165,7 @@ seek(int fd, size_t offset, int whence)
 }
 
 reg_t
-sysseek(va_list args)
+sysseek(va_list args, struct label *ureg)
 {
   int fd, whence;
   size_t offset;
@@ -178,7 +178,7 @@ sysseek(va_list args)
 }
      
 reg_t
-sysstat(va_list args)
+sysstat(va_list args, struct label *ureg)
 {
   const char *upath, *kpath;
   struct stat *ustat, *stat;
@@ -202,7 +202,7 @@ sysstat(va_list args)
 }
 
 reg_t
-sysclose(va_list args)
+sysclose(va_list args, struct label *ureg)
 {
   int fd;
   struct chan *c;
@@ -225,7 +225,7 @@ sysclose(va_list args)
 }
 
 reg_t
-sysopen(va_list args)
+sysopen(va_list args, struct label *ureg)
 {
   int err;
   uint32_t mode, cmode;
@@ -260,7 +260,7 @@ sysopen(va_list args)
 }
 
 reg_t
-syspipe(va_list args)
+syspipe(va_list args, struct label *ureg)
 {
   int *fds;
   struct chan *c0, *c1;
@@ -278,7 +278,7 @@ syspipe(va_list args)
 }
 
 reg_t
-sysremove(va_list args)
+sysremove(va_list args, struct label *ureg)
 {
   const char *upath, *kpath;
   struct path *path;
@@ -296,7 +296,7 @@ sysremove(va_list args)
 }
 
 reg_t
-sysmount(va_list args)
+sysmount(va_list args, struct label *ureg)
 {
   const char *upath, *kpath;
   struct bindingfid *fid;
@@ -372,7 +372,7 @@ sysmount(va_list args)
 }
 
 reg_t
-sysbind(va_list args)
+sysbind(va_list args, struct label *ureg)
 {
   struct bindingfid *bo, *bn;
   struct path *po, *pn;
@@ -417,7 +417,7 @@ sysbind(va_list args)
 }
 
 reg_t
-sysunbind(va_list args)
+sysunbind(va_list args, struct label *ureg)
 {
   struct bindingfid *fid;
   struct path *path;
@@ -448,7 +448,7 @@ sysunbind(va_list args)
 }
 
 reg_t
-syscleanpath(va_list args)
+syscleanpath(va_list args, struct label *ureg)
 {
   char *opath, *cpath, *spath;
   size_t cpathlen, l;

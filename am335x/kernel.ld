@@ -1,10 +1,11 @@
 SECTIONS
 {
-	_ram_start = 0x80000000;
+	. = 0x80000000;
+	_ram_start = .;
 
-	_kernel_start = .;
 	.text :
 	{
+		_kernel_start = .;
 		*(.text)
 	}
 	
@@ -46,7 +47,7 @@ SECTIONS
 
 	. = ALIGN(4096);
 	_kernel_end = .;
-	
+
 	. = 0xa0000000;
 	_ram_end = .;
 }

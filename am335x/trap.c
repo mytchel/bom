@@ -130,6 +130,7 @@ procwaitintr(int irqn)
   }
 
   procwait(up, &intrwait);
+
   up->aux = (void *) irqn;
 
   unmaskintr(irqn);
@@ -180,23 +181,23 @@ trap(struct label *ureg, int type)
     panic("Probably an in kernel problem.\n");
   }
 
-  if (type == ABORT_DATA) {
-    ureg->pc -= 8;
-  } else {
-    ureg->pc -= 4;
-  }
-
   switch(type) {
   case ABORT_INTERRUPT:
+    ureg->pc -= 4;
+
     irqhandler();
+
     return ureg; /* Note the return. */
 
   case ABORT_INSTRUCTION:
+    ureg->pc -= 4;
+
     printf("%i bad instruction at 0x%h\n",
 	   up->pid, ureg->pc);
     break;
 
   case ABORT_PREFETCH:
+    ureg->pc -= 4;
     if (fixfault((void *) ureg->pc)) {
       return ureg;
     }
@@ -207,6 +208,8 @@ trap(struct label *ureg, int type)
     break;
 
   case ABORT_DATA:
+    ureg->pc -= 8;
+
     addr = faultaddr();
     fsr = fsrstatus() & 0xf;
 

@@ -296,3 +296,52 @@ kaddr(struct proc *p, const void *addr, size_t len)
   return pl->p->pa + offset;
 }
 
+static void
+fixpagel(struct pagel *p, reg_t addr, struct pagel *next)
+{
+  struct pagel *pp;
+
+  pp = nil;
+  for (pp = nil; p != nil; pp = p, p = p->next) {
+    p->va = (void *) addr;
+    addr += PAGE_SIZE;
+  }
+	
+  if (pp != nil) {/* Should never be nil. */
+    pp->next = next;
+  }
+}
+
+void *
+insertpages(struct mgroup *m, struct pagel *pagel,
+	    void *addr, size_t size, bool fix)
+{
+  struct pagel *p, *pp;
+
+  pp = nil;
+  for (p = m->pages; p != nil; pp = p, p = p->next) {
+    if (fix && pp != nil) {
+      addr = (uint8_t *) pp->va + PAGE_SIZE;
+    }
+		
+    if ((size_t) (p->va - addr) > size) {
+      /* Pages fit in here */
+      break;
+    }
+  }
+
+  if (pp == nil) {
+    up->mgroup->pages = pagel;
+    fixpagel(pagel, (reg_t) addr, p);
+  } else {
+    if (fix) {
+      addr = (uint8_t *) pp->va + PAGE_SIZE;
+    }
+    
+    pp->next = pagel;
+    fixpagel(pagel, (reg_t) addr, p);
+  }
+  
+  return addr;
+}
+

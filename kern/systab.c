@@ -27,7 +27,7 @@
 
 #include "head.h"
 
-reg_t (*syscalltable[NSYSCALLS])(va_list) = {
+reg_t (*syscalltable[NSYSCALLS])(va_list, struct label *) = {
 	[SYSCALL_EXIT] 		= sysexit,
 	[SYSCALL_FORK] 		= sysfork,
 	[SYSCALL_EXEC] 		= sysexec,

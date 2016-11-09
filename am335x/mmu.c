@@ -46,14 +46,37 @@
 uint32_t
 ttb[4096]__attribute__((__aligned__(16*1024))) = { L1_FAULT };
 
+uint32_t low = UINT_MAX;
+uint32_t high = 0;
+
+struct proc *loaded = nil;
+
 void
 mmuinit(void)
 {
   int i;
+
   for (i = 0; i < 4096; i++)
     ttb[i] = L1_FAULT;
 
   mmuloadttb(ttb);
+}
+
+void
+mmuempty1(void)
+{
+  uint32_t i;
+
+  for (i = low; i <= high; i++) {
+    if ((ttb[i] & L1_TYPE) == L1_COARSE) {
+      ttb[i] = L1_FAULT;
+    }
+  }
+
+  mmuinvalidate();
+
+  low = UINT_MAX;
+  high = 0;
 }
 
 struct mmu *
@@ -75,18 +98,34 @@ mmufree(struct mmu *m)
 }
 
 void
-mmuswitch(struct proc *p)
+mmuswitch(void)
 {
   struct pagel *pl;
 
-  mmuempty1();
-
-  for (pl = p->mmu->pages; pl != nil; pl = pl->next) {
-    ttb[L1X((uint32_t) pl->va)] 
-      = ((uint32_t) pl->p->pa) | L1_COARSE;
+  if (loaded == up) {
+    return;
+  } else {
+    loaded = up;
   }
 
-  mmuinvalidate();
+  mmuempty1();
+
+  if (up->mmu->pages == nil) {
+    return;
+  }
+  
+  low = L1X((uint32_t) up->mmu->pages->va);
+  
+  for (pl = up->mmu->pages; pl != nil; pl = pl->next) {
+    ttb[L1X((uint32_t) pl->va)] 
+      = ((uint32_t) pl->p->pa) | L1_COARSE;
+
+    if (L1X((uint32_t) pl->va) > high) {
+      high = L1X((uint32_t) pl->va);
+    } else if (L1X((uint32_t) pl->va) < low) {
+      low = L1X((uint32_t) pl->va);
+    }
+  }
 }
 
 void
@@ -113,17 +152,6 @@ imap(void *start, void *end, int ap, bool cachable)
 }
 
 void
-mmuempty1(void)
-{
-  uint32_t i;
-
-  for (i = 0; i < 4096; i++) {
-    if ((ttb[i] & L1_TYPE) == L1_COARSE)
-      ttb[i] = L1_FAULT;
-  }
-}
-
-void
 mmuputpage(struct pagel *p)
 {
   struct pagel *pn;
@@ -138,7 +166,13 @@ mmuputpage(struct pagel *p)
 	
   /* Add a l1 page if needed. */
   if (*l1  == L1_FAULT) {
-    pg = getrampage();
+     if (L1X(x) > high) {
+      high = L1X(x);
+    } else if (L1X(x) < low) {
+      low = L1X(x);
+    }
+
+     pg = getrampage();
     if (pg == nil) {
       panic("mmu failed to get page\n");
     }
@@ -153,8 +187,9 @@ mmuputpage(struct pagel *p)
     pn->next = up->mmu->pages;
     up->mmu->pages = pn;
 
-    for (i = 0; i < 256; i++)
+    for (i = 0; i < 256; i++) {
       ((uint32_t *) pg->pa)[i] = L2_FAULT;
+    }
 	
     *l1 = ((uint32_t) pg->pa) | L1_COARSE;
   }

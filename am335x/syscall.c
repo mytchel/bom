@@ -33,16 +33,21 @@ syscall(struct label *ureg)
 {
   unsigned int sysnum;
 
-  up->ureg = ureg;
-  
   sysnum = (unsigned int) ureg->regs[0];
 
   if (sysnum < NSYSCALLS) {
     setintr(INTR_ON);
-    ureg->regs[0] = syscalltable[sysnum]((va_list) ureg->sp);
+
+    ureg->regs[0] = syscalltable[sysnum]((va_list) ureg->sp, ureg);
+
     setintr(INTR_OFF);
   } else {
-    ureg->regs[0] = ERR;
+
+    procexit(up, ERR);
+    schedule();
+
+    /* Never reached */
+    return nil;
   }
 
   return ureg;

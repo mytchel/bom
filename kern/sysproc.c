@@ -28,7 +28,7 @@
 #include "head.h"
 
 reg_t
-sysexit(va_list args)
+sysexit(va_list args, struct label *ureg)
 {
   int code = va_arg(args, int);
 
@@ -41,7 +41,7 @@ sysexit(va_list args)
 }
 
 reg_t
-syssleep(va_list args)
+syssleep(va_list args, struct label *ureg)
 {
   int ms;
 
@@ -66,7 +66,7 @@ syssleep(va_list args)
 }
 
 reg_t
-sysfork(va_list args)
+sysfork(va_list args, struct label *ureg)
 {
   struct proc *p;
   int flags;
@@ -116,7 +116,7 @@ sysfork(va_list args)
   }
 
   p->parent = up;
-  forkchild(p, up->ureg);
+  forkchild(p, ureg);
 
   setintr(INTR_OFF);
 
@@ -134,7 +134,7 @@ sysfork(va_list args)
 }
 
 reg_t
-sysexec(va_list args)
+sysexec(va_list args, struct label *ureg)
 {
   const char *upath;
   struct path *path;
@@ -181,13 +181,13 @@ getpid(void)
 }
 
 reg_t
-sysgetpid(va_list args)
+sysgetpid(va_list args, struct label *ureg)
 {
   return up->pid;
 }
 
 reg_t
-syswait(va_list args)
+syswait(va_list args, struct label *ureg)
 {
   struct proc *p;
   int *ustatus, *status, pid;
@@ -213,7 +213,7 @@ syswait(va_list args)
 }
 
 reg_t
-syswaitintr(va_list args)
+syswaitintr(va_list args, struct label *ureg)
 {
   int irqn;
 
@@ -226,63 +226,13 @@ syswaitintr(va_list args)
   }
 }
 
-static void
-fixpagel(struct pagel *p, reg_t offset, struct pagel *next)
-{
-  struct pagel *pp;
-
-  pp = nil;
-  while (p != nil) {
-    p->va = (uint8_t *) p->va + offset;
-    pp = p;
-    p = p->next;
-  }
-	
-  if (pp != nil) /* Should never be nil. */
-    pp->next = next;
-}
-
-static void *
-insertpages(struct pagel *pagel, void *addr, size_t size)
-{
-  struct pagel *p, *pp;
-  bool fix;
-
-  fix = (addr == nil);
-  pp = nil;
-  for (p = up->mgroup->pages; p != nil; pp = p, p = p->next) {
-    if (fix && pp != nil) {
-      addr = (uint8_t *) pp->va + PAGE_SIZE;
-    }
-		
-    if ((size_t) (p->va - addr) > size) {
-      /* Pages fit in here */
-      break;
-    }
-  }
-
-  if (pp == nil) {
-    fixpagel(pagel, (reg_t) addr, nil);
-    up->mgroup->pages = pagel;
-  } else {
-    if (fix) {
-      addr = (uint8_t *) pp->va + PAGE_SIZE;
-    }
-    
-    fixpagel(pagel, (reg_t) addr, p);
-    pp->next = pagel;
-  }
-  
-  return addr;
-}
-
 reg_t
-sysmmap(va_list args)
+sysmmap(va_list args, struct label *ureg)
 {
   struct pagel *pagel, *pp, *pl;
   struct page *pg;
   size_t *size, csize;
-  void *addr, *caddr, *paddr;
+  void *addr, *paddr;
   bool rw, c;
   int type;
 	
@@ -295,14 +245,12 @@ sysmmap(va_list args)
     rw = true;
     c = true;
     paddr = nil;
-    caddr = addr;
     break;
   case MEM_io:
     rw = true;
     c = false;
     paddr = addr;
     addr = nil;
-    caddr = nil;
     break;
   default:
     return ERR;
@@ -328,7 +276,7 @@ sysmmap(va_list args)
       return ERR;
     }
 
-    pl = wrappage(pg, caddr, rw, c);
+    pl = wrappage(pg, nil, rw, c);
     if (pl == nil) {
       pagefree(pg);
       pagelfree(pagel);
@@ -343,7 +291,6 @@ sysmmap(va_list args)
 
     pp = pl;
 
-    caddr += PAGE_SIZE;
     csize += PAGE_SIZE;
   }
 	
@@ -354,14 +301,14 @@ sysmmap(va_list args)
   *size = csize;
 
   lock(&up->mgroup->lock);
-  addr = insertpages(pagel, addr, csize);
+  addr = insertpages(up->mgroup, pagel, addr, csize, addr == nil);
   unlock(&up->mgroup->lock);
 
   return (reg_t) addr;
 }
 
 reg_t
-sysmunmap(va_list args)
+sysmunmap(va_list args, struct label *ureg)
 {
   struct pagel *p, *pt, *pp;
   void *addr;
