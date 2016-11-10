@@ -2,6 +2,8 @@ ENTRY(_start)
 
 SECTIONS
 {
+	. = . + 4;
+	
 	.text ALIGN(4096) :
 	{
 		*(.text)
