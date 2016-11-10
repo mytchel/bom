@@ -496,8 +496,8 @@ fatupdatedirentry(struct fat *fat, struct fat_file *file)
 
   for (j = 0; j < sizeof(direntry->name); j++) {
     if (file->name[i] != 0 && file->name[i] != '.') {
-      if (file->name[j] >= 'a' && file->name[j] <= 'z') {
-	/* Convert upper to lower */
+      if (file->name[i] >= 'a' && file->name[i] <= 'z') {
+	/* Convert lower to upper */
 	direntry->name[j] = file->name[i++] - 32;
       } else {
 	direntry->name[j] = file->name[i++];
@@ -514,11 +514,11 @@ fatupdatedirentry(struct fat *fat, struct fat_file *file)
     
   for (j = 0; j < sizeof(direntry->ext); j++) {
     if (file->name[i] != 0) {
-      if (file->name[j] >= 'a' && file->name[j] <= 'z') {
-	/* Convert upper to lower */
-	direntry->name[j] = file->name[i++] - 32;
+      if (file->name[i] >= 'a' && file->name[i] <= 'z') {
+	/* Convert lower to upper */
+	direntry->ext[j] = file->name[i++] - 32;
       } else {
-	direntry->name[j] = file->name[i++];
+	direntry->ext[j] = file->name[i++];
       }
     } else {
       direntry->ext[j] = ' ';

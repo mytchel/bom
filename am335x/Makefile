@@ -59,9 +59,7 @@ ISRC = \
         ../init/mbr.c           \
         ../fatfs/fat.c          \
         ../fatfs/util.c         \
-        ../fatfs/mount.c        \
-        ../init/shell/shell.c   \
-        ../init/shell/cmds.c
+        ../fatfs/mount.c
 
 
 IOBJECTS := $(ISRC:%.c=%.o)

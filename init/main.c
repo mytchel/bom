@@ -36,14 +36,47 @@ int
 initblockdevs(void);
 
 int
-shell(void);
+mountfat(char *device, char *dir);
+
+static int
+readline(char *data, size_t max)
+{
+  size_t i;
+  char c;
+
+  i = 0;
+  while (i < max) {
+    if (read(STDIN, &c, sizeof(char)) < 0) {
+      return -1;
+    } else if (c == '\n') {
+      data[i] = '\0';
+      return i;
+    } else {
+      data[i++] = c;
+    }
+  }
+
+  data[i-1] = 0;
+  return i;
+}
 
 int
 main(void)
 {
-  int f, fd, code;
+  int r, f, fd;
+  char root[NAMEMAX * 5];
+  char *initargs[2];
 
   fd = open("/dev", O_WRONLY|O_CREATE,
+	    ATTR_wr|ATTR_rd|ATTR_dir);
+
+  if (fd < 0) {
+    return -1;
+  }
+
+  close(fd);
+
+  fd = open("/mnt", O_WRONLY|O_CREATE,
 	    ATTR_wr|ATTR_rd|ATTR_dir);
 
   if (fd < 0) {
@@ -70,15 +103,25 @@ main(void)
     return -3;
   }
 
-  f = fork(FORK_sngroup);
-  if (f == 0) {
-    return shell();
+  printf("root: ");
+
+  r = readline(root, sizeof(root));
+  if (r < 0) {
+    printf("error reading!\n");
+    return ERR;
   }
 
-  while ((f = wait(&code)) > 0) {
-    printf("%i exited with %i\n", f, code);
+  r = mountfat(root, "/mnt");
+  if (r != OK) {
+    printf("error mounting root!\n");
+    return r;
   }
 
-  printf("should probably shutdown or something.\n");
-  return OK;
+  initargs[0] = root;
+  
+  r = exec("/mnt/bin/init", 1, initargs);
+
+  printf("error exec /mnt/bin/init: %i\n", r);
+  
+  return ERR;
 }

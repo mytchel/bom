@@ -33,9 +33,6 @@
 
 #include "shell.h"
 
-int
-mountfat(char *device, char *dir);
-
 static int cmdpwd(int argc, char **argv);
 static int cmdls(int argc, char **argv);
 static int cmdecho(int argc, char **argv);
@@ -46,7 +43,6 @@ static int cmdcat(int argc, char **argv);
 static int cmdcp(int argc, char **argv);
 static int cmdbind(int argc, char **argv);
 static int cmdunbind(int argc, char **argv);
-static int cmdmountfat(int argc, char **argv);
 
 struct func cmds[] = {
   { "pwd",       &cmdpwd },
@@ -59,7 +55,6 @@ struct func cmds[] = {
   { "cp",        &cmdcp },
   { "bind",      &cmdbind },
   { "unbind",    &cmdunbind },
-  { "mountfat",  &cmdmountfat },
 };
 
 int
@@ -332,17 +327,6 @@ cmdunbind(int argc, char **argv)
   }
 
   return r;
-}
-
-int
-cmdmountfat(int argc, char **argv)
-{
-  if (argc != 3) {
-    printf("usage: %s blockdevice dir\n", argv[0]);
-    return ERR;
-  }
-
-  return mountfat(argv[1], argv[2]);
 }
 
 void
