@@ -221,6 +221,8 @@ mountfat(char *device, char *dir)
   close(fddev);
   close(fddir);
    
-  return i;
+  exit(i);
+
+  return ERR;
 }
 

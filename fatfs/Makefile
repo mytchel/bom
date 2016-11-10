@@ -38,7 +38,7 @@ objs = $(src:%.c=%.o)
 CLEAN += mountfat $(objs)
 mountfat: $(objs)
 	$(LD) $(LDFLAGS) -o $@ $(objs) \
-		-lgcc -lc -lstd -lmem -lstring -lfssrv
+		-lgcc -lc -lstd -lfssrv -lstring -lmem 
 
 
 .PHONY: clean

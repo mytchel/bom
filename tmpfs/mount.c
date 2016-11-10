@@ -292,7 +292,7 @@ breaddir(struct request_read *req, struct response_read *resp,
   if (offset >= f->lbuf) {
     resp->head.ret = EOF;
     return;
-  } else if (offset + len + f->lbuf) {
+  } else if (offset + len > f->lbuf) {
     len = f->lbuf - offset;
   }
 
@@ -308,7 +308,7 @@ breadfile(struct request_read *req, struct response_read *resp,
   if (offset >= f->stat.size) {
     resp->head.ret = EOF;
     return;
-  } else if (offset + len + f->stat.size) {
+  } else if (offset + len > f->stat.size) {
     len = f->stat.size - offset;
   }
 
@@ -345,7 +345,7 @@ bwrite(struct request_write *req, struct response_write *resp)
     return;
   }
 
-  if (req->body.offset + req->body.len > f->stat.dsize) {
+  if (req->body.offset + req->body.len > f->lbuf) {
     nsize = req->body.offset + req->body.len;
     nbuf = mmap(MEM_ram, nil, &nsize);
     if (nbuf == nil) {
@@ -353,13 +353,14 @@ bwrite(struct request_write *req, struct response_write *resp)
       return;
     }
 
-    if (f->stat.dsize > 0) {
+    if (f->lbuf > 0) {
       memmove(nbuf, f->buf, f->stat.size);
-      munmap(f->buf, f->stat.dsize);
+      munmap(f->buf, f->lbuf);
     }
 
-    f->stat.dsize = nsize;
     f->buf = nbuf;
+    f->lbuf = nsize;
+    f->stat.dsize = sizeof(struct file) + nsize;
   }
 
   if (req->body.offset + req->body.len > f->stat.size) {

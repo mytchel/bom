@@ -37,28 +37,22 @@ main(int argc, char *argv[])
 {
   int fd, r;
 
-  printf("in main.\n");
-  
   if (argc != 2) {
     printf("usage: %s /path/to/mount\n", argv[0]);
     return -1;
   }
 
-  printf("open %s\n", argv[1]);
-  
   fd = open(argv[1], O_WRONLY|O_CREATE, ATTR_wr|ATTR_rd|ATTR_dir);
   if (fd < 0) {
     printf("failed to open %s\n", argv[1]);
     return ERR;
   }
 
-  printf("call mounttmp %s.\n", argv[1]);
   r = mounttmp(argv[1]);
 
   if (r == OK) {
     return OK;
   }
 
-  printf("tmp mount error on %s, %i\n", argv[1], r);
   return r;
 }

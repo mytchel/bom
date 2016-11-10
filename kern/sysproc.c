@@ -81,10 +81,14 @@ sysfork(va_list args, struct label *ureg)
   p->dot = pathcopy(up->dot);
 
   p->dotchan = up->dotchan;
-  atomicinc(&p->dotchan->refs);
+  if (p->dotchan != nil) {
+    atomicinc(&p->dotchan->refs);
+  }
 
   p->root = up->root;
-  atomicinc(&p->root->refs);
+  if (p->root != nil) {
+    atomicinc(&p->root->refs);
+  }
   
   p->ustack = pagelcopy(up->ustack);
 
