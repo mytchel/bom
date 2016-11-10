@@ -36,6 +36,7 @@ objs = $(src:%.c=%.o)
 .c.o:
 	$(CC) $(CFLAGS) -c $< -o $@ 
 
+
 $(LIB).list: $(TARGET)
 	$(OBJDUMP) -S $(TARGET) > $@
 
@@ -46,5 +47,5 @@ $(TARGET): $(objs)
 
 .PHONY: clean
 clean:
-	rm -f $(objs) $(TARGET)
+	rm -f $(objs) $(TARGET) $(LIB).list
 

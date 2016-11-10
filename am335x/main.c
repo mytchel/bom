@@ -56,7 +56,7 @@ main(void)
 }
 
 static struct pagel *
-copysegment(void *start, bool rw, bool c, char **buf, size_t len)
+copysegment(reg_t start, bool rw, bool c, char **buf, size_t len)
 {
   struct pagel *pl, *pp, *pages;
   struct page *pg;
@@ -77,7 +77,7 @@ copysegment(void *start, bool rw, bool c, char **buf, size_t len)
     
     l = len > PAGE_SIZE ? PAGE_SIZE : len;
 
-    memmove(pg->pa, (uint8_t *) buf + i, l);
+    memmove((void *) pg->pa, (uint8_t *) buf + i, l);
 		
     len -= l;	
     i += l;
@@ -109,7 +109,7 @@ mainproc(void *arg)
   ureg.psr = MODE_USR;
   ureg.pc = 4;
 
-  droptouser(&ureg, up->kstack->pa + PAGE_SIZE);
+  droptouser(&ureg, (void *) (up->kstack->pa + PAGE_SIZE));
 
   return 0; /* Never reached. */
 }
@@ -129,11 +129,11 @@ initmainproc(void)
   forkfunc(p, &mainproc, nil);
 
   pg = getrampage();
-  p->ustack = wrappage(pg, (void *) (USTACK_TOP - PAGE_SIZE),
+  p->ustack = wrappage(pg, USTACK_TOP - PAGE_SIZE,
 		      true, true);
 
   p->mgroup = mgroupnew();
-  p->mgroup->pages = copysegment((void *) 0, false, true,
+  p->mgroup->pages = copysegment(0, false, true,
 				 &initcodetext, initcodetextlen);
 
   for (pl = p->mgroup->pages; pl != nil; pl = pl->next) {
@@ -142,7 +142,7 @@ initmainproc(void)
     }
   }
 
-  pl->next = copysegment((void *) ((uint32_t) pl->va + PAGE_SIZE),
+  pl->next = copysegment(pl->va + PAGE_SIZE,
 	      true, true, &initcodedata, initcodedatalen);
 	
   p->parent = nil;

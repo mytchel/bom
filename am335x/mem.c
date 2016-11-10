@@ -52,11 +52,11 @@ memoryinit(void)
 
   heapinit(&_heap_start, heap_size);
 
-  addrampages(PAGE_ALIGN_UP((uint32_t) &_kernel_end),
+  addrampages(PAGE_ALIGN((uint32_t) &_kernel_end + PAGE_SIZE - 1),
 	      (uint32_t) &_ram_end);
   
   addrampages((uint32_t) &_ram_start,
-	      PAGE_ALIGN_DN((uint32_t) &_kernel_start));
+	      PAGE_ALIGN((uint32_t) &_kernel_start));
 
   addiopages(0x47400000, 0x47404000); /* USB */
   addiopages(0x44E31000, 0x44E32000); /* DMTimer1 */
@@ -100,7 +100,7 @@ initpages(struct page *p, struct page **from, size_t npages,
 
   for (i = 0; i < npages; i++) {
     p[i].refs = 0;
-    p[i].pa = (void *) start;
+    p[i].pa = start;
     p[i].forceshare = forceshare;
     p[i].next = &p[i+1];
     p[i].from = from;
@@ -123,14 +123,15 @@ addrampages(uint32_t start, uint32_t end)
 
   new = (struct page *) start;
 
-  while (size > (PAGE_ALIGN_UP(sizeof(struct page) * npages)
+  while (size > (PAGE_ALIGN(sizeof(struct page) * npages)
 		 + PAGE_SIZE * npages)) {
     npages++;
   }
 
   npages--;
 
-  start = PAGE_ALIGN_UP(start + sizeof(struct page) * npages);
+  start = PAGE_ALIGN(start + sizeof(struct page) * npages +
+		     PAGE_SIZE - 1);
 
   initpages(new, &rampages, npages, start, false);
 }
@@ -176,7 +177,7 @@ getiopage(void *addr)
   
   pp = nil;
   for (p = iopages; p != nil; pp = p, p = p->next) {
-    if (p->pa == addr) {
+    if (p->pa == (reg_t) addr) {
       if (pp == nil) {
 	iopages = p->next;
       } else {

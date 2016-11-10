@@ -120,7 +120,7 @@ cmdlsh(char *filename)
       if (stat(path, &s) != OK) {
 	printf("stat error %s\n", path);
       } else {
-	printf("%b %u %s\n", s.attr, s.size, &buf[i]);
+	printf("%b\t%u\t%u\t%s\n", s.attr, s.size, s.dsize, &buf[i]);
       }
 
       i += len;

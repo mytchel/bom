@@ -30,9 +30,6 @@ BASE = $(.CURDIR)/..
 
 CLEAN += am335x.umg am335x.list init.list
 
-.PHONY: all
-all: am335x.umg $(BASE)/lib/libc.a am335x.list init.list
-
 include $(BASE)/config.mk
 
 loadaddr=0x82000000
@@ -41,6 +38,16 @@ SUBDIR =
 SUBDIR += $(BASE)/lib
 SUBDIR += $(BASE)/tools/mkuboot
 SUBDIR += $(BASE)/tools/bintoarray
+SUBDIR += $(BASE)/fatfs
+SUBDIR += $(BASE)/tmpfs
+
+
+.PHONY: all
+all: \
+	$(BASE)/lib $(BASE)/lib/libc.a \
+	am335x.umg am335x.list init.list \
+	$(BASE)/fatfs $(BASE)/tmpfs
+
 
 ISRC = \
 	com/com.c               \
@@ -132,7 +139,7 @@ $(BASE)/lib/libc.a: c.a
 
 CLEAN += init.elf init.list
 init.elf: init.ld $(BASE)/lib/libc.a $(BASE)/lib $(IOBJECTS)
-	$(LD) -nostdlib -nodefaultlibs \
+	$(LD) -nostdlib -nodefaultlibs -static \
 		-L/usr/local/lib/gcc/arm-none-eabi/4.9.3/ \
 		-L$(BASE)/lib \
 		-T init.ld -o $@  \
@@ -154,7 +161,7 @@ initcode.c: init.elf $(BASE)/tools/bintoarray
 
 CLEAN += $(TARGET).elf $(TARGET).list
 am335x.elf: kernel.ld $(KOBJECTS) initcode.o
-	$(LD) -nostdlib -nodefaultlibs \
+	$(LD) -nostdlib -nodefaultlibs -static \
 		-L/usr/local/lib/gcc/arm-none-eabi/4.9.3/ \
 		-T kernel.ld -Ttext $(loadaddr) \
 		-o $@ $(KOBJECTS) initcode.o \

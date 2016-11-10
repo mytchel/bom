@@ -217,7 +217,7 @@ free(void *ptr)
 
   pp = nil;
   for (pl = pages; pl != nil; pp = pl, pl = pl->next) {
-    if (pl->p->pa == (void *) b) {
+    if (pl->p->pa == (reg_t) b) {
       if (b->size + sizeof(size_t) == PAGE_SIZE) {
 	printf("heap can free a page ! 0x%h\n", pl->p->pa);
 

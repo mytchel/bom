@@ -81,7 +81,7 @@ fatinit(int fd)
       (((fat->rde * sizeof(struct fat_dir_entry)) + (fat->bps - 1))
        / fat->bps);
 
-    fat->files->size = fat->rde * sizeof(struct fat_dir_entry);
+    fat->files->dsize = fat->rde * sizeof(struct fat_dir_entry);
     fat->files->startcluster = 0;
 
   } else {
@@ -90,7 +90,7 @@ fatinit(int fd)
     fat->spf = intcopylittle32(bs.ext.high.spf);
 
     /* This should work for now */
-    fat->files->size = fat->spc * fat->bps;
+    fat->files->dsize = fat->spc * fat->bps;
 
     fat->dataarea = fat->reserved + fat->spf * fat->nft;
 
@@ -101,6 +101,8 @@ fatinit(int fd)
   fat->nclusters = (fat->nsectors - fat->dataarea) / fat->spc;
 
   fatinitbufs(fat);
+
+  fat->files->size = fatdirsize(fat, fat->files);
 
   return fat;
 }
@@ -486,6 +488,8 @@ fatfileremove(struct fat *fat, struct fat_file *file)
     cluster = n;
   }
 
+  parent->size--;
+  
   memmove(direntry, direntry + 1,
 	  fat->spc * fat->bps - ((uint8_t *) direntry - buf->addr));
 
@@ -535,6 +539,16 @@ fatfilecreate(struct fat *fat, struct fat_file *parent,
     return 0;
   }
 
+  buf = readsectors(fat, clustertosector(fat, newcluster), fat->spc);
+  if (buf == nil) {
+    return 0;
+  }
+
+  memset(buf->addr, 0, fat->spc * fat->bps);
+  if (!writesectors(fat, buf, fat->spc)) {
+    return 0;
+  }
+
   if (parent->startcluster == 0) {
     buf = readsectors(fat, fat->rootdir, fat->spc);
     if (buf == nil) {
@@ -570,6 +584,8 @@ fatfilecreate(struct fat *fat, struct fat_file *parent,
     printf("fat mount out of fid spaces!\n");
     return 0;
   }
+
+  parent->size++;
   
   f = &fat->files[i];
 
@@ -583,12 +599,10 @@ fatfilecreate(struct fat *fat, struct fat_file *parent,
   
   f->startcluster = newcluster;
 
+  f->dsize = fat->spc * fat->bps;
+  f->size = 0;
+
   f->attr = attr;
-  if (attr & FAT_ATTR_directory) {
-    f->size = fat->spc * fat->bps;
-  } else {
-    f->size = 0;
-  }
 
   if (!fatupdatedirentry(fat, f)) {;
     printf("fat mount failed to update dir entry\n");

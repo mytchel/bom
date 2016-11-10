@@ -153,7 +153,7 @@ addchild(struct file *p, struct file *c)
 {
   uint8_t *buf, *tbuf;
   
-  buf = malloc(p->lbuf + sizeof(uint8_t) + c->lname);
+  buf = malloc(p->lbuf + 1 + c->lname);
   if (buf == nil) {
     return ENOMEM;
   }
@@ -167,12 +167,12 @@ addchild(struct file *p, struct file *c)
   
   memmove(tbuf, &c->lname, sizeof(uint8_t));
   tbuf += sizeof(uint8_t);
-  memmove(tbuf, c->name, sizeof(uint8_t) * c->lname);
+  memmove(tbuf, c->name, c->lname);
 
   p->buf = buf;
-  p->lbuf = p->lbuf + sizeof(uint8_t) * (1 + c->lname);
-  
-  p->stat.size = p->lbuf;
+  p->lbuf += 1 + c->lname;
+  p->stat.dsize = sizeof(struct file) + p->lbuf;
+  p->stat.size++;
 
   c->cnext = p->children;
   p->children = c;
@@ -188,7 +188,7 @@ removechild(struct file *p, struct file *f)
   struct file *c;
   uint8_t *buf, *tbuf;
 
-  if ((f->stat.attr & ATTR_dir) && f->lbuf > 0) {
+  if (f->lbuf > 0) {
     return ENOTEMPTY;
   }
 
@@ -216,12 +216,12 @@ removechild(struct file *p, struct file *f)
   }
 
   p->buf = buf;
-  p->lbuf = p->lbuf - 1 - f->lname;
-  
-  p->stat.size = p->lbuf;
+  p->lbuf -= 1 + f->lname;
+  p->stat.dsize = sizeof(struct file) + p->lbuf;
+  p->stat.size--;
 
   if (f->buf != nil) {
-    munmap(f->buf, f->stat.size);
+    munmap(f->buf, f->stat.dsize);
   }
 
   free(f);
@@ -250,6 +250,7 @@ bcreate(struct request_create *req, struct response_create *resp)
   new->lbuf = 0;
   new->stat.attr = req->body.attr;
   new->stat.size = 0;
+  new->stat.dsize = sizeof(struct file);
   new->fid = nfid++;
   new->open = 0;
   new->children = nil;
@@ -286,29 +287,33 @@ bremove(struct request_remove *req, struct response_remove *resp)
 
 static void
 breaddir(struct request_read *req, struct response_read *resp,
-	 struct file *file,
-	 uint32_t offset, uint32_t len)
+	 struct file *f, uint32_t offset, uint32_t len)
 {
-  if (offset + len > file->lbuf) {
-    len = file->lbuf - offset;
+  if (offset >= f->lbuf) {
+    resp->head.ret = EOF;
+    return;
+  } else if (offset + len + f->lbuf) {
+    len = f->lbuf - offset;
   }
 
   resp->body.len = len;
-  memmove(resp->body.data, file->buf + offset, len);
+  memmove(resp->body.data, f->buf + offset, len);
   resp->head.ret = OK;
 }
 
 static void
 breadfile(struct request_read *req, struct response_read *resp,
-	  struct file *file,
-	  uint32_t offset, uint32_t len)
+	 struct file *f, uint32_t offset, uint32_t len)
 {
-  if (offset + len >= file->lbuf) {
-    len = file->lbuf - offset;
-  } 
+  if (offset >= f->stat.size) {
+    resp->head.ret = EOF;
+    return;
+  } else if (offset + len + f->stat.size) {
+    len = f->stat.size - offset;
+  }
 
   resp->body.len = len;
-  memmove(resp->body.data, file->buf + offset, len);
+  memmove(resp->body.data, f->buf + offset, len);
   resp->head.ret = OK;
 }
 
@@ -316,12 +321,10 @@ static void
 bread(struct request_read *req, struct response_read *resp)
 {
   struct file *f;
-
+  
   f = findfile(root, req->head.fid);
   if (f == nil) {
     resp->head.ret = ENOFILE;
-  } else if (req->body.offset >= f->lbuf) {
-    resp->head.ret = EOF;
   } else if (f->stat.attr & ATTR_dir) {
     breaddir(req, resp, f, req->body.offset, req->body.len);
   } else {
@@ -342,7 +345,7 @@ bwrite(struct request_write *req, struct response_write *resp)
     return;
   }
 
-  if (req->body.offset + req->body.len > f->stat.size) {
+  if (req->body.offset + req->body.len > f->stat.dsize) {
     nsize = req->body.offset + req->body.len;
     nbuf = mmap(MEM_ram, nil, &nsize);
     if (nbuf == nil) {
@@ -350,17 +353,17 @@ bwrite(struct request_write *req, struct response_write *resp)
       return;
     }
 
-    if (f->stat.size > 0) {
+    if (f->stat.dsize > 0) {
       memmove(nbuf, f->buf, f->stat.size);
-      munmap(f->buf, f->stat.size);
+      munmap(f->buf, f->stat.dsize);
     }
 
-    f->stat.size = nsize;
+    f->stat.dsize = nsize;
     f->buf = nbuf;
   }
 
-  if (req->body.offset + req->body.len > f->lbuf) {
-    f->lbuf = req->body.offset + req->body.len;
+  if (req->body.offset + req->body.len > f->stat.size) {
+    f->stat.size = req->body.offset + req->body.len;
   }
 
   memmove(f->buf + req->body.offset, req->body.data, req->body.len);
@@ -419,6 +422,7 @@ mounttmp(char *path)
   
   root->stat.attr = ATTR_rd|ATTR_wr|ATTR_dir;
   root->stat.size = 0;
+  root->stat.dsize = sizeof(struct file);
   root->open = 0;
   root->cnext = nil;
   root->parent = nil;

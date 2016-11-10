@@ -127,6 +127,7 @@ struct fat_file {
   
   uint32_t attr;
   uint32_t size;
+  uint32_t dsize;
 
   uint32_t startcluster;
 
@@ -248,3 +249,10 @@ fatfindfreefid(struct fat *fat);
 
 bool
 fatupdatedirentry(struct fat *fat, struct fat_file *file);
+
+uint32_t
+fatdirsize(struct fat *fat, struct fat_file *file);
+
+uint32_t
+fatfilesize(struct fat *fat, struct fat_file *file);
+ 

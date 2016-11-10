@@ -190,7 +190,8 @@ bcreate(struct request_create *req, struct response_create *resp)
   fids[i] = new;
   
   new->stat.attr = req->body.attr;
-  new->stat.size = sizeof(struct file);
+  new->stat.size = 0;
+  new->stat.dsize = sizeof(struct file);
   new->open = 0;
   new->children = nil;
 
@@ -200,6 +201,8 @@ bcreate(struct request_create *req, struct response_create *resp)
 
   new->cnext = p->children;
   p->children = new;
+
+  p->stat.size++;
 
   resp->head.ret = OK;
   resp->body.fid = i;
@@ -222,6 +225,8 @@ bremove(struct request_remove *req, struct response_remove *resp)
        c != nil && c->cnext != f; c = c->cnext)
     ;
 
+  f->parent->stat.size--;
+  
   if (c == nil) {
     f->parent->children = f->cnext;
   } else {
@@ -323,7 +328,8 @@ rootfsproc(void *arg)
   root->lname = 0;
 
   root->stat.attr = ATTR_rd|ATTR_wr|ATTR_dir;
-  root->stat.size = sizeof(struct file);
+  root->stat.size = 0;
+  root->stat.dsize = sizeof(struct file);
   root->open = 0;
   root->cnext = nil;
   root->parent = nil;

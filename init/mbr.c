@@ -103,6 +103,7 @@ initparts(void)
   initpart(&raw, "raw");
 
   raw.stat.size = device->nblk * device->blksize;
+  raw.stat.dsize = raw.stat.size;
   raw.type = 1;
   raw.lba = 0;
   raw.sectors = device->nblk;
@@ -120,12 +121,14 @@ updatembr(void)
     exit(ERR);
   }
 
-  rootstat.size = 1 + raw.lname;
+  rootstat.size = 1;
+  rootstat.dsize = 1 + raw.lname;
 
   for (i = 0; i < 4; i++) {
     parts[i].type = parts[i].mbr->type;
     if (parts[i].type != 0) {
-      rootstat.size += 1 + parts[i].lname;
+      rootstat.dsize += 1 + parts[i].lname;
+      rootstat.size++;
 
       memmove(&parts[i].lba, &parts[i].mbr->lba,
 	      sizeof(uint32_t));
@@ -134,6 +137,7 @@ updatembr(void)
 	      sizeof(uint32_t));
 
       parts[i].stat.size = parts[i].sectors * device->blksize;
+      parts[i].stat.dsize = parts[i].stat.size;
     }
   }
 
@@ -141,7 +145,7 @@ updatembr(void)
     free(rootbuf);
   }
   
-  rootbuf = malloc(rootstat.size);
+  rootbuf = malloc(rootstat.dsize);
   if (rootbuf == nil) {
     exit(-1);
   }
@@ -250,8 +254,8 @@ static void
 readroot(struct request_read *req, struct response_read *resp,
 	  uint32_t offset, uint32_t len)
 {
-  if (offset + len >= rootstat.size) {
-    len = rootstat.size - offset;
+  if (offset + len >= rootstat.dsize) {
+    len = rootstat.dsize - offset;
   }
 
   if (len == 0) {

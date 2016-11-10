@@ -15,7 +15,7 @@ CFLAGS := -std=c89 -O3 \
         -D_$(TARGET)_ \
         -I$(BASE)/include 
 
-LDFLAGS += -nostdlib -nodefaultlibs \
+LDFLAGS += -nostdlib -nodefaultlibs -static \
 	-T $(BASE)/$(TARGET)/c.ld \
 	-L/usr/local/lib/gcc/arm-none-eabi/4.9.3/ \
 	-L$(BASE)/lib

@@ -335,8 +335,10 @@ copyfileentryname(struct fat_dir_entry *file, char *name)
 
   if (file->name[0] == 0) {
     return nil;
+  } else if (file->name[0] == 0xe5) {
+    return copyfileentryname(file + 1, name);
   }
-
+ 
   while ((file->attr & FAT_ATTR_lfn) == FAT_ATTR_lfn) {
     printf("This is a long file name entry, not sure what to do\n");
 
@@ -348,20 +350,32 @@ copyfileentryname(struct fat_dir_entry *file, char *name)
   i = 0;
 
   for (j = 0; j < sizeof(file->name) && file->name[j] != ' '; j++) {
-    name[i++] = file->name[j];
+    if (file->name[j] >= 'A' && file->name[j] <= 'Z') {
+      /* Convert upper to lower */
+      name[i++] = file->name[j] + 32;
+    } else {
+      name[i++] = file->name[j];
+    }
   }
 
   if (file->ext[0] != ' ') {
     name[i++] = '.';
   
     for (j = 0; j < sizeof(file->ext) && file->ext[j] != ' '; j++) {
-      name[i++] = file->ext[j];
+      if (file->ext[j] >= 'A' && file->ext[j] <= 'Z') {
+	/* Convert upper to lower */
+	name[i++] = file->ext[j] + 32;
+      } else {
+	name[i++] = file->ext[j];
+      }
     }
   }
-
+  
   name[i] = 0;
 
-  if (strcmp(name, ".") || strcmp(name, "..")) {
+  if (strcmp(name, ".")) {
+    return copyfileentryname(file + 1, name);
+  } else if (strcmp(name, "..")) {
     return copyfileentryname(file + 1, name);
   } else {
     return file;
@@ -435,7 +449,10 @@ fatfilefromentry(struct fat *fat, struct buf *buf,
 
   if (entry->attr & FAT_ATTR_directory) {
     f->attr |= ATTR_dir;
-    f->size = fat->spc * fat->bps;
+    f->dsize = fat->spc * fat->bps;
+    f->size = fatdirsize(fat, f);
+  } else {
+    f->dsize = fatfilesize(fat, f);
   }
 
   return i;
@@ -463,8 +480,6 @@ fatupdatedirentry(struct fat *fat, struct fat_file *file)
   intwritelittle16(direntry->cluster_low,
 		   file->startcluster & 0xffff);
 
-  intwritelittle32(direntry->size, file->size);
-
   direntry->attr = 0;
   if (!(file->attr & ATTR_wr)) {
     direntry->attr |= FAT_ATTR_read_only;
@@ -472,13 +487,22 @@ fatupdatedirentry(struct fat *fat, struct fat_file *file)
 
   if (file->attr & ATTR_dir) {
     direntry->attr |= FAT_ATTR_directory;
+    memset(direntry->size, 0, sizeof(direntry->size));
+  } else {
+    intwritelittle32(direntry->size, file->size);
   }
 
   i = 0;
 
   for (j = 0; j < sizeof(direntry->name); j++) {
     if (file->name[i] != 0 && file->name[i] != '.') {
-      direntry->name[j] = file->name[i++];
+      if (file->name[j] >= 'a' && file->name[j] <= 'z') {
+	/* Convert upper to lower */
+	direntry->name[j] = file->name[i++] - 32;
+      } else {
+	direntry->name[j] = file->name[i++];
+      }
+
     } else {
       direntry->name[j] = ' ';
     }
@@ -490,12 +514,87 @@ fatupdatedirentry(struct fat *fat, struct fat_file *file)
     
   for (j = 0; j < sizeof(direntry->ext); j++) {
     if (file->name[i] != 0) {
-      direntry->ext[j] = file->name[i++];
+      if (file->name[j] >= 'a' && file->name[j] <= 'z') {
+	/* Convert upper to lower */
+	direntry->name[j] = file->name[i++] - 32;
+      } else {
+	direntry->name[j] = file->name[i++];
+      }
     } else {
       direntry->ext[j] = ' ';
     }
   }
 
   return writesectors(fat, buf, fat->spc);
+}
+
+static uint32_t
+nfilesinsector(struct fat *fat, uint32_t sector)
+{
+  struct fat_dir_entry *entry;
+  struct buf *buf;
+  char name[NAMEMAX];
+  uint32_t s;
+
+  buf = readsectors(fat, sector, fat->spc);
+  if (buf == nil) {
+    return 0;
+  }
+
+  s = 0;
+  entry = (struct fat_dir_entry *) buf->addr;
+    
+  while ((uint8_t *) entry < buf->addr + fat->spc * fat->bps) {
+    entry = copyfileentryname(entry, name);
+    if (entry == nil) {
+      break;
+    } else {
+      s++;
+      entry++;
+    }
+  }
+
+  return s;
+}
+
+uint32_t
+fatdirsize(struct fat *fat, struct fat_file *file)
+{
+  uint32_t cluster;
+  size_t s;
+
+  s = 0;
+  if (file->startcluster == 0) {
+    s = nfilesinsector(fat, fat->rootdir);
+  } else {
+    cluster = file->startcluster;
+
+    while (cluster != 0) {
+      s += nfilesinsector(fat, clustertosector(fat, cluster));
+      cluster = nextcluster(fat, cluster);
+    }
+  }
+
+  return s;
+}
+
+uint32_t
+fatfilesize(struct fat *fat, struct fat_file *file)
+{
+  uint32_t cluster, s;
+
+  s = 0;
+  if (file->startcluster == 0) {
+    s = fat->bps * fat->spc;
+  } else {
+    cluster = file->startcluster;
+
+    while (cluster != 0) {
+      s += fat->bps * fat->spc;
+      cluster = nextcluster(fat, cluster);
+    }
+  }
+
+  return s;
 }
 

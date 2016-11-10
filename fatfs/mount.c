@@ -63,8 +63,13 @@ bclunk(struct request_clunk *req, struct response_clunk *resp)
 static void
 bstat(struct request_stat *req, struct response_stat *resp)
 {
-  resp->body.stat.attr = fat->files[req->head.fid].attr;
-  resp->body.stat.size = fat->files[req->head.fid].size;
+  struct fat_file *f;
+
+  f = &fat->files[req->head.fid];
+
+  resp->body.stat.attr = f->attr;
+  resp->body.stat.size = f->size;
+  resp->body.stat.dsize = f->dsize;
   resp->head.ret = OK;
 }
 

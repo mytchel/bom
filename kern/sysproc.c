@@ -229,10 +229,10 @@ syswaitintr(va_list args, struct label *ureg)
 reg_t
 sysmmap(va_list args, struct label *ureg)
 {
-  struct pagel *pagel, *pp, *pl;
-  struct page *pg;
+  struct pagel *head, *pp, *pl;
   size_t *size, csize;
-  void *addr, *paddr;
+  void *addr, *paddr = nil;
+  struct page *pg;
   bool rw, c;
   int type;
 	
@@ -244,7 +244,6 @@ sysmmap(va_list args, struct label *ureg)
   case MEM_ram:
     rw = true;
     c = true;
-    paddr = nil;
     break;
   case MEM_io:
     rw = true;
@@ -253,14 +252,13 @@ sysmmap(va_list args, struct label *ureg)
     addr = nil;
     break;
   default:
-    return ERR;
+    return nil;
   }
 
-  pg = nil;
-  pp = pagel = nil;
+  pp = head = nil;
   csize = 0;
 
-  while (csize < *size) {
+  for (csize = 0; csize < *size; csize += PAGE_SIZE) {
     switch (type) {
     case MEM_ram:
       pg = getrampage();
@@ -269,41 +267,44 @@ sysmmap(va_list args, struct label *ureg)
       pg = getiopage(paddr);
       paddr += PAGE_SIZE;
       break;
+    default:
+      pg = nil;
     }
 
     if (pg == nil) {
-      pagelfree(pagel);
-      return ERR;
+      pagelfree(head);
+      return nil;
     }
 
     pl = wrappage(pg, nil, rw, c);
     if (pl == nil) {
       pagefree(pg);
-      pagelfree(pagel);
-      return ERR;
+      pagelfree(head);
+      return nil;
     }
 
     if (pp == nil) {
-      pagel = pl;
+      head = pl;
     } else {
       pp->next = pl;
     }
 
     pp = pl;
-
-    csize += PAGE_SIZE;
   }
 	
-  if (pagel == nil) {
+  if (head == nil) {
     return nil;
   }
 
-  *size = csize;
-
   lock(&up->mgroup->lock);
-  addr = insertpages(up->mgroup, pagel, addr, csize, addr == nil);
+
+  addr = (void *) insertpages(up->mgroup, head,
+			      (reg_t) addr, csize,
+			      addr == nil);
+
   unlock(&up->mgroup->lock);
 
+  *size = csize;
   return (reg_t) addr;
 }
 
@@ -311,25 +312,28 @@ reg_t
 sysmunmap(va_list args, struct label *ureg)
 {
   struct pagel *p, *pt, *pp;
-  void *addr;
   size_t size;
+  void *addr;
+  reg_t ret;
 
   addr = va_arg(args, void *);
   size = va_arg(args, size_t);
 	
   lock(&up->mgroup->lock);
-  
+
+  ret = OK;
   pp = nil;
   p = up->mgroup->pages; 
+
   while (p != nil && size > 0) {
-    if (p->va == addr) {
+    if (p->va == (reg_t) addr) {
       addr += PAGE_SIZE;
       size -= PAGE_SIZE;
 			
-      if (pp != nil) {
-	pp->next = p->next;
-      } else {
+      if (pp == nil) {
 	up->mgroup->pages = p->next;
+      } else {
+	pp->next = p->next;
       }
 			
       pt = p->next;
@@ -339,13 +343,13 @@ sysmunmap(va_list args, struct label *ureg)
 
       p = pt;
     } else {
-      pp = p;
-      p = p->next;
+      ret = ERR;
+      break;
     }
   }
 	
   unlock(&up->mgroup->lock);
 
-  return OK;
+  return ret;
 }
 

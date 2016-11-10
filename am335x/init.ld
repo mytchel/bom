@@ -4,7 +4,7 @@ SECTIONS
 {
 	. = 0;
 
-	.text :
+	.text ALIGN(4096) :
 	{
 		libc.a(.text)
 		*(.text)
@@ -14,9 +14,7 @@ SECTIONS
 		*(.rodata.*)
 	}
 	
-	. = ALIGN(4096);
-	
-	.data :
+	.data ALIGN(4096) :
 	{
 		*(.data)
 		*(.data.*)

@@ -49,14 +49,14 @@ struct lock {
 struct page {
   int refs;
   /* Not changable */
-  void *pa;
+  reg_t pa;
   bool forceshare;
   struct page *next;
   struct page **from;
 };
 
 struct pagel {
-  void *va;
+  reg_t va;
   bool rw, c;
   struct page *p;
   struct pagel *next;
@@ -261,17 +261,13 @@ struct pagel *
 pagelcopy(struct pagel *);
 
 struct pagel *
-wrappage(struct page *p, void *va, bool rw, bool c);
+wrappage(struct page *p, reg_t va, bool rw, bool c);
 
 struct mgroup *
 mgroupnew(void);
 
 struct mgroup *
 mgroupcopy(struct mgroup *old);
-
-void
-mgroupaddpage(struct mgroup *m, struct page *p,
-	      void *va, bool rw, bool c);
 
 void
 mgroupfree(struct mgroup *m);
@@ -289,9 +285,9 @@ fixfault(void *);
 void *
 kaddr(struct proc *p, const void *addr, size_t size);
 
-void *
+reg_t
 insertpages(struct mgroup *m, struct pagel *pagel,
-	    void *addr, size_t size, bool fix);
+	    reg_t addr, size_t size, bool fix);
 
 int
 kexec(struct chan *f, int argc, char *argv[]);

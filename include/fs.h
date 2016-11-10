@@ -37,7 +37,8 @@
 
 struct stat {
   uint32_t attr;
-  uint32_t size;
+  uint32_t size;     /* Readable/number of children size */
+  uint32_t dsize;    /* Disk/mem usage */
 };
 
 int

@@ -51,33 +51,39 @@ struct elf_header32 {
   uint16_t e_shstrndx;
 }__attribute((packed));
 
+#define PHT_NULL           0
+#define PHT_LOAD           1
+
+#define PHF_X            0x1
+#define PHF_W            0x2
+#define PHF_R            0x4
+
 struct elf_pheader32 {
-  uint32_t p_type;
-  uint32_t p_offset;
-  uint32_t p_vaddr;
-  uint32_t p_paddr;
-  uint32_t p_filesz;
-  uint32_t p_memsz;
-  uint32_t p_flags;
-  uint32_t p_align;
+  uint32_t type;
+  uint32_t offset;
+  uint32_t vaddr;
+  uint32_t paddr;
+  uint32_t filesz;
+  uint32_t memsz;
+  uint32_t flags;
+  uint32_t align;
 }__attribute((packed));
 
+#define SHT_NULL           0
+#define SHT_PROGBITS       1
+#define SHT_SYMTAB         2
+#define SHT_STRTAB         3
+#define SHT_NOBITS         8
+
+#define SHF_WRITE        0x1
+#define SHF_ALLOC        0x2
+#define SHF_EXEC         0x4
+#define SHF_TLS        0x400
+  
 struct elf_sheader32 {
   uint32_t name;
-
-#define NULL 0
-#define PROGBITS 1
-#define SYMTAB 2
-#define STRTAB 3
   uint32_t type;
-
-#define SHF_WRITE 0x1
-#define SHF_ALLOC 0x2
-#define SHF_EXEC  0x4
-#define SHF_TLS   0x400
-  
   uint32_t flags;
-
   uint32_t addr;
   uint32_t offset;
   uint32_t size;

@@ -36,7 +36,7 @@ int
 main(int argc, char *argv[])
 {
   int r;
-  
+
   if (argc != 3) {
     printf("usage: %s /path/to/blockdev /path/to/mount\n", argv[0]);
     return -1;
@@ -44,10 +44,5 @@ main(int argc, char *argv[])
 
   r = mountfat(argv[1], argv[2]);
 
-  if (r == 0) {
-    return OK;
-  }
-
-  printf("fat mount error on %s, %i\n", argv[1], r);
   return r;
 }

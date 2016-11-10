@@ -33,8 +33,13 @@ test: $(src)
 	@echo $(CC) $@
 	$(CC) $(CFLAGS) -o $@ $(src) $(LDFLAGS) -lc -lstring
 
+a: a.S
+	@echo $(CC) $@
+	$(CC) $(CFLAGS) -o $@ a.S -nostdlib -Ttext 0x0 
+
+
 
 .PHONY: clean
 clean:
-	@rm -f test
+	@rm -f test a
 

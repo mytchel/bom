@@ -61,9 +61,7 @@ forkchild(struct proc *p, struct label *ureg)
 {
   struct label *nreg;
 
-  int i;
-  for (i = 0; i < 13; i++)
-    p->label.regs[i] = i;
+  memset(&p->label, 0, sizeof(struct label));
   
   /* SVC with interrupts disabled */
   p->label.psr = MODE_SVC | (1 << 7);

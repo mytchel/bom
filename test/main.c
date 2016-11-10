@@ -42,6 +42,6 @@ main(int argc, char *argv[])
       return r;
     }
   }
-  
+
   return 0;
 }

@@ -49,7 +49,7 @@ ttb[4096]__attribute__((__aligned__(16*1024))) = { L1_FAULT };
 uint32_t low = UINT_MAX;
 uint32_t high = 0;
 
-struct proc *loaded = nil;
+struct mmu *loaded = nil;
 
 void
 mmuinit(void)
@@ -102,21 +102,21 @@ mmuswitch(void)
 {
   struct pagel *pl;
 
-  if (loaded == up) {
+  if (loaded == up->mmu) {
     return;
   } else {
-    loaded = up;
+    loaded = up->mmu;
   }
 
   mmuempty1();
 
-  if (up->mmu->pages == nil) {
+  if (loaded->pages == nil) {
     return;
   }
   
-  low = L1X((uint32_t) up->mmu->pages->va);
+  low = L1X((uint32_t) loaded->pages->va);
   
-  for (pl = up->mmu->pages; pl != nil; pl = pl->next) {
+  for (pl = loaded->pages; pl != nil; pl = pl->next) {
     ttb[L1X((uint32_t) pl->va)] 
       = ((uint32_t) pl->p->pa) | L1_COARSE;
 
@@ -177,7 +177,7 @@ mmuputpage(struct pagel *p)
       panic("mmu failed to get page\n");
     }
     
-    pn = wrappage(pg, (void *) (x & ~((1 << 20) - 1)),
+    pn = wrappage(pg, (x & ~((1 << 20) - 1)),
 		  true, true);
 
     if (pn == nil) {

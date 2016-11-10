@@ -112,7 +112,7 @@ pagelcopy(struct pagel *po)
 	goto err;
       }
 
-      memmove(pg->pa, po->p->pa, PAGE_SIZE);
+      memmove((void *) pg->pa, (void *) po->p->pa, PAGE_SIZE);
     }
 
     pn = wrappage(pg, po->va, po->rw, po->c);
@@ -138,7 +138,7 @@ err:
 }
 
 struct pagel *
-wrappage(struct page *p, void *va, bool rw, bool c)
+wrappage(struct page *p, reg_t va, bool rw, bool c)
 {
   struct pagel *pl;
 
@@ -157,7 +157,7 @@ wrappage(struct page *p, void *va, bool rw, bool c)
 }
 
 static struct pagel *
-findpagelinlist(struct pagel *p, const void *addr)
+findpagelinlist(struct pagel *p, const reg_t addr)
 {
   while (p != nil) {
     if (p->va <= addr && p->va + PAGE_SIZE > addr) {
@@ -171,7 +171,7 @@ findpagelinlist(struct pagel *p, const void *addr)
 }
 
 static struct pagel *
-findpagel(struct proc *p, const void *addr)
+findpagel(struct proc *p, const reg_t addr)
 {
   struct pagel *pl = nil;
 
@@ -185,12 +185,13 @@ findpagel(struct proc *p, const void *addr)
 }
 
 bool
-fixfault(void *addr)
+fixfault(void *vaddr)
 {
   struct pagel *pl;
   struct page *pg;
+  reg_t addr = (reg_t) vaddr;
 
-  pl = findpagel(up, addr);
+  pl = findpagel(up, (reg_t) addr);
   if (pl != nil) {
     mmuputpage(pl);
     return true;
@@ -276,7 +277,7 @@ kaddr(struct proc *p, const void *addr, size_t len)
   struct pagel *pl;
   uint32_t offset;
 
-  pl = findpagel(p, addr);
+  pl = findpagel(p, (reg_t) addr);
   if (pl == nil) {
     return nil;
   }
@@ -293,8 +294,112 @@ kaddr(struct proc *p, const void *addr, size_t len)
     }
   }
   
-  return pl->p->pa + offset;
+  return (void *) (pl->p->pa + offset);
 }
+
+static reg_t
+insertpagesfix(struct mgroup *m, struct pagel *pn,
+	       reg_t addr, size_t size)
+{
+  struct pagel *p, *pp;
+  reg_t caddr;
+
+  caddr = (reg_t) addr;
+  pp = nil;
+  for (p = m->pages; p != nil && pn != nil; pp = p, p = p->next) {
+    if (p->next == nil ||
+	p->va + PAGE_SIZE + size <= p->next->va) {
+
+      caddr = (reg_t) p->va + PAGE_SIZE;
+      addr = caddr;
+      
+      for (pp = pn;  pp != nil && pp->next != nil; pp = pp->next) {
+	pp->va = caddr;
+	caddr += PAGE_SIZE;
+      }
+
+      pp->va = caddr;
+
+      pp->next = p->next;
+      p->next = pn;
+
+      return addr;
+    }
+  }
+
+  return 0;
+}
+
+static reg_t
+insertpagesnofix(struct mgroup *m, struct pagel *pn,
+		 reg_t addr, size_t size)
+{
+  struct pagel *p, *pp;
+  reg_t caddr;
+
+  caddr = (reg_t) addr;
+  pp = nil;
+  for (p = m->pages; p != nil && pn != nil; pp = p, p = p->next) {
+    if ((reg_t) p->va == caddr) {
+      /* Replace page */
+
+      printf("replace page at 0x%h\n", p->va);
+
+      if (pp == nil) {
+	pp = m->pages->next;
+	m->pages = pn;
+	
+	pn = pn->next;
+	m->pages->next = pp;
+      } else {
+	pp->next = pn;
+	pn = pn->next;
+	pp->next->next = p->next;
+      }
+
+      caddr += PAGE_SIZE;
+
+      pagefree(p->p);
+      free(p);
+    }
+  }
+
+  return addr;
+}
+
+reg_t
+insertpages(struct mgroup *m, struct pagel *pn,
+	    reg_t addr, size_t size, bool fix)
+{
+  reg_t caddr;
+
+  if (m->pages == nil) {
+    m->pages = pn;
+
+    if (fix) {
+      addr = nil;
+      caddr = 0;
+      while (fix && pn != nil) {
+	pn->va = caddr;
+	pn = pn->next;
+	caddr += PAGE_SIZE;
+      }
+
+      return nil;
+    } else {
+      return addr;
+    }
+  
+  } else {
+    if (fix) {
+      return insertpagesfix(m, pn, addr, size);
+    } else {
+      return insertpagesnofix(m, pn, addr, size);
+    }
+  }
+}
+
+    #if 0
 
 static void
 fixpagel(struct pagel *p, reg_t addr, struct pagel *next)
@@ -312,15 +417,7 @@ fixpagel(struct pagel *p, reg_t addr, struct pagel *next)
   }
 }
 
-void *
-insertpages(struct mgroup *m, struct pagel *pagel,
-	    void *addr, size_t size, bool fix)
-{
-  struct pagel *p, *pp;
-
-  pp = nil;
-  for (p = m->pages; p != nil; pp = p, p = p->next) {
-    if (fix && pp != nil) {
+if (fix && pp != nil) {
       addr = (uint8_t *) pp->va + PAGE_SIZE;
     }
 		
@@ -345,3 +442,4 @@ insertpages(struct mgroup *m, struct pagel *pagel,
   return addr;
 }
 
+#endif
