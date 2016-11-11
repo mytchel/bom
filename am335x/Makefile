@@ -34,10 +34,12 @@ include $(BASE)/config.mk
 
 loadaddr=0x82000000
 
+
 SUBDIR =
 SUBDIR += $(BASE)/lib
 SUBDIR += $(BASE)/tools/mkuboot
 SUBDIR += $(BASE)/tools/bintoarray
+SUBDIR += $(BASE)/shell
 SUBDIR += $(BASE)/fatfs
 SUBDIR += $(BASE)/tmpfs
 
@@ -46,7 +48,7 @@ SUBDIR += $(BASE)/tmpfs
 all: \
 	$(BASE)/lib $(BASE)/lib/libc.a \
 	am335x.umg am335x.list init.list \
-	$(BASE)/fatfs $(BASE)/tmpfs
+	$(BASE)/shell $(BASE)/fatfs $(BASE)/tmpfs
 
 
 ISRC = \

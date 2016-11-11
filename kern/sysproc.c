@@ -28,10 +28,8 @@
 #include "head.h"
 
 reg_t
-sysexit(va_list args, struct label *ureg)
+sysexit(int code)
 {
-  int code = va_arg(args, int);
-
   setintr(INTR_OFF);
   procexit(up, code);
   schedule();
@@ -41,11 +39,8 @@ sysexit(va_list args, struct label *ureg)
 }
 
 reg_t
-syssleep(va_list args, struct label *ureg)
+syssleep(int ms)
 {
-  int ms;
-
-  ms = va_arg(args, int);
   if (ms < 0) {
     ms = 0;
   }
@@ -66,12 +61,11 @@ syssleep(va_list args, struct label *ureg)
 }
 
 reg_t
-sysfork(va_list args, struct label *ureg)
+sysfork(int flags, struct label *ureg)
 {
   struct proc *p;
-  int flags;
-	
-  flags = va_arg(args, int);
+  intrstate_t i;
+  reg_t r;
 
   p = procnew(up->priority);
   if (p == nil) {
@@ -119,36 +113,30 @@ sysfork(va_list args, struct label *ureg)
     }
   }
 
+  i = setintr(INTR_OFF);
+
   p->parent = up;
-  forkchild(p, ureg);
-
-  setintr(INTR_OFF);
-
   p->cnext = up->children;
   up->children = p;
 
-  procready(p);
-  setintr(INTR_ON);
+  setintr(i);
 
-  return p->pid;
+  /* Both parent and child return from this */
+  r = forkchild(p);
 
+  return r;
+  
  err:
   procexit(p, 0);
   return ENOMEM;
 }
 
 reg_t
-sysexec(va_list args, struct label *ureg)
+sysexec(const char *upath, int argc, char *argv[])
 {
-  const char *upath;
   struct path *path;
   struct chan *c;
-  char **argv;
-  int r, i, argc;
-
-  upath = va_arg(args, char *);
-  argc = va_arg(args, int);
-  argv = va_arg(args, char **);
+  int r, i;
 
   if (kaddr(up, upath, 0) == nil) {
     return ERR;
@@ -185,18 +173,16 @@ getpid(void)
 }
 
 reg_t
-sysgetpid(va_list args, struct label *ureg)
+sysgetpid(void)
 {
   return up->pid;
 }
 
 reg_t
-syswait(va_list args, struct label *ureg)
+syswait(int *ustatus)
 {
   struct proc *p;
-  int *ustatus, *status, pid;
-
-  ustatus = va_arg(args, int *);
+  int *status, pid;
 
   status = kaddr(up, ustatus, sizeof(int *));
   if (status == nil) {
@@ -217,12 +203,8 @@ syswait(va_list args, struct label *ureg)
 }
 
 reg_t
-syswaitintr(va_list args, struct label *ureg)
+syswaitintr(int irqn)
 {
-  int irqn;
-
-  irqn = va_arg(args, int);
-
   if (procwaitintr(irqn)) {
     return OK;
   } else {
@@ -231,19 +213,18 @@ syswaitintr(va_list args, struct label *ureg)
 }
 
 reg_t
-sysmmap(va_list args, struct label *ureg)
+sysmmap(int type, void *addr, size_t *size)
 {
   struct pagel *head, *pp, *pl;
-  size_t *size, csize;
-  void *addr, *paddr = nil;
   struct page *pg;
+  void *paddr = nil;
+  size_t csize;
   bool rw, c;
-  int type;
-	
-  type = va_arg(args, int);
-  addr = va_arg(args, void *);
-  size = va_arg(args, size_t *);
 
+  if (kaddr(up, size, sizeof(size_t)) == nil) {
+    return ERR;
+  }
+  
   switch (type) {
   case MEM_ram:
     rw = true;
@@ -313,16 +294,11 @@ sysmmap(va_list args, struct label *ureg)
 }
 
 reg_t
-sysmunmap(va_list args, struct label *ureg)
+sysmunmap(void *addr, size_t size)
 {
   struct pagel *p, *pt, *pp;
-  size_t size;
-  void *addr;
   reg_t ret;
 
-  addr = va_arg(args, void *);
-  size = va_arg(args, size_t);
-	
   lock(&up->mgroup->lock);
 
   ret = OK;

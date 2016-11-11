@@ -48,7 +48,7 @@ forkfunc(struct proc *p, int (*func)(void *), void *arg)
   int i;
   for (i = 0; i < 13; i++)
     p->label.regs[i] = i;
-  
+
   p->label.psr = MODE_SVC;
   p->label.sp = (uint32_t) p->kstack->pa + PAGE_SIZE;
 
@@ -56,25 +56,33 @@ forkfunc(struct proc *p, int (*func)(void *), void *arg)
   p->label.regs[0] = (uint32_t) arg;
 }
 
-void
-forkchild(struct proc *p, struct label *ureg)
+reg_t
+forkchild(struct proc *p)
 {
-  struct label *nreg;
-
-  memset(&p->label, 0, sizeof(struct label));
+  intrstate_t i;
+  uint32_t s, d;
   
-  /* SVC with interrupts disabled */
-  p->label.psr = MODE_SVC | (1 << 7);
-  p->label.sp = (uint32_t) p->kstack->pa + PAGE_SIZE;
+  i = setintr(INTR_OFF);
+  
+  if (setlabel(&p->label)) {
+    setintr(i);
+    return 0;
+  }
 
-  nreg = (struct label *) (p->label.sp - sizeof(struct label));
-  memmove(nreg, ureg, sizeof(struct label));
+  setintr(i);
+  
+  s = p->label.sp;
+  d = up->kstack->pa + PAGE_SIZE - s;
 
-  nreg->regs[0] = 0;
+  p->label.sp = p->kstack->pa + PAGE_SIZE - d;
+  
+  memmove((void *) p->label.sp, (void *) s, d);
 
-  p->label.pc = (uint32_t) &droptouser;
-  p->label.regs[0] = (uint32_t) nreg;
-  p->label.regs[1] = p->label.sp;
+  i = setintr(INTR_OFF);
+  procready(p);
+  setintr(i);
+
+  return p->pid;
 }
 
 void

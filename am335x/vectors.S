@@ -86,25 +86,36 @@ vectortable:
 
 
 swi_ex:
-	sub sp, sp, #(4 * 14)
-	stmia sp, {r0 - r12, lr}
+	stmfd sp!, {r8, r9, r10, r11, lr}
 
-	mrs r1, spsr
-	sub r0, sp, #(4 * 3)
+	mrs r9, spsr
 
-	mov r5, #(MODE_SYS|MODE_DI)
-	msr cpsr, r5
+	mov r8, #(MODE_SYS|MODE_DI)
+	msr cpsr, r8
 
-	stmia r0, {r1, sp, lr}
-
-	mov r5, #(MODE_SVC|MODE_DI)
-	msr cpsr, r5
-
-	mov sp, r0
-	bl syscall
-	add r1, sp, #(4 * 17)
-	b droptouser
+	mov r10, sp
+	mov r11, lr
 	
+	mov r8, #(MODE_SVC)
+	msr cpsr, r8
+
+	ldr lr, =1f
+	ldr r8, =syscalltable
+	ldr pc, [r8, r12, lsl #2]
+	
+1:
+	mov r8, #(MODE_SYS|MODE_DI)
+	msr cpsr, r8
+
+	mov sp, r10
+	mov lr, r11
+	
+	mov r8, #(MODE_SVC|MODE_DI)
+	msr cpsr, r8
+
+	msr spsr, r9
+	ldmfd sp!, {r8, r9, r10, r11, pc}^
+
 
 irq_ex:
 	stmfd sp, {r0 - r5}

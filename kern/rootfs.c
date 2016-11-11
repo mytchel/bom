@@ -339,6 +339,6 @@ rootfsproc(void *arg)
   
   rootmount.databuf = malloc(512);
   rootmount.buflen = 512;
-  
+
   return fsmountloop(in, out, &rootmount);
 }

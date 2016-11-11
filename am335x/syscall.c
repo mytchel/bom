@@ -32,13 +32,14 @@ struct label *
 syscall(struct label *ureg)
 {
   unsigned int sysnum;
+  reg_t (*call)(va_list, struct label *);
 
   sysnum = (unsigned int) ureg->regs[0];
 
   if (sysnum < NSYSCALLS) {
     setintr(INTR_ON);
-
-    ureg->regs[0] = syscalltable[sysnum]((va_list) ureg->sp, ureg);
+    call = (reg_t (*)(va_list, struct label *)) syscalltable[sysnum];
+    ureg->regs[0] = call((va_list) ureg->sp, ureg);
 
     setintr(INTR_OFF);
   } else {

@@ -28,21 +28,17 @@
 #include "head.h"
 
 reg_t
-syschdir(va_list args, struct label *ureg)
+syschdir(const char *upath)
 {
-  const char *upath, *kpath;
   struct path *path;
   struct chan *c;
   int err;
 
-  upath = va_arg(args, const char *);
-
-  kpath = kaddr(up, (void *) upath, 0);
-  if (kpath == nil) {
+  if (kaddr(up, (void *) upath, 0) == nil) {
     return ERR;
   }
 
-  path = realpath(up->dot, kpath);
+  path = realpath(up->dot, upath);
 
   c = fileopen(path, O_RDONLY|O_DIR, 0, &err);
   if (err != OK) {
@@ -85,15 +81,9 @@ read(int fd, void *buf, size_t len)
 }
 
 reg_t
-sysread(va_list args, struct label *ureg)
+sysread(int fd, void *buf, size_t len)
 {
-  int fd;
-  size_t len;
-  void *buf, *kbuf;
-
-  fd = va_arg(args, int);
-  buf = va_arg(args, void *);
-  len = va_arg(args, size_t);
+  void *kbuf;
 
   kbuf = kaddr(up, buf, len);
 
@@ -127,16 +117,10 @@ write(int fd, void *buf, size_t len)
 }
 
 reg_t
-syswrite(va_list args, struct label *ureg)
+syswrite(int fd, void *buf, size_t len)
 {
-  int fd;
-  size_t len;
-  void *buf, *kbuf;
+  void *kbuf;
 	
-  fd = va_arg(args, int);
-  buf = va_arg(args, void *);
-  len = va_arg(args, size_t);
-
   kbuf = kaddr(up, buf, len);
 
   if (kbuf == nil) {
@@ -165,28 +149,18 @@ seek(int fd, size_t offset, int whence)
 }
 
 reg_t
-sysseek(va_list args, struct label *ureg)
+sysseek(int fd, size_t offset, int whence)
 {
-  int fd, whence;
-  size_t offset;
-	
-  fd = va_arg(args, int);
-  offset = va_arg(args, size_t);
-  whence = va_arg(args, int);
-
   return seek(fd, offset, whence);
 }
      
 reg_t
-sysstat(va_list args, struct label *ureg)
+sysstat(const char *upath, struct stat *ustat)
 {
-  const char *upath, *kpath;
-  struct stat *ustat, *stat;
+  const char *kpath;
+  struct stat *stat;
   struct path *path;
 	
-  upath = va_arg(args, const char *);
-  ustat = va_arg(args, struct stat *);
-
   kpath = kaddr(up, (void *) upath, 0);
   
   stat = (struct stat *) kaddr(up, (void *) ustat,
@@ -202,12 +176,9 @@ sysstat(va_list args, struct label *ureg)
 }
 
 reg_t
-sysclose(va_list args, struct label *ureg)
+sysclose(int fd)
 {
-  int fd;
   struct chan *c;
-
-  fd = va_arg(args, int);
 
   c = fdtochan(up->fgroup, fd);
   if (c == nil) {
@@ -225,16 +196,14 @@ sysclose(va_list args, struct label *ureg)
 }
 
 reg_t
-sysopen(va_list args, struct label *ureg)
+sysopen(const char *upath, uint32_t mode, ...)
 {
-  int err;
-  uint32_t mode, cmode;
-  const char *upath, *kpath;
-  struct chan *c;
   struct path *path;
-	
-  upath = va_arg(args, const char *);
-  mode = va_arg(args, uint32_t);
+  const char *kpath;
+  uint32_t cmode;
+  struct chan *c;
+  va_list ap;
+  int err;
 
   kpath = kaddr(up, (void *) upath, 0);
   if (kpath == nil) {
@@ -242,7 +211,8 @@ sysopen(va_list args, struct label *ureg)
   }
   
   if (mode & O_CREATE) {
-    cmode = va_arg(args, uint32_t);
+    va_start(ap, mode);
+    cmode = va_arg(ap, uint32_t);
   } else {
     cmode = 0;
   }
@@ -260,12 +230,13 @@ sysopen(va_list args, struct label *ureg)
 }
 
 reg_t
-syspipe(va_list args, struct label *ureg)
+syspipe(int *fds)
 {
-  int *fds;
   struct chan *c0, *c1;
-	
-  fds = va_arg(args, int*);
+
+  if (kaddr(up, fds, sizeof(int) * 2) == nil) {
+    return ERR;
+  }
 
   if (!pipenew(&c0, &c1)) {
     return ENOMEM;
@@ -278,13 +249,11 @@ syspipe(va_list args, struct label *ureg)
 }
 
 reg_t
-sysremove(va_list args, struct label *ureg)
+sysremove(const char *upath)
 {
-  const char *upath, *kpath;
   struct path *path;
+  const char *kpath;
 	
-  upath = va_arg(args, const char *);
-
   kpath = kaddr(up, (void *) upath, 0);
   if (kpath == nil) {
     return nil;
@@ -296,21 +265,16 @@ sysremove(va_list args, struct label *ureg)
 }
 
 reg_t
-sysmount(va_list args, struct label *ureg)
+sysmount(int outfd, int infd, const char *upath)
 {
-  const char *upath, *kpath;
   struct bindingfid *fid;
   struct chan *in, *out;
   struct binding *b;
   struct path *path;
+  const char *kpath;
   struct proc *p;
-  int infd, outfd;
   int ret;
 	
-  outfd = va_arg(args, int);
-  infd = va_arg(args, int);
-  upath = va_arg(args, const char *);
-
   kpath = kaddr(up, (void *) upath, 0);
   if (kpath == nil) {
     return ERR;
@@ -372,15 +336,11 @@ sysmount(va_list args, struct label *ureg)
 }
 
 reg_t
-sysbind(va_list args, struct label *ureg)
+sysbind(const char *old, const char *new)
 {
   struct bindingfid *bo, *bn;
   struct path *po, *pn;
-  char *old, *new;
   int ret;
-
-  old = va_arg(args, char *);
-  new = va_arg(args, char *);
 
   if (kaddr(up, old, 0) == nil || kaddr(up, new, 0) == nil) {
     return ERR;
@@ -417,15 +377,12 @@ sysbind(va_list args, struct label *ureg)
 }
 
 reg_t
-sysunbind(va_list args, struct label *ureg)
+sysunbind(const char *upath)
 {
   struct bindingfid *fid;
   struct path *path;
-  char *upath;
   int ret;
   
-  upath = va_arg(args, char *);
-
   if (kaddr(up, upath, 0) == nil) {
     return ERR;
   }
@@ -434,7 +391,6 @@ sysunbind(va_list args, struct label *ureg)
 
   fid = findfile(path, &ret);
   if (ret != OK) {
-    printf("failed to find file\n");
     pathfree(path);
     return ret;
   }
@@ -448,16 +404,16 @@ sysunbind(va_list args, struct label *ureg)
 }
 
 reg_t
-syscleanpath(va_list args, struct label *ureg)
+syscleanpath(char *opath, char *cpath, size_t cpathlen)
 {
-  char *opath, *cpath, *spath;
-  size_t cpathlen, l;
   struct path *rpath;
+  char *spath;
+  size_t l;
 
-  opath = va_arg(args, char *);
-  cpath = va_arg(args, char *);
-  cpathlen = va_arg(args, size_t);
-
+  if (kaddr(up, opath, 0) == nil) {
+    return ERR;
+  }
+  
   rpath = realpath(up->dot, opath);
 
   spath = pathtostr(rpath, &l);

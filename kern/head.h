@@ -413,33 +413,6 @@ printf(const char *, ...);
 void
 panic(const char *, ...);
 
-
-/****** Syscalls ******/
-
-reg_t sysexit(va_list, struct label *);
-reg_t sysfork(va_list, struct label *);
-reg_t sysexec(va_list, struct label *);
-reg_t syssleep(va_list, struct label *);
-reg_t sysgetpid(va_list, struct label *);
-reg_t syswait(va_list, struct label *);
-reg_t sysmmap(va_list, struct label *);
-reg_t sysmunmap(va_list, struct label *);
-reg_t syswaitintr(va_list, struct label *);
-reg_t syschdir(va_list, struct label *);
-reg_t syspipe(va_list, struct label *);
-reg_t sysread(va_list, struct label *);
-reg_t syswrite(va_list, struct label *);
-reg_t sysseek(va_list, struct label *);
-reg_t sysstat(va_list, struct label *);
-reg_t sysclose(va_list, struct label *);
-reg_t sysmount(va_list, struct label *);
-reg_t sysbind(va_list, struct label *);
-reg_t sysunbind(va_list, struct label *);
-reg_t sysopen(va_list, struct label *);
-reg_t sysremove(va_list, struct label *);
-reg_t syscleanpath(va_list, struct label *);
-
-
 /****** Machine Implimented ******/
 
 /* Type and psr are ignored. */
@@ -481,8 +454,8 @@ nullprocfunc(void *);
 void
 forkfunc(struct proc *, int (*func)(void *), void *);
 
-void
-forkchild(struct proc *, struct label *);
+reg_t
+forkchild(struct proc *);
 
 void
 readyexec(struct label *ureg, void *entry, int argc, char *argv[]);
@@ -516,7 +489,7 @@ setintr(intrstate_t);
 
 extern struct proc *up;
 
-extern reg_t (*syscalltable[NSYSCALLS])(va_list, struct label *);
+extern void *syscalltable[NSYSCALLS];
 
 extern struct chantype *chantypes[CHAN_max];
 

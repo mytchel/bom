@@ -69,14 +69,15 @@ setintr:
 setlabel:
 	add r0, r0, #(4 * 4)
 	stmia r0, {r1 - r12, lr}
+
 	sub r0, r0, #(4 * 4)
-	stmdb sp, {r1}
 	mrs r1, cpsr
 	stmia r0!, {r1, sp, lr}
+
 	mov r1, #1
 	str r1, [r0]
+
 	mov r0, #0
-	ldmdb sp, {r1}
 	mov pc, lr
 	
 
@@ -98,7 +99,8 @@ droptouser:
 	msr cpsr, r2
 
 	msr spsr, r1
-	ldmia r0, {r0 - r12, pc}^
+	ldmia r0, {r0 - r12, lr}
+	movs pc, lr
 
 
 fsrstatus:

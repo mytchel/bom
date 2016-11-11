@@ -61,11 +61,10 @@ readline(char *data, size_t max)
 }
 
 int
-main(void)
+main(int argc, char *argv[])
 {
   int r, f, fd;
   char root[NAMEMAX * 5];
-  char *initargs[2];
 
   fd = open("/dev", O_WRONLY|O_CREATE,
 	    ATTR_wr|ATTR_rd|ATTR_dir);
@@ -78,6 +77,15 @@ main(void)
 
   fd = open("/mnt", O_WRONLY|O_CREATE,
 	    ATTR_wr|ATTR_rd|ATTR_dir);
+
+  if (fd < 0) {
+    return -1;
+  }
+
+  close(fd);
+
+  fd = open("/bin", O_WRONLY|O_CREATE,
+	    ATTR_rd|ATTR_dir);
 
   if (fd < 0) {
     return -1;
@@ -103,25 +111,30 @@ main(void)
     return -3;
   }
 
-  printf("root: ");
+  while (true) {
+    printf("root: ");
 
-  r = readline(root, sizeof(root));
-  if (r < 0) {
-    printf("error reading!\n");
-    return ERR;
+    r = readline(root, sizeof(root));
+    if (r < 0) {
+      printf("error reading!\n");
+      return ERR;
+    }
+
+    r = mountfat(root, "/mnt");
+    if (r == OK) {
+      break;
+    } else {
+      printf("error mounting root!\n");
+    }
   }
 
-  r = mountfat(root, "/mnt");
-  if (r != OK) {
-    printf("error mounting root!\n");
-    return r;
-  }
-
-  initargs[0] = root;
+  bind("/mnt/bin", "/bin");
   
-  r = exec("/mnt/bin/init", 1, initargs);
-
-  printf("error exec /mnt/bin/init: %i\n", r);
+  printf("exec /bin/init\n");
   
-  return ERR;
+  r = exec("/bin/init", argc, argv);
+
+  printf("error exec /bin/init: %i\n", r);
+  
+  return r;
 }

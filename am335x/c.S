@@ -62,176 +62,156 @@ _start:
 	@ fall through to exit
 
 exit:
-	push {r0}
-	mov r0, #SYSCALL_EXIT
+	push {r12, lr}
+	mov r12, #SYSCALL_EXIT
 	svc 0
-	add sp, sp, #4
-	mov pc, lr
+	pop {r12, pc}
 
 
 fork:
-	push {r0}
-	mov r0, #SYSCALL_FORK
+	push {r12, lr}
+	mov r12, #SYSCALL_FORK
 	svc 0
-	add sp, sp, #4
-	mov pc, lr
+	pop {r12, pc}
 
 	
 exec:
-	push {r0, r1, r2}
-	mov r0, #SYSCALL_EXEC
+	push {r12, lr}
+	mov r12, #SYSCALL_EXEC
 	svc 0
-	add sp, sp, #(4 * 3)
-	mov pc, lr
+	pop {r12, pc}
 
 
 sleep:
-	push {r0}
-	mov r0, #SYSCALL_SLEEP
+	push {r12, lr}
+	mov r12, #SYSCALL_SLEEP
 	svc 0
-	add sp, sp, #4
-	mov pc, lr
+	pop {r12, pc}
 	
 	
 getpid:
-	mov r0, #SYSCALL_GETPID
+	push {r12, lr}
+	mov r12, #SYSCALL_GETPID
 	svc 0
 	mov pc, lr
-
+	pop {r12, pc}
 
 wait:
-	push {r0}
-	mov r0, #SYSCALL_WAIT
+	push {r12, lr}
+	mov r12, #SYSCALL_WAIT
 	svc 0
-	add sp, sp, #4
-	mov pc, lr
+	pop {r12, pc}
 
 
 mmap:
-	push {r0, r1, r2}
-	mov r0, #SYSCALL_MMAP
+	push {r12, lr}
+	mov r12, #SYSCALL_MMAP
 	svc 0
-	add sp, sp, #(4 * 3)
-	mov pc, lr
+	pop {r12, pc}
 
 
 munmap:
-	push {r0, r1}
-	mov r0, #SYSCALL_MUNMAP
+	push {r12, lr}
+	mov r12, #SYSCALL_MUNMAP
 	svc 0
-	add sp, sp, #(4 * 2)
-	mov pc, lr
+	pop {r12, pc}
 			
 chdir:
-	push {r0}
-	mov r0, #SYSCALL_CHDIR
+	push {r12, lr}
+	mov r12, #SYSCALL_CHDIR
 	svc 0
-	add sp, sp, #(4)
-	mov pc, lr
+	pop {r12, pc}
 
 
 pipe:
-	push {r0}
-	mov r0, #SYSCALL_PIPE
+	push {r12, lr}
+	mov r12, #SYSCALL_PIPE
 	svc 0
-	add sp, sp, #4
-	mov pc, lr
+	pop {r12, pc}
 
 
 read:
-	push {r0, r1, r2}
-	mov r0, #SYSCALL_READ
+	push {r12, lr}
+	mov r12, #SYSCALL_READ
 	svc 0
-	add sp, sp, #(4 * 3)
-	mov pc, lr
+	pop {r12, pc}
 
 
 write:
-	push {r0, r1, r2}
-	mov r0, #SYSCALL_WRITE
+	push {r12, lr}
+	mov r12, #SYSCALL_WRITE
 	svc 0 
-	add sp, sp, #(4 * 3)
-	mov pc, lr
+	pop {r12, pc}
 
 
 seek:
-	push {r0, r1, r2}
-	mov r0, #SYSCALL_SEEK
+	push {r12, lr}
+	mov r12, #SYSCALL_SEEK
 	svc 0 
-	add sp, sp, #(4 * 3)
-	mov pc, lr
+	pop {r12, pc}
 
 	
 stat:
-	push {r0, r1}
-	mov r0, #SYSCALL_STAT
+	push {r12, lr}
+	mov r12, #SYSCALL_STAT
 	svc 0
-	add sp, sp, #(4 * 2)
-	mov pc, lr
+	pop {r12, pc}
 
 
 close:
-	push {r0}
-	mov r0, #SYSCALL_CLOSE
+	push {r12, lr}
+	mov r12, #SYSCALL_CLOSE
 	svc 0
-	add sp, sp, #4
-	mov pc, lr
+	pop {r12, pc}
 
 
 mount:
-	push {r0, r1,  r2}
-	mov r0, #SYSCALL_MOUNT
+	push {r12, lr}
+	mov r12, #SYSCALL_MOUNT
 	svc 0
-	add sp, sp, #(4 *3)
-	mov pc, lr
+	pop {r12, pc}
 
 
 bind:
-	push {r0, r1}
-	mov r0, #SYSCALL_BIND
+	push {r12, lr}
+	mov r12, #SYSCALL_BIND
 	svc 0
-	add sp, sp, #(4 *2)
-	mov pc, lr
+	pop {r12, pc}
 
 
 unbind:
-	push {r0}
-	mov r0, #SYSCALL_UNBIND
+	push {r12, lr}
+	mov r12, #SYSCALL_UNBIND
 	svc 0
-	add sp, sp, #(4)
-	mov pc, lr
+	pop {r12, pc}
 
 
 open:
-	push {r0, r1, r2}
-	mov r0, #SYSCALL_OPEN
+	push {r12, lr}
+	mov r12, #SYSCALL_OPEN
 	svc 0
-	add sp, sp, #(4 * 3)
-	mov pc, lr
+	pop {r12, pc}
 
 
 remove:
-	push {r0}
-	mov r0, #SYSCALL_REMOVE
+	push {r12, lr}
+	mov r12, #SYSCALL_REMOVE
 	svc 0
-	add sp, sp, #4
-	mov pc, lr
+	pop {r12, pc}
 
 
 cleanpath:
-	push {r0, r1, r2}
-	mov r0, #SYSCALL_CLEANPATH
+	push {r12, lr}
+	mov r12, #SYSCALL_CLEANPATH
 	svc 0
-	add sp, sp, #(4 * 3)
-	mov pc, lr
+	pop {r12, pc}
 
 	
 waitintr:
-	push {r0}
-	mov r0, #SYSCALL_WAITINTR
+	push {r12, lr}
+	mov r12, #SYSCALL_WAITINTR
 	svc 0
-	add sp, sp, #4
-	mov pc, lr
+	pop {r12, pc}
 
 
 @ this is horrible but i cant get anything
