@@ -35,6 +35,11 @@
 #define USTACK_TOP	 0x20000000
 #define UTEXT		 0
 
+#define TICKS_MIN        20
+#define QUANTA_MAX      100
+#define QUANTA_DEF       50
+#define QUANTA_MIN       10
+
 typedef enum {
   INTR_ON  = (uint32_t) 0,
   INTR_OFF = (uint32_t) MODE_DI,

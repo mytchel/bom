@@ -23,7 +23,14 @@
 #  OTHER DEALINGS IN THE SOFTWARE
 #
 
-LIB = ctype
-src = ctype.c
+BASE ?= ../..
 
-include ../common.mk
+include $(BASE)/config.mk
+
+LIB = libctype
+src = ctype.c 
+
+objs = $(src:%.c=%.o)
+
+include $(BASE)/lib/common.mk
+

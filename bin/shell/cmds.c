@@ -60,9 +60,9 @@ struct func cmds[] = {
 int
 cmdpwd(int argc, char **argv)
 {
-  char pwd[NAMEMAX * 10] = ".";
+  char pwd[NAMEMAX * 10];
 
-  cleanpath(pwd, pwd + 1, sizeof(pwd) - 1);
+  cleanpath(".", pwd + 1, sizeof(pwd) - 1);
 
   pwd[0] = '/';
 
@@ -75,24 +75,29 @@ int
 cmdlsh(char *filename)
 {
   uint8_t buf[NAMEMAX * 3], len;
-  char path[NAMEMAX * 10];
   struct stat s;
-  int r, fd, i;
+  int r, fd, i, e;
 
-  if (stat(filename, &s) != OK) {
-    printf("Error statting '%s'\n", filename);
-    return ERR;
+  printf("lsh stat %s\n", filename);
+  
+  if ((e = stat(filename, &s)) != OK) {
+    printf("Error statting %s: %i\n", filename, e);
+    return e;
   }
 
   if (!(s.attr & ATTR_dir)) {
-    printf("%b %u %s\n", s.attr, s.size, filename);
+    printf("%b\t%u\t%u\t%s\n", s.attr, s.size, s.dsize, filename);
     return OK;
   }
 
-  fd = open(filename, O_RDONLY);
-  if (fd < 0) {
-    printf("Error opening '%s'\n", filename);
-    return ERR;
+  if ((e = chdir(filename)) != OK) {
+    printf("error descending into %s: %i\n", filename, e);
+    return e;
+  }
+
+  if ((fd = open(".", O_RDONLY)) < 0) {
+    printf("error opening %s: %i\n", filename, fd);
+    return fd;
   }
 
   i = 0;
@@ -111,9 +116,8 @@ cmdlsh(char *filename)
 
       i++;
 
-      snprintf(path, sizeof(path), "%s/%s", filename, &buf[i]);
-      if (stat(path, &s) != OK) {
-	printf("stat error %s\n", path);
+      if ((e = stat((char *) &buf[i], &s)) != OK) {
+	printf("error stating %s:\n", &buf[i], e);
       } else {
 	printf("%b\t%u\t%u\t%s\n", s.attr, s.size, s.dsize, &buf[i]);
       }

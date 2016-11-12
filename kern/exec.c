@@ -194,7 +194,7 @@ kexec(struct chan *f, int argc, char *argv[])
 
   setintr(INTR_OFF);
 
-  mmuswitch();
+  mmuswitch(nmmu);
   
   droptouser(&ureg, (void *) (up->kstack->pa + PAGE_SIZE));
 

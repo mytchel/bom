@@ -23,20 +23,25 @@
 #  OTHER DEALINGS IN THE SOFTWARE
 #
 
-all: ../$(LIB).a $(LIB).list
+BASE ?= ../..
 
-.c.o:
+include $(BASE)/config.mk
+
+src = main.c mount.c fat.c util.c
+objs = $(src:%.c=%.o)
+
+
+.c.o: fat.h
 	$(CC) $(CFLAGS) -c $< -o $@ 
 
-$(LIB).list: ../$(LIB).a
-	$(OBJDUMP) -S ../$(LIB).a > $@
 
-
-../$(LIB).a: $(objs)
-	$(AR) rcs $@ $(objs)
+CLEAN += mountfat $(objs)
+mountfat: $(objs)
+	$(LD) $(LDFLAGS) -o $@ $(objs) \
+		-lgcc -lc -lfssrv -lstring -lmem 
 
 
 .PHONY: clean
 clean:
-	rm -f $(objs) ../$(LIB).a $(LIB).list
+	@rm -f $(CLEAN)
 

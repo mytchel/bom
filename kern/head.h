@@ -175,8 +175,7 @@ struct proc {
   struct path *dot;
   struct chan *dotchan;
 
-  int priority;
-  uint32_t timeused;
+  uint32_t quanta, timeused;
 
   struct page *kstack;
   struct pagel *ustack;
@@ -215,7 +214,7 @@ unlock(struct lock *);
 /* Procs */
 
 struct proc *
-procnew(unsigned int priority);
+procnew(void);
 
 struct proc *
 procwaitchildren(void);
@@ -303,13 +302,10 @@ chanfree(struct chan *);
 /* Paths */
 
 struct path *
-strtopath(const char *);
+strtopath(struct path *prev, const char *str);
 
 char *
 pathtostr(struct path *, size_t *);
-
-struct path *
-realpath(struct path *, const char *);
 
 struct path *
 pathcopy(struct path *);
@@ -461,7 +457,7 @@ void
 readyexec(struct label *ureg, void *entry, int argc, char *argv[]);
 
 void
-mmuswitch(void);
+mmuswitch(struct mmu *);
 
 void
 mmuputpage(struct pagel *);
@@ -481,9 +477,11 @@ getrampage(void);
 struct page *
 getiopage(void *addr);
 
-/* Returns old state of interrupts to resetting. */
+/* Returns old state of interrupts for resetting. */
+
 intrstate_t
 setintr(intrstate_t);
+
 
 /****** Global Variables ******/
 
@@ -493,4 +491,4 @@ extern void *syscalltable[NSYSCALLS];
 
 extern struct chantype *chantypes[CHAN_max];
 
-extern struct binding *rootfsbinding, *procfsbinding;
+extern struct binding *rootfsbinding;

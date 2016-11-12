@@ -24,13 +24,46 @@
  *
  */
 
-#define LINE_MAX 512
-#define MAX_ARGS 512
+#include <libc.h>
+#include <fs.h>
+#include <stdarg.h>
+#include <string.h>
 
-struct func {
-  char *name;
-  int (*func)(int argc, char **argv);
-};
+#include "shell.h"
 
-void
-runcmd(int argc, char *argv[]);
+static int
+readsentence(uint8_t *data, size_t max)
+{
+  size_t i;
+  char c;
+
+  i = 0;
+  while (i < max) {
+    if (read(STDIN, &c, sizeof(char)) < 0) {
+      return -1;
+    } else if (c == '\n' || c == ';') {
+      data[i] = '\0';
+      return i;
+    } else {
+      data[i++] = c;
+    }
+  }
+
+  data[i-1] = 0;
+  return i;
+}
+
+int
+main(int argc, char *argv[])
+{
+  uint8_t line[LINE_MAX] = {0};
+
+  while (true) {
+    printf("%% ");
+    readsentence(line, LINE_MAX);
+    processsentence((char *) line);
+  }
+
+  /* Never reached */
+  return ERR;
+}

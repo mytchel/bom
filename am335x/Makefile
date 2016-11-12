@@ -26,7 +26,7 @@
 .SUFFIXES:
 .SUFFIXES: .c .S .h .o .a .elf .bin .list .umg
 
-BASE = $(.CURDIR)/..
+BASE ?= $(.CURDIR)/..
 
 CLEAN += am335x.umg am335x.list init.list
 
@@ -34,21 +34,13 @@ include $(BASE)/config.mk
 
 loadaddr=0x82000000
 
-
 SUBDIR =
 SUBDIR += $(BASE)/lib
 SUBDIR += $(BASE)/tools/mkuboot
 SUBDIR += $(BASE)/tools/bintoarray
-SUBDIR += $(BASE)/shell
-SUBDIR += $(BASE)/fatfs
-SUBDIR += $(BASE)/tmpfs
-
 
 .PHONY: all
-all: \
-	$(BASE)/lib $(BASE)/lib/libc.a \
-	am335x.umg am335x.list init.list \
-	$(BASE)/shell $(BASE)/fatfs $(BASE)/tmpfs
+all: $(BASE)/lib am335x.umg am335x.list init.list
 
 
 ISRC = \
@@ -59,9 +51,9 @@ ISRC = \
         mmc/misc.c              \
         ../init/main.c          \
         ../init/mbr.c           \
-        ../fatfs/fat.c          \
-        ../fatfs/util.c         \
-        ../fatfs/mount.c
+        ../bin/fatfs/fat.c      \
+        ../bin/fatfs/util.c     \
+        ../bin/fatfs/mount.c
 
 
 IOBJECTS := $(ISRC:%.c=%.o)
@@ -98,11 +90,7 @@ KSRC_C := \
         ../kern/sysproc.c       \
         ../kern/sysfile.c       \
         ../kern/systab.c        \
-        ../kern/exec.c          \
-        ../lib/string/string.c  \
-        ../lib/fssrv/fssrv.c    \
-	../lib/mem/mem.c        \
-        ../lib/ctype/ctype.c
+        ../kern/exec.c
 
 
 KOBJECTS := \
@@ -129,27 +117,20 @@ CLEAN += $(KOBJECTS)
 	@$(OBJDUMP) -S $< > $@
 
 
-CLEAN += c.a c.o
-c.a: c.o
-
-CLEAN += $(BASE)/lib/libc.a c.a
-$(BASE)/lib/libc.a: c.a
-	cp c.a $(BASE)/lib/libc.a	
-
-
 CLEAN += init.elf init.list
-init.elf: init.ld $(BASE)/lib/libc.a $(BASE)/lib $(IOBJECTS)
+init.elf: init.ld $(IOBJECTS)
 	$(LD) -nostdlib -nodefaultlibs -static \
 		-L/usr/local/lib/gcc/arm-none-eabi/4.9.3/ \
 		-L$(BASE)/lib \
 		-T init.ld -o $@  \
 		$(IOBJECTS) \
-		-lc -lgcc -lstd \
+		-lc -lgcc \
 		-lctype -lfssrv -lstring -lmem
 
 
 CLEAN += initcode.c initcode.o
-initcode.c: init.elf $(BASE)/tools/bintoarray
+initcode.c: init.elf
+	$(MAKE) -C $(BASE)/tools/bintoarray BASE="$(BASE)"
 	@echo Generate initcode.c
 	$(OBJCOPY) init.elf /dev/null \
 		--dump-section .text=/dev/stdout | \
@@ -163,13 +144,15 @@ CLEAN += $(TARGET).elf $(TARGET).list
 am335x.elf: kernel.ld $(KOBJECTS) initcode.o
 	$(LD) -nostdlib -nodefaultlibs -static \
 		-L/usr/local/lib/gcc/arm-none-eabi/4.9.3/ \
+		-L$(BASE)/lib \
 		-T kernel.ld -Ttext $(loadaddr) \
 		-o $@ $(KOBJECTS) initcode.o \
-		-lgcc
+		-lgcc -lctype -lfssrv -lstring -lmem
 
 
 CLEAN += am335x.elf am335x.bin
-am335x.umg: am335x.bin $(BASE)/tools/mkuboot
+am335x.umg: am335x.bin
+	$(MAKE) -C $(BASE)/tools/mkuboot BASE="$(BASE)"
 	$(BASE)/tools/mkuboot/mkuboot -a arm \
 		-e $(loadaddr) -l $(loadaddr) -o linux \
 		am335x.bin am335x.umg
@@ -185,7 +168,6 @@ $(sub):
 
 .PHONY: clean 
 clean: 
-	@echo cleaning
 	rm -f $(CLEAN)
 .for sub in $(SUBDIR)
 	$(MAKE) -C $(sub) clean \

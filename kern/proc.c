@@ -31,80 +31,51 @@ static void addtolistfront(struct proc **, struct proc *);
 static void addtolistback(struct proc **, struct proc *);
 static void removefromlist(struct proc **, struct proc *);
 
-struct priority_queue {
-  uint32_t quanta;
-  struct proc *ready, *used;
-};
-
 static uint32_t nextpid = 1;
 
-static struct priority_queue queues[17];
-static struct proc *nullproc;
-
+static struct proc *ready = nil;
+static struct proc *used = nil;
 static struct proc *waitchildren = nil;
 static struct proc *sleeping = nil;
 static struct proc *suspended = nil;
+
+static struct proc *nullproc;
 
 struct proc *up = nil;
 
 void
 schedulerinit(void)
 {
- int i;
-  
-  for (i = 0; i < 17; i++) {
-    queues[i].quanta = mstoticks((18 - i) * 10 + 50);
-    queues[i].ready = nil;
-    queues[i].used = nil;
-  }
-
-  queues[0].quanta = mstoticks(5);
-  
-  nullproc = procnew(0);
+  nullproc = procnew();
   if (nullproc == nil) {
     panic("Failed to create null proc!\n");
   }
 
+  nullproc->quanta = mstoticks(QUANTA_MIN);
+  
   forkfunc(nullproc, &nullprocfunc, nil);
   procready(nullproc);
-}
-
-static struct proc *
-popnextproc(void)
-{
-  struct proc *p;
-  unsigned int i;
-
-  for (i = 1; i < 17; i++) {
-    p = queues[i].ready;
-    if (p != nil) {
-      queues[i].ready = p->next;
-      p->list = nil;
-      return p;
-    }
-  }
-
-  return nil;
 }
 
 static struct proc *
 nextproc(void)
 {
   struct proc *p;
-  unsigned int i;
-  
-  p = popnextproc();
+
+  p = ready;
   if (p != nil) {
+    p->list = nil;
+    ready = p->next;
     return p;
   }
 
-  for (i = 1; i < 17; i++) {
-    queues[i].ready = queues[i].used;
-    queues[i].used = nil;
-  }
-  
-  p = popnextproc();
+  ready = used;
+  used = nil;
+
+  p = ready;
   if (p != nil) {
+    p->list = nil;
+    ready = p->next;
     return p;
   }
 
@@ -132,7 +103,7 @@ updatesleeping(uint32_t t)
 
       p->state = PROC_ready;
       p->list = nil;
-      addtolistfront(&queues[p->priority].ready, p);
+      addtolistfront(&ready, p);
       p = pt;
     } else {
       p->sleep -= t;
@@ -146,7 +117,7 @@ updatesleeping(uint32_t t)
 void
 schedule(void)
 {
-  uint32_t t, q;
+  uint32_t t;
 
   if (up && setlabel(&up->label)) {
     return;
@@ -160,12 +131,11 @@ schedule(void)
     if (up->state == PROC_oncpu) {
       up->state = PROC_ready;
 
-      q = queues[up->priority].quanta;
-      if (up->timeused + 50 < q) {
-	addtolistback(&queues[up->priority].ready, up);
+      if (up->timeused + TICKS_MIN < up->quanta) {
+	addtolistback(&ready, up);
       } else {
 	up->timeused = 0;
-	addtolistback(&queues[up->priority].used, up);
+	addtolistback(&used, up);
       }
     }
   }
@@ -175,17 +145,16 @@ schedule(void)
   up = nextproc();
   up->state = PROC_oncpu;
 
-  mmuswitch();
+  mmuswitch(up->mmu);
 
   cticks();
-  setsystick(queues[up->priority].quanta
-	     - up->timeused);
+  setsystick(up->quanta - up->timeused);
 
   gotolabel(&up->label);
 }
 	
 struct proc *
-procnew(unsigned int priority)
+procnew(void)
 {
   struct proc *p;
 	
@@ -195,9 +164,10 @@ procnew(unsigned int priority)
   }
 
   memset(p, 0, sizeof(struct proc));
+
+  p->quanta = mstoticks(QUANTA_DEF);
   
   p->pid = nextpid++;
-  p->priority = priority;
 
   p->mmu = mmunew();
 
@@ -245,12 +215,7 @@ procexit(struct proc *p, int code)
     pagelfree(p->ustack);
     p->ustack = nil;
   }
-
-  if (p->mmu != nil) {
-    mmufree(p->mmu);
-    p->mmu = nil;
-  }
-  
+ 
   if (p->mgroup != nil) {
     mgroupfree(p->mgroup);
     p->mgroup = nil;
@@ -319,6 +284,7 @@ procexit(struct proc *p, int code)
 void
 procfree(struct proc *p)
 {
+  mmufree(p->mmu);
   pagefree(p->kstack);
   free(p);
 }
@@ -345,18 +311,6 @@ procwaitchildren(void)
 }
 
 void
-procsetpriority(struct proc *p, unsigned int priority)
-{
-  p->priority = priority;
-
-  if (p->state == PROC_ready) {
-    removefromlist(p->list, p);
-    p->timeused = 0;
-    addtolistback(&queues[p->priority].ready, p);
-  }
-}
-
-void
 procready(struct proc *p)
 {
   p->state = PROC_ready;
@@ -364,7 +318,7 @@ procready(struct proc *p)
   removefromlist(p->list, p);
 
   p->timeused = 0;
-  addtolistfront(&queues[p->priority].ready, p);
+  addtolistfront(&ready, p);
 }
 
 void
@@ -384,7 +338,7 @@ procyield(struct proc *p)
   p->timeused = 0;
 
   removefromlist(p->list, p);
-  addtolistback(&queues[p->priority].used, p);
+  addtolistback(&used, p);
 }
 
 void

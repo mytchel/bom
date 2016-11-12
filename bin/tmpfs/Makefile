@@ -38,7 +38,7 @@ objs = $(src:%.c=%.o)
 CLEAN += mounttmp $(objs)
 mounttmp: $(objs)
 	$(LD) $(LDFLAGS) -o $@ $(objs) \
-		-lgcc -lc -lstd -lmem -lstring -lfssrv
+		-lc -lgcc -lmem -lstring -lfssrv
 
 
 .PHONY: clean

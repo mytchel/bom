@@ -23,7 +23,13 @@
 #  OTHER DEALINGS IN THE SOFTWARE
 #
 
-LIB = fssrv
-src = fssrv.c
+BASE ?= ../..
 
-include ../common.mk
+include $(BASE)/config.mk
+
+LIB = libstring
+src = string.c
+
+objs = $(src:%.c=%.o)
+
+include $(BASE)/lib/common.mk

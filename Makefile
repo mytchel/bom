@@ -11,7 +11,7 @@
 #  conditions:
 #  
 #  The above copyright notice and this permission notice shall be
-#  included in all copies or substantial portions of the Software.
+#  included in all copies or substantial kernions of the Software.
 #  
 #  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
 #  EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
@@ -23,20 +23,50 @@
 #  OTHER DEALINGS IN THE SOFTWARE
 #
 
-all: ../$(LIB).a $(LIB).list
+TARGETS = am335x
 
-.c.o:
-	$(CC) $(CFLAGS) -c $< -o $@ 
+BASE = $(.CURDIR)
 
-$(LIB).list: ../$(LIB).a
-	$(OBJDUMP) -S ../$(LIB).a > $@
+-include config.mk
+
+SUBDIR = 
+SUBDIR += lib
+SUBDIR += bin
+
+TARGET ?= none
+
+.PHONY: all
+all: $(TARGET) $(SUBDIR)
+
+.PHONY: none
+none:
+	@echo Select a target first with
+	@echo $(MAKE) config_[target]
+	@echo where [target] is one of: $(TARGETS)
 
 
-../$(LIB).a: $(objs)
-	$(AR) rcs $@ $(objs)
+.for t in $(TARGETS)
+.PHONY: config_$(t)
+config_$(t):
+	cp $(t)/config.mk config.mk
+.endfor
 
+.PHONY: $(TARGET)
+$(TARGET):
+	$(MAKE) -C $(TARGET) BASE="$(BASE)"
+
+
+.for s in $(SUBDIR)
+.PHONY: $(s)
+$(s):
+	$(MAKE) -C $(s) BASE="$(BASE)"
+
+.PHONY: $(s)/clean
+$(s)/clean:
+	$(MAKE) -C $(s) clean BASE="$(BASE)"
+
+.endfor
 
 .PHONY: clean
-clean:
-	rm -f $(objs) ../$(LIB).a $(LIB).list
-
+clean: $(SUBDIR:%=%/clean)
+	$(MAKE) -C $(TARGET) clean BASE="$(BASE)"

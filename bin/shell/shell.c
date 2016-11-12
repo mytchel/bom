@@ -109,28 +109,6 @@ runfunc(int argc, char *argv[], int *ret)
   return false;
 }
 
-static int
-readline(uint8_t *data, size_t max)
-{
-  size_t i;
-  char c;
-
-  i = 0;
-  while (i < max) {
-    if (read(STDIN, &c, sizeof(char)) < 0) {
-      return -1;
-    } else if (c == '\n') {
-      data[i] = '\0';
-      return i;
-    } else {
-      data[i++] = c;
-    }
-  }
-
-  data[i-1] = 0;
-  return i;
-}
-
 static void
 shiftstringleft(char *str)
 {
@@ -189,8 +167,8 @@ strsection(char *nstr)
   return nstr;
 }
 
-static void
-processline(char *line)
+void
+processsentence(char *line)
 {
   char *argv[MAX_ARGS];
   int argc, pid, p;
@@ -217,19 +195,4 @@ processline(char *line)
     while ((p = wait(&ret)) != pid)
       ;
   }
-}
-
-int
-shell(void)
-{
-  uint8_t line[LINE_MAX] = {0};
-
-  while (true) {
-    printf("%% ");
-    readline(line, LINE_MAX);
-    processline((char *) line);
-  }
-
-  /* Never reached */
-  exit(OK);
 }

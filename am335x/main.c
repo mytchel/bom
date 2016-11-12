@@ -121,7 +121,7 @@ initmainproc(void)
   struct pagel *pl;
   struct page *pg;
 		
-  p = procnew(1);
+  p = procnew();
   if (p == nil) {
     panic("Failed to create main proc\n");
   }

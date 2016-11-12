@@ -24,16 +24,16 @@
  *
  */
 
-#include <libc.h>
-#include <fs.h>
-#include <stdarg.h>
-#include <string.h>
+#define LINE_MAX 512
+#define MAX_ARGS 512
 
-int
-shell(void);
+struct func {
+  char *name;
+  int (*func)(int argc, char **argv);
+};
 
-int
-main(int argc, char *argv[])
-{
-  return shell();
-}
+void
+runcmd(int argc, char *argv[]);
+
+void
+processsentence(char *line);

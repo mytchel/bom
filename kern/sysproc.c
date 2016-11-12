@@ -67,13 +67,13 @@ sysfork(int flags, struct label *ureg)
   intrstate_t i;
   reg_t r;
 
-  p = procnew(up->priority);
+  p = procnew();
   if (p == nil) {
     return ENOMEM;
   }
 
   p->dot = pathcopy(up->dot);
-
+ 
   p->dotchan = up->dotchan;
   if (p->dotchan != nil) {
     atomicinc(&p->dotchan->refs);
@@ -152,7 +152,7 @@ sysexec(const char *upath, int argc, char *argv[])
     }
   }
 
-  path = realpath(up->dot, upath);
+  path = strtopath(up->dot, upath);
 
   c = fileopen(path, O_RDONLY, 0, &r);
   if (r != OK) {

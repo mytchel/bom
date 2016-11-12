@@ -72,7 +72,7 @@ rootfsinit(void)
   chanfree(c1[1]);
   chanfree(c2[0]);
   
-  pr = procnew(8);
+  pr = procnew();
   if (pr == nil) {
     panic("rootfs: procnew failed!\n");
   }
@@ -83,7 +83,7 @@ rootfsinit(void)
   in = fgroupaddchan(pr->fgroup, c1[0]);
   out = fgroupaddchan(pr->fgroup, c2[1]);
 
-  pm = procnew(8);
+  pm = procnew();
   if (pm == nil) {
     panic("rootfs: procnew failed!\n");
   }

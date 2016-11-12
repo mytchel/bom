@@ -23,7 +23,30 @@
 #  OTHER DEALINGS IN THE SOFTWARE
 #
 
-LIB = mem
-src = mem.c heap.c
+BASE ?= ../
 
-include ../common.mk
+include $(BASE)/config.mk
+
+SUBDIR =
+SUBDIR += shell
+SUBDIR += fatfs
+SUBDIR += tmpfs
+SUBDIR += test
+
+.PHONY: all
+all: $(SUBDIR)
+
+.for s in $(SUBDIR)
+.PHONY: $(s)
+$(s):
+	$(MAKE) -C $(s) BASE="$(BASE)"
+
+.PHONY: $(s)/clean
+$(s)/clean:
+	$(MAKE) -C $(s) clean BASE="$(BASE)"
+
+.endfor
+
+.PHONY: clean
+clean: $(SUBDIR:%=%/clean)
+

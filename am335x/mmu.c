@@ -98,14 +98,14 @@ mmufree(struct mmu *m)
 }
 
 void
-mmuswitch(void)
+mmuswitch(struct mmu *n)
 {
   struct pagel *pl;
 
-  if (loaded == up->mmu) {
+  if (loaded == n) {
     return;
   } else {
-    loaded = up->mmu;
+    loaded = n;
   }
 
   mmuempty1();

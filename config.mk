@@ -4,11 +4,11 @@ CROSS = arm-none-eabi-
 
 CC = $(CROSS)gcc
 LD = $(CROSS)ld
-AR := $(CROSS)ar
+AR = $(CROSS)ar
 OBJCOPY = $(CROSS)objcopy
 OBJDUMP = $(CROSS)objdump
 
-CFLAGS := -std=c89 -O3 \
+CFLAGS = -std=c89 -O3 \
 	-Wall -Werror \
 	-mcpu=cortex-a8 \
 	-nostdinc -ffreestanding \
@@ -25,7 +25,7 @@ LDFLAGS += -nostdlib -nodefaultlibs -static \
 HOSTCC ?= cc
 HOSTLD ?= ld
 
-HOSTCFLAGS := -std=c89 -O3 \
+HOSTCFLAGS = -std=c89 -O3 \
 	-Wall -Werror
 
 

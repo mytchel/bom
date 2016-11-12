@@ -23,7 +23,25 @@
 #  OTHER DEALINGS IN THE SOFTWARE
 #
 
-LIB = string
-src = string.c
+BASE ?= ../..
 
-include ../common.mk
+include $(BASE)/config.mk
+
+src = main.c cmds.c shell.c 
+objs = $(src:%.c=%.o)
+
+
+.c.o: shell.h
+	$(CC) $(CFLAGS) -c $< -o $@ 
+
+
+CLEAN += shell $(objs)
+shell: $(objs)
+	$(LD) $(LDFLAGS) -o $@ $(objs) \
+		-lc -lgcc -lmem -lstring -lctype
+
+
+.PHONY: clean
+clean:
+	rm -f $(CLEAN)
+

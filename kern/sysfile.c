@@ -38,7 +38,7 @@ syschdir(const char *upath)
     return ERR;
   }
 
-  path = realpath(up->dot, upath);
+  path = strtopath(up->dot, upath);
 
   c = fileopen(path, O_RDONLY|O_DIR, 0, &err);
   if (err != OK) {
@@ -47,7 +47,6 @@ syschdir(const char *upath)
   }
 
   pathfree(up->dot);
-
   if (up->dotchan != nil) {
     chanfree(up->dotchan);
   }
@@ -162,15 +161,18 @@ sysstat(const char *upath, struct stat *ustat)
   struct path *path;
 	
   kpath = kaddr(up, (void *) upath, 0);
-  
-  stat = (struct stat *) kaddr(up, (void *) ustat,
-			       sizeof(struct stat *));
-
-  if (stat == nil || kpath == nil) {
+  if (kpath == nil) {
     return ERR;
   }
   
-  path = realpath(up->dot, kpath);
+  stat = (struct stat *) kaddr(up, (void *) ustat,
+			       sizeof(struct stat));
+
+  if (stat == nil) {
+    return ERR;
+  }
+
+  path = strtopath(up->dot, kpath);
 
   return filestat(path, stat);
 }
@@ -217,7 +219,7 @@ sysopen(const char *upath, uint32_t mode, ...)
     cmode = 0;
   }
 
-  path = realpath(up->dot, kpath);
+  path = strtopath(up->dot, kpath);
 
   c = fileopen(path, mode, cmode, &err);
 
@@ -259,7 +261,7 @@ sysremove(const char *upath)
     return nil;
   }
 
-  path = realpath(up->dot, kpath);
+  path = strtopath(up->dot, kpath);
 
   return fileremove(path);
 }
@@ -294,7 +296,7 @@ sysmount(int outfd, int infd, const char *upath)
     return EMODE;
   }
 
-  path = realpath(up->dot, kpath);
+  path = strtopath(up->dot, kpath);
 
   fid = findfile(path, &ret);
   if (ret != OK) {
@@ -308,7 +310,7 @@ sysmount(int outfd, int infd, const char *upath)
     return ENOMEM;
   }
 
-  p = procnew(up->priority);
+  p = procnew();
   if (p == nil) {
     bindingfidfree(fid);
     bindingfree(b);
@@ -346,8 +348,8 @@ sysbind(const char *old, const char *new)
     return ERR;
   }
 
-  po = realpath(up->dot, old);
-  pn = realpath(up->dot, new);
+  po = strtopath(up->dot, old);
+  pn = strtopath(up->dot, new);
 
   bo = findfile(po, &ret);
   if (ret != OK) {
@@ -387,7 +389,7 @@ sysunbind(const char *upath)
     return ERR;
   }
 
-  path = realpath(up->dot, upath);
+  path = strtopath(up->dot, upath);
 
   fid = findfile(path, &ret);
   if (ret != OK) {
@@ -414,7 +416,7 @@ syscleanpath(char *opath, char *cpath, size_t cpathlen)
     return ERR;
   }
   
-  rpath = realpath(up->dot, opath);
+  rpath = strtopath(up->dot, opath);
 
   spath = pathtostr(rpath, &l);
 

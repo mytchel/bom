@@ -23,25 +23,14 @@
 #  OTHER DEALINGS IN THE SOFTWARE
 #
 
-BASE ?= ..
+BASE ?= ../..
 
 include $(BASE)/config.mk
 
-src = main.c cmds.c shell.c 
+LIB = libfssrv
+src = fssrv.c 
+
 objs = $(src:%.c=%.o)
 
-
-.c.o: shell.h
-	$(CC) $(CFLAGS) -c $< -o $@ 
-
-
-CLEAN += shell $(objs)
-shell: $(objs)
-	$(LD) $(LDFLAGS) -o $@ $(objs) \
-		-lgcc -lc -lstd -lmem -lstring -lctype
-
-
-.PHONY: clean
-clean:
-	@rm -f $(CLEAN)
+include $(BASE)/lib/common.mk
 

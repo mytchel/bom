@@ -23,25 +23,14 @@
 #  OTHER DEALINGS IN THE SOFTWARE
 #
 
-BASE ?= ..
+BASE ?= ../..
 
 include $(BASE)/config.mk
 
-src = main.c mount.c fat.c util.c
+LIB = libmem
+src = mem.c heap.c 
+
 objs = $(src:%.c=%.o)
 
-
-.c.o: fat.h
-	$(CC) $(CFLAGS) -c $< -o $@ 
-
-
-CLEAN += mountfat $(objs)
-mountfat: $(objs)
-	$(LD) $(LDFLAGS) -o $@ $(objs) \
-		-lgcc -lc -lstd -lfssrv -lstring -lmem 
-
-
-.PHONY: clean
-clean:
-	@rm -f $(CLEAN)
+include $(BASE)/lib/common.mk
 

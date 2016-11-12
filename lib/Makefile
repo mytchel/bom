@@ -27,22 +27,26 @@ BASE ?= ../
 
 include $(BASE)/config.mk
 
-LIBS = ctype fssrv mem string std
+SUBDIR =
+SUBDIR += libc
+SUBDIR += libctype
+SUBDIR += libfssrv
+SUBDIR += libmem
+SUBDIR += libstring
 
 .PHONY: all
-all: $(LIBS)
+all: $(SUBDIR)
 
+.for s in $(SUBDIR)
+.PHONY: $(s)
+$(s):
+	$(MAKE) -C $(s) BASE="$(BASE)"
 
-.for L in $(LIBS)
-.PHONY: $(L)
-$(L):
-	@$(MAKE) -C $(L)
+.PHONY: $(s)/clean
+$(s)/clean:
+	$(MAKE) -C $(s) clean BASE="$(BASE)"
 
 .endfor
 
 .PHONY: clean
-clean:
-.for L in $(LIBS)
-	@$(MAKE) -C $(L) clean
-.endfor
-
+clean: $(SUBDIR:%=%/clean)

@@ -23,7 +23,16 @@
 #  OTHER DEALINGS IN THE SOFTWARE
 #
 
-LIB = std
-src = printf.c
+BASE ?= ../..
 
-include ../common.mk
+include $(BASE)/config.mk
+
+LIB = libc
+src = printf.c 
+
+objs = $(BASE)/$(TARGET)/c.o $(src:%.c=%.o) 
+
+.S.o:
+	$(CC) $(CFLAGS) -c $< -o $@ 
+
+include $(BASE)/lib/common.mk
