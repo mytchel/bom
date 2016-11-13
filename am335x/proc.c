@@ -45,15 +45,16 @@ dumpregs(struct label *r)
 void
 forkfunc(struct proc *p, int (*func)(void *), void *arg)
 {
-  int i;
-  for (i = 0; i < 13; i++)
-    p->label.regs[i] = i;
+  memset(&p->label, 0, sizeof(struct label));
 
   p->label.psr = MODE_SVC;
   p->label.sp = (uint32_t) p->kstack->pa + PAGE_SIZE;
+  p->label.pc = (uint32_t) &funcloader;
 
-  p->label.pc = (uint32_t) func;
-  p->label.regs[0] = (uint32_t) arg;
+  p->label.sp -= sizeof(uint32_t);
+  memmove((void *) p->label.sp, &func, sizeof(uint32_t));
+  p->label.sp -= sizeof(uint32_t);
+  memmove((void *) p->label.sp, &arg, sizeof(uint32_t));
 }
 
 reg_t

@@ -104,11 +104,11 @@ mmuswitch(struct mmu *n)
 
   if (loaded == n) {
     return;
-  } else {
-    loaded = n;
   }
 
   mmuempty1();
+
+  loaded = n;
 
   if (loaded->pages == nil) {
     return;

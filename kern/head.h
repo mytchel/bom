@@ -175,7 +175,7 @@ struct proc {
   struct path *dot;
   struct chan *dotchan;
 
-  uint32_t quanta, timeused;
+  uint32_t quanta;
 
   struct page *kstack;
   struct pagel *ustack;

@@ -107,9 +107,6 @@ remove(const char *path);
 #define STDOUT   1
 #define STDERR   2
 
-void
-printf(const char *, ...);
-
 #define roundptr(x) (x % sizeof(void *) != 0 ? \
 		     x + sizeof(void *) - (x % sizeof(void *)) : \
 		     x)
@@ -125,5 +122,8 @@ atomicinc(int *addr);
 
 int
 atomicdec(int *addr);
+
+void
+printf(const char *, ...);
 
 #endif

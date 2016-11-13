@@ -34,7 +34,7 @@ static void removefromlist(struct proc **, struct proc *);
 static uint32_t nextpid = 1;
 
 static struct proc *ready = nil;
-static struct proc *used = nil;
+static struct proc *yielded = nil;
 static struct proc *waitchildren = nil;
 static struct proc *sleeping = nil;
 static struct proc *suspended = nil;
@@ -60,28 +60,29 @@ schedulerinit(void)
 static struct proc *
 nextproc(void)
 {
-  struct proc *p;
+  struct proc *p, *o;
 
   p = ready;
   if (p != nil) {
     p->list = nil;
     ready = p->next;
-    return p;
+  } else {
+    removefromlist(nullproc->list, nullproc);
+    p = nullproc;
   }
 
-  ready = used;
-  used = nil;
+  for (o = ready; o != nil && o->next != nil; o = o->next)
+    ;
 
-  p = ready;
-  if (p != nil) {
-    p->list = nil;
-    ready = p->next;
-    return p;
+  if (o == nil) {
+    ready = yielded;
+  } else {
+    o->next = yielded;
   }
-
-  removefromlist(nullproc->list, nullproc);
-  nullproc->timeused = 0;
-  return nullproc;
+  
+  yielded = nil;
+  
+  return p;
 }
 
 static void
@@ -104,6 +105,7 @@ updatesleeping(uint32_t t)
       p->state = PROC_ready;
       p->list = nil;
       addtolistfront(&ready, p);
+
       p = pt;
     } else {
       p->sleep -= t;
@@ -119,26 +121,21 @@ schedule(void)
 {
   uint32_t t;
 
-  if (up && setlabel(&up->label)) {
-    return;
-  }
-
-  t = ticks();
-
   if (up != nil) {
-    up->timeused += t;
-
     if (up->state == PROC_oncpu) {
       up->state = PROC_ready;
 
-      if (up->timeused + TICKS_MIN < up->quanta) {
+      if (up != nullproc) {
 	addtolistback(&ready, up);
-      } else {
-	up->timeused = 0;
-	addtolistback(&used, up);
       }
     }
+
+    if (setlabel(&up->label)) {
+      return;
+    }
   }
+
+  t = ticks();
 
   updatesleeping(t);
 	
@@ -147,9 +144,9 @@ schedule(void)
 
   mmuswitch(up->mmu);
 
+  setsystick(up->quanta);
+  
   cticks();
-  setsystick(up->quanta - up->timeused);
-
   gotolabel(&up->label);
 }
 	
@@ -314,10 +311,7 @@ void
 procready(struct proc *p)
 {
   p->state = PROC_ready;
-
   removefromlist(p->list, p);
-
-  p->timeused = 0;
   addtolistfront(&ready, p);
 }
 
@@ -335,10 +329,9 @@ void
 procyield(struct proc *p)
 {
   p->state = PROC_sleeping;
-  p->timeused = 0;
 
   removefromlist(p->list, p);
-  addtolistback(&used, p);
+  addtolistback(&yielded, p);
 }
 
 void

@@ -31,6 +31,7 @@
 .global setlabel
 .global gotolabel
 .global droptouser
+.global funcloader
 .global fsrstatus
 .global faultaddr
 .global cachedisable
@@ -67,24 +68,23 @@ setintr:
 
 
 setlabel:
-	add r0, r0, #(4 * 4)
-	stmia r0, {r1 - r12, lr}
-
-	sub r0, r0, #(4 * 4)
 	mrs r1, cpsr
-	stmia r0!, {r1, sp, lr}
-
-	mov r1, #1
-	str r1, [r0]
+	stmia r0, {r1, sp}
+	add r0, r0, #(4 * 7)
+	stmia r0, {r4 - r12, lr}
 
 	mov r0, #0
 	mov pc, lr
 	
 
 gotolabel:
-	ldmia r0!, {r1, sp, lr}
-	msr spsr, r1
-	ldmia r0, {r0 - r12, pc}^
+	ldmia r0, {r1, sp}
+	add r0, r0, #(4 * 7)
+	ldmia r0, {r4 - r12, lr}
+
+	mov r0, #1
+	msr cpsr, r1
+	mov pc, lr
 
 
 droptouser:
@@ -103,6 +103,10 @@ droptouser:
 	movs pc, lr
 
 
+funcloader:
+	ldmia sp!, {r0, pc}
+
+	
 fsrstatus:
 	mrc p15, 0, r0, c5, c0, 0
 	mov pc, lr

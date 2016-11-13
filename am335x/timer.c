@@ -73,9 +73,10 @@ timersinit(void)
 {
   /* Select 32KHz clock for timer 2 */
   writel(2, CM_DPLL + CLK_SEL2);
+  writel(2, CM_DPLL + CLK_SEL0);
 
-  writel(0, TIMER2 + TIMER_TCLR); /* disable timer */
-  writel(1, TIMER2 + TIMER_IRQENABLE_SET); /* set irq */
+  /* set irq for overflow */
+  writel(1<<1, TIMER2 + TIMER_IRQENABLE_SET);
 
   intcaddhandler(TINT2, &systickhandler);
 
@@ -94,24 +95,17 @@ systickhandler(uint32_t irqn)
 void
 setsystick(uint32_t t)
 {
-  writel(0, TIMER2 + TIMER_TCRR); /* set timer to 0 */
-  writel(t, TIMER2 + TIMER_TMAR); /* set compare value */
-
+  writel(0xffffffff - t, TIMER2 + TIMER_TCRR); 
   /* Clear irq status if it is set. */
   writel(3, TIMER2 + TIMER_IRQSTATUS);
-
-  writel((1<<6) | 1, TIMER2 + TIMER_TCLR); /* start timer */
+  /* start timer */
+  writel(1, TIMER2 + TIMER_TCLR);
 }
 
 uint32_t
 ticks(void)
 {
-  uint32_t t;
-
-  t = readl(TIMER0 + TIMER_TCRR);
-  writel(0, TIMER0 + TIMER_TCRR); /* reset timer */
-
-  return t;
+  return readl(TIMER0 + TIMER_TCRR);
 }
 
 void

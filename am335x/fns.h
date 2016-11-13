@@ -43,6 +43,9 @@
 #define AP_RW_RO	2
 #define AP_RW_RW	3
 
+void
+funcloader(void);
+
 uint32_t
 fsrstatus(void);
 

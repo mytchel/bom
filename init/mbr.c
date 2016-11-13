@@ -392,7 +392,7 @@ mbrmount(struct blkdevice *d, uint8_t *dir)
 
   fsmount.databuf = malloc(device->blksize * 4);
   fsmount.buflen = device->blksize * 4;
-  
+
   return fsmountloop(p1[0], p2[1], &fsmount);
 }
 
