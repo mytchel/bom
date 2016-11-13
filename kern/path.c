@@ -32,92 +32,102 @@ static struct {
   struct lock lock;
 } pathalloc = {0};
 
-#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
-
-static struct path *
-strtopathh(struct path *p, const char *str)
-{
-  struct path *n;
-  int i, j;
-
-  for (i = 0; str[i] && str[i] != '/'; i++);
-  if (i == 0 && str[i]) {
-    return strtopathh(p, str + 1);
-  } else if (i == 0) {
-    return nil;
-  } else if (i >= NAMEMAX) {
-    return nil;
-  }
-
-  if (str[0] == '.') {
-    if (str[1] == '.' && (str[2] == '/' || str[2] == 0)) {
-      /* Remove current and prev */
-
-      if (p == nil) {
-	return strtopathh(n, str + 2);
-      } else {
-	n = p->prev;
-      }
-
-      lock(&pathalloc.lock);
-      p->next = pathalloc.free;
-      pathalloc.free = p;
-      unlock(&pathalloc.lock);
-
-      if (n != nil) {
-	n->next = strtopathh(n, str + 2);
-      } else {
-	return strtopathh(nil, str + 2);
-      }
-    } else if (str[1] == '/' || str[1] == 0) {
-      /* Remove current */
-      return strtopathh(p, str + 1);
-    }
-  }
-  
-  lock(&pathalloc.lock);
-
-  n = pathalloc.free;
-  if (n == nil) {
-    n = malloc(sizeof(struct path));
-    /* Best to cause some more major issue in the case of a failed
-     * malloc, as I have no way to check if there was an error
-     * (or end of the path).
-     */
-  } else {
-    pathalloc.free = n->next;
-  }
-
-  unlock(&pathalloc.lock);
-	
-  for (j = 0; j < i; j++)
-    n->s[j] = str[j];
-
-  n->s[j] = 0;
-
-  n->prev = p;
-  n->next = strtopathh(n, str + i);
-
-  return n;
-}
-
 struct path *
 strtopath(struct path *p, const char *str)
 {
-  struct path *path;
+  struct path *path, *n;
+  int i, j;
 
   if (str[0] == '/' || p == nil) {
-    return strtopathh(nil, str);
+    path = p = nil;
   } else {
     path = pathcopy(p);
+    if (path == nil) {
+      return nil;
+    }
     
     for (p = path; p != nil && p->next != nil; p = p->next)
       ;
-
-    p->next = strtopathh(p, str);
-
-    return path;
   }
+
+  while (*str != 0) {
+    for (i = 0; str[i] != 0 && str[i] != '/'; i++)
+      ;
+
+    if (i == 0) {
+      str += 1;
+      continue;
+    } else if (i >= NAMEMAX) {
+      pathfree(path);
+      return nil;
+    }
+
+    if (str[0] == '.') {
+      if (str[1] == '.' && i == 2) {
+	/* Remove current and prev */
+
+	if (p == nil) {
+	  str += 2;
+	  continue;
+	} 
+
+	n = p;
+
+	if (p == path) {
+	  path = p->prev;
+	}
+
+	p = p->prev;
+	if (p != nil) {
+	  p->next = nil;
+	}
+
+	lock(&pathalloc.lock);
+	n->next = pathalloc.free;
+	pathalloc.free = n;
+	unlock(&pathalloc.lock);
+
+	str += 2;
+	continue;
+      } else if (i == 1) {
+	/* Remove current */
+	str += 1;
+	continue;
+      }
+    }
+
+    lock(&pathalloc.lock);
+
+    n = pathalloc.free;
+    if (n == nil) {
+      n = malloc(sizeof(struct path));
+      if (n == nil) {
+	return nil;
+      }
+    } else {
+      pathalloc.free = n->next;
+    }
+
+    unlock(&pathalloc.lock);
+	
+    for (j = 0; j < i; j++)
+      n->s[j] = str[j];
+
+    n->s[j] = 0;
+
+    n->next = nil;
+    n->prev = p;
+    if (p != nil) {
+      p->next = n;
+    } else {
+      path = n;
+    }
+
+    p = n;
+    str += i;
+  }
+
+  return path;
 }
 
 char *
@@ -169,6 +179,9 @@ pathcopy(struct path *o)
   n = pathalloc.free;
   if (n == nil) {
     n = malloc(sizeof(struct path));
+    if (n == nil) {
+      return nil;
+    }
   } else {
     pathalloc.free = n->next;
   }
@@ -188,6 +201,10 @@ pathcopy(struct path *o)
       nn->next = pathalloc.free;
       if (nn->next == nil) {
 	nn->next = malloc(sizeof(struct path));
+	if (nn->next == nil) {
+	  pathfree(n);
+	  return nil;
+	}
       } else {
 	pathalloc.free = nn->next->next;
       }
