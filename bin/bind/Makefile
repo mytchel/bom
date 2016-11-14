@@ -27,21 +27,17 @@ BASE ?= $(.CURDIR)/../..
 
 include $(BASE)/config.mk
 
-src = main.c shell.c
-objs = $(src:%.c=%.o)
+src = main.c 
+obj = $(src:%.c=%.o)
 
+bind: $(obj)
+	$(LD) $(LDFLAGS) -o $@ $(obj) -lc -lstring
 
-.c.o: shell.h
+.c.o:
 	$(CC) $(CFLAGS) -c $< -o $@ 
-
-
-CLEAN += shell $(objs)
-shell: $(objs)
-	$(LD) $(LDFLAGS) -o $@ $(objs) \
-		-lc -lgcc -lmem -lstring -lctype
 
 
 .PHONY: clean
 clean:
-	rm -f $(CLEAN)
+	rm -f bind $(obj)
 

@@ -25,31 +25,24 @@
  *
  */
 
-#ifndef _STRING_H_
-#define _STRING_H_
+#include <libc.h>
+#include <stdarg.h>
+#include <string.h>
 
-void
-printf(const char *, ...);
+int
+main(int argc, char *argv[])
+{
+  int r;
+  
+  if (argc != 2) {
+    printf("usage: %s path\n", argv[0]);
+    return ERR;
+  }
 
-bool
-strncmp(const char *s1, const char *s2, size_t len);
+  r = unbind(argv[1]);
+  if (r != OK) {
+    printf("unbinding %s failed\n", argv[1]);
+  }
 
-bool
-strcmp(const char *s1, const char *s2);
-
-size_t
-strlen(const char *s);
-
-size_t
-strlcpy(char *dst, const char *src, size_t max);
-
-size_t
-vsnprintf(char *str, size_t max, const char *fmt, va_list ap);
-
-size_t
-snprintf(char *str, size_t max, const char *fmt, ...);
-
-char *
-strtok(char *str, const char *sep);
-
-#endif
+  return r;
+}

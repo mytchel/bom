@@ -245,16 +245,17 @@ waitchild(void)
   struct proc *p;
   intrstate_t i;
 
-  if (up->nchildren == 0 && up->deadchildren == nil) {
-    return nil;
-  } else if (up->deadchildren == nil) {
+  if (up->deadchildren == nil) {
+    if (up->nchildren == 0) {
+      return nil;
+    } else {
+      addtolistfront(&waitchildren, up);
+      procwait(up);
 
-    addtolistfront(&waitchildren, up);
-    procwait(up);
-
-    i = setintr(INTR_OFF);
-    schedule();
-    setintr(i);
+      i = setintr(INTR_OFF);
+      schedule();
+      setintr(i);
+    }
   }
 
   do {

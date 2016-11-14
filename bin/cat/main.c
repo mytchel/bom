@@ -25,31 +25,33 @@
  *
  */
 
-#ifndef _STRING_H_
-#define _STRING_H_
+#include <libc.h>
+#include <stdarg.h>
+#include <string.h>
 
-void
-printf(const char *, ...);
+int
+main(int argc, char *argv[])
+{
+  uint8_t buf[512];
+  int i, fd, l;
 
-bool
-strncmp(const char *s1, const char *s2, size_t len);
+  for (i = 1; i < argc; i++) {
+    fd = open(argv[i], O_RDONLY);
+    if (fd < 0) {
+      printf("cat %s failed %i\n", argv[i], fd);
+      return fd;
+    } else {
+      while ((l = read(fd, buf, sizeof(buf))) > 0) {
+	write(STDOUT, buf, l);
+      }
 
-bool
-strcmp(const char *s1, const char *s2);
+      if (l != EOF) {
+	printf("read %s failed %i\n", argv[i], l);
+      }
 
-size_t
-strlen(const char *s);
+      close(fd);
+    }
+  }
 
-size_t
-strlcpy(char *dst, const char *src, size_t max);
-
-size_t
-vsnprintf(char *str, size_t max, const char *fmt, va_list ap);
-
-size_t
-snprintf(char *str, size_t max, const char *fmt, ...);
-
-char *
-strtok(char *str, const char *sep);
-
-#endif
+  return OK;
+}

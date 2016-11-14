@@ -28,6 +28,7 @@
 #include <libc.h>
 #include <fs.h>
 #include <stdarg.h>
+#include <string.h>
 
 int
 commount(char *path);

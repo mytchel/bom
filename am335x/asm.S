@@ -42,7 +42,6 @@
 .global mmudisable
 .global mmuinvalidate
 .global cas
-.global testandset
 .global atomicinc 
 .global atomicdec
 
@@ -89,14 +88,12 @@ gotolabel:
 
 droptouser:
 	mov sp, r1
-	
-	mov r2, #(MODE_SYS|MODE_DI|MODE_DF)
-	msr cpsr, r2
+
+	cpsid if, #MODE_SYS
 
 	ldmia r0!, {r1, sp, lr}
 
-	mov r2, #(MODE_SVC|MODE_DI|MODE_DF)
-	msr cpsr, r2
+	cpsid if, #MODE_SVC
 
 	msr spsr, r1
 	ldmia r0, {r0 - r12, lr}
@@ -182,28 +179,6 @@ cas:
 	movne r0, #1
 	
 	mov pc, lr
-	
-
-	
-@ this is horrible but i cant get anything
-@ nicer to work
-testandset:
-	push {r1, r2, lr}
-2:	ldrex r2, [r0]
-	cmp r2, #0
-	beq 1f
-	strex r1, r2, [r0]
-	cmp r1, #0
-	bne 2b
-	mov r0, #0
-	pop {r1, r2, pc}
-
-1:	mov r2, #1
-	strex r1, r2, [r0]
-	cmp r1, #0
-	bne 2b
-	mov r0, #1
-	pop {r1, r2, pc}
 	
 
 atomicinc:

@@ -86,114 +86,112 @@ vectortable:
 
 
 swi_ex:
-	stmfd sp!, {r8, r9, r10, r11, lr}
+	stmfd sp!, {r9, r10, r11, lr}
 
 	mrs r9, spsr
 
-	mov r8, #(MODE_SYS|MODE_DI)
-	msr cpsr, r8
+	cpsid if, #MODE_SYS
 
 	mov r10, sp
 	mov r11, lr
 	
-	mov r8, #(MODE_SVC)
-	msr cpsr, r8
+	cpsie if, #MODE_SVC
 
+	ldr lr, =syscalltable
+	add r12, lr, r12, lsl #2
 	ldr lr, =1f
-	ldr r8, =syscalltable
-	ldr pc, [r8, r12, lsl #2]
+	ldr pc, [r12]
 	
 1:
-	mov r8, #(MODE_SYS|MODE_DI)
-	msr cpsr, r8
+	cpsid if, #MODE_SYS
 
 	mov sp, r10
 	mov lr, r11
 	
-	mov r8, #(MODE_SVC|MODE_DI)
-	msr cpsr, r8
+	cpsid if, #MODE_SVC
 
 	msr spsr, r9
-	ldmfd sp!, {r8, r9, r10, r11, pc}^
+	ldmfd sp!, {r9, r10, r11, pc}^
 
 
 irq_ex:
-	stmfd sp, {r0 - r5}
+	stmfd sp, {r0 - r4}
+	sub r0, lr, #4
 	mov r1, #ABORT_INTERRUPT
 	b switch
 	
 
 undefined_instruction:
-	stmfd sp, {r0 - r5}
+	stmfd sp, {r0 - r4}
+	sub r0, lr, #4
 	mov r1, #ABORT_INSTRUCTION
 	b switch
 
 
 prefetch_abort:
-	stmfd sp, {r0 - r5}
+	stmfd sp, {r0 - r4}
+	sub r0, lr, #4
 	mov r1, #ABORT_PREFETCH
 	b switch
 
 
 data_abort:
-	stmfd sp, {r0 - r5}
+	stmfd sp, {r0 - r4}
+	sub r0, lr, #8
 	mov r1, #ABORT_DATA
 	b switch
 
 
 switch:
 	mrs r2, spsr
-	mov r3, lr
-	sub r4, sp, #(4 * 6)
+	sub r4, sp, #(4 * 5)
 	
 	clrex
 
-	mov r5, #(MODE_SVC|MODE_DI)
-	msr cpsr, r5
+	cpsid if, #MODE_SVC
 
-	sub r0, sp, #(4 * 8)
-	stmia r0!, {r6 - r12}
-	str r3, [r0]
-	sub r0, r0, #(4 * 13)
+	sub sp, sp, #(4 * 9)
+	stmia sp!, {r5 - r12}
+	str r0, [sp]
+	sub sp, sp, #(4 * 13)
 
-	@ retrieve and store r0 - r5
-	ldmfd r4, {r5 - r10}
-	stmia r0, {r5 - r10}
-	sub r0, r0, #(4 * 3)
-
+	@ retrieve and store r0 - r4
+	ldmfd r4, {r5 - r9}
+	stmia sp, {r5 - r9}
+	
 	ands r3, r2, #0xf
-	cmp r3, #0
 	beq _user
 
 	@ kernel mode interrupted
 
-	stmia r0, {r2, sp, lr}
+	push {r2, lr}
 
-	mov sp, r0
-
-	@ r0 -> interrupted label, r1 -> type
+	@ r0 -> interrupted pc, r1 -> type
 	bl trap
 
-	ldmia r0!, {r1, sp, lr}
-	msr spsr, r1
-	ldmia r0, {r0 - r12, pc}^
+	pop {r2, lr}
+	msr spsr, r2
+	ldmia sp!, {r0 - r12, pc}^
 
 _user:  @ user mode interrupted
 
-	mov r5, #(MODE_SYS|MODE_DI)
-	msr cpsr, r5
+	mov r3, sp
+	cpsid if, #MODE_SYS
+	stmfd r3!, {r2, sp, lr}
+	cpsid if, #MODE_SVC
+	mov sp, r3
 
-	stmia r0, {r2, sp, lr}
-
-	mov r5, #(MODE_SVC|MODE_DI)
-	msr cpsr, r5
-
-	mov sp, r0
-	@ r0 -> interrupted label, r1 -> type
+	@ r0 -> interrupted pc, r1 -> type
 	bl trap
-	@ r0 -> interrupted label
-	add r1, sp, #(4 * 17)
-	b droptouser
+
+	mov r3, sp
+	cpsid if, #MODE_SYS
+	ldmfd r3!, {r2, sp, lr}
+	cpsid if, #MODE_SVC
+	mov sp, r3
+
+	msr spsr, r2
+	ldmia sp!, {r0 - r12, pc}^
 
 
 @ Not used. But just in case kick and scream.

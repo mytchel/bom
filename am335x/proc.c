@@ -60,18 +60,12 @@ forkfunc(struct proc *p, int (*func)(void *), void *arg)
 reg_t
 forkchild(struct proc *p)
 {
-  intrstate_t i;
   uint32_t s, d;
   
-  i = setintr(INTR_OFF);
-  
   if (setlabel(&p->label)) {
-    setintr(i);
     return 0;
   }
 
-  setintr(i);
-  
   s = p->label.sp;
   d = up->kstack->pa + PAGE_SIZE - s;
 
@@ -79,9 +73,7 @@ forkchild(struct proc *p)
   
   memmove((void *) p->label.sp, (void *) s, d);
 
-  i = setintr(INTR_OFF);
   procready(p);
-  setintr(i);
 
   return p->pid;
 }

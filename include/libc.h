@@ -123,7 +123,4 @@ atomicinc(int *addr);
 int
 atomicdec(int *addr);
 
-void
-printf(const char *, ...);
-
 #endif

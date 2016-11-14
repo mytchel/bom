@@ -43,5 +43,5 @@ mounttmp: $(objs)
 
 .PHONY: clean
 clean:
-	@rm -f $(CLEAN)
+	rm -f $(CLEAN)
 

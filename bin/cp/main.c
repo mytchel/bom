@@ -25,31 +25,49 @@
  *
  */
 
-#ifndef _STRING_H_
-#define _STRING_H_
+#include <libc.h>
+#include <stdarg.h>
+#include <string.h>
+#include <fs.h>
 
-void
-printf(const char *, ...);
+int
+main(int argc, char *argv[])
+{
+  uint8_t buf[512];
+  int r, w, in, out;
 
-bool
-strncmp(const char *s1, const char *s2, size_t len);
+  in = open(argv[1], O_RDONLY);
+  if (in < 0) {
+    printf("cp failed to open %s %i\n", argv[1], in);
+    return in;
+  }
 
-bool
-strcmp(const char *s1, const char *s2);
+  out = open(argv[2], O_WRONLY|O_CREATE, ATTR_rd|ATTR_wr);
+  if (out < 0) {
+    printf("cp failed to open %s %i\n", argv[2], out);
+    return out;
+  }
 
-size_t
-strlen(const char *s);
+  while (true) {
+    if ((r = read(in, buf, sizeof(buf))) < 0) {
+      if (r == EOF) {
+	r = OK;
+      } else {
+	printf("cp failed to read %s %i\n", argv[1], r);
+      }
+      
+      break;
+    }
 
-size_t
-strlcpy(char *dst, const char *src, size_t max);
+    if ((w = write(out, buf, r)) != r) {
+      printf("cp failed to write %s %i\n", argv[2], w);
+      r = w;
+      break;
+    }
+  }
 
-size_t
-vsnprintf(char *str, size_t max, const char *fmt, va_list ap);
+  close(in);
+  close(out);
 
-size_t
-snprintf(char *str, size_t max, const char *fmt, ...);
-
-char *
-strtok(char *str, const char *sep);
-
-#endif
+  return r;
+}

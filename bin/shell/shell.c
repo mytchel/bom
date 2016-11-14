@@ -109,6 +109,24 @@ runfunc(int argc, char *argv[], int *ret)
   return false;
 }
 
+void
+runcmd(int argc, char *argv[])
+{
+  char path[NAMEMAX * 3];
+  int i;
+
+  if (argv[0][0] == '.' || argv[0][0] == '/') {
+    i = exec(argv[0], argc, argv);
+  } else {
+    snprintf(path, sizeof(path), "/bin/%s", argv[0]);
+    i = exec(path, argc, argv);
+  }
+  
+  printf("%s: command not found\n", argv[0]);
+
+  exit(i);
+}
+
 static void
 shiftstringleft(char *str)
 {

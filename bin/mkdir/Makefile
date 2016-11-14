@@ -11,7 +11,7 @@
 #  conditions:
 #  
 #  The above copyright notice and this permission notice shall be
-#  included in all copies or substantial kernions of the Software.
+#  included in all copies or substantial portions of the Software.
 #  
 #  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
 #  EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
@@ -23,17 +23,21 @@
 #  OTHER DEALINGS IN THE SOFTWARE
 #
 
-TSRC_A = $(TARGET)/init/syscalls.S
-TSRC_C = test/main.c
+BASE ?= $(.CURDIR)/../..
+
+include $(BASE)/config.mk
+
+src = main.c 
+obj = $(src:%.c=%.o)
+
+mkdir: $(obj)
+	$(LD) $(LDFLAGS) -o $@ $(obj) -lc -lstring
+
+.c.o:
+	$(CC) $(CFLAGS) -c $< -o $@ 
 
 
-$(TOBJECTS) := \
-	$(TSRC_A:%.S=%.o) \
-	$(TSRC_C:%.c=%.o)
+.PHONY: clean
+clean:
+	rm -f mkdir $(obj)
 
-
-test/test.elf: $(TOBJECTS)
-	@echo LD $@
-	@$(LD) $(LDFLAGS) -o $@ \
-		$(TOBJECTS) \
-		$(LIBS)

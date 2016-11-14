@@ -137,7 +137,6 @@ free(void *ptr)
   }
 	
   if (p == nil) {
-    printf("Are you sure 0x%h is from the heap?\n", ptr);
     return;
   }
 	

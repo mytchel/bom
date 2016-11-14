@@ -31,27 +31,13 @@
 extern char *initcodetext, *initcodedata;
 extern int initcodetextlen, initcodedatalen;
 
-static void
-initmainproc(void);
-
 int
-main(void)
+nullprocfunc(void *arg)
 {
-  puts("Bom Booting...\n");
+  while (true) {
 
-  memoryinit();
-  intcinit();
-  timersinit();
-  watchdoginit();
+  }
 
-  schedulerinit();
-
-  rootfsinit();
-  initmainproc();
-
-  schedule();
-	
-  /* Should never be reached. */
   return 0;
 }
 
@@ -168,12 +154,23 @@ initmainproc(void)
 }
 
 int
-nullprocfunc(void *arg)
+main(void)
 {
-  while (true) {
+  puts("Bom Booting...\n");
 
-  }
+  memoryinit();
+  intcinit();
+  timersinit();
+  watchdoginit();
 
+  schedulerinit();
+
+  rootfsinit();
+  initmainproc();
+
+  schedule();
+	
+  /* Should never be reached. */
   return 0;
 }
 

@@ -162,47 +162,39 @@ irqhandler(void)
   }
 }
 
-struct label *
-trap(struct label *ureg, int type)
+void
+trap(void *pc, int type)
 {
   uint32_t fsr;
   void *addr;
 
   if (up == nil) {
     printf("Trapped with an unknown process!\n");
-    dumpregs(ureg);
     panic("Probably an in kernel problem.\n");
   }
 
   switch(type) {
   case ABORT_INTERRUPT:
-    ureg->pc -= 4;
-
     irqhandler();
 
-    return ureg; /* Note the return. */
+    return; /* Note the return. */
 
   case ABORT_INSTRUCTION:
-    ureg->pc -= 4;
-
     printf("%i bad instruction at 0x%h\n",
-	   up->pid, ureg->pc);
+	   up->pid, pc);
     break;
 
   case ABORT_PREFETCH:
-    ureg->pc -= 4;
-    if (fixfault((void *) ureg->pc)) {
-      return ureg;
+    if (fixfault((void *) pc)) {
+      return;
     }
 
     printf("%i prefetch abort 0x%h\n",
-	   up->pid, ureg->pc);
+	   up->pid, pc);
 
     break;
 
   case ABORT_DATA:
-    ureg->pc -= 8;
-
     addr = faultaddr();
     fsr = fsrstatus() & 0xf;
 
@@ -211,7 +203,7 @@ trap(struct label *ureg, int type)
     case 0x7: /* page translation */
       /* Try add page */
       if (fixfault(addr)) {
-	return ureg;
+	return;
       }
       
       break;
@@ -240,9 +232,7 @@ trap(struct label *ureg, int type)
   }
 	
   printf("kill proc %i (trap %i)\n", up->pid, type);
-  dumpregs(ureg);
   procexit(up, -1);
   schedule();
   /* Never reached */
-  return nil;
 }

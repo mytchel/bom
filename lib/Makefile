@@ -23,7 +23,7 @@
 #  OTHER DEALINGS IN THE SOFTWARE
 #
 
-BASE ?= ../
+BASE ?= $(.CURDIR)/..
 
 include $(BASE)/config.mk
 
