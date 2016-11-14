@@ -29,7 +29,7 @@
 
 static void addtolistfront(struct proc **, struct proc *);
 static void addtolistback(struct proc **, struct proc *);
-static void removefromlist(struct proc **, struct proc *);
+static bool removefromlist(struct proc **, struct proc *);
 
 static uint32_t nextpid = 1;
 
@@ -169,7 +169,7 @@ procnew(void)
 void
 procexit(struct proc *p, int code)
 {
-  struct proc *c, *cprev;
+  struct proc *c;
   
   p->state = PROC_dead;
   p->exitcode = code;
@@ -206,67 +206,66 @@ procexit(struct proc *p, int code)
 
   /* Update childrens parent to be their grandparent */
 
-  cprev = nil;
-  for (c = p->children; c != nil; cprev = c, c = c->cnext) {
+  for (c = p->children; c != nil; c = c->cnext) {
     c->parent = p->parent;
-  }
-
-  if (cprev == nil) {
-    p->children = p->cnext;
-  } else {
-    cprev->cnext = p->cnext;
   }
 
   if (p->parent != nil) {
     /* Remove proc from parents child list */
-    cprev = nil;
-    for (c = p->parent->children; c != nil; cprev = c, c = c->cnext) {
-      if (c == p) {
-	/* And add procs children to parents child list */
-	if (cprev == nil) {
-	  p->parent->children = p->children;
-	} else {
-	  cprev->cnext = p->children;
-	}
+    while (true) {
+      for (c = p->parent->children;
+	   c != nil && c != p && c->cnext != p;
+	   c = c->cnext)
+	;
 
-	p->children = nil;
-
+      if (c == nil) {
+	printf("error, proc not in parents child list\n");
 	break;
-      }
-    }
-
-    if (c == nil) {
-      goto err;
-    }
-    
-    addtolistback(&p->parent->deadchildren, p);
-
-    p->next = p->deadchildren;
-
-    if (p->parent->state == PROC_waiting) {
-      cprev = nil;
-      for (c = waitchildren; c != nil; cprev = c, c = c->next) {
-	if (c == p->parent) {
-	  if (cprev == nil) {
-	    waitchildren = c->next;
-	  } else {
-	    cprev->next = c->next;
-	  }
-
-	  procready(c);
+      } else if (c == p) {
+	if (cas(&p->parent->children, p, p->cnext)) {
+	  break;
+	}
+      } else {
+	if (cas(&c->cnext, p, p->cnext)) {
 	  break;
 	}
       }
     }
 
-    goto norm;
+    while (true) {
+      for (c = p->parent->children;
+	   c != nil && c->cnext != nil;
+	   c = c->cnext)
+	;
+
+      if (c == nil && cas(&p->parent->children, nil, p->children)) {
+	break;
+      } else if (cas(&c->cnext, nil, p->children)) {
+	break;
+      }
+    }
+
+    p->children = nil;
+    
+    addtolistback(&p->parent->deadchildren, p);
+
+    for (c = p->deadchildren; c != nil; c = c->next) {
+      addtolistback(&p->parent->deadchildren, c);
+    }
+
+    p->deadchildren = nil;
+
+    if (p->parent->state == PROC_waiting) {
+      if (removefromlist(&waitchildren, p->parent)) {
+	procready(p->parent);
+      }
+    }
+
+    p->parent = nil;
+  } else {
+    procfree(p);
   }
 
-  /* Not really an error but what ever */
- err:
-  procfree(p);
-
- norm:
   if (p == up) {
     up = nil;
   }
@@ -283,19 +282,14 @@ procfree(struct proc *p)
 struct proc *
 procwaitchildren(void)
 {
-  struct proc *p, *w;
+  struct proc *p;
   intrstate_t i;
 
   if (up->children == nil) {
     return nil;
   } else if (up->deadchildren == nil) {
 
-    w = waitchildren;
-    while (!cas(&waitchildren, w, up)) {
-      w = waitchildren;
-      up->next = w;
-    }
-    
+    addtolistfront(&waitchildren, up);
     procwait(up);
 
     i = setintr(INTR_OFF);
@@ -380,7 +374,7 @@ addtolistback(struct proc **l, struct proc *p)
   }
 }
 
-void
+bool
 removefromlist(struct proc **l, struct proc *p)
 {
   struct proc *pp, *pt;
@@ -391,14 +385,14 @@ removefromlist(struct proc **l, struct proc *p)
       ;
 
     if (pt != p) {
-      return;
+      return false;
     } else if (pp == nil) {
       if (cas(l, p, p->next)) {
-	break;
+	return true;
       }
     } else {
       if (cas(&pp->next, p, p->next)) {
-	break;
+	return true;
       }
     }
   }

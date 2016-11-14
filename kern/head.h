@@ -161,7 +161,7 @@ struct proc {
 
   int exitcode;
 
-  struct proc *cnext; /* For child procs list */
+  struct proc *cnext; /* For children */
   struct proc *children, *deadchildren;
   
   struct label label;
@@ -196,9 +196,6 @@ schedulerinit(void);
 
 void
 rootfsinit(void);
-
-void
-procfsinit(void);
 
 void
 heapinit(void *, size_t);

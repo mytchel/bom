@@ -64,7 +64,6 @@ reg_t
 sysfork(int flags, struct label *ureg)
 {
   struct proc *p;
-  intrstate_t i;
   reg_t r;
 
   p = procnew();
@@ -113,13 +112,11 @@ sysfork(int flags, struct label *ureg)
     }
   }
 
-  i = setintr(INTR_OFF);
-
   p->parent = up;
-  p->cnext = up->children;
-  up->children = p;
 
-  setintr(i);
+  do {
+    p->cnext = up->children;
+  } while (!cas(&up->children, p->cnext, p));
 
   /* Both parent and child return from this */
   r = forkchild(p);
