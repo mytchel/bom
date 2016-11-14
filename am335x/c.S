@@ -28,6 +28,8 @@
 .section .text
 
 .global _start
+
+@ System calls 
 .global exit
 .global fork
 .global exec
@@ -51,6 +53,7 @@
 .global cleanpath
 .global waitintr
 
+@ Useful assembly functions
 .global testandset
 .global atomicinc
 .global atomicdec

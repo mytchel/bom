@@ -56,7 +56,7 @@ static void
 unmaskintr(uint32_t irqn);
 
 static void (*handlers[nirq])(uint32_t) = {0};
-static struct proc *intrwait = nil;
+static struct proc *waiting[nirq] = {nil};
 
 void
 intcinit(void)
@@ -111,7 +111,6 @@ intcaddhandler(uint32_t irqn, void (*func)(uint32_t))
 bool
 procwaitintr(int irqn)
 {
-  struct proc *pp;
   intrstate_t t;
   
   if (irqn < 0 || irqn > nirq) {
@@ -120,25 +119,17 @@ procwaitintr(int irqn)
     return false;
   }
 
-  t = setintr(INTR_OFF);
-
-  for (pp = intrwait; pp != nil; pp = pp->next) {
-    if ((uint32_t) pp->aux == irqn) {
-      setintr(t);
-      return false;
-    }
+  if (!cas(&waiting[irqn], nil, up)) {
+    return false;
   }
 
-  procwait(up, &intrwait);
+  procwait(up);
 
-  up->aux = (void *) irqn;
-
+  t = setintr(INTR_OFF);
   unmaskintr(irqn);
-
   schedule();
-
   setintr(t);
-	
+
   return true;
 }
 
@@ -158,14 +149,16 @@ irqhandler(void)
     handlers[irq](irq);
   } else {
     /* User proc handler */
-    for (p = intrwait; p != nil; p = p->next) {
-      if ((uint32_t) p->aux == irq) {
-	procready(p);
-	maskintr(irq);
-	schedule();
-	break;
-      }
+    p = waiting[irq];
+    if (p == nil) {
+      return;
     }
+
+    waiting[irq] = nil;
+    maskintr(irq);
+
+    procready(p);
+    schedule();
   }
 }
 

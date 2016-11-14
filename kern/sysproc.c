@@ -41,11 +41,11 @@ sysexit(int code)
 reg_t
 syssleep(int ms)
 {
+  intrstate_t i;
+  
   if (ms < 0) {
     ms = 0;
   }
-
-  setintr(INTR_OFF);
 
   if (ms == 0) {
     procyield(up);
@@ -53,9 +53,9 @@ syssleep(int ms)
     procsleep(up, ms);
   }
 
+  i = setintr(INTR_OFF);
   schedule();
-
-  setintr(INTR_ON);
+  setintr(i);
 		
   return 0;
 }

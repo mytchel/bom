@@ -157,8 +157,9 @@ readloop(void)
   uart->ier = 1;
 
   while (true) {
-    while ((req = readrequests) == nil)
-      sleep(20);
+    while ((req = readrequests) == nil) {
+      sleep(1);
+    }
 
     getlock();
 

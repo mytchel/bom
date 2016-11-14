@@ -102,6 +102,7 @@ strtopath(struct path *p, const char *str)
     if (n == nil) {
       n = malloc(sizeof(struct path));
       if (n == nil) {
+	pathfree(path);
 	return nil;
       }
     } else {

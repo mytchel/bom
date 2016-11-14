@@ -557,11 +557,15 @@ mmchsproc(char *n, void *addr, int i)
       printf("%s failed to initialise\n", name);
       return ERR;
     }
+
+    printf("emmc card on %s\n", name);
   } else if (type == MMC_SD) {
     if (!sdinit()) {
       printf("%s failed to initialise\n", name);
       return ERR;
     }
+
+    printf("sd card on %s\n", name);
   } else {
     printf("%s is of unknown type.\n", name);
     return ERR;
@@ -572,7 +576,7 @@ mmchsproc(char *n, void *addr, int i)
   device.write = &writeblock;
   device.nblk = nblk;
   device.blksize = 512;
-  
+
   return mbrmount(&device, (uint8_t *) "/dev/");
 }
 

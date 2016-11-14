@@ -34,7 +34,6 @@ static void removefromlist(struct proc **, struct proc *);
 static uint32_t nextpid = 1;
 
 static struct proc *ready = nil;
-static struct proc *yielded = nil;
 static struct proc *waitchildren = nil;
 static struct proc *sleeping = nil;
 static struct proc *suspended = nil;
@@ -60,28 +59,15 @@ schedulerinit(void)
 static struct proc *
 nextproc(void)
 {
-  struct proc *p, *o;
+  struct proc *p;
 
   p = ready;
   if (p != nil) {
-    p->list = nil;
     ready = p->next;
   } else {
-    removefromlist(nullproc->list, nullproc);
     p = nullproc;
   }
 
-  for (o = ready; o != nil && o->next != nil; o = o->next)
-    ;
-
-  if (o == nil) {
-    ready = yielded;
-  } else {
-    o->next = yielded;
-  }
-  
-  yielded = nil;
-  
   return p;
 }
 
@@ -103,7 +89,6 @@ updatesleeping(uint32_t t)
       pt = p->next;
 
       p->state = PROC_ready;
-      p->list = nil;
       addtolistfront(&ready, p);
 
       p = pt;
@@ -140,6 +125,7 @@ schedule(void)
   updatesleeping(t);
 	
   up = nextproc();
+
   up->state = PROC_oncpu;
 
   mmuswitch(up->mmu);
@@ -218,9 +204,6 @@ procexit(struct proc *p, int code)
     p->mgroup = nil;
   }
 
-  removefromlist(p->list, p);
-  p->list = nil;
-
   /* Update childrens parent to be their grandparent */
 
   cprev = nil;
@@ -260,9 +243,20 @@ procexit(struct proc *p, int code)
 
     p->next = p->deadchildren;
 
-    if (p->parent->state == PROC_waiting
-	&& p->parent->list == &waitchildren) {
-      procready(p->parent);
+    if (p->parent->state == PROC_waiting) {
+      cprev = nil;
+      for (c = waitchildren; c != nil; cprev = c, c = c->next) {
+	if (c == p->parent) {
+	  if (cprev == nil) {
+	    waitchildren = c->next;
+	  } else {
+	    cprev->next = c->next;
+	  }
+
+	  procready(c);
+	  break;
+	}
+      }
     }
 
     goto norm;
@@ -289,20 +283,29 @@ procfree(struct proc *p)
 struct proc *
 procwaitchildren(void)
 {
-  struct proc *p;
+  struct proc *p, *w;
+  intrstate_t i;
 
   if (up->children == nil) {
     return nil;
   } else if (up->deadchildren == nil) {
-    setintr(INTR_OFF);
-    procwait(up, &waitchildren);
+
+    w = waitchildren;
+    while (!cas(&waitchildren, w, up)) {
+      w = waitchildren;
+      up->next = w;
+    }
+    
+    procwait(up);
+
+    i = setintr(INTR_OFF);
     schedule();
+    setintr(i);
   }
 
-  p = up->deadchildren;
-  up->deadchildren = p->next;
-
-  setintr(INTR_ON);
+  do {
+    p = up->deadchildren;
+  } while (!(cas(&up->deadchildren, p, p->next)));
 
   return p;
 }
@@ -311,7 +314,11 @@ void
 procready(struct proc *p)
 {
   p->state = PROC_ready;
-  removefromlist(p->list, p);
+
+  if (p->state == PROC_suspend) {
+    removefromlist(&suspended, p);
+  }
+
   addtolistfront(&ready, p);
 }
 
@@ -321,7 +328,6 @@ procsleep(struct proc *p, uint32_t ms)
   p->state = PROC_sleeping;
   p->sleep = mstoticks(ms);
   
-  removefromlist(p->list, p);
   addtolistfront(&sleeping, p);
 }
 
@@ -329,35 +335,28 @@ void
 procyield(struct proc *p)
 {
   p->state = PROC_sleeping;
-
-  removefromlist(p->list, p);
-  addtolistback(&yielded, p);
+  addtolistback(&ready, p);
 }
 
 void
 procsuspend(struct proc *p)
 {
   p->state = PROC_suspend;
-
-  removefromlist(p->list, p);
   addtolistfront(&suspended, p);
 }
 
 void
-procwait(struct proc *p, struct proc **wlist)
+procwait(struct proc *p)
 {
   p->state = PROC_waiting;
-
-  removefromlist(p->list, p);
-  addtolistback(wlist, p);
 }
 
 void
 addtolistfront(struct proc **l, struct proc *p)
 {
-  p->list = l;
-  p->next = *l;
-  *l = p;
+  do {
+    p->next = *l;
+  } while (!cas(l, p->next, p));
 }
 
 void
@@ -366,14 +365,18 @@ addtolistback(struct proc **l, struct proc *p)
   struct proc *pp;
 
   p->next = nil;
-  p->list = l;
-
-  if (*l == nil) {
-    *l = p;
-  } else {
-    for (pp = *l; pp->next != nil; pp = pp->next)
+  
+  while (true) {
+    for (pp = *l; pp != nil && pp->next != nil; pp = pp->next)
       ;
-    pp->next = p;
+
+    if (pp == nil) {
+      if (cas(l, nil, p)) {
+	break;
+      }
+    } else if (cas(&pp->next, nil, p)) {
+      break;
+    }
   }
 }
 
@@ -382,19 +385,21 @@ removefromlist(struct proc **l, struct proc *p)
 {
   struct proc *pp, *pt;
 
-  if (l == nil) {
-    return;
-  }
-  
-  pp = nil;
-  for (pt = *l; pt != nil && pt != p; pp = pt, pt = pt->next)
-    ;
+  while (true) {
+    pp = nil;
+    for (pt = *l; pt != nil && pt != p; pp = pt, pt = pt->next)
+      ;
 
-  if (pp == nil) {
-    *l = p->next;
-  } else {
-    pp->next = p->next;
+    if (pt != p) {
+      return;
+    } else if (pp == nil) {
+      if (cas(l, p, p->next)) {
+	break;
+      }
+    } else {
+      if (cas(&pp->next, p, p->next)) {
+	break;
+      }
+    }
   }
-
-  p->list = nil;
 }

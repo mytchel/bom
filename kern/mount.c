@@ -30,10 +30,9 @@
 int
 mountproc(void *arg)
 {
-  struct fstransaction *trans;
-  struct response *resp, tresp;
+  struct fstransaction *t, *p;
+  struct response tresp;
   struct binding *b;
-  struct proc *p, *pn;
   
   b = (struct binding *) arg;
 
@@ -44,35 +43,39 @@ mountproc(void *arg)
 
     lock(&b->lock);
 
-    resp = nil;
-    for (p = b->waiting; p != nil; p = p->next) {
-      trans = (struct fstransaction *) p->aux;
-      if (trans->req->head.rid == tresp.head.rid) {
-	resp = trans->resp;
+    p = nil;
+    for (t = b->waiting; t != nil; p = t, t = t->next) {
+      if (t->rid == tresp.head.rid) {
 	break;
       }
     }
 
     unlock(&b->lock);
 
-    if (resp == nil) {
+    if (t == nil) {
       printf("kproc mount: response has no waiter.\n");
       break;
     } 
 
-    memmove(resp, &tresp, trans->len);
+    if (p == nil) {
+      b->waiting = t->next;
+    } else {
+      p->next = t->next;
+    }
 
-    if (trans->req->head.type == REQ_read && resp->head.ret == OK) {
-      resp->read.len = piperead(b->in, resp->read.data, resp->read.len);
-      if (resp->read.len < 0) {
+    memmove(t->resp, &tresp, t->len);
+
+    if (t->type == REQ_read && t->resp->head.ret == OK) {
+      t->resp->read.len = piperead(b->in, t->resp->read.data,
+				   t->resp->read.len);
+
+      if (t->resp->read.len < 0) {
 	printf("kproc mount: error reading read response.\n");
 	break;
       }
     }
     
-    setintr(INTR_OFF);
-    procready(p);
-    setintr(INTR_ON);
+    procready(t->proc);
   }
 
   lock(&b->lock);
@@ -89,21 +92,20 @@ mountproc(void *arg)
 
   /* Wake up any waiting processes so they can error. */
 
-  setintr(INTR_OFF);
-
-  p = b->waiting;
-  while (p != nil) {
-    pn = p->next;
+  t = b->waiting;
+  while (t != nil) {
+    p = t->next;
     
-    trans = (struct fstransaction *) p->aux;
-    trans->resp->head.ret = ELINK;
-    procready(p);
+    t->resp->head.ret = ELINK;
+    procready(t->proc);
 
-    p = pn;
+    t = p;
   }
 
   unlock(&b->lock);
   bindingfree(b);
+
+  setintr(INTR_OFF);
 
   procexit(up, ERR);
   schedule();

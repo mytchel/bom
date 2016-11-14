@@ -38,33 +38,38 @@ makereq(struct binding *b,
 	struct response *resp, size_t resplen)
 {
   struct fstransaction trans;
+  intrstate_t i;
   
   if (b->out == nil) {
     return false;
   }
 
-  trans.req = req;
-  trans.resp = resp;
+  trans.rid = atomicinc(&b->nreqid);
+  trans.type = req->head.type;
   trans.len = resplen;
-
-  req->head.rid = atomicinc(&b->nreqid);
+  trans.resp = resp;
+  trans.proc = up;
+  
+  req->head.rid = trans.rid;
 
   lock(&b->lock);
 
+  trans.next = b->waiting;
+  b->waiting = &trans;
+  
   if (pipewrite(b->out, (void *) req, reqlen) < 0) {
     unlock(&b->lock);
     return false;
   }
 
-  up->aux = (void *) &trans;
+  i = setintr(INTR_OFF);
 
-  setintr(INTR_OFF);
-
-  procwait(up, &b->waiting);
   unlock(&b->lock);
+  procwait(up);
 
   schedule();
-  setintr(INTR_ON);
+
+  setintr(i);
 
   return true;
 }
@@ -488,20 +493,23 @@ filewrite(struct chan *c, void *buf, size_t n)
     return ELINK;
   }
 
-  trans.req = (struct request *) &req;
-  trans.resp = (struct response *) &resp;
   trans.len = sizeof(resp);
+  trans.rid = atomicinc(&b->nreqid);
+  trans.type = REQ_write;
+  trans.resp = (struct response *) &resp;
+  trans.proc = up;
 
-  req.head.rid = atomicinc(&b->nreqid);
-
+  req.head.rid = trans.rid;
   req.head.type = REQ_write;
   req.head.fid = cfile->fid->fid;
-
   req.body.offset = cfile->offset;
   req.body.len = n;
 
   lock(&b->lock);
 
+  trans.next = b->waiting;
+  b->waiting = &trans;
+ 
   if (pipewrite(b->out, (void *) &req,
 		sizeof(req.head) +
 		sizeof(req.body.offset) +
@@ -515,11 +523,9 @@ filewrite(struct chan *c, void *buf, size_t n)
     return ELINK;
   }
 
-  up->aux = (void *) &trans;
-
   setintr(INTR_OFF);
 
-  procwait(up, &b->waiting);
+  procwait(up);
   unlock(&b->lock);
 
   schedule();

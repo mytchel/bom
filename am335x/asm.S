@@ -27,7 +27,7 @@
 
 .section .text
 
-.global getcpsr
+.global setintr
 .global setlabel
 .global gotolabel
 .global droptouser
@@ -41,7 +41,7 @@
 .global mmuenable
 .global mmudisable
 .global mmuinvalidate
-.global setintr
+.global cas
 .global testandset
 .global atomicinc 
 .global atomicdec
@@ -170,6 +170,21 @@ mmudisable:
 	mov pc, lr
 
 
+cas:
+	ldrex r3, [r0]
+	cmp r3, r1
+	movne r0, #0
+	movne pc, lr
+	
+	strex r3, r2, [r0]
+	cmp r3, #1
+	moveq r0, #0
+	movne r0, #1
+	
+	mov pc, lr
+	
+
+	
 @ this is horrible but i cant get anything
 @ nicer to work
 testandset:

@@ -330,9 +330,7 @@ sysmount(int outfd, int infd, const char *upath)
     return ret;
   }
  
-  setintr(INTR_OFF);
   procready(p);
-  setintr(INTR_ON);
  
   return OK;
 }

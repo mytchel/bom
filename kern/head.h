@@ -113,8 +113,10 @@ struct bindingfid {
 
 struct fstransaction {
   size_t len;
-  struct request *req;
+  uint32_t rid, type;
   struct response *resp;
+  struct fstransaction *next;
+  struct proc *proc;
 };
 
 struct binding {
@@ -124,7 +126,7 @@ struct binding {
   struct chan *in, *out;
 
   int nreqid;
-  struct proc *waiting; /* List of procs waiting. */
+  struct fstransaction *waiting; 
   struct proc *srv; /* Kernel proc that handles responses */
 
   struct bindingfid *fids;
@@ -155,7 +157,6 @@ typedef enum {
 } procstate_t;
 
 struct proc {
-  struct proc **list;
   struct proc *next; /* For list of procs in list */
 
   int exitcode;
@@ -219,8 +220,6 @@ procnew(void);
 struct proc *
 procwaitchildren(void);
 
-/* These must all be called with interrupts disabled */
-
 void
 procexit(struct proc *, int code);
 
@@ -234,7 +233,7 @@ void
 procsuspend(struct proc *p);
 
 void
-procwait(struct proc *p, struct proc **wlist);
+procwait(struct proc *p);
 
 void
 procsleep(struct proc *p, uint32_t ms);
@@ -242,8 +241,7 @@ procsleep(struct proc *p, uint32_t ms);
 void
 procyield(struct proc *p);
 
-void
-procsetpriority(struct proc *p, unsigned int priority);
+/* This must all be called with interrupts disabled */
 
 void
 schedule(void);
@@ -481,6 +479,9 @@ getiopage(void *addr);
 
 intrstate_t
 setintr(intrstate_t);
+
+bool
+cas(void *addr, void *old, void *new);
 
 
 /****** Global Variables ******/
