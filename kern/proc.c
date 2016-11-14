@@ -171,9 +171,6 @@ procexit(struct proc *p, int code)
 {
   struct proc *c;
   
-  p->state = PROC_dead;
-  p->exitcode = code;
-  
   if (p->dotchan != nil) {
     chanfree(p->dotchan);
     p->dotchan = nil;
@@ -204,64 +201,27 @@ procexit(struct proc *p, int code)
     p->mgroup = nil;
   }
 
-  /* Update childrens parent to be their grandparent */
+  p->state = PROC_dead;
+  p->exitcode = code;
+ 
+  while (p->parent != nil && p->parent->state == PROC_dead) {
+    c = p->parent;
+    p->parent = c->parent;
 
-  for (c = p->children; c != nil; c = c->cnext) {
-    c->parent = p->parent;
+    if (atomicdec(&c->nchildren) == 0) {
+      procfree(c);
+    }
   }
 
   if (p->parent != nil) {
-    /* Remove proc from parents child list */
-    while (true) {
-      for (c = p->parent->children;
-	   c != nil && c != p && c->cnext != p;
-	   c = c->cnext)
-	;
-
-      if (c == nil) {
-	printf("error, proc not in parents child list\n");
-	break;
-      } else if (c == p) {
-	if (cas(&p->parent->children, p, p->cnext)) {
-	  break;
-	}
-      } else {
-	if (cas(&c->cnext, p, p->cnext)) {
-	  break;
-	}
-      }
-    }
-
-    while (true) {
-      for (c = p->parent->children;
-	   c != nil && c->cnext != nil;
-	   c = c->cnext)
-	;
-
-      if (c == nil && cas(&p->parent->children, nil, p->children)) {
-	break;
-      } else if (cas(&c->cnext, nil, p->children)) {
-	break;
-      }
-    }
-
-    p->children = nil;
-    
     addtolistback(&p->parent->deadchildren, p);
-
-    for (c = p->deadchildren; c != nil; c = c->next) {
-      addtolistback(&p->parent->deadchildren, c);
-    }
-
-    p->deadchildren = nil;
+    atomicdec(&p->parent->nchildren);
 
     if (p->parent->state == PROC_waiting) {
       if (removefromlist(&waitchildren, p->parent)) {
 	procready(p->parent);
       }
     }
-
-    p->parent = nil;
   } else {
     procfree(p);
   }
@@ -280,12 +240,12 @@ procfree(struct proc *p)
 }
 
 struct proc *
-procwaitchildren(void)
+waitchild(void)
 {
   struct proc *p;
   intrstate_t i;
 
-  if (up->children == nil) {
+  if (up->nchildren == 0 && up->deadchildren == nil) {
     return nil;
   } else if (up->deadchildren == nil) {
 

@@ -161,8 +161,8 @@ struct proc {
 
   int exitcode;
 
-  struct proc *cnext; /* For children */
-  struct proc *children, *deadchildren;
+  int nchildren;
+  struct proc *deadchildren;
   
   struct label label;
 
@@ -215,7 +215,7 @@ struct proc *
 procnew(void);
 
 struct proc *
-procwaitchildren(void);
+waitchild(void);
 
 void
 procexit(struct proc *, int code);

@@ -113,10 +113,7 @@ sysfork(int flags, struct label *ureg)
   }
 
   p->parent = up;
-
-  do {
-    p->cnext = up->children;
-  } while (!cas(&up->children, p->cnext, p));
+  atomicinc(&up->nchildren);
 
   /* Both parent and child return from this */
   r = forkchild(p);
@@ -186,7 +183,7 @@ syswait(int *ustatus)
     return ERR;
   }
   
-  p = procwaitchildren();
+  p = waitchild();
   if (p == nil) {
     return ERR;
   } 
