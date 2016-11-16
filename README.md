@@ -2,44 +2,37 @@
 
 ## Bundle Of Mess
 
-### A Minimal Operating System for the BeagleBone Black
+Bom is a micro kernel that makes extensive use of virtual file
+systems.
 
-So far it doesn't do much.
+[Anouncment](https://lackname.org/blog/BOM)
 
-It is a micro kernel that makes extensive use of virtual file systems
-for IPC.
+[A description of IPC in Bom](https://lackname.org/blog/A%20Slightly%20More%20Technical%20Post%20About%20Bom/)
 
-It currently has one program that that is compiled then converted
-into an array of bytes, which is then compiled and linked into the
-kernel. The kernel copies this into the pages for the first process
-and runs it in user mode with its on virtual address space.
+Currently the beagle bone black is the only device Bom runs on. It
+has support for UART, sd cards, mmc cards, timers, interrupts, etc.
+Currently no networking, USB, or HDMI.
 
-So far this program spawns makes a /dev directory, spawns a file
-system that mounts itself on /dev/com and writes/reads UART0 when
-it is written to/read from. Then it spawns a temporary file system
-that stores files in ram and mounts it on /tmp.
-
-Next is spawns two processes for managing the mmc host controllers
-that (if they find cards) will mount themselves as directory's on
-/dev/mmcy (where y = 0, 1) with files raw (for the entire device),
-and a, b, c, and d for each of the mbr partitions if they exist.
-These files can only be read or written in 512 byte blocks.
-
-Then a shell is spawns that currently doesn't let you do much other
-than see what files exist.
 
 ## Build
 
-Just run make.
+To build for the beagle bone black run
 
-This should give you the file am335x/am335x.umg which you can copy
-onto an sdcard and load on your beaglebone black.
+```
 
-U-Boot is a bit (very) finicky with the partitioning of your sdcard.
-You can look that up if you really want to but the easiest way is to
-just flash a beaglebone black linux or openbsd distro onto the sdcard
-the copy am335x/am335x.umg onto the U-Boot fat partition. Then when
-U-Boot loads (if you have it in sdcard mode) it should run Bom.
+make config_am335x
+make
+
+```
+
+This will compile the kernel, libraries and utilities. You will then
+need to set up an sd card and copy them to it with utilities under
+/bin, and the kernel somewhere. You will probably want to copy
+u-boot's MLO and u-boot.img files along with a uenv.txt file.
+Or you can download a raw image of the fs with the kernel and
+utilities at some point in the rescent past from
+[here](https://lackname.org/dump/bom-am335x.fs).
+
 
 ## Misc
 

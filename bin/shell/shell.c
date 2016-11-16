@@ -40,12 +40,10 @@ struct part {
 
 static int funcexit(int argc, char **argv);
 static int funccd(int argc, char **argv);
-static int funcret(int argc, char **argv);
 
 struct func funcs[] = {
   { "exit",      &funcexit },
   { "cd",        &funccd },
-  { "$?",        &funcret },
 };
 
 static int ret = 0;
@@ -84,14 +82,6 @@ funccd(int argc, char **argv)
   }
 
   return 0;
-}
-
-int
-funcret(int argc, char **argv)
-{
-  printf("%i\n", ret);
-
-  return OK;
 }
 
 bool
