@@ -25,45 +25,79 @@
  */
 
 #include <libc.h>
-#include <fs.h>
 #include <stdarg.h>
 #include <string.h>
 
 #include "shell.h"
 
-static int
-readsentence(uint8_t *data, size_t max)
-{
-  size_t i;
-  char c;
-
-  i = 0;
-  while (i < max) {
-    if (read(STDIN, &c, sizeof(char)) < 0) {
-      return -1;
-    } else if (c == '\n' || c == ';') {
-      data[i] = '\0';
-      return i;
-    } else {
-      data[i++] = c;
-    }
-  }
-
-  data[i-1] = 0;
-  return i;
-}
+int ret = 0;
 
 int
 main(int argc, char *argv[])
 {
-  uint8_t line[LINE_MAX] = {0};
+  int fd, i, r;
+
+  if (argc == 1) {
+    interactive();
+    return OK;
+  } else {
+    printf("processing files not yet implimented\n");
+    return ERR;
+    
+    for (i = 1; i < argc; i++) {
+      fd = open(argv[i], O_RDONLY);
+      if (fd < 0) {
+	printf("failed to open %s: %i\n", argv[i], fd);
+	break;
+      }
+
+      close(fd);
+
+      if (r != OK) {
+	printf("error processing %s: %i\n", argv[i], r);
+	break;
+      }
+    }
+  }
+}
+
+void
+interactive(void)
+{
+  char line[LINEMAX];
+  struct atom *a;
+  size_t r, i;
 
   while (true) {
-    printf("%% ");
-    readsentence(line, LINE_MAX);
-    processsentence((char *) line);
-  }
+    write(STDOUT, "% ", 2);
 
-  /* Never reached */
-  return ERR;
+    i = 0;
+    while ((r = read(STDIN, &line[i], 1)) > 0) {
+      if (line[i] == '\n') {
+	break;
+      } else {
+	i++;
+      }
+    }
+    
+    if (r == 0) {
+      exit(OK);
+    } else if (r < 0) {
+      printf("error reading input: %i\n", r);
+      exit(r);
+    }
+
+    line[i] = 0;
+    a = parseatoml(line, i);
+    if (a == nil) {
+      exit(ERR);
+    } else if (a->l.head == nil) {
+      atomfree(a);
+      continue;
+    }
+
+    ret = atomeval(a->l.head);
+
+    atomfree(a);
+  }
 }

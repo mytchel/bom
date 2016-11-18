@@ -23,40 +23,21 @@
 #  OTHER DEALINGS IN THE SOFTWARE
 #
 
-BASE ?= $(.CURDIR)/..
+BASE ?= $(.CURDIR)/../..
 
 include $(BASE)/config.mk
 
-SUBDIR =
-SUBDIR += shell
-SUBDIR += fatfs
-SUBDIR += tmpfs
-SUBDIR += test
-SUBDIR += bind
-SUBDIR += cat
-SUBDIR += cp
-SUBDIR += echo
-SUBDIR += ls
-SUBDIR += mkdir
-SUBDIR += pwd
-SUBDIR += rm
-SUBDIR += touch
-SUBDIR += unbind
+src = main.c 
+obj = $(src:%.c=%.o)
 
-.PHONY: all
-all: $(SUBDIR)
+unbind: $(obj)
+	$(LD) $(LDFLAGS) -o $@ $(obj) -lc -lstring
 
-.for s in $(SUBDIR)
-.PHONY: $(s)
-$(s):
-	$(MAKE) -C $(s) BASE="$(BASE)"
+.c.o:
+	$(CC) $(CFLAGS) -c $< -o $@ 
 
-.PHONY: $(s)/clean
-$(s)/clean:
-	$(MAKE) -C $(s) clean BASE="$(BASE)"
-
-.endfor
 
 .PHONY: clean
-clean: $(SUBDIR:%=%/clean)
+clean:
+	rm -f unbind $(obj)
 

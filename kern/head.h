@@ -322,6 +322,9 @@ fgroupcopy(struct fgroup *);
 int
 fgroupaddchan(struct fgroup *, struct chan *);
 
+int
+fgroupreplacechan(struct fgroup *, struct chan *, int fd);
+
 struct chan *
 fdtochan(struct fgroup *, int);
 

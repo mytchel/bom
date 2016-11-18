@@ -68,8 +68,6 @@ read(int fd, void *buf, size_t len)
     return ERR;
   } else if (!(c->mode & O_RDONLY)) {
     return EMODE;
-  } else if (len == 0) {
-    return ERR;
   }
 
   lock(&c->lock);
@@ -104,8 +102,6 @@ write(int fd, void *buf, size_t len)
     return ERR;
   } else if (!(c->mode & O_WRONLY)) {
     return EMODE;
-  } else if (len == 0) {
-    return ERR;
   }
 	
   lock(&c->lock);
@@ -401,6 +397,32 @@ sysunbind(const char *upath)
   pathfree(path);
 
   return ret;
+}
+
+reg_t
+sysdup(int old)
+{
+  struct chan *c;
+
+  c = fdtochan(up->fgroup, old);
+  if (c == nil) {
+    return ERR;
+  }
+  
+  return fgroupaddchan(up->fgroup, c);
+}
+
+reg_t
+sysdup2(int old, int new)
+{
+  struct chan *c;
+
+  c = fdtochan(up->fgroup, old);
+  if (c == nil) {
+    return ERR;
+  }
+  
+  return fgroupreplacechan(up->fgroup, c, new);
 }
 
 reg_t

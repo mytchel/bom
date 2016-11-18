@@ -290,14 +290,16 @@ breaddir(struct request_read *req, struct response_read *resp,
 	 struct file *f, uint32_t offset, uint32_t len)
 {
   if (offset >= f->lbuf) {
-    resp->head.ret = EOF;
-    return;
+    len = 0;
   } else if (offset + len > f->lbuf) {
     len = f->lbuf - offset;
   }
 
+  if (len > 0) {
+    memmove(resp->body.data, f->buf + offset, len);
+  }
+
   resp->body.len = len;
-  memmove(resp->body.data, f->buf + offset, len);
   resp->head.ret = OK;
 }
 
@@ -306,14 +308,16 @@ breadfile(struct request_read *req, struct response_read *resp,
 	 struct file *f, uint32_t offset, uint32_t len)
 {
   if (offset >= f->stat.size) {
-    resp->head.ret = EOF;
-    return;
+    len = 0;
   } else if (offset + len > f->stat.size) {
     len = f->stat.size - offset;
   }
 
+  if (len > 0) {
+    memmove(resp->body.data, f->buf + offset, len);
+  }
+
   resp->body.len = len;
-  memmove(resp->body.data, f->buf + offset, len);
   resp->head.ret = OK;
 }
 

@@ -231,7 +231,7 @@ trap(void *pc, int type)
     break;
   }
 	
-  printf("kill proc %i (trap %i)\n", up->pid, type);
+  printf("kill proc %i (trap %i, at 0x%h)\n", up->pid, type, pc);
   procexit(up, -1);
   schedule();
   /* Never reached */

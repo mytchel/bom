@@ -258,13 +258,12 @@ readroot(struct request_read *req, struct response_read *resp,
     len = rootstat.dsize - offset;
   }
 
-  if (len == 0) {
-    resp->head.ret = EOF;
-  } else {
+  if (len > 0) {
     memmove(resp->body.data, rootbuf + offset, len);
-    resp->body.len = len;
-    resp->head.ret = OK;
   }
+  
+  resp->body.len = len;
+  resp->head.ret = OK;
 }
 
 static void

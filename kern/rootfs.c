@@ -251,12 +251,16 @@ breaddir(struct request_read *req, struct response_read *resp,
   tlen = 0;
 
   for (c = file->children; c != nil; c = c->cnext) {
+    if (tlen >= len) {
+      break;
+    }
+
     l = c->lname;
     if (offset >= l + sizeof(uint8_t)) {
       offset -= l + sizeof(uint8_t);
       continue;
     }
-    
+
     if (offset == 0) { 
       memmove(buf + tlen, &l, sizeof(uint8_t));
       tlen += sizeof(uint8_t);
@@ -279,18 +283,10 @@ breaddir(struct request_read *req, struct response_read *resp,
     }
 
     tlen += l;
-
-    if (tlen >= len) {
-      break;
-    }
   }
 
   resp->body.len = tlen;
-  if (tlen > 0) {
-    resp->head.ret = OK;
-  } else {
-    resp->head.ret = EOF;
-  }
+  resp->head.ret = OK;
 }
 
 static void
@@ -320,6 +316,8 @@ static struct fsmount rootmount = {
 static int
 rootfsproc(void *arg)
 {
+  int r;
+  
   root = malloc(sizeof(struct file));
   if (root == nil) {
     panic("rootfs: root tree malloc failed!\n");
@@ -340,5 +338,8 @@ rootfsproc(void *arg)
   rootmount.databuf = malloc(512);
   rootmount.buflen = 512;
 
-  return fsmountloop(in, out, &rootmount);
+  r = fsmountloop(in, out, &rootmount);
+
+  panic("root fs exiting with %i!\n", r);
+  return r;
 }

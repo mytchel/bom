@@ -66,6 +66,8 @@ chdir(const char *dir);
 int
 pipe(int fds[2]);
 
+#define EOF		0
+
 int
 read(int fd, void *buf, size_t len);
 
@@ -95,10 +97,19 @@ unbind(const char *path);
 #define O_WRONLY	(1<<1)
 #define O_RDWR		(O_RDONLY|O_WRONLY)
 #define O_CREATE	(1<<2)
-#define O_DIR           (1<<3) /* File must be dir */
+#define O_TRUNC 	(1<<3)
+#define O_APPEND 	(1<<4)
+#define O_DIR           (1<<5) /* File must be dir */
+#define O_FILE          (1<<6) /* File must be not be dir */
 
 int
 open(const char *path, uint32_t mode, ...);
+
+int
+dup(int old);
+
+int
+dup2(int old, int new);
 
 int
 remove(const char *path);

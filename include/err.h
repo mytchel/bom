@@ -41,11 +41,9 @@
 #define ENOIMPL		-5
 /* No memory */
 #define ENOMEM		-6
-/* End of file */
-#define EOF		-7
 /* For file systems, no child with that name found. */
-#define ENOCHILD        -8
+#define ENOCHILD        -7
 /* Directory not empty */
-#define ENOTEMPTY       -9
+#define ENOTEMPTY       -8
 
 #endif

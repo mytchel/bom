@@ -109,35 +109,38 @@ fgroupcopy(struct fgroup *fo)
 int
 fgroupaddchan(struct fgroup *f, struct chan *chan)
 {
+  struct chan **chans;
   int i, fd;
 	
   lock(&f->lock);
 
-  for (i = 0; i < f->nchans; i++)
-    if (f->chans[i] == nil)
+  for (i = 0; i < f->nchans; i++) {
+    if (f->chans[i] == nil) {
       break;
+    }
+  }
 	
   if (i < f->nchans) {
     fd = i;
   } else {
     /* Need to grow file table. */
-    struct chan **chans;
-		
-    chans = malloc(sizeof(struct chan **)
+    chans = malloc(sizeof(struct chan *)
 		   * (f->nchans * 2));
 
     if (chans == nil) {
       unlock(&f->lock);
-      return -1;
+      return ENOMEM;
     }
 		
-    for (i = 0; i < f->nchans; i++)
+    for (i = 0; i < f->nchans; i++) {
       chans[i] = f->chans[i];
+    }
 
     fd = i++;
 
-    while (i < f->nchans * 2)
+    while (i < f->nchans * 2) {
       chans[i++] = nil;
+    }
 
     free(f->chans);
 				
@@ -148,6 +151,44 @@ fgroupaddchan(struct fgroup *f, struct chan *chan)
   f->chans[fd] = chan;
   unlock(&f->lock);
 
+  return fd;
+}
+
+int
+fgroupreplacechan(struct fgroup *f, struct chan *chan, int fd)
+{
+  struct chan **chans;
+  int i;
+	
+  lock(&f->lock);
+
+  if (fd >= f->nchans) {
+    chans = malloc(sizeof(struct chan *) * (fd + 1));
+    if (chans == nil) {
+      unlock(&f->lock);
+      return ENOMEM;
+    }
+
+    for (i = 0; i < f->nchans; i++) {
+      chans[i] = f->chans[i];
+    }
+
+    while (i < fd + 1) {
+      chans[i] = nil;
+    }
+
+    free(f->chans);
+    f->chans = chans;
+    f->nchans = fd + 1;
+  }
+
+  if (f->chans[fd] != nil) {
+    chanfree(f->chans[fd]);
+  }
+
+  f->chans[fd] = chan;
+  unlock(&f->lock);
+  
   return fd;
 }
 

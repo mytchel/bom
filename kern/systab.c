@@ -48,6 +48,8 @@ reg_t sysbind(const char *old, const char *new);
 reg_t sysunbind(const char *path);
 reg_t sysopen(const char *path, uint32_t mode, ...);
 reg_t sysremove(const char *path);
+reg_t sysdup(int old);
+reg_t sysdup2(int old, int new);
 reg_t syscleanpath(char *opath, char *cpath, size_t cpathlen);
 
 
@@ -72,6 +74,8 @@ void *syscalltable[NSYSCALLS] = {
   [SYSCALL_UNBIND]            = (void *) &sysunbind,
   [SYSCALL_OPEN]              = (void *) &sysopen,
   [SYSCALL_REMOVE]            = (void *) &sysremove,
+  [SYSCALL_DUP]               = (void *) &sysdup,
+  [SYSCALL_DUP2]              = (void *) &sysdup2,
   [SYSCALL_CLEANPATH]         = (void *) &syscleanpath,
   [SYSCALL_WAITINTR]          = (void *) &syswaitintr,
 };

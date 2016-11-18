@@ -27,7 +27,7 @@ BASE ?= $(.CURDIR)/../..
 
 include $(BASE)/config.mk
 
-src = main.c shell.c
+src = main.c funcs.c parse.c
 objs = $(src:%.c=%.o)
 
 

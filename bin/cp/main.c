@@ -50,7 +50,7 @@ main(int argc, char *argv[])
 
   while (true) {
     if ((r = read(in, buf, sizeof(buf))) < 0) {
-      if (r == EOF) {
+      if (r == 0) {
 	r = OK;
       } else {
 	printf("cp failed to read %s %i\n", argv[1], r);

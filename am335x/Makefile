@@ -156,7 +156,7 @@ am335x.umg: am335x.bin
 	$(BASE)/tools/mkuboot/mkuboot -a arm \
 		-e $(loadaddr) -l $(loadaddr) -o linux \
 		am335x.bin am335x.umg
-	cp am335x.umg /var/ftpd
+	scp am335x.umg root@gibson:/var/ftpd
 
 
 .PHONY: $(SUBDIR)

@@ -105,12 +105,6 @@ mountproc(void *arg)
   unlock(&b->lock);
   bindingfree(b);
 
-  setintr(INTR_OFF);
-
-  procexit(up, ERR);
-  schedule();
-
-  /* Never reached */
-  return 0;
+  return ERR;
 }
 

@@ -32,7 +32,7 @@
 #include <string.h>
 
 int
-lsh(char *filename)
+lsh(char *filename, bool a)
 {
   uint8_t buf[NAMEMAX * 3], len;
   struct stat s;
@@ -56,6 +56,10 @@ lsh(char *filename)
   if ((fd = open(".", O_RDONLY)) < 0) {
     printf("error opening %s: %i\n", filename, fd);
     return fd;
+  }
+
+  if (a) {
+    printf("%s:\n", argv[i]);
   }
 
   i = 0;
@@ -96,18 +100,28 @@ lsh(char *filename)
 int
 main(int argc, char **argv)
 {
-  int i;
+  int i, p, r;
 
   if (argc == 1) {
-    lsh(".");
+    r = lsh(".", false);
   } else if (argc == 2) {
-    lsh(argv[1]);
+    r = lsh(argv[1], false);
   } else {
     for (i = 1; i < argc; i++) {
-      printf("%s:\n", argv[i]);
-      lsh(argv[i]);
+      p = fork(FORK_sngroup|FORK_smem|FORK_sfgroup);
+      if (p == 0) {
+	r = lsh(argv[i], true);
+	exit(r);
+      } else {
+	while (wait(&r) != p)
+	  ;
+
+	if (r != OK) {
+	  return r;
+	}
+      }
     }
   }
   
-  return OK;
+  return r;
 }

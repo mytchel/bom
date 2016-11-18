@@ -86,15 +86,15 @@ static int
 mainproc(void *arg)
 {
   struct label ureg;
+  char *name, *argv[1];
+
+  name = "#init#";
+  argv[0] = name;
+
+  readyexec(&ureg, (void *) 4, 1, argv);
 
   setintr(INTR_OFF);
-
-  memset(&ureg, 0, sizeof(struct label));
-
-  ureg.sp = USTACK_TOP;
-  ureg.psr = MODE_USR;
-  ureg.pc = 4;
-
+  
   droptouser(&ureg, (void *) (up->kstack->pa + PAGE_SIZE));
 
   return 0; /* Never reached. */

@@ -101,7 +101,13 @@ droptouser:
 
 
 funcloader:
+	ldr lr, =1f
 	ldmia sp!, {r0, pc}
+1:	cpsid if
+	mov r1, r0
+	ldr r0, =up
+	bl procexit
+	bl schedule
 
 	
 fsrstatus:

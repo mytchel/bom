@@ -50,6 +50,8 @@
 .global unbind
 .global open
 .global remove
+.global dup
+.global dup2
 .global cleanpath
 .global waitintr
 
@@ -199,6 +201,20 @@ open:
 remove:
 	push {r12, lr}
 	mov r12, #SYSCALL_REMOVE
+	svc 0
+	pop {r12, pc}
+
+
+dup:
+	push {r12, lr}
+	mov r12, #SYSCALL_DUP
+	svc 0
+	pop {r12, pc}
+
+	
+dup2:
+	push {r12, lr}
+	mov r12, #SYSCALL_DUP2
 	svc 0
 	pop {r12, pc}
 

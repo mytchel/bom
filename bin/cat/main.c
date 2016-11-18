@@ -45,7 +45,7 @@ main(int argc, char *argv[])
 	write(STDOUT, buf, l);
       }
 
-      if (l != EOF) {
+      if (l < 0) {
 	printf("read %s failed %i\n", argv[i], l);
       }
 

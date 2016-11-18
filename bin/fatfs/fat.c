@@ -201,7 +201,7 @@ fatfileread(struct fat *fat, struct fat_file *file,
   struct buf *fbuf;
   
   if (offset >= file->size) {
-    *err = EOF;
+    *err = OK;
     return 0;
   } else if (offset + len >= file->size) {
     len = file->size - offset;
@@ -351,6 +351,10 @@ readdirsectors(struct fat *fat, uint32_t sector,
   entry = (struct fat_dir_entry *) fbuf->addr;
     
   while ((uint8_t *) entry < fbuf->addr + fat->spc * fat->bps) {
+    if (tlen >= len) {
+      break;
+    }
+
     entry = copyfileentryname(entry, name);
     if (entry == nil) {
       break;
@@ -387,10 +391,6 @@ readdirsectors(struct fat *fat, uint32_t sector,
     }
     
     tlen += l;
-
-    if (tlen >= len) {
-      break;
-    }
   }
 
   return tlen;
@@ -411,7 +411,7 @@ fatdirread(struct fat *fat, struct fat_file *file,
   } else {
     cluster = file->startcluster;
     
-    while (cluster != 0) {
+    while (cluster != 0 && tlen < len) {
       t = readdirsectors(fat, clustertosector(fat, cluster),
 			 buf + tlen, &offset, len - tlen);
 
@@ -424,12 +424,7 @@ fatdirread(struct fat *fat, struct fat_file *file,
     }
   }
 
-  if (tlen > 0) {
-    *err = OK;
-  } else {
-    *err = EOF;
-  }
-
+  *err = OK;
   return tlen;
 }
 

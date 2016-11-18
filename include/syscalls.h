@@ -46,6 +46,8 @@
 #define SYSCALL_STAT	       13	
 #define SYSCALL_OPEN           14 
 #define SYSCALL_REMOVE	       15
+#define SYSCALL_DUP	       23
+#define SYSCALL_DUP2	       24
 
 #define SYSCALL_MOUNT          16
 #define SYSCALL_BIND           17
@@ -58,6 +60,6 @@
 
 #define SYSCALL_WAITINTR       22
 
-#define NSYSCALLS              23
+#define NSYSCALLS              25
 
 #endif
