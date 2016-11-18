@@ -242,8 +242,6 @@ static void
 comopen(struct request_open *req, struct response_open *resp)
 {
   resp->head.ret = OK;
-  resp->body.minchunk = 1;
-  resp->body.maxchunk = BUFMAX;
 }
 
 static void

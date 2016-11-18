@@ -74,11 +74,7 @@ struct response_stat_b {
 
 
 struct request_open_b {};
-struct response_open_b {
-  /* Min and max size of reads and writes */
-  uint32_t minchunk;
-  uint32_t maxchunk;
-};
+struct response_open_b {};
 
 
 struct request_close_b {};

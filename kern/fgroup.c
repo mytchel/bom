@@ -148,9 +148,10 @@ fgroupaddchan(struct fgroup *f, struct chan *chan)
     f->nchans *= 2;
   }
 
+  atomicinc(&chan->refs);
   f->chans[fd] = chan;
-  unlock(&f->lock);
 
+  unlock(&f->lock);
   return fd;
 }
 
@@ -158,12 +159,17 @@ int
 fgroupreplacechan(struct fgroup *f, struct chan *chan, int fd)
 {
   struct chan **chans;
-  int i;
+  int i, n;
 	
   lock(&f->lock);
 
   if (fd >= f->nchans) {
-    chans = malloc(sizeof(struct chan *) * (fd + 1));
+    n = f->nchans;
+    while (fd >= n) {
+      n *= 2;
+    }
+    
+    chans = malloc(sizeof(struct chan *) * n);
     if (chans == nil) {
       unlock(&f->lock);
       return ENOMEM;
@@ -173,22 +179,23 @@ fgroupreplacechan(struct fgroup *f, struct chan *chan, int fd)
       chans[i] = f->chans[i];
     }
 
-    while (i < fd + 1) {
-      chans[i] = nil;
+    while (i < n) {
+      chans[i++] = nil;
     }
 
     free(f->chans);
     f->chans = chans;
-    f->nchans = fd + 1;
+    f->nchans = n;
   }
 
   if (f->chans[fd] != nil) {
     chanfree(f->chans[fd]);
   }
 
+  atomicinc(&chan->refs);
   f->chans[fd] = chan;
+
   unlock(&f->lock);
-  
   return fd;
 }
 

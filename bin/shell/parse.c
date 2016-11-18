@@ -30,6 +30,7 @@
 #include <stdarg.h>
 #include <string.h>
 #include <ctype.h>
+#include <fs.h>
 
 #include "shell.h"
 
@@ -662,6 +663,8 @@ flatten(struct atom *atom)
     }
 
     memmove(a->a.str, atom->a.str, a->a.len);
+    a->a.str[a->a.len] = 0;
+    
     return a;
 
   case TYPE_delim:
@@ -708,13 +711,13 @@ runcmd(struct atom *cmd, struct atom *rest, struct atom *delim,
       argv[r++] = a->a.str;
     } else if (strcmp(a->a.str, ">>")) {
       if (a->next == nil) {
-	printf("expected file after >>\n");
+	printf("expected file name after >>\n");
 	exit(ERR);
       } else {
 	a = a->next;
       }
 
-      out = open(a->a.str, O_WRONLY|O_APPEND|O_CREATE, 0644);
+      out = open(a->a.str, O_WRONLY|O_APPEND|O_CREATE, ATTR_rd|ATTR_wr);
       if (out < 0) {
 	printf("error opening %s : %i\n", a->a.str, out);
 	exit(out);
@@ -722,20 +725,20 @@ runcmd(struct atom *cmd, struct atom *rest, struct atom *delim,
 
     } else if (strcmp(a->a.str, ">")) {
       if (a->next == nil) {
-	printf("expected file after >>\n");
+	printf("expected file name after >\n");
 	exit(ERR);
       } else {
 	a = a->next;
       }
 
-      out = open(a->a.str, O_WRONLY|O_TRUNC|O_CREATE, 0644);
+      out = open(a->a.str, O_WRONLY|O_TRUNC|O_CREATE, ATTR_rd|ATTR_wr);
       if (out < 0) {
 	printf("error opening %s : %i\n", a->a.str, out);
 	exit(out);
       } 
     } else if (strcmp(a->a.str, "<")) {
       if (a->next == nil) {
-	printf("expected file after >>\n");
+	printf("expected file name after <\n");
 	exit(ERR);
       } else {
 	a = a->next;
@@ -753,13 +756,11 @@ runcmd(struct atom *cmd, struct atom *rest, struct atom *delim,
   }
 
   if (in != STDIN) {
-    close(STDIN);
     dup2(in, STDIN);
     close(in);
   }
 
   if (out != STDOUT) {
-    close(STDOUT);
     dup2(out, STDOUT);
     close(out);
   }
@@ -855,17 +856,19 @@ atomeval(struct atom *atoms)
     case DELIM_or:
       if (ret == OK) {
 	return OK;
-      } else {
-	break;
       }
 
+      in = STDIN;
+      out = STDOUT;
+      break;
+ 
     case DELIM_and:
       if (ret != OK) {
 	return ret;
-      } else {
-	break;
       }
 
+      in = STDIN;
+      out = STDOUT;
       break;
 
     default:

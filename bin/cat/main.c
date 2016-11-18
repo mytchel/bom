@@ -33,23 +33,41 @@ int
 main(int argc, char *argv[])
 {
   uint8_t buf[512];
-  int i, fd, l;
+  int i, fd, r, w;
 
-  for (i = 1; i < argc; i++) {
-    fd = open(argv[i], O_RDONLY);
-    if (fd < 0) {
-      printf("cat %s failed %i\n", argv[i], fd);
-      return fd;
-    } else {
-      while ((l = read(fd, buf, sizeof(buf))) > 0) {
-	write(STDOUT, buf, l);
+  if (argc == 1) {
+    while ((r = read(STDIN, buf, sizeof(buf))) > 0) {
+      if ((w = write(STDOUT, buf, r)) != r) {
+	printf("failed to write : %i\n", w);
+	return w;
       }
+    }
 
-      if (l < 0) {
-	printf("read %s failed %i\n", argv[i], l);
+    if (r < 0) {
+      printf("failed to read stdin %i\n", r);
+      return r;
+    }
+  } else {
+    for (i = 1; i < argc; i++) {
+      fd = open(argv[i], O_RDONLY);
+      if (fd < 0) {
+	printf("cat %s failed %i\n", argv[i], fd);
+	return fd;
+      } else {
+	while ((r = read(fd, buf, sizeof(buf))) > 0) {
+	  if ((w = write(STDOUT, buf, r)) != r) {
+	    printf("failed to write : %i\n", w);
+	    return w;
+	  }
+	}
+
+	if (r < 0) {
+	  printf("failed to read %s : %i\n", argv[i], r);
+	  return r;
+	}
+
+	close(fd);
       }
-
-      close(fd);
     }
   }
 

@@ -223,7 +223,9 @@ sysopen(const char *upath, uint32_t mode, ...)
     pathfree(path);
     return err;
   } else {
-    return fgroupaddchan(up->fgroup, c);
+    err = fgroupaddchan(up->fgroup, c);
+    chanfree(c);
+    return err;
   }
 }
 
@@ -231,7 +233,8 @@ reg_t
 syspipe(int *fds)
 {
   struct chan *c0, *c1;
-
+  int err;
+  
   if (kaddr(up, fds, sizeof(int) * 2) == nil) {
     return ERR;
   }
@@ -241,9 +244,22 @@ syspipe(int *fds)
   }
 	
   fds[0] = fgroupaddchan(up->fgroup, c0);
+  if (fds[0] < 0) {
+    err = fds[0];
+    goto e;
+  }
+  
   fds[1] = fgroupaddchan(up->fgroup, c1);
-	
-  return OK;
+  if (fds[1] < 0) {
+    err = fds[0];
+    goto e;
+  }
+ 
+  err = OK;
+ e:
+  chanfree(c0);
+  chanfree(c1);
+  return err;
 }
 
 reg_t

@@ -410,6 +410,14 @@ fileopen(struct path *path, uint32_t mode, uint32_t cmode, int *err)
   cfile->fid = fid;
   cfile->offset = 0;
 
+  if (mode & O_TRUNC) {
+    printf("truincation not yet supported\n");
+  }
+
+  if (mode & O_APPEND) {
+    printf("append not yet supported\n");
+  }
+  
   *err = OK;
   return c;
 }

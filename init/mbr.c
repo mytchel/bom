@@ -233,14 +233,6 @@ bstat(struct request_stat *req, struct response_stat *resp)
 static void
 bopen(struct request_open *req, struct response_open *resp)
 {
-  if (req->head.fid == ROOTFID) {
-    resp->body.minchunk = 1;
-    resp->body.maxchunk = device->blksize;
-  } else {
-    resp->body.minchunk = device->blksize;
-    resp->body.maxchunk = device->blksize;
-  }
-  
   resp->head.ret = OK;
 }
 

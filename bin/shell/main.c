@@ -32,35 +32,6 @@
 
 int ret = 0;
 
-int
-main(int argc, char *argv[])
-{
-  int fd, i, r;
-
-  if (argc == 1) {
-    interactive();
-    return OK;
-  } else {
-    printf("processing files not yet implimented\n");
-    return ERR;
-    
-    for (i = 1; i < argc; i++) {
-      fd = open(argv[i], O_RDONLY);
-      if (fd < 0) {
-	printf("failed to open %s: %i\n", argv[i], fd);
-	break;
-      }
-
-      close(fd);
-
-      if (r != OK) {
-	printf("error processing %s: %i\n", argv[i], r);
-	break;
-      }
-    }
-  }
-}
-
 void
 interactive(void)
 {
@@ -90,7 +61,7 @@ interactive(void)
     line[i] = 0;
     a = parseatoml(line, i);
     if (a == nil) {
-      exit(ERR);
+      continue;
     } else if (a->l.head == nil) {
       atomfree(a);
       continue;
@@ -101,3 +72,33 @@ interactive(void)
     atomfree(a);
   }
 }
+
+int
+main(int argc, char *argv[])
+{
+  int fd, i, r;
+
+  if (argc == 1) {
+    interactive();
+    return OK;
+  } else {
+    printf("processing files not yet implimented\n");
+    return ERR;
+    
+    for (i = 1; i < argc; i++) {
+      fd = open(argv[i], O_RDONLY);
+      if (fd < 0) {
+	printf("failed to open %s: %i\n", argv[i], fd);
+	break;
+      }
+
+      close(fd);
+
+      if (r != OK) {
+	printf("error processing %s: %i\n", argv[i], r);
+	break;
+      }
+    }
+  }
+}
+

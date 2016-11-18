@@ -83,7 +83,7 @@ pipedocopy(struct pipe *p, void *buf, size_t n, bool writing)
   lock(&p->lock);
 
   if (p->c0 == nil || p->c1 == nil) {
-    r = ELINK;
+    r = EOF;
     unlock(&p->lock);
   } else if (p->waiting) {
     /* Do copy now */
@@ -159,7 +159,7 @@ pipeclose(struct chan *c)
   }
 	
   if (p->waiting) {
-    p->proc->aux = (void *) ELINK;
+    p->proc->aux = (void *) EOF;
     p->waiting = false;
     procready(p->proc);
   }

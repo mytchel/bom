@@ -76,6 +76,7 @@ write(int fd, void *buf, size_t len);
 
 #define SEEK_SET        1
 #define SEEK_CUR        2
+#define SEEK_END        3
 
 int
 seek(int fd, size_t offset, int whence);

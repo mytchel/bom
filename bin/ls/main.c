@@ -59,7 +59,7 @@ lsh(char *filename, bool a)
   }
 
   if (a) {
-    printf("%s:\n", argv[i]);
+    printf("%s:\n", filename);
   }
 
   i = 0;
