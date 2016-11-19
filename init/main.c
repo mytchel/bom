@@ -44,10 +44,12 @@ readline(char *data, size_t max)
 {
   size_t i;
   char c;
+  int r;
 
   i = 0;
   while (i < max) {
-    if (read(STDIN, &c, sizeof(char)) < 0) {
+    r = read(STDIN, &c, sizeof(char));
+    if (r <= 0) {
       return -1;
     } else if (c == '\n') {
       data[i] = '\0';
@@ -121,6 +123,7 @@ main(int argc, char *argv[])
       return ERR;
     }
 
+    printf("mountfat %s /mnt\n", root);
     r = mountfat(root, "/mnt");
     if (r == OK) {
       break;

@@ -148,7 +148,6 @@ fgroupaddchan(struct fgroup *f, struct chan *chan)
     f->nchans *= 2;
   }
 
-  atomicinc(&chan->refs);
   f->chans[fd] = chan;
 
   unlock(&f->lock);
@@ -192,7 +191,6 @@ fgroupreplacechan(struct fgroup *f, struct chan *chan, int fd)
     chanfree(f->chans[fd]);
   }
 
-  atomicinc(&chan->refs);
   f->chans[fd] = chan;
 
   unlock(&f->lock);

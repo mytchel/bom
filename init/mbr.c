@@ -267,8 +267,9 @@ readblocks(struct request_read *req, struct response_read *resp,
   uint32_t i;
 
   buf = resp->body.data;
-  
-  for (i = 0; i < nblk && part->lba + blk + i < part->sectors; i++) {
+
+  i = 0;
+  while (i < nblk && part->lba + blk + i < part->sectors) {
     if (!device->read(part->lba + blk + i, buf)) {
       resp->head.ret = ERR;
       resp->body.len = 0;
@@ -276,6 +277,7 @@ readblocks(struct request_read *req, struct response_read *resp,
     }
     
     buf += device->blksize;
+    i++;
   }
 
   resp->body.len = i * device->blksize;

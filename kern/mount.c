@@ -41,27 +41,28 @@ mountproc(void *arg)
       break;
     }
 
-    lock(&b->lock);
-
+  findandremove:
     p = nil;
     for (t = b->waiting; t != nil; p = t, t = t->next) {
-      if (t->rid == tresp.head.rid) {
-	break;
+      if (t->rid != tresp.head.rid) {
+	continue;
+      } else if (p == nil) {
+	if (!cas(&b->waiting, t, t->next)) {
+	  goto findandremove;
+	}
+      } else {
+	if (!cas(&p->next, t, t->next)) {
+	  goto findandremove;
+	}
       }
-    }
 
-    unlock(&b->lock);
+      break;
+    }
 
     if (t == nil) {
       printf("kproc mount: response has no waiter.\n");
       break;
     } 
-
-    if (p == nil) {
-      b->waiting = t->next;
-    } else {
-      p->next = t->next;
-    }
 
     memmove(t->resp, &tresp, t->len);
 
@@ -74,7 +75,13 @@ mountproc(void *arg)
 	break;
       }
     }
-    
+
+    /* To make sure requesting proc is waiting,
+       need a better way to do this.
+    */
+    lock(&b->lock);
+    unlock(&b->lock);
+
     procready(t->proc);
   }
 

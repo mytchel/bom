@@ -48,7 +48,7 @@ channew(int type, int mode)
   c->refs = 1;
   c->type = type;
   c->mode = mode;
-	
+
   return c;
 }
 

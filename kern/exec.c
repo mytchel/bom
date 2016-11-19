@@ -198,6 +198,7 @@ kexec(struct chan *f, int argc, char *argv[])
   
   droptouser(&ureg, (void *) (up->kstack->pa + PAGE_SIZE));
 
-  setintr(INTR_ON);
+  panic("droptouser returned, this should never happen.\n");
+
   return ERR;
 }

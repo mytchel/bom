@@ -52,23 +52,21 @@ makereq(struct binding *b,
   
   req->head.rid = trans.rid;
 
+  do {
+    trans.next = b->waiting;
+  } while (!cas(&b->waiting, trans.next, &trans));
+  
   lock(&b->lock);
 
-  trans.next = b->waiting;
-  b->waiting = &trans;
-  
-  if (pipewrite(b->out, (void *) req, reqlen) < 0) {
+  if (pipewrite(b->out, (void *) req, reqlen) != reqlen) {
     unlock(&b->lock);
     return false;
   }
 
   i = setintr(INTR_OFF);
-
   unlock(&b->lock);
   procwait(up);
-
   schedule();
-
   setintr(i);
 
   return true;
@@ -93,19 +91,23 @@ bindingfidfree(struct bindingfid *fid)
 	  (struct response *) &resp, sizeof(resp));
 
   if (fid->parent) {
-    lock(&fid->binding->lock);
-
+  remove:
     p = nil;
-    for (o = fid->parent->children; o != fid; p = o, o = o->cnext)
-      ;
+    for (o = fid->parent->children; o != nil; p = o, o = o->cnext) {
+      if (o != fid) continue;
+      
+      if (p == nil) {
+	if (!cas(&fid->parent->children, fid, fid->cnext)) {
+	  goto remove;
+	}
+      } else {
+	if (!cas(&p->cnext, fid, fid->cnext)) {
+	  goto remove;
+	}
+      }
 
-    if (p == nil) {
-      fid->parent->children = fid->cnext;
-    } else {
-      p->cnext = fid->cnext;
+      break;
     }
-
-    unlock(&fid->binding->lock);
 
     bindingfidfree(fid->parent);
   } else if (fid->parent == nil) {
@@ -185,12 +187,9 @@ findfileindir(struct bindingfid *fid, char *name, int *err)
   nfid->parent = fid;
   nfid->children = nil;
 
-  lock(&fid->binding->lock);
-  
-  nfid->cnext = fid->children;
-  fid->children = nfid;
-
-  unlock(&fid->binding->lock);
+  do {
+    nfid->cnext = fid->children;
+  } while (!cas(&fid->children, nfid->cnext, nfid));
 
   return nfid;
 }
@@ -294,12 +293,9 @@ filecreate(struct bindingfid *parent,
   nfid->parent = parent;
   nfid->children = nil;
 
-  lock(&parent->binding->lock);
-
-  nfid->cnext = parent->children;
-  parent->children = nfid;
-
-  unlock(&parent->binding->lock);
+  do {
+    nfid->cnext = parent->children;
+  } while (!cas(&parent->children, nfid->cnext, nfid));
 
   *err = OK;
   return nfid;
@@ -493,7 +489,9 @@ filewrite(struct chan *c, void *buf, size_t n)
   struct response_write resp;
   struct binding *b;
   struct cfile *cfile;
-
+  intrstate_t i;
+  size_t reqlen;
+  
   cfile = (struct cfile *) c->aux;
   b = cfile->fid->binding;
 
@@ -513,15 +511,17 @@ filewrite(struct chan *c, void *buf, size_t n)
   req.body.offset = cfile->offset;
   req.body.len = n;
 
+  do {
+    trans.next = b->waiting;
+  } while (!cas(&b->waiting, trans.next, &trans));
+ 
+  reqlen = sizeof(req.head)
+    + sizeof(req.body.offset)
+    + sizeof(req.body.len);
+  
   lock(&b->lock);
 
-  trans.next = b->waiting;
-  b->waiting = &trans;
- 
-  if (pipewrite(b->out, (void *) &req,
-		sizeof(req.head) +
-		sizeof(req.body.offset) +
-		sizeof(req.body.len)) < 0) {
+  if (pipewrite(b->out, (void *) &req, reqlen) != reqlen) {
     unlock(&b->lock);
     return ELINK;
   }
@@ -531,13 +531,11 @@ filewrite(struct chan *c, void *buf, size_t n)
     return ELINK;
   }
 
-  setintr(INTR_OFF);
-
-  procwait(up);
+  i = setintr(INTR_OFF);
   unlock(&b->lock);
-
+  procwait(up);
   schedule();
-  setintr(INTR_ON);
+  setintr(i);
 
   if (resp.head.ret != OK) {
     return resp.head.ret;

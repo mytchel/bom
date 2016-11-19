@@ -220,7 +220,7 @@ fatfileread(struct fat *fat, struct fat_file *file,
     fbuf = readsectors(fat, clustertosector(fat, cluster), fat->spc);
     if (fbuf == nil) {
       *err = ERR;
-      break;
+      return 0;
     }
 
     if (offset + (len - tlen) >= fat->spc * fat->bps) {
@@ -418,8 +418,11 @@ fatdirread(struct fat *fat, struct fat_file *file,
       if (t > 0) {
 	tlen += t;
 	cluster = nextcluster(fat, cluster);
-      } else {
+      } else if (t == 0) {
 	break;
+      } else {
+	*err = t;
+	return 0;
       }
     }
   }

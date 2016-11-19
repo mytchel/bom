@@ -115,7 +115,7 @@ reg_t
 syswrite(int fd, void *buf, size_t len)
 {
   void *kbuf;
-	
+
   kbuf = kaddr(up, buf, len);
 
   if (kbuf == nil) {
@@ -224,7 +224,6 @@ sysopen(const char *upath, uint32_t mode, ...)
     return err;
   } else {
     err = fgroupaddchan(up->fgroup, c);
-    chanfree(c);
     return err;
   }
 }
@@ -233,8 +232,7 @@ reg_t
 syspipe(int *fds)
 {
   struct chan *c0, *c1;
-  int err;
-  
+
   if (kaddr(up, fds, sizeof(int) * 2) == nil) {
     return ERR;
   }
@@ -245,21 +243,16 @@ syspipe(int *fds)
 	
   fds[0] = fgroupaddchan(up->fgroup, c0);
   if (fds[0] < 0) {
-    err = fds[0];
-    goto e;
+    return fds[0];
   }
   
   fds[1] = fgroupaddchan(up->fgroup, c1);
   if (fds[1] < 0) {
-    err = fds[0];
-    goto e;
+    chanfree(c0);
+    return fds[1];
   }
  
-  err = OK;
- e:
-  chanfree(c0);
-  chanfree(c1);
-  return err;
+  return OK;
 }
 
 reg_t
@@ -419,26 +412,40 @@ reg_t
 sysdup(int old)
 {
   struct chan *c;
+  int new;
 
   c = fdtochan(up->fgroup, old);
   if (c == nil) {
     return ERR;
   }
   
-  return fgroupaddchan(up->fgroup, c);
+  new = fgroupaddchan(up->fgroup, c);
+  if (new < 0) {
+    return new;
+  }
+
+  atomicinc(&c->refs);
+  return new;
 }
 
 reg_t
 sysdup2(int old, int new)
 {
   struct chan *c;
-
+  int r;
+  
   c = fdtochan(up->fgroup, old);
   if (c == nil) {
     return ERR;
   }
   
-  return fgroupreplacechan(up->fgroup, c, new);
+  r = fgroupreplacechan(up->fgroup, c, new);
+  if (r < 0) {
+    return r;
+  }
+
+  atomicinc(&c->refs);
+  return r;
 }
 
 reg_t

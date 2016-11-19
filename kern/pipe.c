@@ -96,9 +96,8 @@ pipedocopy(struct pipe *p, void *buf, size_t n, bool writing)
     }
 
     p->proc->aux = (void *) r;
-    p->waiting = false;
-
     procready(p->proc);
+    p->waiting = false;
 
     unlock(&p->lock);
   } else {
@@ -160,8 +159,8 @@ pipeclose(struct chan *c)
 	
   if (p->waiting) {
     p->proc->aux = (void *) EOF;
-    p->waiting = false;
     procready(p->proc);
+    p->waiting = false;
   }
 
   if (p->c0 == nil && p->c1 == nil) {

@@ -41,7 +41,6 @@
 #endif
 
 struct lock {
-  int lock;
   struct proc *holder;
   struct proc *wlist;
 };

@@ -32,18 +32,38 @@ lock(struct lock *l)
 {
   intrstate_t i;
   
-  while (!cas(&l->lock, (void *) 0, (void *) 1)) {
+  if (!cas(&l->holder, nil, up)) {
+    up->next = l->wlist;
+    if (!cas(&l->wlist, up->next, up)) {
+      return lock(l);
+    }
+      
+    procwait(up);
     i = setintr(INTR_OFF);
     schedule();
     setintr(i);
   }
-
-  l->holder = up;
 }
 
 void
 unlock(struct lock *l)
 {
-  l->holder = nil;
-  l->lock = 0;
+  struct proc *p, *pp;
+
+  pp = nil;
+  for (p = l->wlist; p != nil && p->next != nil; pp = p, p = p->next)
+    ;
+
+  if (p != nil) {
+    if (pp == nil) {
+      l->wlist = nil;
+    } else {
+      pp->next = nil;
+    }
+    
+    l->holder = p; 
+    procready(p);
+  } else {
+    l->holder = nil;
+  }
 }
