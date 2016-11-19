@@ -27,15 +27,17 @@
 
 #include "head.h"
 
-struct pipe {
-  struct lock lock;
-  
-  struct chan *c0, *c1;
-
-  bool waiting;	
+struct pipetrans {
   struct proc *proc;
   void *buf;
   size_t n;
+  bool writing;
+  struct pipetrans *next;
+};
+
+struct pipe {
+  struct chan *c0, *c1;
+  struct pipetrans *trans;
 };
 
 bool
@@ -66,8 +68,7 @@ pipenew(struct chan **c0, struct chan **c1)
 	
   p->c0 = *c0;
   p->c1 = *c1;
-  p->waiting = false;
-  p->proc = nil;
+  p->trans = nil;
 
   return true;	
 }
@@ -75,49 +76,58 @@ pipenew(struct chan **c0, struct chan **c1)
 static int
 pipedocopy(struct pipe *p, void *buf, size_t n, bool writing)
 {
+  struct pipetrans *t, *h, *tp, nt;
   intrstate_t i;
   int r;
 
-  lock(&p->lock);
+  h = p->trans;
 
+  tp = nil;
+  for (t = h; t != nil && t->next != nil; tp = t, t = t->next)
+    ;
+  
   if (p->c0 == nil || p->c1 == nil) {
-    r = EOF;
-    unlock(&p->lock);
-  } else if (p->waiting) {
-    /* Do copy now */
+    return EOF;
+  } else if (t == nil || t->writing == writing) {
+    nt.proc = up;
+    nt.buf = buf;
+    nt.n = n;
+    nt.writing = writing;
 
-    r = n > p->n ? p->n : n;
-    if (writing) {
-      memmove(p->buf, buf, r);
-    } else {
-      memmove(buf, p->buf, r);
+    nt.next = h;
+
+    if (!cas(&p->trans, h, &nt)) {
+      return pipedocopy(p, buf, n, writing);
     }
-
-    p->proc->aux = (void *) r;
-    procready(p->proc);
-    p->waiting = false;
-
-    unlock(&p->lock);
-  } else {
-    /* Wait for other end to do copy */
-    
-    p->buf = buf;
-    p->n = n;
-    p->waiting = true;
-    p->proc = up;
     
     i = setintr(INTR_OFF);
-
-    unlock(&p->lock);
     procwait(up);
     schedule();
-
     setintr(i);
 
-    r = (int) up->aux;
-  }
+    return nt.n;
+   
+  } else {
+    /* Do copy now */
 
-  return r;
+    if (tp == nil) {
+      p->trans = nil;
+    } else {
+      tp->next = nil;
+    }
+    
+    r = n > t->n ? t->n : n;
+    if (writing) {
+      memmove(t->buf, buf, r);
+    } else {
+      memmove(buf, t->buf, r);
+    }
+
+    t->n = r;
+    procready(t->proc);
+
+    return r;
+  }
 }
 
 int
@@ -143,28 +153,27 @@ pipewrite(struct chan *c, void *buf, size_t n)
 void
 pipeclose(struct chan *c)
 {
+  struct pipetrans *t, *tp;
   struct pipe *p;
 	
   p = (struct pipe *) c->aux;
-
-  lock(&p->lock);
 
   if (c == p->c0) {
     p->c0 = nil;
   } else {
     p->c1 = nil;
   }
-	
-  if (p->waiting) {
-    p->proc->aux = (void *) EOF;
-    procready(p->proc);
-    p->waiting = false;
-  }
 
+  tp = p->trans;
+  p->trans = nil;
+  
+  for (t = tp; t != nil; t = t->next) {
+    t->n = EOF;
+    procready(t->proc);
+  }
+  
   if (p->c0 == nil && p->c1 == nil) {
     free(p);
-  } else {
-    unlock(&p->lock);
   }
 }
 

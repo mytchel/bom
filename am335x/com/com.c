@@ -129,28 +129,12 @@ puts(uint8_t *s, size_t len)
   return i;
 }
 
-void
-dprintf(const char *fmt, ...)
-{
-  char str[32];
-  size_t i;
-  va_list ap;
-
-  va_start(ap, fmt);
-  i = vsnprintf(str, sizeof(str), fmt, ap);
-  va_end(ap);
-
-  if (i > 0) {
-    puts((uint8_t *) str, i);
-  }
-}
-
 static int
 readloop(void)
 {
   struct response_head resp;
   struct readreq *req;
-  uint8_t data[BUFMAX];
+  uint8_t c, data[BUFMAX];
   uint32_t done;
   uint8_t i;
   
@@ -178,7 +162,23 @@ readloop(void)
       waitintr(UART0_INTR);
 
     copy:
-      data[done++] = uart->hr & 0xff;
+
+      c = (uint8_t) (uart->hr & 0xff);
+
+      if (c == '\r') {
+	while ((uart->lsr & (1 << 5)) == 0)
+	  ;
+
+	uart->hr = '\r';
+	c = '\n';
+      }
+
+      while ((uart->lsr & (1 << 5)) == 0)
+	;
+
+      uart->hr = (uint32_t) c;
+
+      data[done++] = c;
     }
 
     resp.rid = req->rid;
@@ -209,7 +209,6 @@ addreadreq(struct request_read *req)
 
   read = malloc(sizeof(struct readreq));
   if (read == nil) {
-    dprintf("com: Error mallocing read request!\n");
     return;
   }
 
@@ -327,7 +326,6 @@ comfsmountloop(void)
     getlock();
 
     if (write(fsout, resp, len) < 0) {
-      dprintf("com failed to write response %i\n", resp->head.rid);
       return ELINK;
     }
     
