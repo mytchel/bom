@@ -811,14 +811,12 @@ atomeval(struct atom *atoms)
     }
 
     if (next != nil && next->d.type == DELIM_pipe) {
-      printf("make pipe\n");
       if (pipe(p) != OK) {
 	printf("pipe error.\n");
 	return ERR;
       } else {
 	out = p[1];
       }
-      printf("have pipe [%i, %i]\n", p[0], p[1]);
     }
 
     pid = fork(FORK_sngroup);
@@ -839,13 +837,11 @@ atomeval(struct atom *atoms)
     }
 
     if (in != STDIN) {
-      printf("close non std in %i\n", in);
       close(in);
       in = STDIN;
     }
 
     if (out != STDOUT) {
-      printf("close non std out %i\n", out);
       close(out);
       out = STDOUT;
     }
@@ -856,7 +852,6 @@ atomeval(struct atom *atoms)
 
     switch (next->d.type) {
     case DELIM_pipe:
-      printf("set up in and reset out\n");
       in = p[0];
       break;
 
