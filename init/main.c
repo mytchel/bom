@@ -132,10 +132,10 @@ main(int argc, char *argv[])
     }
   }
 
+  printf("bind /mnt/bin /bin\n");
   bind("/mnt/bin", "/bin");
   
   printf("exec /bin/init\n");
-  
   r = exec("/bin/init", argc, argv);
 
   printf("error exec /bin/init: %i\n", r);

@@ -285,6 +285,7 @@ normal(char *buf, size_t max, size_t *i)
   for (*i = 1; *i < max; (*i)++) {
     if (buf[*i] == '^' ||
 	buf[*i] == '\'' ||
+	buf[*i] == '/' ||
 	buf[*i] == '$') {
       break;
     }
