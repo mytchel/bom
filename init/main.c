@@ -69,7 +69,7 @@ main(int argc, char *argv[])
   int r, f, fd;
   char root[NAMEMAX * 5];
 
-  fd = open("/dev", O_WRONLY|O_CREATE,
+  fd = open("/dev", O_RDONLY|O_CREATE,
 	    ATTR_wr|ATTR_rd|ATTR_dir);
 
   if (fd < 0) {
@@ -78,8 +78,8 @@ main(int argc, char *argv[])
 
   close(fd);
 
-  fd = open("/mnt", O_WRONLY|O_CREATE,
-	    ATTR_wr|ATTR_rd|ATTR_dir);
+  fd = open("/mnt", O_RDONLY|O_CREATE,
+	    ATTR_rd|ATTR_dir);
 
   if (fd < 0) {
     return -1;
@@ -87,7 +87,7 @@ main(int argc, char *argv[])
 
   close(fd);
 
-  fd = open("/bin", O_WRONLY|O_CREATE,
+  fd = open("/bin", O_RDONLY|O_CREATE,
 	    ATTR_rd|ATTR_dir);
 
   if (fd < 0) {

@@ -364,7 +364,7 @@ mbrmount(struct blkdevice *d, uint8_t *dir)
 
   snprintf(filename, sizeof(filename), "%s/%s", dir, device->name);
 
-  fd = open(filename, O_WRONLY|O_CREATE, ATTR_dir|ATTR_rd);
+  fd = open(filename, O_RDONLY|O_CREATE, ATTR_dir|ATTR_rd);
   if (fd < 0) {
     printf("%s failed to create %s.\n", device->name, filename);
     return -1;

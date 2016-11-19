@@ -323,7 +323,17 @@ filestat(struct path *path, struct stat *stat)
 static bool
 checkmode(uint32_t attr, uint32_t mode)
 {
-  return true;
+  if ((mode & O_WRONLY) && !(attr & ATTR_wr)) {
+    return false;
+  } else if ((mode & O_RDONLY) && !(attr & ATTR_rd)) {
+    return false;
+  } else if ((mode & O_DIR) && !(attr & ATTR_dir)) {
+    return false;
+  } else if ((mode & O_FILE) && (attr & ATTR_dir)) {
+    return false;
+  } else {
+    return true;
+  }
 }
 
 struct chan *
