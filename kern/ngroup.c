@@ -38,7 +38,6 @@ ngroupnew(void)
   }
 
   n->refs = 1;
-  memset(&n->lock, 0, sizeof(n->lock));
 
   n->bindings = nil;
 	
@@ -114,7 +113,6 @@ ngroupcopy(struct ngroup *o)
   unlock(&o->lock);
 	
   n->refs = 1;
-  memset(&n->lock, 0, sizeof(n->lock));
 
   return n;
 }
@@ -140,12 +138,9 @@ bindingnew(struct chan *out, struct chan *in, uint32_t rootattr)
   b->fids->children = nil;
   b->fids->cnext = nil;
   b->fids->fid = ROOTFID;
-  memset(b->fids->name, 0, NAMEMAX);
   b->fids->attr = rootattr;
 
   b->refs = 1;
-
-  memset(&b->lock, 0, sizeof(b->lock));
 
   b->in = in;
   b->out = out;

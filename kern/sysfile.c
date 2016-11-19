@@ -70,9 +70,7 @@ read(int fd, void *buf, size_t len)
     return EMODE;
   }
 
-  lock(&c->lock);
   r = chantypes[c->type]->read(c, buf, len);
-  unlock(&c->lock);
 
   return r;
 }
@@ -104,9 +102,7 @@ write(int fd, void *buf, size_t len)
     return EMODE;
   }
 	
-  lock(&c->lock);
   r = chantypes[c->type]->write(c, buf, len);
-  unlock(&c->lock);
 
   return r;
 }
@@ -136,9 +132,7 @@ seek(int fd, size_t offset, int whence)
     return ERR;
   }
 	
-  lock(&c->lock);
   r = chantypes[c->type]->seek(c, offset, whence);
-  unlock(&c->lock);
 	
   return r;
 }

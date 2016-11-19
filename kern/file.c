@@ -28,6 +28,7 @@
 #include "head.h"
 
 struct cfile {
+  struct lock lock;
   struct bindingfid *fid;
   uint32_t offset;
 };
@@ -460,6 +461,7 @@ fileread(struct chan *c, void *buf, size_t n)
   struct cfile *cfile;
 
   cfile = (struct cfile *) c->aux;
+  lock(&cfile->lock);
 
   req.head.fid = cfile->fid->fid;
   req.head.type = REQ_read;
@@ -472,11 +474,14 @@ fileread(struct chan *c, void *buf, size_t n)
   if (!makereq(cfile->fid->binding,
 	       (struct request *) &req, sizeof(req),
 	       (struct response *) &resp, sizeof(resp.head))) {
+    unlock(&cfile->lock);
     return ELINK;
   } else if (resp.head.ret != OK) {
+    unlock(&cfile->lock);
     return resp.head.ret;
   } else {
     cfile->offset += resp.body.len;
+    unlock(&cfile->lock);
     return resp.body.len;
   }
 }
@@ -493,9 +498,13 @@ filewrite(struct chan *c, void *buf, size_t n)
   size_t reqlen;
   
   cfile = (struct cfile *) c->aux;
+
+  lock(&cfile->lock);
+
   b = cfile->fid->binding;
 
   if (b->out == nil) {
+    unlock(&cfile->lock);
     return ELINK;
   }
 
@@ -523,11 +532,13 @@ filewrite(struct chan *c, void *buf, size_t n)
 
   if (pipewrite(b->out, (void *) &req, reqlen) != reqlen) {
     unlock(&b->lock);
+    unlock(&cfile->lock);
     return ELINK;
   }
   
   if (pipewrite(b->out, buf, n) < 0) {
     unlock(&b->lock);
+    unlock(&cfile->lock);
     return ELINK;
   }
 
@@ -538,9 +549,11 @@ filewrite(struct chan *c, void *buf, size_t n)
   setintr(i);
 
   if (resp.head.ret != OK) {
+    unlock(&cfile->lock);
     return resp.head.ret;
   } else {
     cfile->offset += resp.body.len;
+    unlock(&cfile->lock);
     return resp.body.len;
   }
 }
@@ -551,6 +564,7 @@ fileseek(struct chan *c, size_t offset, int whence)
   struct cfile *cfile;
 
   cfile = (struct cfile *) c->aux;
+  lock(&cfile->lock);
 
   switch(whence) {
   case SEEK_SET:
@@ -560,9 +574,11 @@ fileseek(struct chan *c, size_t offset, int whence)
     cfile->offset += offset;
     break;
   default:
+    unlock(&cfile->lock);
     return ERR;
   }
 
+  unlock(&cfile->lock);
   return OK;
 }
 

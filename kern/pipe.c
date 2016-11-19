@@ -69,8 +69,6 @@ pipenew(struct chan **c0, struct chan **c1)
   p->waiting = false;
   p->proc = nil;
 
-  memset(&p->lock, 0, sizeof(p->lock));
-
   return true;	
 }
 

@@ -73,7 +73,6 @@ mgroupnew(void)
 
   new->refs = 1;
   new->pages = nil;
-  memset(&new->lock, 0, sizeof(new->lock));
 
   return new;
 }

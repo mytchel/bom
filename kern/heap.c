@@ -139,6 +139,8 @@ malloc(size_t size)
 
   unlock(&heaplock);
 
+  memset(ptr, 0, size);
+
   return ptr;
 }
 

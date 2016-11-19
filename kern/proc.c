@@ -146,8 +146,6 @@ procnew(void)
     return nil;
   }
 
-  memset(p, 0, sizeof(struct proc));
-
   p->quanta = mstoticks(QUANTA_DEF);
   
   p->pid = nextpid++;

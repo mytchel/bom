@@ -71,11 +71,8 @@ typedef enum { CHAN_pipe, CHAN_file, CHAN_max } chan_t;
 
 struct chan {
   int refs;
-  struct lock lock;
-	
   chan_t type;
   int mode;
-	
   void *aux;
 };
 
