@@ -133,7 +133,7 @@ initmainproc(void)
 	
   p->parent = nil;
 
-  p->fgroup = fgroupnew();
+  p->fgroup = fgroupnew(256);
   p->ngroup = ngroupnew();
 
   p->root = malloc(sizeof(struct bindingfid));

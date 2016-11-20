@@ -79,7 +79,7 @@ rootfsinit(void)
 
   forkfunc(pr, &rootfsproc, nil);
 
-  pr->fgroup = fgroupnew();
+  pr->fgroup = fgroupnew(2);
   in = fgroupaddchan(pr->fgroup, c1[0]);
   out = fgroupaddchan(pr->fgroup, c2[1]);
 

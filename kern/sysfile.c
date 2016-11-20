@@ -177,14 +177,12 @@ sysclose(int fd)
     return ERR;
   }
 
-  /* Remove fd. */
-  lock(&up->fgroup->lock);
-  up->fgroup->chans[fd] = nil;
-  unlock(&up->fgroup->lock);
-
-  chanfree(c);
-  
-  return OK;
+  if (!cas(&up->fgroup->chans[fd], c, nil)) {
+    return sysclose(fd);
+  } else {
+    chanfree(c);
+    return OK;
+  }
 }
 
 reg_t

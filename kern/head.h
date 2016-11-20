@@ -90,9 +90,8 @@ struct path {
 
 struct fgroup {
   int refs;
-  struct lock lock;
-  struct chan **chans;
   size_t nchans;
+  struct chan **chans;
 };
 
 struct bindingfid {
@@ -307,7 +306,7 @@ pathfree(struct path *);
 /* Fgroup */
 
 struct fgroup *
-fgroupnew(void);
+fgroupnew(size_t max);
 
 void
 fgroupfree(struct fgroup *);
@@ -478,6 +477,11 @@ setintr(intrstate_t);
 
 bool
 cas(void *addr, void *old, void *new);
+
+bool
+cas2(void *addr1, void *addr2,
+     void *old1, void *old2,
+     void *new1, void *new2);
 
 
 /****** Global Variables ******/

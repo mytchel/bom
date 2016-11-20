@@ -107,7 +107,6 @@ funccd(struct atom *cmd, struct atom *rest, struct atom *delim)
     printf("usage: %s path/to/dir\n", cmd->a.str);
     return ERR;
   } else {
-    printf("chdir to %s\n", cmd->next->a.str);
     return chdir(cmd->next->a.str);
   }
 }
@@ -115,6 +114,8 @@ funccd(struct atom *cmd, struct atom *rest, struct atom *delim)
 int
 funcif(struct atom *cmd, struct atom *rest, struct atom *delim)
 {
+  
+
   return ERR;
 }
 

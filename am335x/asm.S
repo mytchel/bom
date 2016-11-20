@@ -42,6 +42,7 @@
 .global mmudisable
 .global mmuinvalidate
 .global cas
+.global cas2
 .global atomicinc 
 .global atomicdec
 
@@ -172,7 +173,8 @@ mmudisable:
 	mcr p15, 0, r0, c1, c0, 0
 	mov pc, lr
 
-
+@bool
+@cas(void *addr, void *old, void *new);
 cas:
 	ldrex r3, [r0]
 	cmp r3, r1
@@ -185,7 +187,17 @@ cas:
 	movne r0, #1
 	
 	mov pc, lr
-	
+
+
+
+@bool
+@cas2(void *addr1, void *addr2,
+@     void *old1, void *old2,
+@     void *new1, void *new2);
+
+cas2:
+	mov pc, #0xa0000000
+
 
 atomicinc:
 	push {r1, r2, lr}

@@ -153,16 +153,12 @@ struct page *
 getrampage(void)
 {
   struct page *p;
-  intrstate_t i;
 
-  i = setintr(INTR_OFF);
-  
-  p = rampages;
-  rampages = p->next;
+  do {
+    p = rampages;
+  } while (!cas(&rampages, p, p->next));
+
   p->next = nil;
-
-  setintr(i);
-
   p->refs = 1;
   return p;
 }
@@ -171,24 +167,23 @@ struct page *
 getiopage(void *addr)
 {
   struct page *p, *pp;
-  intrstate_t i;
 
-  i = setintr(INTR_OFF);
-  
   pp = nil;
   for (p = iopages; p != nil; pp = p, p = p->next) {
     if (p->pa == (reg_t) addr) {
       if (pp == nil) {
-	iopages = p->next;
-      } else {
-	pp->next = p->next;
+	if (!cas(&iopages, p, p->next)) {
+	  return getiopage(addr);
+	}
+      } else if (!cas(&pp->next, p, p->next)) {
+	return getiopage(addr);
       }
-      
+
+      p->next = nil;
       p->refs = 1;
-      break;
+      return p;
     }
   }
 
-  setintr(i);
-  return p;
+  return nil;
 }
