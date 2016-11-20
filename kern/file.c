@@ -600,10 +600,9 @@ fileclose(struct chan *c)
   struct cfile *cfile;
 
   cfile = (struct cfile *) c->aux;
-  if (cfile == nil) {
-    return;
-  }
 
+  lock(&cfile->lock);
+  
   req.head.type = REQ_close;
   req.head.fid = cfile->fid->fid;
 

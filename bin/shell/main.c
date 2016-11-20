@@ -33,21 +33,72 @@
 int ret = 0;
 
 void
+shiftstringright(char *s, size_t max, size_t i)
+{
+  size_t j;
+  
+  j = max - 1;
+  while (j > i) {
+    s[j] = s[j-1];
+    j--;
+  }
+}
+
+void
+shiftstringleft(char *s, size_t max)
+{
+  size_t j;
+
+  j = 0;
+  while (j < max) {
+    s[j] = s[j + 1];
+    j++;
+  }
+}
+
+void
 interactive(void)
 {
   char line[LINEMAX];
   struct atom *a;
-  size_t r, i;
+  size_t r, i, m, b;
+  bool q;
+  char c;
 
   while (true) {
+  prompt:
     write(STDOUT, "% ", 2);
 
-    i = 0;
-    while ((r = read(STDIN, &line[i], 1)) > 0) {
-      if (line[i] == '\n') {
+    q = false;
+    b = m = i = 0;
+    while ((r = read(STDIN, &c, sizeof(char))) > 0) {
+     if (c == 127 || c == 8) {
+	if (i > 0) {
+	  i--;
+	  shiftstringleft(&line[i], m - i);
+	}
+	continue;
+
+      } else if (i == LINEMAX) {
+	printf("line length exceded!\n");
+	goto prompt;
+      }
+      
+      if (c == '(' || c == '{' || c == '[') {
+	b++;
+      } else if (c == ')' || c == '}' || c == ']') {
+	b--;
+      } else if (c == '\'') {
+	q = !q;
+      } else if (!q && b == 0 && c == '\n') {
 	break;
-      } else {
-	i++;
+      }
+
+      line[i] = c;
+      i++;
+
+      if (i > m) {
+	m = i;
       }
     }
     
@@ -59,7 +110,7 @@ interactive(void)
     }
 
     line[i] = 0;
-    a = parseatoml(line, i);
+    a = parseatoml(line, m);
     if (a == nil) {
       continue;
     } else if (a->l.head == nil) {

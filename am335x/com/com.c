@@ -108,6 +108,8 @@ freelock(void)
   lock = 0;
 }
 
+#define putc(c) {while ((uart->lsr & (1 << 5)) == 0); uart->hr = c;}
+
 static size_t
 puts(uint8_t *s, size_t len)
 {
@@ -115,15 +117,10 @@ puts(uint8_t *s, size_t len)
 
   for (i = 0; i < len; i++) {
     if (s[i] == '\n') {
-      while ((uart->lsr & (1 << 5)) == 0)
-	;
-      uart->hr = '\r';
+      putc('\r');
     }
 
-    while ((uart->lsr & (1 << 5)) == 0)
-      ;
-
-    uart->hr = s[i];
+    putc(s[i]);
   }
 	
   return i;
@@ -166,17 +163,12 @@ readloop(void)
       c = (uint8_t) (uart->hr & 0xff);
 
       if (c == '\r') {
-	while ((uart->lsr & (1 << 5)) == 0)
-	  ;
-
-	uart->hr = '\r';
+	putc('\r');
+	putc('\n');
 	c = '\n';
+      } else if (c >= ' ' && c < 127) {
+	putc(c);
       }
-
-      while ((uart->lsr & (1 << 5)) == 0)
-	;
-
-      uart->hr = (uint32_t) c;
 
       data[done++] = c;
     }
