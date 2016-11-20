@@ -104,10 +104,11 @@ droptouser:
 funcloader:
 	ldr lr, =1f
 	ldmia sp!, {r0, pc}
-1:	cpsid if
-	mov r1, r0
+1:	mov r1, r0
 	ldr r0, =up
+	ldr r0, [r0]
 	bl procexit
+	cpsid if
 	bl schedule
 
 	

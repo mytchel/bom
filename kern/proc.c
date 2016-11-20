@@ -168,7 +168,7 @@ void
 procexit(struct proc *p, int code)
 {
   struct proc *c;
-  
+
   if (p->dotchan != nil) {
     chanfree(p->dotchan);
     p->dotchan = nil;

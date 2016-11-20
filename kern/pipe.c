@@ -109,7 +109,6 @@ pipedocopy(struct pipe *p, void *buf, size_t n, bool writing)
    
   } else {
     /* Do copy now */
-
     if (tp == nil) {
       p->trans = nil;
     } else {

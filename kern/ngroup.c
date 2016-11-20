@@ -69,37 +69,35 @@ ngroupfree(struct ngroup *n)
 struct ngroup *
 ngroupcopy(struct ngroup *o)
 {
-  struct ngroup *n;
   struct bindingl *bo, *bn;
-	
-  lock(&o->lock);
+  struct ngroup *n;
 	
   n = malloc(sizeof(struct ngroup));
   if (n == nil) {
-    unlock(&o->lock);
     return nil;
   }
-	
+
+  n->refs = 1;
+
+  lock(&o->lock);
+
   bo = o->bindings;
-  if (bo != nil) {
-    n->bindings = malloc(sizeof(struct bindingl));
-    bn = n->bindings;
-  } else {
+  if (bo == nil) {
     n->bindings = nil;
+  } else {
+    n->bindings = bn = malloc(sizeof(struct bindingl));
   }
 	
   while (bo != nil) {
     bn->binding = bo->binding;
-    atomicinc(&bn->binding->refs);
-
     bn->boundfid = bo->boundfid;
     bn->rootfid = bo->rootfid;
 
+    atomicinc(&bn->binding->refs);
     atomicinc(&bn->boundfid->refs);
     atomicinc(&bn->rootfid->refs);
-			
-    bo = bo->next;
 
+    bo = bo->next;
     if (bo == nil) {
       bn->next = nil;
     } else {
@@ -107,81 +105,11 @@ ngroupcopy(struct ngroup *o)
     }
 		
     bn = bn->next;
-		
   }
 
   unlock(&o->lock);
-	
-  n->refs = 1;
 
   return n;
-}
-
-struct binding *
-bindingnew(struct chan *out, struct chan *in, uint32_t rootattr)
-{
-  struct binding *b;
-	
-  b = malloc(sizeof(struct binding));
-  if (b == nil)
-    return nil;
-	
-  b->fids = malloc(sizeof(struct bindingfid));
-  if (b->fids == nil) {
-    free(b);
-    return nil;
-  }
-
-  b->fids->refs = 1;
-  b->fids->binding = b;
-  b->fids->parent = nil;
-  b->fids->children = nil;
-  b->fids->cnext = nil;
-  b->fids->fid = ROOTFID;
-  b->fids->attr = rootattr;
-
-  b->refs = 1;
-
-  b->in = in;
-  b->out = out;
-
-  if (in != nil) {
-    atomicinc(&in->refs);
-  }
-  
-  if (out != nil) {
-    atomicinc(&out->refs);
-  }
-
-  b->waiting = nil;
-  b->nreqid = 0;
-	
-  return b;
-}
-
-void
-bindingfree(struct binding *b)
-{
-  if (atomicdec(&b->refs) > 0) {
-    return;
-  }
-
-  if (b->in != nil) {
-    chanfree(b->in);
-    b->in = nil;
-  }
-
-  if (b->out != nil) {
-    chanfree(b->out);
-    b->out = nil;
-  }
-  
-  /* There should only be the root binding left, which
-   * bindingfidfree releasing after calling this. */
-
-  if (b->refs < 0) {
-    free(b);
-  }
 }
 
 int
@@ -202,12 +130,9 @@ ngroupaddbinding(struct ngroup *n, struct binding *b,
   bl->rootfid = rootfid;
   bl->boundfid = boundfid;
 
-  lock(&n->lock);
-
-  bl->next = n->bindings;
-  n->bindings = bl;
-
-  unlock(&n->lock);
+  do {
+    bl->next = n->bindings;
+  } while (!cas(&n->bindings, bl->next, bl));
 
   return OK;
 }
@@ -218,20 +143,24 @@ ngroupremovebinding(struct ngroup *n, struct bindingfid *fid)
   struct bindingl *bl, *prev;
 
   lock(&n->lock);
+  
+  while (true) {
+    prev = nil;
+    for (bl = n->bindings;
+	 bl != nil && bl->rootfid != fid;
+	 prev = bl, bl = bl->next)
+      ;
 
-  prev = nil;
-  for (bl = n->bindings;
-       bl != nil && bl->rootfid != fid;
-       prev = bl, bl = bl->next)
-    ;
-
-  if (bl == nil) {
-    unlock(&n->lock);
-    return ERR;
-  } else if (prev != nil) {
-    prev->next = bl->next;
-  } else {
-    n->bindings = bl->next;
+    if (bl == nil) {
+      unlock(&n->lock);
+      return ERR;
+    } else if (prev == nil) {
+      if (cas(&n->bindings, bl, bl->next)) {
+	break;
+      }
+    } else if (cas(&prev->next, bl, bl->next)) {
+      break;
+    }
   }
 
   unlock(&n->lock);
@@ -262,3 +191,71 @@ ngroupfindbindingl(struct ngroup *ngroup, struct bindingfid *fid)
   unlock(&ngroup->lock);
   return bl;
 }
+
+struct binding *
+bindingnew(struct chan *out, struct chan *in, uint32_t rootattr)
+{
+  struct binding *b;
+	
+  b = malloc(sizeof(struct binding));
+  if (b == nil)
+    return nil;
+	
+  b->fids = malloc(sizeof(struct bindingfid));
+  if (b->fids == nil) {
+    free(b);
+    return nil;
+  }
+
+  b->fids->refs = 1;
+  b->fids->binding = b;
+  b->fids->parent = nil;
+  b->fids->children = nil;
+  b->fids->cnext = nil;
+  b->fids->fid = ROOTFID;
+  b->fids->attr = rootattr;
+
+  b->refs = 2;
+
+  b->in = in;
+  b->out = out;
+
+  if (in != nil) {
+    atomicinc(&in->refs);
+  }
+  
+  if (out != nil) {
+    atomicinc(&out->refs);
+  }
+
+  b->waiting = nil;
+  b->nreqid = 0;
+	
+  return b;
+}
+
+void
+bindingfree(struct binding *b)
+{
+  if (atomicdec(&b->refs) > 1) {
+    return;
+  }
+
+  if (b->in != nil) {
+    chanfree(b->in);
+    b->in = nil;
+  }
+
+  if (b->out != nil) {
+    chanfree(b->out);
+    b->out = nil;
+  }
+  
+  /* There should only be the root binding left, which
+   * bindingfidfree releasing after calling this. */
+
+  if (b->refs == 0) {
+    free(b);
+  }
+}
+

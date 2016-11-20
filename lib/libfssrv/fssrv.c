@@ -38,7 +38,8 @@ fsmountloop(int in, int out, struct fsmount *mount)
   size_t len;
 
   while (true) {
-    if (read(in, (void *) &req, sizeof(struct request)) < 0) {
+    if (read(in, (void *) &req, sizeof(struct request))
+	< sizeof(struct request_head)) {
       return ELINK;
     }
 
@@ -118,7 +119,7 @@ fsmountloop(int in, int out, struct fsmount *mount)
 	req.write.len = mount->buflen;
       }
       
-      if (read(in, req.write.data, req.write.len) < 0) {
+      if (read(in, req.write.data, req.write.len) <= 0) {
 	return ELINK;
       }
 
@@ -133,7 +134,7 @@ fsmountloop(int in, int out, struct fsmount *mount)
       len = sizeof(struct response_head);
     }
 
-    if (write(out, &resp, len) < 0) {
+    if (write(out, &resp, len) != len) {
       return ELINK;
     }
 
