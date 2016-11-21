@@ -376,7 +376,7 @@ mbrmount(struct blkdevice *d, uint8_t *dir)
     return -2;
   }
 
-  if (mount(p1[1], p2[0], filename) == ERR) {
+  if (mount(p1[1], p2[0], filename, ATTR_rd|ATTR_dir) == ERR) {
     return -3;
   }
 

@@ -184,7 +184,7 @@ mountfat(char *device, char *dir)
     return ERR;
   }
 
-  if (mount(p1[1], p2[0], dir) == ERR) {
+  if (mount(p1[1], p2[0], dir, ATTR_rd|ATTR_wr|ATTR_dir) == ERR) {
     printf("failed to mount to %s\n", dir);
     close(fddev);
     close(fddir);

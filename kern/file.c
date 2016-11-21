@@ -353,7 +353,7 @@ fileopen(struct path *path, uint32_t mode, uint32_t cmode, int *err)
 	*err = ENOFILE;
       }
       return nil;
-    } else if ((fid->attr & ATTR_wr) == 0) {
+    } else if (!(fid->attr & ATTR_wr)) {
       bindingfidfree(fid);
       *err = EMODE;
       return nil;

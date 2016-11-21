@@ -43,7 +43,7 @@ reg_t syswrite(int fd, void *buf, size_t len);
 reg_t sysseek(int fd, size_t offset, int whence);
 reg_t sysstat(const char *path, struct stat *stat);
 reg_t sysclose(int fd);
-reg_t sysmount(int out, int in, const char *path);
+reg_t sysmount(int out, int in, const char *path, uint32_t attr);
 reg_t sysbind(const char *old, const char *new);
 reg_t sysunbind(const char *path);
 reg_t sysopen(const char *path, uint32_t mode, ...);

@@ -344,7 +344,7 @@ commount(char *path)
     return -2;
   }
   
-  if (mount(p1[1], p2[0], path) == ERR) {
+  if (mount(p1[1], p2[0], path, ATTR_rd|ATTR_wr) == ERR) {
     return -3;
   }
 

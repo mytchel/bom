@@ -47,4 +47,13 @@ stat(const char *path, struct stat *stat);
 int
 cleanpath(char *opath, char *cpath, size_t cpathlen);
 
+int
+mount(int out, int in, const char *path, uint32_t attr);
+
+int
+bind(const char *old, const char *new);
+
+int
+unbind(const char *path);
+
 #endif

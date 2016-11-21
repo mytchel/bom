@@ -28,71 +28,65 @@
 #define MAXARGS 64
 
 typedef enum {
-  TYPE_free = 0,
-  TYPE_atom,
-  /* Same as atom but need different type for >, >>, < etc. */
-  TYPE_sym,
-  TYPE_list,
-  TYPE_join,
-  TYPE_delim,
-} type_t;
+  TOKEN_NONE,
 
-typedef enum {
-  DELIM_end,
-  DELIM_pipe,
-  DELIM_bg,
-  DELIM_and,
-  DELIM_or,
-} delim_t;
+  TOKEN_NAME,
+  TOKEN_NUMBER,
+  TOKEN_LIST,
 
-struct atom {
-  type_t type;
-  struct atom *next;
+  TOKEN_PARAN_LEFT,
+  TOKEN_PARAN_RIGHT,
+  TOKEN_BRACE_LEFT,
+  TOKEN_BRACE_RIGHT,
+  TOKEN_BRACKET_LEFT,
+  TOKEN_BRACKET_RIGHT,
+  TOKEN_SUBST,
+  TOKEN_PLUS,
+  TOKEN_MINUS,
+  TOKEN_CARET,
+  TOKEN_STAR,
+  TOKEN_AT,
+  TOKEN_ASSIGN,
+  TOKEN_EQUAL,
+  TOKEN_AND,
+  TOKEN_BG,
+  TOKEN_OR,
+  TOKEN_PIPE,
+  TOKEN_APPEND,
+  TOKEN_OUT,
+  TOKEN_IN,
+  TOKEN_END,
+} token_t;
+
+struct token {
+  struct token *next;
+
+  token_t type;
 
   union {
-    struct { /* atom */
-      char *str;
-      size_t len;
-    } a;
-
-    struct { /* list */
-      struct atom *head;
-    } l;
-
-    struct { /* join */
-      struct atom *a, *b;
-    } j;
-
-    struct { /* delim */
-      delim_t type;
-    } d;
-  };
+    char *str;
+    int num;
+    struct token *head;
+  } val;
 };
 
-
-struct atom *
-flatten(struct atom *atom);
-
-struct atom *
-atomnew(type_t type);
+struct token *
+tokenize(char *, size_t);
 
 void
-atomfree(struct atom *a);
+tokenfree(struct token *);
 
 void
-atomfreel(struct atom *a);
+advance(void);
 
-struct atom *
-parseatoml(char *buf, size_t max);
-
-int
-atomeval(struct atom *atoms);
-
-bool
-runfunc(struct atom *cmd, struct atom *rest, struct atom *delim);
+struct token *
+expression(int bp);
 
 void
-interactive(void);
+eval(void);
 
+void
+interp(void);
+
+extern struct token *token;
 extern int ret;
-

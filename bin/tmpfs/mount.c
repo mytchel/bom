@@ -397,7 +397,7 @@ mounttmp(char *path)
     return ERR;
   }
 
-  if (mount(p1[1], p2[0], path) == ERR) {
+  if (mount(p1[1], p2[0], path, ATTR_rd|ATTR_wr|ATTR_dir) == ERR) {
     return ERR;
   }
 	

@@ -26,6 +26,7 @@
  */
 
 #include <libc.h>
+#include <fs.h>
 #include <stdarg.h>
 #include <string.h>
 

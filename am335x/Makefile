@@ -51,6 +51,9 @@ ISRC = \
         mmc/misc.c              \
         ../init/main.c          \
         ../init/mbr.c           \
+        ../bin/shell/interp.c   \
+        ../bin/shell/token.c    \
+        ../bin/shell/eval.c     \
         ../bin/fatfs/fat.c      \
         ../bin/fatfs/util.c     \
         ../bin/fatfs/mount.c

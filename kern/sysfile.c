@@ -264,7 +264,7 @@ sysremove(const char *upath)
 }
 
 reg_t
-sysmount(int outfd, int infd, const char *upath)
+sysmount(int outfd, int infd, const char *upath, uint32_t attr)
 {
   struct bindingfid *fid;
   struct chan *in, *out;
@@ -300,7 +300,7 @@ sysmount(int outfd, int infd, const char *upath)
     return ret;
   }
   
-  b = bindingnew(out, in, fid->attr);
+  b = bindingnew(out, in, attr);
   if (b == nil) {
     bindingfidfree(fid);
     pathfree(path);

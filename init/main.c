@@ -39,6 +39,9 @@ initblockdevs(void);
 int
 mountfat(char *device, char *dir);
 
+void
+interp(void);
+
 static int
 readline(char *data, size_t max)
 {
@@ -135,10 +138,13 @@ main(int argc, char *argv[])
   printf("bind /mnt/bin /bin\n");
   bind("/mnt/bin", "/bin");
   
+  interp();
+  /*
   printf("exec /bin/init\n");
   r = exec("/bin/init", argc, argv);
 
   printf("error exec /bin/init: %i\n", r);
+  */
   
   return r;
 }
