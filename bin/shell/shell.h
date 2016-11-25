@@ -26,55 +26,99 @@
 
 #define LINEMAX 256
 #define MAXARGS 64
+#define MAXNESTING 10
+
+/* Order matters, must make sure that >> comes before > and so on. */
 
 typedef enum {
-  TOKEN_NONE,
-
-  TOKEN_NAME,
-  TOKEN_NUMBER,
-  TOKEN_LIST,
-
   TOKEN_PARAN_LEFT,
   TOKEN_PARAN_RIGHT,
   TOKEN_BRACE_LEFT,
   TOKEN_BRACE_RIGHT,
   TOKEN_BRACKET_LEFT,
   TOKEN_BRACKET_RIGHT,
-  TOKEN_SUBST,
+
   TOKEN_PLUS,
   TOKEN_MINUS,
-  TOKEN_CARET,
-  TOKEN_STAR,
-  TOKEN_AT,
-  TOKEN_ASSIGN,
+  TOKEN_SUBST,
+
+  TOKEN_IN,
+
+  TOKEN_SEMI,
+
   TOKEN_EQUAL,
-  TOKEN_AND,
-  TOKEN_BG,
-  TOKEN_OR,
-  TOKEN_PIPE,
+  TOKEN_ASSIGN,
+
   TOKEN_APPEND,
   TOKEN_OUT,
-  TOKEN_IN,
+
+  TOKEN_OR,
+  TOKEN_PIPE,
+
+  TOKEN_AND,
+  TOKEN_BG,
+
+  TOKEN_CD,
+  TOKEN_IF,
+
+  TOKEN_FOR,
+
+  TOKEN_NAME,
+  TOKEN_NUMBER,
+  TOKEN_LIST,
+  TOKEN_COMMAND,
+
   TOKEN_END,
+
+  TOKEN_TYPES,
 } token_t;
 
 struct token {
   struct token *next;
-
   token_t type;
+  void *aux;
+};
 
-  union {
-    char *str;
-    int num;
-    struct token *head;
-  } val;
+struct tokentype {
+  /* true for punctuators like '&', '|', '(' but false for
+     'if', 'cd' etc */
+  bool punc;
+
+  size_t len;
+  char *str;
+
+  size_t bp;
+
+  void (*free)(struct token *self);
+
+  struct token * (*nud)(struct token *self);
+  struct token * (*led)(struct token *self, struct token *left);
+
+  int (*eval)(struct token *self);
+};
+
+struct list {
+  struct token *head, *tail;
+};
+
+struct arith {
+  struct token *left, *right;
+};
+
+struct command {
+  struct command *parent;
+  token_t type; /* One of AND, OR, BG, PIPE, SEMI */
+  char *in, *out;
+  uint32_t inmode, outmode; /* Masks for standard mode */
+  struct token *args;
+  struct token *next;
 };
 
 struct token *
-tokenize(char *, size_t);
+tokennew(token_t type);
 
 void
-tokenfree(struct token *);
+tokenprint(struct token *t);
 
 void
 advance(void);
@@ -82,11 +126,19 @@ advance(void);
 struct token *
 expression(int bp);
 
-void
-eval(void);
+struct token *
+command(int bp);
 
 void
 interp(void);
 
+void
+setupinputfd(int nfd);
+
+void
+setupinputstring(char *s, size_t len);
+
+extern struct tokentype types[TOKEN_TYPES];
 extern struct token *token;
 extern int ret;
+

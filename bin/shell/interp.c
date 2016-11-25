@@ -59,15 +59,17 @@ shiftstringleft(char *s, size_t max)
 void
 interp(void)
 {
-  char line[LINEMAX * 5];
-  size_t r, i, m, b;
-  struct token *ltokens;
+  char line[LINEMAX];
+  struct token *t;
+  size_t b, m, i;
+  int p[2];
   bool q;
   char c;
-
+  int r;
+  
   while (true) {
   prompt:
-    write(STDOUT, "% ", 2);
+    write(STDOUT, "; ", 2);
 
     q = false;
     b = m = i = 0;
@@ -90,7 +92,8 @@ interp(void)
 	b--;
       } else if (c == '\'') {
 	q = !q;
-      } else if (!q && b == 0 && c == '\n') {
+      } else if (!q && b == 0 && c == '\n'
+		 && (i == 0 || line[i-1] != '\\')) {
 	break;
       }
 
@@ -109,10 +112,16 @@ interp(void)
       exit(r);
     }
 
-    ltokens = token = tokenize(line, m);
+    if (pipe(p) != OK) {
+      printf("pipe error\n");
+      exit(ERR);
+    }
 
-    eval();
+    setupinputstring(line, m);
 
-    tokenfree(ltokens);
+    while ((t = command(0)) != nil) {
+      ret = types[t->type].eval(t);
+      types[t->type].free(t);
+    }
   }
 }

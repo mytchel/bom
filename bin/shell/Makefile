@@ -40,6 +40,9 @@ shell: $(objs)
 	$(LD) $(LDFLAGS) -o $@ $(objs) \
 		-lc -lgcc -lmem -lstring -lctype
 
+shell.list: shell
+	$(OBJDUMP) -S shell > $@
+
 
 .PHONY: clean
 clean:

@@ -75,12 +75,12 @@ strlcpy(char *dest, const char *src, size_t max)
 {
   size_t i;
   
-  for (i = 1; i < max - 1 && *src != 0; i++) {
-    *dest++ = *src++;
+  for (i = 0; i < max - 1 && src[i] != 0; i++) {
+    dest[i] = src[i];
   }
 
-  *dest = 0;
-  return i;
+  dest[i] = 0;
+  return i + 1;
 }
 
 static size_t

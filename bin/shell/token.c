@@ -34,205 +34,278 @@
 
 #include "shell.h"
 
+static struct token *
+readtokens(void);
+
+struct token *token;
+
+static size_t max, offset = 0;
+static char base[LINEMAX];
+static char *s;
+static int fd;
+
 void
-tokenfree(struct token *t)
+setupinputstring(char *str, size_t len)
 {
-  struct token *n;
+  fd = ERR;
 
-  n = t->next;
-  if (t->type == TOKEN_NAME) {
-    free(t->val.str);
+  max = len;
+  offset = 0;
+  s = base;
+
+  memmove(base, str, len);
+
+  token = readtokens();
+}
+
+void
+setupinputfd(int nfd)
+{
+  fd = nfd;
+  max = offset = 0;
+  s = base;
+
+  token = readtokens();
+}
+
+static size_t
+readlen(size_t n)
+{
+  int r;
+
+  if (n <= max) {
+    return max;
+  } else if (n >= sizeof(base)) {
+    printf("can not read this much in one go\n");
+    return ERR;
+  } else if (fd == ERR) {
+    return max;
+  }
+ 
+  if (offset + n > LINEMAX) {
+    memmove(base, base + offset, max);
+    offset = 0;
+    s = base;
+  }
+ 
+  r = read(fd, s + max, n - max);
+  if (r < 0) {
+    printf("error reading input : %i\n", r);
+  } else {
+    max += r;
   }
 
-  free(t);
+  return max;
+}
 
-  if (n != nil) {
-    tokenfree(n);
+static void
+eatlen(size_t n)
+{
+  if (n > max) {
+    printf("need to read more before you can eat\n");
+    return;
   }
+  
+  offset += n;
+  
+  if (offset >= LINEMAX) {
+    printf("need to do some moving\n");
+    memmove(base, &base[offset], max);
+    offset = 0;
+  }
+
+  max -= n;
+  s = &base[offset];
+  s[max] = 0;
 }
 
 static struct token *
-punctuatornew(token_t type)
+literal(struct token *t, char *s, size_t l, bool num)
+{
+  s[l-1] = 0;
+
+  if (num) {
+    t->type = TOKEN_NUMBER;
+    t->aux = (void *) strtol(s, nil, 10);
+  } else {
+    t->type = TOKEN_NAME;
+    t->aux = malloc(sizeof(char) * l);
+    if (t->aux == nil) {
+      printf("malloc failed!\n");
+      exit(ENOMEM);
+    } else {
+      strlcpy(t->aux, s, l);
+    }
+  }
+
+  return t;
+}
+
+static struct token *
+readtokens(void)
+{
+  char str[LINEMAX];
+  struct token *t;
+  token_t type;
+  bool q, num;
+  size_t j;
+
+  t = malloc(sizeof(struct token));
+  if (t == nil) {
+    printf("malloc failed.\n");
+    exit(ENOMEM);
+  }
+
+  t->next = nil;
+
+  q = false;
+  num = true;
+  j = 0;
+
+  while (readlen(1) > 0) {
+    if (s[0] == '\\') {
+      if (readlen(2) < 2 || s[1] != '\n') {
+	printf("expected new line after \\\n");
+	break;
+      } else {
+	eatlen(2);
+	continue;
+      }
+
+    } else if (s[0] == '\'') {
+      num = false;
+      if (readlen(2) < 2 || s[1] != '\'') {
+	q = !q;
+	eatlen(1);
+      } else {
+	str[j++] = '\'';
+	eatlen(2);
+      } 
+
+      continue;
+    } else if (!q && s[0] == '\n') {
+      eatlen(1);
+
+      if (j > 0) {
+	t->next = tokennew(TOKEN_SEMI);
+	return literal(t, str, j + 1, num);
+      } else {
+	t->type = TOKEN_SEMI;
+	t->aux = nil;
+	return t;
+      }
+      
+    } else if (!q && isspace(s[0])) {
+      eatlen(1);
+      if (j > 0) {
+	return literal(t, str, j + 1, num);
+      } else {
+	continue;
+      }
+    }
+
+    for (type = 0; !q && type < TOKEN_TYPES; type++) {
+      if (!types[type].punc || types[type].str == nil) continue;
+      if (readlen(types[type].len) < types[type].len) {
+	continue;
+      }
+
+      if (strncmp(s, types[type].str, types[type].len)) {
+	eatlen(types[type].len);
+
+	if (j > 0) {
+	  t->next = tokennew(type);
+	  return literal(t, str, j + 1, num);
+	} else {
+	  t->type = type;
+	  t->aux = nil;
+	  return t;
+	}
+      }
+    }
+
+    if (j >= LINEMAX) {
+      printf("token length too long!\n");
+      exit(ENOMEM);
+    }
+    
+    str[j++] = s[0];
+
+    if (num && (s[0] < '0' || s[0] > '9')) {
+      num = false;
+    }
+    
+    eatlen(1);
+  }
+
+  if (j > 0) {
+    t->next = tokennew(TOKEN_SEMI);
+    return literal(t, str, j + 1, num);
+  } else {
+    t->type = TOKEN_END;
+    t->aux = nil;
+    return t;
+  }
+}
+
+struct token *
+tokennew(token_t type)
 {
   struct token *t;
 
   t = malloc(sizeof(struct token));
   if (t == nil) {
-    printf("malloc failed!\n");
+    printf("malloc failed.\n");
     exit(ENOMEM);
   }
-
+	  
+  t->next = nil;
   t->type = type;
-
+  t->aux = nil;
   return t;
 }
 
-static token_t
-punctuator(char *s, size_t max, size_t *l)
+void
+tokenprint(struct token *t)
 {
-  *l = 1;
-  
-  switch (s[0]) {
-  case '(':
-    return TOKEN_PARAN_LEFT;
-  case ')':
-    return TOKEN_PARAN_RIGHT;
-  case '{':
-    return TOKEN_BRACE_LEFT;
-  case '}':
-    return TOKEN_BRACE_RIGHT;
-  case '[':
-    return TOKEN_BRACKET_LEFT;
-  case ']':
-    return TOKEN_BRACKET_RIGHT;
-  case '+':
-    return TOKEN_PLUS;
-  case '-':
-    return TOKEN_MINUS;
-  case '^':
-    return TOKEN_CARET;
-  case '$':
-    return TOKEN_SUBST;
-  case '*':
-    return TOKEN_STAR;
-  case '@':
-    return TOKEN_AT;
+  struct command *c;
+  struct list *l;
 
-  case '=':
-    if (max > 1 && s[1] == '=') {
-      *l = 2;
-      return TOKEN_EQUAL;
-    } else {
-      return TOKEN_ASSIGN;
-    }
-
-  case '&':
-    if (max > 1 && s[1] == '&') {
-      *l = 2;
-      return TOKEN_AND;
-    } else {
-      return TOKEN_BG;
-    }
-
-  case '|':
-    if (max > 1 && s[1] == '|') {
-      *l = 2;
-      return TOKEN_OR;
-    } else {
-      return TOKEN_PIPE;
-    }
-
-  case '>':
-    if (max > 1 && s[1] == '>') {
-      *l = 2;
-      return TOKEN_APPEND;
-    } else {
-      return TOKEN_OUT;
-    }
-
-  case '<':
-    return TOKEN_IN;
-
-  case '\n':
-  case ';':
-    return TOKEN_END;
-  default:
-    return 0;
-  }
-}
-
-struct token *
-tokenize(char *s, size_t max)
-{
-  struct token tokens, *t;
-  size_t i, j, l, qs;
-  token_t type;
-  int num;
-  bool q;
-
-  t = &tokens;
-
-  i = 0;
-  while (i < max) {
-    if (s[i] == '\\') {
-      i += 2;
-      continue;
-    } else if (s[i] != '\n' && isspace(s[i])) {
-      i++;
-      continue;
-    }
-
-    type = punctuator(&s[i], max - i, &l);
-    if (type != TOKEN_NONE) {
-      t->next = punctuatornew(type);
+  if (t->type == TOKEN_LIST) {
+    printf("(");
+    l = (struct list *) t->aux;
+    t = l->head;
+    while (t != nil) {
+      tokenprint(t);
       t = t->next;
-      i += l;
-      continue;
     }
-
-    t->next = malloc(sizeof(struct token));
-    if (t->next == nil) {
-      printf("malloc failed!\n");
-      exit(ENOMEM);
+    printf(")");
+  } else if (t->type == TOKEN_COMMAND) {
+    c = t->aux;
+    printf(" {command  %s [> %s], [< %s]: ", types[c->type].str, c->out, c->in);
+    tokenprint(c->args);
+    printf(" : ");
+    if (c->next == nil) {
+      printf(" nil ");
+    } else {
+      tokenprint(c->next);
     }
-
-    t = t->next;
-
-    t->type = TOKEN_NAME;
-
-    t->val.str = malloc(sizeof(char) * LINEMAX);
-    if (t->val.str == nil) {
-      printf("malloc failed!\n");
-      exit(ENOMEM);
-    }
-
-    num = 1;
-    q = false;
-    j = qs = 0;
-    while (i + qs + j < max) {
-      if (s[i + qs + j] == '\'') {
-	num = 0;
-	
-	qs++;
-	if (i + qs + j < max && s[i + qs + j] == '\'') {
-	  t->val.str[j++] = '\'';
-	} else {
-	  q = !q;
-	}
-      } else if (!q && isspace(s[i + qs + j])) {
-	break;
-      } else if (!q && (type = punctuator(&s[i + qs + j],
-					  max - i - qs - j, &l))
-		 != TOKEN_NONE) {
-	break;
-      } else {
-	t->val.str[j] = s[i + qs + j];
-	if (num == 1 && (t->val.str[j] > '9' || t->val.str[j] < '0')) {
-	  num = 0;
-	}
-	j++;
-      }
-    }
-
-    t->val.str[j] = 0;
-    if (num == 1) {
-      num = strtol(t->val.str, nil, 10);
-      free(t->val.str);
-      t->val.num = num;
-      t->type = TOKEN_NUMBER;
-    }
-
-    i += j + qs;
+    printf(" } ");
+  } else if (t->type == TOKEN_NUMBER) {
+    printf(" %i ", t->aux);
+  } else if (t->type == TOKEN_NAME) {
+    printf(" '%s' ", t->aux);
+  } else {
+    printf(" %s ", types[t->type].str);
   }
-
-  t->next = malloc(sizeof(struct token));
-  if (t->next == nil) {
-    printf("malloc failed!\n");
-    exit(ENOMEM);
-  }
-
-  t->next->type = TOKEN_END;
-  t->next->next = nil;
-  
-  return tokens.next;
 }
+
+void
+advance(void)
+{
+  token = token->next;
+  if (token == nil) {
+    token = readtokens();
+  }
+}
+

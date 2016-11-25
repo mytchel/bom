@@ -62,6 +62,11 @@ This shell is currently pretty flimsy. Horribly built too. So far it
 doesn't support pattern matching but does support list joining. If
 that is a term. For example I can do:
 
+The shell has been rebuild. It is a lot better now but doesn't
+support the following just yet. It does support `{command grouping;
+like this}` and `conditionalls && like || this`, along with
+redirection.
+
 ```
 
 % ls /bin/mount^(fat tmp)

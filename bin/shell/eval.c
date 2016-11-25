@@ -34,343 +34,516 @@
 
 #include "shell.h"
 
-struct token *token;
+static struct command *cmd = nil;
 
-struct exprbuilder {
-  size_t bp;
-  struct token * (*nud)(struct token *t);
-  struct token * (*led)(struct token *t, struct token *left);
-};
-
-struct symbol {
-  char *name;
-  struct token *token;
-
-  struct symbol *next;
-};
-
-static int
-docmd(void);
-
-static struct exprbuilder ops[];
-static int argc = 0, in = STDIN, out = STDOUT;
-static char *argv[MAXARGS];
-
-static struct token *
-rawnud(struct token *t)
+static struct command *
+commandnew(void)
 {
-  return t;
+  struct command *c;
+
+  c = malloc(sizeof(struct command));
+  if (c == nil) {
+    printf("malloc failed.\n");
+    exit(ENOMEM);
+  }
+  
+  c->in = nil;
+  c->inmode = 0;
+  c->out = nil;
+  c->outmode = 0;
+  c->next = nil;
+  c->parent = nil;
+  c->args = nil;
+
+  return c;
+}
+
+static void
+commandpop(void)
+{
+  cmd = cmd->parent;
+  if (cmd == nil) {
+    cmd = commandnew();
+  }
+}
+
+static struct command *
+commandpush(void)
+{
+  struct command *c;
+
+  c = commandnew();
+  c->parent = cmd;
+  cmd = c;
+
+  return c;
 }
 
 static struct token *
-assignnud(struct token *t)
+buildlistled(struct token *self, struct token *left)
 {
-  printf("expected name before =\n");
-  return nil;
-}
-
-static struct token *
-assignled(struct token *t, struct token *left)
-{
+  struct list *l;
   struct token *n;
   
-  if (left->type != TOKEN_NAME) {
-    printf("expected name before =\n");
-    return nil;
+  self->next = nil;
+  if (left->type == TOKEN_LIST) {
+    l = (struct list *) left->aux;
+
+    if (l->tail == nil) {
+      l->head = l->tail = self;
+    } else {
+      l->tail->next = self;
+      l->tail = self;
+    }
+    
+    return left;
+  } else {
+    l = malloc(sizeof(struct list));
+    if (l == nil) {
+      printf("malloc failed.\n");
+      exit(ENOMEM);
+    }
+
+    l->head = left;
+    left->next = self;
+    l->tail = self;
+
+    n = tokennew(TOKEN_LIST);
+    n->aux = l;
+    return n;
+  }
+}
+
+static void
+namefree(struct token *self)
+{
+  if (self->aux != nil) {
+    free(self->aux);
+  }
+  
+  free(self);
+}
+
+static void
+rawfree(struct token *self)
+{
+  free(self);
+}
+
+static struct token *
+rawnud(struct token *self)
+{
+  return self;
+}
+
+static void
+listfree(struct token *self)
+{
+  struct token *n, *t;
+  struct list *l;
+
+  l = (struct list *) self->aux;
+
+  t = l->head;
+  while (t != nil) {
+    n = t->next;
+    types[t->type].free(t);
+    t = n;
   }
 
-  n = expression(0);
-
-  return n;
+  free(self);
 }
 
 static struct token *
-substnud(struct token *t)
+endnud(struct token *self)
+{
+  types[self->type].free(self);
+  return nil;
+}
+
+static struct token *
+endled(struct token *self, struct token *left)
+{
+  types[left->type].free(left);
+  types[self->type].free(self);
+  return nil;
+}
+
+static struct token *
+bracenud(struct token *self)
+{
+  struct token *t, *b;
+  token_t type;
+  
+  types[self->type].free(self);
+
+  t = command(0);
+
+  b = token;
+  advance();
+
+  type = b->type;
+  types[type].free(b);
+  
+  if (type != TOKEN_BRACE_RIGHT) {
+    types[t->type].free(t);
+    return nil;
+  } else {
+    return t;
+  }
+}
+
+static struct token *
+braceled(struct token *self, struct token *left)
+{
+  printf("unexpected statment before {\n");
+  return nil;
+}
+
+static void
+bracketleftfree(struct token *self)
+{
+  free(self);
+}
+
+static void
+equalfree(struct token *self)
+{
+  free(self);
+}
+
+static void
+assignfree(struct token *self)
+{
+  free(self);
+}
+
+static struct token *
+assignnud(struct token *self)
 {
   return nil;
 }
 
 static struct token *
-substled(struct token *t, struct token *left)
+assignled(struct token *self, struct token *left)
 {
-  printf("unexpected use of $\n");
+  return nil;
+}
+
+static void
+substfree(struct token *self)
+{
+  free(self);
+}
+
+static struct token *
+substnud(struct token *self)
+{
   return nil;
 }
 
 static struct token *
-plusnud(struct token *t)
+substled(struct token *self, struct token *left)
 {
-  return expression(ops[TOKEN_PLUS].bp);
+  return nil;
 }
 
 static struct token *
-plusled(struct token *t, struct token *left)
+plusnud(struct token *self)
 {
-  struct token *r;
+  struct token *n;
+
+  n = expression(types[self->type].bp);
+
+  types[self->type].free(self);
+  if (n->type != TOKEN_NUMBER) {
+    printf("expected number after +\n");
+    types[n->type].free(n);
+    return nil;
+  } else {
+    return n;
+  }
+}
+
+static struct token *
+plusled(struct token *self, struct token *left)
+{
+  struct token *n;
 
   if (left->type != TOKEN_NUMBER) {
     printf("expected number before +\n");
     return nil;
   }
-  
-  r = expression(ops[TOKEN_PLUS].bp);
-  if (r == nil) {
-    printf("expected token\n");
-    return nil;
-  } else if (r->type != TOKEN_NUMBER) {
+
+  n = expression(types[self->type].bp);
+
+  if (n->type != TOKEN_NUMBER) {
     printf("expected number after +\n");
     return nil;
   }
 
-  t->type = TOKEN_NUMBER;
-  t->val.num = left->val.num + r->val.num;
-  return t;
+  self->type = TOKEN_NUMBER;
+  self->aux = (void *) ((int) left->aux + (int) n->aux);
+
+  types[left->type].free(left);
+  types[n->type].free(n);
+
+  return self;
 }
 
 static struct token *
-minusnud(struct token *t)
+minusnud(struct token *self)
 {
-  struct token *r;
+  struct token *n;
 
-  r = expression(ops[TOKEN_MINUS].bp);
-  if (r->type != TOKEN_NUMBER) {
+  n = expression(types[self->type].bp);
+
+  types[self->type].free(self);
+  if (n->type != TOKEN_NUMBER) {
     printf("expected number after -\n");
+    types[n->type].free(n);
     return nil;
+  } else {
+    n->aux = (void *) (- (int) n->aux);
+    return n;
   }
-
-  r->val.num = -r->val.num;
-  return r;
 }
 
-
 static struct token *
-minusled(struct token *t, struct token *left)
+minusled(struct token *self, struct token *left)
 {
-  struct token *r;
+  struct token *n;
 
   if (left->type != TOKEN_NUMBER) {
     printf("expected number before -\n");
     return nil;
   }
-  
-  r = expression(ops[TOKEN_MINUS].bp);
-  if (r == nil) {
-    printf("expected token\n");
-    return nil;
-  } else if (r->type != TOKEN_NUMBER) {
+
+  n = expression(types[self->type].bp);
+
+  if (n->type != TOKEN_NUMBER) {
     printf("expected number after -\n");
     return nil;
   }
 
-  t->type = TOKEN_NUMBER;
-  t->val.num = left->val.num - r->val.num;
-  return t;
+  self->type = TOKEN_NUMBER;
+  self->aux = (void *) ((int) left->aux - (int) n->aux);
+
+  types[left->type].free(left);
+  types[n->type].free(n);
+
+  return self;
 }
 
 static struct token *
-endnud(struct token *t)
+outnud(struct token *self)
 {
-  int pid;
-  
-  pid = docmd();
-
-  if (pid > 0) {
-    while (wait(&ret) != pid)
-      ;
-  } else {
-    ret = pid;
-  }
-  
+  printf("expected expression before >\n");
   return nil;
 }
 
 static struct token *
-pipenud(struct token *t)
+outled(struct token *self, struct token *left)
 {
-  int p[2];
+  struct token *t;
 
-  if (pipe(p) != OK) {
-    printf("pipe create failed.\n");
+  types[self->type].free(self);
+
+  t = token;
+  advance();
+  if (t->type != TOKEN_NAME) {
+    printf("expected file after >\n");
+    types[t->type].free(t);
     return nil;
   }
 
-  out = p[1];
-
-  if (docmd() < 0) {
-    printf("fork error.\n");
+  if (cmd->out != nil) {
+    free(cmd->out);
   }
-
-  in = p[0];
-
-  return nil;
-}
-
-static struct token *
-bgnud(struct token *t)
-{
-  if (docmd() < 0) {
-    printf("fork error.\n");
-  }
-
-  return nil;
-}
-
-static struct token *
-andnud(struct token *t)
-{
-  int pid;
   
-  pid = docmd();
+  cmd->out = t->aux;
+  cmd->outmode = O_TRUNC;
 
-  if (pid > 0) {
-    while (wait(&ret) != pid)
-      ;
+  t->aux = nil;
+  types[t->type].free(t);
 
-    if (ret != OK) {
-      /* no need to do any more */
-      token = nil;
+  return left;
+}
+
+static struct token *
+appendnud(struct token *self)
+{
+  printf("expected expression before >>\n");
+  return nil;
+}
+
+static struct token *
+appendled(struct token *self, struct token *left)
+{
+  struct token *t;
+
+  types[self->type].free(self);
+
+  t = token;
+  advance();
+  if (t->type != TOKEN_NAME) {
+    printf("expected file after >>\n");
+    types[t->type].free(t);
+    return nil;
+  }
+
+  if (cmd->out != nil) {
+    free(cmd->out);
+  }
+  
+  cmd->out = t->aux;
+  cmd->outmode = O_APPEND;
+
+  t->aux = nil;
+  types[t->type].free(t);
+
+  return left;
+}
+
+static struct token *
+innud(struct token *self)
+{
+  printf("expected expression before <\n");
+  return nil;
+}
+
+static struct token *
+inled(struct token *self, struct token *left)
+{
+  struct token *t;
+
+  types[self->type].free(self);
+
+  t = token;
+  advance();
+  if (t->type != TOKEN_NAME) {
+    printf("expected file after <\n");
+    types[t->type].free(t);
+    return nil;
+  }
+
+  if (cmd->in != nil) {
+    free(cmd->in);
+  }
+  
+  cmd->in = t->aux;
+
+  t->aux = nil;
+  types[t->type].free(t);
+
+  return left;
+}
+
+static void
+cdfree(struct token *self)
+{
+  free(self);
+}
+
+static struct token *
+cdnud(struct token *self)
+{
+  return nil;
+}
+
+static void
+iffree(struct token *self)
+{
+  free(self);
+}
+
+static struct token *
+ifnud(struct token *self)
+{
+  return nil;
+}
+
+static void
+forfree(struct token *self)
+{
+   free(self); 
+}
+
+static struct token *
+fornud(struct token *self)
+{
+  return nil;
+}
+
+static void
+commandfree(struct token *self)
+{
+  struct command *c;
+
+  c = ((struct command *) self->aux);
+
+  if (c->args != nil) {
+    types[c->args->type].free(c->args);
+  }
+
+  if (c->next != nil) {
+    types[c->next->type].free(c->next);
+  }
+
+  if (c->in != nil) {
+    free(c->in);
+  }
+
+  if (c->out != nil) {
+    free(c->out);
+  }
+
+  free(c);
+  free(self);
+}
+
+static struct token *
+commandled(struct token *self, struct token *left)
+{
+  struct command *c;
+  
+  c = cmd;
+
+  c->args = left;
+  c->type = self->type;
+  c->next = nil;
+
+  self->type = TOKEN_COMMAND;
+  self->aux = c;
+  self->next = nil;
+
+  c->next = command(types[c->type].bp);
+
+  switch (c->type) {
+  case TOKEN_BG:
+  case TOKEN_SEMI:
+    break;
+
+  case TOKEN_AND:
+  case TOKEN_OR:
+  case TOKEN_PIPE:
+    if (c->next == nil) {
+      printf("expected statement after %s.\n", types[c->type].str);
+      types[self->type].free(self);
+      return nil;
     }
-  } else {
-    printf("fork error.\n");
-    ret = pid;
-  }
-  
-  return nil;
-}
 
-static struct token *
-ornud(struct token *t)
-{
-  int pid;
-  
-  pid = docmd();
+    break;
 
-  if (pid > 0) {
-    while (wait(&ret) != pid)
-      ;
-
-    if (ret == OK) {
-      /* no need to do any more */
-      token = nil;
-    }
-  } else {
-    printf("fork error.\n");
-    ret = pid;
-  }
-  
-  return nil;
-}
-
-static struct token *
-atnud(struct token *t)
-{
-  return nil;
-}
-
-static struct token *
-outnud(struct token *t)
-{
-  struct token *n;
-  
-  n = token;
-  advance();
-
-  if (n->type != TOKEN_NAME) {
-    printf("expected file name after >\n");
+  default:
+    printf("This should never happen\n");
+    types[self->type].free(self);
     return nil;
   }
 
-  out = open(n->val.str, O_WRONLY|O_TRUNC|O_CREATE,
-	     ATTR_wr|ATTR_rd);
-
-  if (out < 0) {
-    printf("error opening %s : %i\n", n->val.str, out);
-  }
+  commandpop();
   
-  return nil;
-}
-
-static struct token *
-appendnud(struct token *t)
-{
-  struct token *n;
-  
-  n = token;
-  advance();
-
-  if (n->type != TOKEN_NAME) {
-    printf("expected file name after >\n");
-    return nil;
-  }
-
-  out = open(n->val.str, O_WRONLY|O_APPEND|O_CREATE,
-	     ATTR_wr|ATTR_rd);
-
-  if (out < 0) {
-    printf("error opening %s : %i\n", n->val.str, out);
-  }
-  
-  return nil;
-}
-
-static struct token *
-innud(struct token *t)
-{
-  struct token *n;
-  
-  n = token;
-  advance();
-
-  if (n->type != TOKEN_NAME) {
-    printf("expected file name after >\n");
-    return nil;
-  }
-
-  in = open(n->val.str, O_RDONLY|O_CREATE,
-	     ATTR_wr|ATTR_rd);
-
-  if (in < 0) {
-    printf("error opening %s : %i\n", n->val.str, in);
-  }
-  
-  return nil;
-}
-
-static struct exprbuilder ops[] = {
-  [TOKEN_NONE]         = {  0,   nil,                nil },
-
-  [TOKEN_NAME]         = {  0,   rawnud,             nil },
-  [TOKEN_NUMBER]       = {  0,   rawnud,             nil },
-  [TOKEN_LIST]         = {  0,   rawnud,             nil },
-
-  [TOKEN_PARAN_LEFT]   = { 80,   nil,                nil },
-  [TOKEN_PARAN_RIGHT]  = {  0,   nil,                nil },
-  [TOKEN_BRACE_LEFT]   = { 80,   nil,                nil },
-  [TOKEN_BRACE_RIGHT]  = {  0,   nil,                nil },
-  [TOKEN_BRACKET_LEFT] = { 80,   nil,                nil },
-  [TOKEN_BRACKET_RIGHT]= {  0,   nil,                nil },
-  [TOKEN_ASSIGN]       = {  6,   assignnud,          assignled},
-  [TOKEN_EQUAL]        = {  5,   nil,                nil },
-  [TOKEN_PLUS]         = { 50,   plusnud,            plusled },
-  [TOKEN_MINUS]        = { 50,   minusnud,           minusled },
-  [TOKEN_CARET]        = { 20,   nil,                nil },
-  [TOKEN_SUBST]        = {  0,   substnud,           substled},
-  [TOKEN_STAR]         = { 10,   nil,                nil },
-  [TOKEN_AND]          = {  0,   andnud,             nil },
-  [TOKEN_BG]           = {  0,   bgnud,              nil },
-  [TOKEN_PIPE]         = {  0,   pipenud,            nil },
-  [TOKEN_OR]           = {  0,   ornud,              nil },
-  [TOKEN_AT]           = {  0,   atnud,              nil },
-  [TOKEN_OUT]          = { 10,   outnud,             nil },
-  [TOKEN_APPEND]       = { 10,   appendnud,          nil },
-  [TOKEN_IN]           = { 10,   innud,              nil },
-  [TOKEN_END]          = {  0,   endnud,             nil },
-};
-
-void
-advance(void)
-{
-  token = token->next;
+  return self;
 }
 
 struct token *
@@ -380,114 +553,278 @@ expression(int bp)
 
   t = token;
   advance();
-  left = ops[t->type].nud(t);
+  left = types[t->type].nud(t);
 
-  while (left != nil && bp < ops[token->type].bp) {
+  while (left != nil && bp < types[token->type].bp) {
     t = token;
     advance();
-    left = ops[t->type].led(t, left);
+    left = types[t->type].led(t, left);
   }
 
   return left;
 }
 
-static int
-docmd(void)
+struct token *
+command(int bp)
 {
-  char tmp[LINEMAX];
-  int pid, r;
+  struct token *t, *w;
+  struct command *p;
 
-  if (argc > 0) {
-    pid = fork(FORK_sngroup);
+  p = cmd;
+  commandpush();
+
+  t = expression(bp);
+
+  if (t == nil) {
+    free(cmd);
+    cmd = p;
+    return nil;
+
+  } else if (t->type == TOKEN_COMMAND) {
+    return t;
+
   } else {
-    pid = 0;
+    /* Need to wrap it in a command */
+    w = tokennew(TOKEN_COMMAND);
+    w->aux = cmd;
+    cmd->type = TOKEN_SEMI;
+    cmd->args = t;
+
+    commandpop();
+
+    return w;
   }
+}
+
+static int
+convertargs(struct token *t, int argc, char *argv[])
+{
+  struct list *l;
   
-  if (argc == 0 || pid != 0) {
-    for (r = 0; r < argc; r++) {
-      free(argv[r]);
+  while (t != nil) {
+    if (t->type == TOKEN_NAME) {
+      argv[argc++] = t->aux;
+      t->aux = nil;
+    } else if (t->type == TOKEN_LIST) {
+      l = (struct list *) t->aux;
+      argc = convertargs(l->head, argc, argv);
     }
 
-    argc = 0;
- 
-    if (in != STDIN) {
-      close(in);
-      in = STDIN;
-    }
+    t = t->next;
+  }
 
-    if (out != STDOUT) {
-      close(out);
-      out = STDOUT;
-    }
+  return argc;
+}
 
+static int
+docmd(struct command *c, int infd, int outfd)
+{
+  char *argv[MAXARGS], tmp[LINEMAX];
+  int pid, argc, r;
+  
+  pid = fork(FORK_sngroup);
+  
+  if (pid != 0) {
     return pid;
   }
 
-  if (in < 0) {
-    exit(in);
-    return 0;
-  } else if (out < 0) {
-    exit(out);
-    return 0;
+  if (c->in != nil) {
+    infd = open(c->in, c->inmode|O_RDONLY);
+    if (infd < 0) {
+      printf("failed to open %s: %i\n", c->in, infd);
+      exit(infd);
+    }
+  }
+
+  if (c->out != nil) {
+    outfd = open(c->out, c->outmode|O_WRONLY|O_CREATE, ATTR_rd|ATTR_wr);
+    if (outfd < 0) {
+      printf("failed to open %s: %i\n", c->out, outfd);
+      exit(outfd);
+    }
+  }
+
+  if (infd != STDIN) {
+    dup2(outfd, STDIN);
+    close(outfd);
+  }
+
+  if (outfd != STDOUT) {
+    dup2(outfd, STDOUT);
+    close(outfd);
+  }
+
+  if (c->args == nil) {
+    exit(ERR);
+
+  } else if (c->args->type == TOKEN_NUMBER) {
+    printf("%i\n", c->args->aux);
+    exit(OK);
+
+  } else if (c->args->type == TOKEN_LIST || c->args->type == TOKEN_NAME) {
+    argc = convertargs(c->args, 0, argv);
+
+    if (argv[0][0] == '/' || argv[0][0] == '.') {
+      r = exec(argv[0], argc, argv);
+    } else {
+      snprintf(tmp, LINEMAX, "/bin/%s", argv[0]);
+      r = exec(tmp, argc, argv);
+    }
+
+    if (r == ENOFILE) {
+      printf("%s : command not found\n", argv[0]);
+    } else {
+      printf("%s : failed to run, %i\n", argv[0], r);
+    }
+  
+    exit(r);
+ 
+  } else {
+    r = types[c->args->type].eval(c->args);
+    exit(r);
   }
   
-  if (in != STDIN) {
-    dup2(in, STDIN);
-    close(in);
-  }
-
-  if (out != STDOUT) {
-    dup2(out, STDOUT);
-    close(out);
-  }
-
-  if (argv[0][0] == '/' || argv[0][0] == '.') {
-    r = exec(argv[0], argc, argv);
-  } else {
-    snprintf(tmp, LINEMAX, "/bin/%s", argv[0]);
-    r = exec(tmp, argc, argv);
-  }
-
-  printf("%s : failed to run, %i\n", argv[0], r);
-  exit(r);
-
   return 0;
 }
 
-void
-eval(void)
+static int
+commandevalh(struct token *self, int in, int out)
 {
-  struct token *t;
-  
-  while (token != nil) {
-    if (token->type == TOKEN_NAME) {
-      t = token;
-      advance();
-    } else {
-      t = expression(0);
+  struct command *c;
+  int pid, r, p[2];
+
+  c = self->aux;
+  if (c == nil) {
+    printf("command aux is nil!\n");
+    return ERR;
+  }
+
+  switch (c->type) {
+  case TOKEN_PIPE:
+    if (pipe(p) != OK) {
+      printf("pipe error!\n");
+      return ERR;
     }
 
-    if (t == nil) {
-      continue;
+    pid = docmd(c, in, p[1]);
+    if (pid < 0) {
+      printf("fork error!\n");
+      return pid;
+    }
+
+    close(p[1]);
+    r = commandevalh(c->next, p[0], out);
+    close(p[0]);
+
+    return r;
+
+  case TOKEN_AND:
+    pid = docmd(c, in, out);
+    if (pid < 0) {
+      printf("fork error!\n");
+      return pid;
+    }
+
+    while (wait(&r) != pid)
+      ;
+
+    if (r == OK) {
+      return commandevalh(c->next, in, out);
+    } else {
+      return r;
+    }
+
+  case TOKEN_OR:
+    pid = docmd(c, in, out);
+    if (pid < 0) {
+      printf("fork error!\n");
+      return pid;
+    }
+
+    while (wait(&r) != pid)
+      ;
+
+    if (r == OK) {
+      return OK;
+    } else {
+      return commandevalh(c->next, in, out);
+    }
+
+  case TOKEN_BG:
+    pid = docmd(c, in, out);
+    if (pid < 0) {
+      printf("fork error!\n");
+      return pid;
+    }
+    
+    if (c->next == nil) {
+      return OK;
+    } else {
+      return commandevalh(c->next, in, out);
+    }
+    
+  case TOKEN_SEMI:
+    pid = docmd(c, in, out);
+    if (pid < 0) {
+      printf("fork error!\n");
+      return pid;
+    }
+    
+    while (wait(&r) != pid)
+      ;
+
+    if (c->next == nil) {
+      return r;
+    } else {
+      return commandevalh(c->next, in, out);
     }
  
-    argv[argc] = malloc(sizeof(char) * LINEMAX);
-    if (argv[argc] == nil) {
-      printf("malloc failed.\n");
-      exit(ENOMEM);
-    }
-
-    if (t->type == TOKEN_NAME) {
-      snprintf(argv[argc++], LINEMAX, "%s", t->val.str);
-
-    } else if (t->type == TOKEN_NUMBER) {
-
-      snprintf(argv[argc++], LINEMAX, "%i", t->val.num);
-
-    } else if (t->type == TOKEN_LIST) {
-
-    } else {
-      printf("expected name or number\n");
-    }
+  default:
+    printf("cmd type unknown, this should never happen!\n");
+    return ERR;
   }
 }
+
+static int
+commandeval(struct token *self)
+{
+  return commandevalh(self, STDIN, STDOUT);
+}
+
+struct tokentype types[TOKEN_TYPES] = {
+  [TOKEN_PARAN_LEFT]   = { true,  1,   "(", 80, rawfree, nil, nil, nil },
+  [TOKEN_PARAN_RIGHT]  = { true,  1,   ")",  0, rawfree, nil, nil, nil },
+
+  [TOKEN_BRACE_LEFT]   = { true,  1,   "{", 80, rawfree, bracenud, braceled, nil },
+  [TOKEN_BRACE_RIGHT]  = { true,  1,   "}",  0, rawfree, nil, nil, nil },
+
+  [TOKEN_BRACKET_LEFT] = { true,  1,   "[", 80, bracketleftfree, nil, nil, nil },
+  [TOKEN_BRACKET_RIGHT]= { true,  1,   "]",  0, rawfree, nil, nil, nil },
+
+  [TOKEN_EQUAL]        = { true,  2,  "==", 10, equalfree, nil, nil, nil },
+  [TOKEN_ASSIGN]       = { true,  1,   "=",  9, assignfree, assignnud, assignled, nil },
+  [TOKEN_PLUS]         = { true,  1,   "+", 50, rawfree, plusnud, plusled, nil },
+  [TOKEN_MINUS]        = { true,  1,   "-", 50, rawfree, minusnud, minusled, nil },
+  [TOKEN_SUBST]        = { true,  1,   "$",  0, substfree, substnud, substled, nil },
+
+  [TOKEN_APPEND]       = { true,  2,  ">>", 10, rawfree, appendnud, appendled, nil },
+  [TOKEN_OUT]          = { true,  1,   ">", 10, rawfree, outnud, outled, nil },
+  [TOKEN_IN]           = { true,  1,   "<", 10, rawfree, innud, inled, nil },
+
+  [TOKEN_CD]           = { false, 2,  "cd", 10, cdfree, cdnud, nil, nil },
+  [TOKEN_IF]           = { false, 2,  "if", 10, iffree, ifnud, nil, nil },
+  [TOKEN_FOR]          = { false, 3, "for", 10, forfree, fornud, nil, nil },
+
+  [TOKEN_AND]          = { true,  2,  "&&",  2, rawfree, rawnud, commandled, nil },
+  [TOKEN_OR]           = { true,  2,  "||",  2, rawfree, rawnud, commandled, nil },
+  [TOKEN_PIPE]         = { true,  1,   "|",  2, rawfree, rawnud, commandled, nil },
+  [TOKEN_BG]           = { true,  1,   "&",  1, rawfree, rawnud, commandled, nil },
+  [TOKEN_SEMI]         = { true,  1,   ";",  1, rawfree, rawnud, commandled, nil },
+
+  [TOKEN_NAME]         = { false, 0,   nil,  5, namefree, rawnud, buildlistled, nil },
+  [TOKEN_NUMBER]       = { false, 0,   nil,  5, rawfree, rawnud, buildlistled, nil },
+  [TOKEN_LIST]         = { false, 0,   nil,  5, listfree, rawnud, buildlistled, nil },
+  [TOKEN_COMMAND]      = { false, 0,   nil,  5, commandfree, nil, nil, commandeval },
+
+  [TOKEN_END]          = { false, 0,   nil,  0, rawfree, endnud, endled, nil },
+};
