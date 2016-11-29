@@ -45,6 +45,7 @@ all: $(BASE)/lib am335x.umg am335x.list init.list
 
 ISRC = \
 	com/com.c               \
+	gpio/gpio.c             \
 	mmc/mmchs.c             \
 	mmc/emmc.c              \
 	mmc/sd.c                \
@@ -122,10 +123,9 @@ CLEAN += $(KOBJECTS)
 
 CLEAN += init.elf init.list
 init.elf: init.ld $(IOBJECTS)
-	$(LD) -nostdlib -nodefaultlibs -static \
-		-L/usr/local/lib/gcc/arm-none-eabi/4.9.3/ \
-		-L$(BASE)/lib \
-		-T init.ld -o $@  \
+	$(LD) $(LDFLAGS) \
+		-T init.ld \
+		-o $@ \
 		$(IOBJECTS) \
 		-lc -lgcc \
 		-lctype -lfssrv -lstring -lmem
@@ -145,9 +145,7 @@ initcode.c: init.elf
 
 CLEAN += $(TARGET).elf $(TARGET).list
 am335x.elf: kernel.ld $(KOBJECTS) initcode.o
-	$(LD) -nostdlib -nodefaultlibs -static \
-		-L/usr/local/lib/gcc/arm-none-eabi/4.9.3/ \
-		-L$(BASE)/lib \
+	$(LD) $(LDFLAGS) \
 		-T kernel.ld -Ttext $(loadaddr) \
 		-o $@ $(KOBJECTS) initcode.o \
 		-lgcc -lctype -lfssrv -lstring -lmem

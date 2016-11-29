@@ -28,9 +28,6 @@
 #ifndef _STRING_H_
 #define _STRING_H_
 
-void
-printf(const char *, ...);
-
 bool
 strncmp(const char *s1, const char *s2, size_t len);
 
@@ -40,16 +37,42 @@ strcmp(const char *s1, const char *s2);
 size_t
 strlen(const char *s);
 
+char *
+strtok(char *str, const char *sep);
+
 size_t
 strlcpy(char *dst, const char *src, size_t max);
 
 size_t
-vsnprintf(char *str, size_t max, const char *fmt, va_list ap);
-
-size_t
 snprintf(char *str, size_t max, const char *fmt, ...);
 
-char *
-strtok(char *str, const char *sep);
+int
+printf(const char *, ...);
+
+int
+fprintf(int fd, const char *, ...);
+
+int
+scanf(const char *fmt, ...);
+
+int
+fscanf(int fd, const char *fmt, ...);
+
+int
+sscanf(const char *str, const char *fmt, ...);
+
+
+#ifdef _STDARG_H_
+
+size_t
+vsnprintf(char *str, size_t max, const char *fmt, va_list ap);
+
+int
+vfscanf(int fd, const char *fmt, va_list ap);
+
+int
+vsscanf(const char *str, const char *fmt, va_list ap);
+
+#endif
 
 #endif

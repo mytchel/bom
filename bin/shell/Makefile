@@ -40,7 +40,8 @@ shell: $(objs)
 	$(LD) $(LDFLAGS) -o $@ $(objs) \
 		-lc -lgcc -lmem -lstring -lctype
 
-shell.list: shell
+CLEAN += list
+list: shell
 	$(OBJDUMP) -S shell > $@
 
 

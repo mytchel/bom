@@ -29,18 +29,38 @@
 #include <stdarg.h>
 #include <string.h>
 
-void
-printf(const char *fmt, ...)
+int
+fprintf(int fd, const char *fmt, ...)
 {
   char str[128];
-  size_t i;
   va_list ap;
+  size_t i;
 
   va_start(ap, fmt);
   i = vsnprintf(str, 128, fmt, ap);
   va_end(ap);
 
   if (i > 0) {
-    write(STDOUT, str, i);
+    return write(fd, str, i);
+  } else {
+    return i;
+  }
+}
+
+int
+printf(const char *fmt, ...)
+{
+  char str[128];
+  va_list ap;
+  size_t i;
+
+  va_start(ap, fmt);
+  i = vsnprintf(str, 128, fmt, ap);
+  va_end(ap);
+
+  if (i > 0) {
+    return write(STDOUT, str, i);
+  } else {
+    return i;
   }
 }

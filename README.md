@@ -5,10 +5,6 @@
 Bom is a micro kernel that makes extensive use of virtual file
 systems.
 
-[Announcement](https://lackname.org/blog/BOM)
-
-[A description of IPC in Bom](https://lackname.org/blog/A%20Slightly%20More%20Technical%20Post%20About%20Bom/)
-
 Currently the beagle bone black is the only device Bom runs on. It
 has support for UART, sd cards, mmc cards, timers, interrupts, etc.
 Currently no networking, USB, or HDMI.
@@ -113,3 +109,10 @@ And so on.
 ## Misc
 
 Ports, feature additions and criticisms all welcome.
+
+## Posts
+
+- [Announcement](https://lackname.org/blog/BOM)
+- [A description of IPC in Bom](https://lackname.org/blog/A%20Slightly%20More%20Technical%20Post%20About%20Bom/)
+- [Creation of the shell](https://lackname.org/blog/Pratt%20Parsing/)
+

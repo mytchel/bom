@@ -28,7 +28,6 @@
 #include <libc.h>
 #include <fs.h>
 #include <mem.h>
-#include <stdarg.h>
 #include <string.h>
 
 int

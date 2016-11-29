@@ -29,7 +29,6 @@
 #include <mem.h>
 #include <fs.h>
 #include <fssrv.h>
-#include <stdarg.h>
 #include <string.h>
 #include <block.h>
 

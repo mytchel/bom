@@ -27,7 +27,6 @@
 
 #include <libc.h>
 #include <fs.h>
-#include <stdarg.h>
 #include <string.h>
 
 int
@@ -35,6 +34,9 @@ commount(char *path);
 
 int
 initblockdevs(void);
+
+int
+initgpios(void);
 
 int
 mountfat(char *device, char *dir);
@@ -114,7 +116,14 @@ main(int argc, char *argv[])
 
   f = initblockdevs();
   if (f < 0) {
+    printf("initblockdevs failed!\n");
     return -3;
+  }
+
+  f = initgpios();
+  if (f < 0) {
+    printf("initgpios failed!\n");
+    return -4;
   }
 
   while (true) {

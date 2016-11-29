@@ -396,7 +396,7 @@ kmountloop(struct chan *in, struct binding *b, struct fsmount *mount);
 
 /* Debug */
 
-void
+int
 printf(const char *, ...);
 
 void

@@ -25,7 +25,6 @@
  */
 
 #include <libc.h>
-#include <stdarg.h>
 #include <string.h>
 
 #include "shell.h"
@@ -120,7 +119,10 @@ interp(void)
     setupinputstring(line, m);
 
     while ((t = command(0)) != nil) {
-      ret = types[t->type].eval(t);
+      tokenprint(t);
+      printf("\neval:\n");
+
+      ret = types[t->type].eval(t, STDIN, STDOUT);
       types[t->type].free(t);
     }
   }

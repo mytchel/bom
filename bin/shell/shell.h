@@ -59,7 +59,9 @@ typedef enum {
   TOKEN_BG,
 
   TOKEN_CD,
+
   TOKEN_IF,
+  TOKEN_ELSE,
 
   TOKEN_FOR,
 
@@ -94,24 +96,36 @@ struct tokentype {
   struct token * (*nud)(struct token *self);
   struct token * (*led)(struct token *self, struct token *left);
 
-  int (*eval)(struct token *self);
+  int (*eval)(struct token *self, int in, int out);
 };
 
-struct list {
+struct listaux {
   struct token *head, *tail;
 };
 
-struct arith {
+struct arithaux {
   struct token *left, *right;
 };
 
-struct command {
-  struct command *parent;
-  token_t type; /* One of AND, OR, BG, PIPE, SEMI */
+typedef enum {
+  COMMAND_AND,
+  COMMAND_OR,
+  COMMAND_BG,
+  COMMAND_PIPE,
+  COMMAND_SEMI,
+} command_t;
+
+struct commandaux {
+  struct commandaux *parent;
+  command_t type;
   char *in, *out;
   uint32_t inmode, outmode; /* Masks for standard mode */
   struct token *args;
   struct token *next;
+};
+
+struct ifaux {
+  struct token *cond, *good, *fail;
 };
 
 struct token *

@@ -25,42 +25,123 @@
  *
  */
 
-#include "head.h"
+#include <libc.h>
+#include <stdarg.h>
+#include <string.h>
+#include <ctype.h>
 
 int
-printf(const char *fmt, ...)
+vfscanf(int fd, const char *fmt, va_list ap)
 {
-  char str[512];
+  return 0;
+}
+
+int
+vsscanf(const char *str, const char *fmt, va_list ap)
+{
+  char *s, *c, t, num[32];
+  int n, *i;
+
+  n = 0;
+  while (*fmt != 0) {
+    if (*fmt != '%') {
+      if (*str != *fmt) {
+	return n;
+      } else {
+	fmt++;
+	str++;
+      }
+    }
+
+    fmt++;
+    t = *fmt;
+    fmt++;
+
+    switch (t) {
+    case '%':
+      if (*str != '%') {
+	return n;
+      } else {
+	str++;
+      }
+
+      break;
+
+    case 'i':
+      i = va_arg(ap, int *);
+
+      s = num;
+      while (*str != *fmt) {
+	*s++ = *str++;
+      }
+
+      *s = 0;
+
+      *i = strtol(num, nil, 10);
+      break;
+
+    case 'c':
+      c = va_arg(ap, char *);
+      *c = *str;
+      str++;
+      break;
+
+    case 's':
+      s = va_arg(ap, char *);
+
+      while (*str != *fmt) {
+	*s++ = *str++;
+      }
+
+      *s = 0;
+      break;
+
+    default:
+      return ERR;
+    }
+
+    n++;
+  }
+
+  return n;
+}
+
+int
+fscanf(int fd, const char *fmt, ...)
+{
   va_list ap;
   int i;
-	
-  va_start(ap, fmt);
-  i = vsnprintf(str, 512, fmt, ap);
-  va_end(ap);
 
-  if (i > 0) {
-    puts(str);
-  }
+  va_start(ap, fmt);
+  i = vfscanf(fd, fmt, ap);
+  va_end(ap);
 
   return i;
 }
 
-void
-panic(const char *fmt, ...)
+int
+scanf(const char *fmt, ...)
 {
-  char str[512];
   va_list ap;
+  int i;
 
-  printf("\n\nPanic!\n\n");
-	
   va_start(ap, fmt);
-  vsnprintf(str, 512, fmt, ap);
+  i = vfscanf(STDIN, fmt, ap);
   va_end(ap);
-	
-  puts(str);
 
-  printf("\n\nHanging...\n");
-  setintr(INTR_OFF);
-  while (1)
-    ;
+  return i;
 }
+
+int
+sscanf(const char *str, const char *fmt, ...)
+{
+  va_list ap;
+  int i;
+
+  va_start(ap, fmt);
+  i = vsscanf(str, fmt, ap);
+  va_end(ap);
+
+  return i;
+}
+

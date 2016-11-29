@@ -27,13 +27,12 @@
 
 #include <libc.h>
 #include <mem.h>
-#include <stdarg.h>
 #include <string.h>
 #include <fs.h>
 #include <fssrv.h>
 
+#define UART_LEN   	0x1000
 #define UART0   	0x44E09000
-#define UART0_LEN   	0x1000
 #define UART0_INTR      72
 
 #define BUFMAX          512
@@ -85,9 +84,10 @@ static struct readreq *readrequests;
 static int lock;
 static int fsin, fsout;
 
-static struct stat comstatstruct = {
+static struct stat rootstat = {
   ATTR_wr|ATTR_rd,
-  0
+  0,
+  UART_LEN,
 };
 
 static void
@@ -225,7 +225,7 @@ addreadreq(struct request_read *req)
 static void
 comstat(struct request_stat *req, struct response_stat *resp)
 {
-  memmove(&resp->body.stat, &comstatstruct, sizeof(struct stat));
+  memmove(&resp->body.stat, &rootstat, sizeof(struct stat));
   resp->head.ret = OK;
 }
 
@@ -331,7 +331,7 @@ int
 commount(char *path)
 {
   int f, fd, p1[2], p2[2];
-  size_t size = UART0_LEN;
+  size_t size = UART_LEN;
 
   if (pipe(p1) == ERR) {
     return -1;
@@ -339,15 +339,16 @@ commount(char *path)
     return -1;
   }
 
-  fd = open(path, O_WRONLY|O_CREATE, ATTR_wr|ATTR_rd);
+  fd = open(path, O_WRONLY|O_CREATE, rootstat.attr);
   if (fd < 0) {
     return -2;
   }
-  
-  if (mount(p1[1], p2[0], path, ATTR_rd|ATTR_wr) == ERR) {
+
+  if (mount(p1[1], p2[0], path, rootstat.attr) == ERR) {
     return -3;
   }
 
+  close(fd);
   close(p1[1]);
   close(p2[0]);
 
@@ -355,7 +356,6 @@ commount(char *path)
   if (f > 0) {
     close(p1[0]);
     close(p2[1]);
-    close(fd);
     return f;
   }
 

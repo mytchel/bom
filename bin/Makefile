@@ -31,7 +31,6 @@ SUBDIR =
 SUBDIR += shell
 SUBDIR += fatfs
 SUBDIR += tmpfs
-SUBDIR += test
 SUBDIR += bind
 SUBDIR += cat
 SUBDIR += cp

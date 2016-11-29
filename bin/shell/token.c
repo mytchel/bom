@@ -27,7 +27,6 @@
 
 #include <libc.h>
 #include <mem.h>
-#include <stdarg.h>
 #include <string.h>
 #include <ctype.h>
 #include <fs.h>
@@ -205,7 +204,9 @@ readtokens(void)
     }
 
     for (type = 0; !q && type < TOKEN_TYPES; type++) {
-      if (!types[type].punc || types[type].str == nil) continue;
+      if (types[type].len == 0) continue;
+      else if (!types[type].punc && j > 0) continue;
+
       if (readlen(types[type].len) < types[type].len) {
 	continue;
       }
@@ -241,7 +242,7 @@ readtokens(void)
   if (j > 0) {
     t->next = tokennew(TOKEN_SEMI);
     return literal(t, str, j + 1, num);
-  } else {
+ } else {
     t->type = TOKEN_END;
     t->aux = nil;
     return t;
@@ -266,30 +267,71 @@ tokennew(token_t type)
 }
 
 void
+advance(void)
+{
+  token = token->next;
+  if (token == nil) {
+    token = readtokens();
+  }
+}
+
+void
 tokenprint(struct token *t)
 {
-  struct command *c;
-  struct list *l;
+  struct commandaux *c;
+  struct listaux *l;
+  struct ifaux *i;
 
   if (t->type == TOKEN_LIST) {
     printf("(");
-    l = (struct list *) t->aux;
+    l = (struct listaux *) t->aux;
     t = l->head;
     while (t != nil) {
       tokenprint(t);
       t = t->next;
     }
     printf(")");
+  } else if (t->type == TOKEN_IF) {
+    i = (struct ifaux *) t->aux;
+
+    printf("if (");
+    tokenprint(i->cond);
+    printf(") ");
+    tokenprint(i->good);
+
+    if (i->fail != nil) {
+      printf("else ");
+      tokenprint(i->fail);
+    }
+    
   } else if (t->type == TOKEN_COMMAND) {
-    c = t->aux;
-    printf(" {command  %s [> %s], [< %s]: ", types[c->type].str, c->out, c->in);
+    c = (struct commandaux *) t->aux;
+    printf("{");
     tokenprint(c->args);
-    printf(" : ");
-    if (c->next == nil) {
-      printf(" nil ");
-    } else {
+    printf(" < %s > %s", c->in, c->out);
+
+    switch (c->type) {
+    case COMMAND_AND:
+      printf(" && ");
+      break;
+    case COMMAND_OR:
+      printf(" || ");
+      break;
+    case COMMAND_BG:
+      printf(" & ");
+      break;
+    case COMMAND_PIPE:
+      printf(" | ");
+      break;
+    case COMMAND_SEMI:
+      printf(" ; ");
+      break;
+    }
+
+    if (c->next != nil) {
       tokenprint(c->next);
     }
+
     printf(" } ");
   } else if (t->type == TOKEN_NUMBER) {
     printf(" %i ", t->aux);
@@ -297,15 +339,6 @@ tokenprint(struct token *t)
     printf(" '%s' ", t->aux);
   } else {
     printf(" %s ", types[t->type].str);
-  }
-}
-
-void
-advance(void)
-{
-  token = token->next;
-  if (token == nil) {
-    token = readtokens();
   }
 }
 

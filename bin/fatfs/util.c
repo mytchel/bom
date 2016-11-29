@@ -30,7 +30,6 @@
 #include <err.h>
 #include <fs.h>
 #include <fssrv.h>
-#include <stdarg.h>
 #include <string.h>
 
 #include "fat.h"

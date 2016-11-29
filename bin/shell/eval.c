@@ -27,21 +27,23 @@
 
 #include <libc.h>
 #include <mem.h>
-#include <stdarg.h>
 #include <string.h>
 #include <ctype.h>
 #include <fs.h>
 
 #include "shell.h"
 
-static struct command *cmd = nil;
+static int
+commandeval(struct token *self, int in, int out);
 
-static struct command *
+static struct commandaux *cmd = nil;
+
+static struct commandaux *
 commandnew(void)
 {
-  struct command *c;
+  struct commandaux *c;
 
-  c = malloc(sizeof(struct command));
+  c = malloc(sizeof(struct commandaux));
   if (c == nil) {
     printf("malloc failed.\n");
     exit(ENOMEM);
@@ -67,10 +69,10 @@ commandpop(void)
   }
 }
 
-static struct command *
+static struct commandaux *
 commandpush(void)
 {
-  struct command *c;
+  struct commandaux *c;
 
   c = commandnew();
   c->parent = cmd;
@@ -82,12 +84,12 @@ commandpush(void)
 static struct token *
 buildlistled(struct token *self, struct token *left)
 {
-  struct list *l;
+  struct listaux *l;
   struct token *n;
   
   self->next = nil;
   if (left->type == TOKEN_LIST) {
-    l = (struct list *) left->aux;
+    l = (struct listaux *) left->aux;
 
     if (l->tail == nil) {
       l->head = l->tail = self;
@@ -98,7 +100,7 @@ buildlistled(struct token *self, struct token *left)
     
     return left;
   } else {
-    l = malloc(sizeof(struct list));
+    l = malloc(sizeof(struct listaux));
     if (l == nil) {
       printf("malloc failed.\n");
       exit(ENOMEM);
@@ -140,9 +142,9 @@ static void
 listfree(struct token *self)
 {
   struct token *n, *t;
-  struct list *l;
+  struct listaux *l;
 
-  l = (struct list *) self->aux;
+  l = (struct listaux *) self->aux;
 
   t = l->head;
   while (t != nil) {
@@ -157,15 +159,12 @@ listfree(struct token *self)
 static struct token *
 endnud(struct token *self)
 {
-  types[self->type].free(self);
   return nil;
 }
 
 static struct token *
 endled(struct token *self, struct token *left)
 {
-  types[left->type].free(left);
-  types[self->type].free(self);
   return nil;
 }
 
@@ -175,15 +174,12 @@ bracenud(struct token *self)
   struct token *t, *b;
   token_t type;
   
-  types[self->type].free(self);
-
   t = command(0);
 
   b = token;
   advance();
 
   type = b->type;
-  types[type].free(b);
   
   if (type != TOKEN_BRACE_RIGHT) {
     types[t->type].free(t);
@@ -442,13 +438,35 @@ inled(struct token *self, struct token *left)
 static void
 cdfree(struct token *self)
 {
+  if (self->aux != nil) {
+    free(self->aux);
+  }
+  
   free(self);
 }
 
 static struct token *
 cdnud(struct token *self)
 {
-  return nil;
+  struct token *t;
+
+  t = expression(types[self->type].bp);
+  if (t == nil || t->type != TOKEN_NAME) {
+    printf("usage: cd dir\n");
+    return nil;
+  }
+
+  self->aux = t->aux;
+  t->aux = nil;
+  types[t->type].free(t);
+
+  return self;
+}
+
+static int
+cdeval(struct token *self, int in, int out)
+{
+  return chdir(self->aux);
 }
 
 static void
@@ -460,7 +478,52 @@ iffree(struct token *self)
 static struct token *
 ifnud(struct token *self)
 {
-  return nil;
+  struct token *t;
+  struct ifaux *i;
+  
+  printf("have if statement\n");
+
+  t = token;
+  advance();
+  
+  if (t->type != TOKEN_PARAN_LEFT) {
+    printf("expected ( after if\n");
+    return nil;
+  }
+
+  i = malloc(sizeof(struct ifaux));
+  if (i == nil) {
+    printf("malloc failed!\n");
+    return nil;
+  }
+
+  i->cond = expression(0);
+
+  if (token->type != TOKEN_PARAN_RIGHT) {
+    printf("expected closing ), have %s\n", types[token->type].str);
+    return nil;
+  }
+
+  advance();
+
+  i->good = command(0);
+
+  if (token->type == TOKEN_ELSE) {
+    advance();
+    i->fail = command(0);
+  } else {
+    i->fail = nil;
+  }
+
+  self->aux = i;
+  
+  return self;
+}
+
+static int
+ifeval(struct token *self, int in, int out)
+{
+  return ENOIMPL;
 }
 
 static void
@@ -475,12 +538,18 @@ fornud(struct token *self)
   return nil;
 }
 
+static int
+foreval(struct token *self, int in, int out)
+{
+  return ENOIMPL;
+}
+
 static void
 commandfree(struct token *self)
 {
-  struct command *c;
+  struct commandaux *c;
 
-  c = ((struct command *) self->aux);
+  c = ((struct commandaux *) self->aux);
 
   if (c->args != nil) {
     types[c->args->type].free(c->args);
@@ -505,30 +574,43 @@ commandfree(struct token *self)
 static struct token *
 commandled(struct token *self, struct token *left)
 {
-  struct command *c;
+  struct commandaux *c;
+  token_t type;
+
+  type = self->type;
   
   c = cmd;
 
   c->args = left;
-  c->type = self->type;
   c->next = nil;
 
   self->type = TOKEN_COMMAND;
   self->aux = c;
   self->next = nil;
 
-  c->next = command(types[c->type].bp);
+  c->next = command(types[type].bp);
 
-  switch (c->type) {
+  switch (type) {
   case TOKEN_BG:
+    c->type = COMMAND_BG;
+    break;
+    
   case TOKEN_SEMI:
+    c->type = COMMAND_SEMI;
     break;
 
   case TOKEN_AND:
+    c->type = COMMAND_AND;
+    goto next;
   case TOKEN_OR:
+    c->type = COMMAND_OR;
+    goto next;
   case TOKEN_PIPE:
+    c->type = COMMAND_PIPE;
+
+  next:
     if (c->next == nil) {
-      printf("expected statement after %s.\n", types[c->type].str);
+      printf("expected statement after %s.\n", types[type].str);
       types[self->type].free(self);
       return nil;
     }
@@ -545,6 +627,276 @@ commandled(struct token *self, struct token *left)
   
   return self;
 }
+
+static int
+convertargs(struct token *t, int argc, char *argv[])
+{
+  struct listaux *l;
+  
+  while (t != nil) {
+    if (t->type == TOKEN_NAME) {
+      argv[argc++] = t->aux;
+    } else if (t->type == TOKEN_LIST) {
+      l = (struct listaux *) t->aux;
+      argc = convertargs(l->head, argc, argv);
+    }
+
+    t = t->next;
+  }
+
+  return argc;
+}
+
+static int
+docmd(struct commandaux *c, int in, int out, int *pid)
+{
+  char *argv[MAXARGS], tmp[LINEMAX];
+  int argc, r;
+
+  *pid = 0;
+  
+  if (c->args == nil) {
+    return ERR;
+
+  } else if (c->args->type == TOKEN_LIST || c->args->type == TOKEN_NAME) {
+    argc = convertargs(c->args, 0, argv);
+
+    /* Fall through to fork */
+
+  } else if (c->args->type == TOKEN_NUMBER) {
+    fprintf(out, "%i\n", c->args->aux);
+    return OK;
+  
+  } else {
+    return types[c->args->type].eval(c->args, in, out);
+  }
+
+  r = fork(FORK_sngroup);
+  if (r < 0) {
+    fprintf(out, "fork error\n");
+    return r;
+  } else if (r > 0) {
+    *pid = r;
+    return OK;
+  }
+
+  if (in != STDIN) {
+    dup2(in, STDIN);
+    close(in);
+  }
+
+  if (out != STDOUT) {
+    dup2(out, STDOUT);
+    close(out);
+  }
+
+  if (argv[0][0] == '/' || argv[0][0] == '.') {
+    r = exec(argv[0], argc, argv);
+  } else {
+    snprintf(tmp, LINEMAX, "/bin/%s", argv[0]);
+    r = exec(tmp, argc, argv);
+  }
+
+  if (r == ENOFILE) {
+    printf("%s : command not found\n", argv[0]);
+  } else {
+    printf("%s : failed to run, %i\n", argv[0], r);
+  }
+  
+  exit(r);
+ 
+  return 0;
+}
+
+static int
+commandevalpipe(struct commandaux *c, int in, int out)
+{
+  int pid, r, p[2];
+
+  if (pipe(p) != OK) {
+    fprintf(out, "pipe error!\n");
+    return ERR;
+  }
+
+  r = docmd(c, in, p[1], &pid);
+
+  close(p[1]);
+
+  if (r > 0) {
+    r = types[c->next->type].eval(c->next, p[0], out);
+  }
+
+  close(p[0]);
+  return r;
+}
+
+static int
+commandevaland(struct commandaux *c, int in, int out)
+{
+  int pid, r;
+
+  r = docmd(c, in, out, &pid);
+  while (pid != 0 && wait(&r) != pid)
+    ;
+
+  if (r == OK) {
+    r = types[c->next->type].eval(c->next, in, out);
+  }
+
+  return r;
+}
+
+static int
+commandevalor(struct commandaux *c, int in, int out)
+{
+  int pid, r;
+
+  r = docmd(c, in, out, &pid);
+  while (pid != 0 && wait(&r) != pid)
+    ;
+
+  if (r != OK) {
+    r = types[c->next->type].eval(c->next, in, out);
+  }
+  
+  return r;
+}
+
+static int
+commandevalbg(struct commandaux *c, int in, int out)
+{
+  int pid, r;
+
+  r = docmd(c, in, out, &pid);
+    
+  if (c->next != nil) {
+    return types[c->next->type].eval(c->next, in, out);
+  } else {
+    return r;
+  }
+}
+
+static int
+commandevalsemi(struct commandaux *c, int in, int out)
+{
+  int pid, r;
+
+  r = docmd(c, in, out, &pid);
+    
+  while (pid != 0 && wait(&r) != pid)
+    ;
+
+  if (c->next != nil) {
+    return types[c->next->type].eval(c->next, in, out);
+  } else {
+    return OK;
+  }
+}
+
+static int
+commandeval(struct token *self, int in, int out)
+{
+  struct commandaux *c;
+  int r;
+
+  c = self->aux;
+  if (c == nil) {
+    fprintf(out, "command aux is nil!\n");
+    return ERR;
+  }
+
+  if (c->in != nil) {
+    in = open(c->in, c->inmode|O_RDONLY);
+    if (in < 0) {
+      fprintf(out, "failed to open %s: %i\n", c->in, in);
+      return in;
+    }
+  }
+
+  if (c->out != nil) {
+    r = open(c->out, c->outmode|O_WRONLY|O_CREATE, ATTR_rd|ATTR_wr);
+    if (r < 0) {
+      fprintf(out, "failed to open %s: %i\n", c->out, r);
+      if (c->in != nil) {
+	close(in);
+      }
+      return r;
+    } else {
+      out = r;
+    }
+  }
+
+  switch (c->type) {
+  case COMMAND_PIPE:
+    r = commandevalpipe(c, in, out);
+    break;
+  case COMMAND_AND:
+    r = commandevaland(c, in, out);
+    break;
+  case COMMAND_OR:
+    r = commandevalor(c, in, out);
+    break;
+  case COMMAND_BG:
+    r = commandevalbg(c, in, out);
+    break;
+  case COMMAND_SEMI:
+    r = commandevalsemi(c, in, out);
+    break;
+  default:
+    fprintf(out, "cmd type unknown, this should never happen!\n");
+    r = ERR;
+    break;
+  }
+
+  if (c->in != nil) {
+    close(in);
+  }
+
+  if (c->out != nil) {
+    close(out);
+  }
+
+  return r;
+}
+
+struct tokentype types[TOKEN_TYPES] = {
+  [TOKEN_PARAN_LEFT]   = { true,  1,    "(", 80, rawfree, nil, nil, nil },
+  [TOKEN_PARAN_RIGHT]  = { true,  1,    ")",  0, rawfree, nil, nil, nil },
+
+  [TOKEN_BRACE_LEFT]   = { true,  1,    "{", 80, rawfree, bracenud, braceled, nil },
+  [TOKEN_BRACE_RIGHT]  = { true,  1,    "}",  0, rawfree, nil, nil, nil },
+
+  [TOKEN_BRACKET_LEFT] = { true,  1,    "[", 80, bracketleftfree, nil, nil, nil },
+  [TOKEN_BRACKET_RIGHT]= { true,  1,    "]",  0, rawfree, nil, nil, nil },
+
+  [TOKEN_EQUAL]        = { true,  2,   "==", 10, equalfree, nil, nil, nil },
+  [TOKEN_ASSIGN]       = { true,  1,    "=",  9, assignfree, assignnud, assignled, nil },
+  [TOKEN_PLUS]         = { true,  1,    "+", 50, rawfree, plusnud, plusled, nil },
+  [TOKEN_MINUS]        = { true,  1,    "-", 50, rawfree, minusnud, minusled, nil },
+  [TOKEN_SUBST]        = { true,  1,    "$",  0, substfree, substnud, substled, nil },
+
+  [TOKEN_APPEND]       = { true,  2,   ">>", 10, rawfree, appendnud, appendled, nil },
+  [TOKEN_OUT]          = { true,  1,    ">", 10, rawfree, outnud, outled, nil },
+  [TOKEN_IN]           = { true,  1,    "<", 10, rawfree, innud, inled, nil },
+
+  [TOKEN_CD]           = { false, 2,   "cd", 10, cdfree, cdnud, nil, cdeval },
+  [TOKEN_IF]           = { false, 2,   "if", 10, iffree, ifnud, nil, ifeval },
+  [TOKEN_ELSE]         = { false, 4, "else",  0, rawfree, nil, nil, nil },
+  [TOKEN_FOR]          = { false, 3,  "for", 10, forfree, fornud, nil, foreval },
+
+  [TOKEN_AND]          = { true,  2,   "&&",  2, rawfree, rawnud, commandled, nil },
+  [TOKEN_OR]           = { true,  2,   "||",  2, rawfree, rawnud, commandled, nil },
+  [TOKEN_PIPE]         = { true,  1,    "|",  2, rawfree, rawnud, commandled, nil },
+  [TOKEN_BG]           = { true,  1,    "&",  1, rawfree, rawnud, commandled, nil },
+  [TOKEN_SEMI]         = { true,  1,    ";",  1, rawfree, rawnud, commandled, nil },
+
+  [TOKEN_NAME]         = { false, 0, "name",  5, namefree, rawnud, buildlistled, nil },
+  [TOKEN_NUMBER]       = { false, 0,  "num",  5, rawfree, rawnud, buildlistled, nil },
+  [TOKEN_LIST]         = { false, 0, "list",  5, listfree, rawnud, buildlistled, nil },
+  [TOKEN_COMMAND]      = { false, 0,  "cmd",  5, commandfree, nil, nil, commandeval },
+
+  [TOKEN_END]          = { false, 0,"(end)",  0, rawfree, endnud, endled, nil },
+};
 
 struct token *
 expression(int bp)
@@ -568,7 +920,7 @@ struct token *
 command(int bp)
 {
   struct token *t, *w;
-  struct command *p;
+  struct commandaux *p;
 
   p = cmd;
   commandpush();
@@ -587,7 +939,7 @@ command(int bp)
     /* Need to wrap it in a command */
     w = tokennew(TOKEN_COMMAND);
     w->aux = cmd;
-    cmd->type = TOKEN_SEMI;
+    cmd->type = COMMAND_SEMI;
     cmd->args = t;
 
     commandpop();
@@ -596,235 +948,3 @@ command(int bp)
   }
 }
 
-static int
-convertargs(struct token *t, int argc, char *argv[])
-{
-  struct list *l;
-  
-  while (t != nil) {
-    if (t->type == TOKEN_NAME) {
-      argv[argc++] = t->aux;
-      t->aux = nil;
-    } else if (t->type == TOKEN_LIST) {
-      l = (struct list *) t->aux;
-      argc = convertargs(l->head, argc, argv);
-    }
-
-    t = t->next;
-  }
-
-  return argc;
-}
-
-static int
-docmd(struct command *c, int infd, int outfd)
-{
-  char *argv[MAXARGS], tmp[LINEMAX];
-  int pid, argc, r;
-  
-  pid = fork(FORK_sngroup);
-  
-  if (pid != 0) {
-    return pid;
-  }
-
-  if (c->in != nil) {
-    infd = open(c->in, c->inmode|O_RDONLY);
-    if (infd < 0) {
-      printf("failed to open %s: %i\n", c->in, infd);
-      exit(infd);
-    }
-  }
-
-  if (c->out != nil) {
-    outfd = open(c->out, c->outmode|O_WRONLY|O_CREATE, ATTR_rd|ATTR_wr);
-    if (outfd < 0) {
-      printf("failed to open %s: %i\n", c->out, outfd);
-      exit(outfd);
-    }
-  }
-
-  if (infd != STDIN) {
-    dup2(outfd, STDIN);
-    close(outfd);
-  }
-
-  if (outfd != STDOUT) {
-    dup2(outfd, STDOUT);
-    close(outfd);
-  }
-
-  if (c->args == nil) {
-    exit(ERR);
-
-  } else if (c->args->type == TOKEN_NUMBER) {
-    printf("%i\n", c->args->aux);
-    exit(OK);
-
-  } else if (c->args->type == TOKEN_LIST || c->args->type == TOKEN_NAME) {
-    argc = convertargs(c->args, 0, argv);
-
-    if (argv[0][0] == '/' || argv[0][0] == '.') {
-      r = exec(argv[0], argc, argv);
-    } else {
-      snprintf(tmp, LINEMAX, "/bin/%s", argv[0]);
-      r = exec(tmp, argc, argv);
-    }
-
-    if (r == ENOFILE) {
-      printf("%s : command not found\n", argv[0]);
-    } else {
-      printf("%s : failed to run, %i\n", argv[0], r);
-    }
-  
-    exit(r);
- 
-  } else {
-    r = types[c->args->type].eval(c->args);
-    exit(r);
-  }
-  
-  return 0;
-}
-
-static int
-commandevalh(struct token *self, int in, int out)
-{
-  struct command *c;
-  int pid, r, p[2];
-
-  c = self->aux;
-  if (c == nil) {
-    printf("command aux is nil!\n");
-    return ERR;
-  }
-
-  switch (c->type) {
-  case TOKEN_PIPE:
-    if (pipe(p) != OK) {
-      printf("pipe error!\n");
-      return ERR;
-    }
-
-    pid = docmd(c, in, p[1]);
-    if (pid < 0) {
-      printf("fork error!\n");
-      return pid;
-    }
-
-    close(p[1]);
-    r = commandevalh(c->next, p[0], out);
-    close(p[0]);
-
-    return r;
-
-  case TOKEN_AND:
-    pid = docmd(c, in, out);
-    if (pid < 0) {
-      printf("fork error!\n");
-      return pid;
-    }
-
-    while (wait(&r) != pid)
-      ;
-
-    if (r == OK) {
-      return commandevalh(c->next, in, out);
-    } else {
-      return r;
-    }
-
-  case TOKEN_OR:
-    pid = docmd(c, in, out);
-    if (pid < 0) {
-      printf("fork error!\n");
-      return pid;
-    }
-
-    while (wait(&r) != pid)
-      ;
-
-    if (r == OK) {
-      return OK;
-    } else {
-      return commandevalh(c->next, in, out);
-    }
-
-  case TOKEN_BG:
-    pid = docmd(c, in, out);
-    if (pid < 0) {
-      printf("fork error!\n");
-      return pid;
-    }
-    
-    if (c->next == nil) {
-      return OK;
-    } else {
-      return commandevalh(c->next, in, out);
-    }
-    
-  case TOKEN_SEMI:
-    pid = docmd(c, in, out);
-    if (pid < 0) {
-      printf("fork error!\n");
-      return pid;
-    }
-    
-    while (wait(&r) != pid)
-      ;
-
-    if (c->next == nil) {
-      return r;
-    } else {
-      return commandevalh(c->next, in, out);
-    }
- 
-  default:
-    printf("cmd type unknown, this should never happen!\n");
-    return ERR;
-  }
-}
-
-static int
-commandeval(struct token *self)
-{
-  return commandevalh(self, STDIN, STDOUT);
-}
-
-struct tokentype types[TOKEN_TYPES] = {
-  [TOKEN_PARAN_LEFT]   = { true,  1,   "(", 80, rawfree, nil, nil, nil },
-  [TOKEN_PARAN_RIGHT]  = { true,  1,   ")",  0, rawfree, nil, nil, nil },
-
-  [TOKEN_BRACE_LEFT]   = { true,  1,   "{", 80, rawfree, bracenud, braceled, nil },
-  [TOKEN_BRACE_RIGHT]  = { true,  1,   "}",  0, rawfree, nil, nil, nil },
-
-  [TOKEN_BRACKET_LEFT] = { true,  1,   "[", 80, bracketleftfree, nil, nil, nil },
-  [TOKEN_BRACKET_RIGHT]= { true,  1,   "]",  0, rawfree, nil, nil, nil },
-
-  [TOKEN_EQUAL]        = { true,  2,  "==", 10, equalfree, nil, nil, nil },
-  [TOKEN_ASSIGN]       = { true,  1,   "=",  9, assignfree, assignnud, assignled, nil },
-  [TOKEN_PLUS]         = { true,  1,   "+", 50, rawfree, plusnud, plusled, nil },
-  [TOKEN_MINUS]        = { true,  1,   "-", 50, rawfree, minusnud, minusled, nil },
-  [TOKEN_SUBST]        = { true,  1,   "$",  0, substfree, substnud, substled, nil },
-
-  [TOKEN_APPEND]       = { true,  2,  ">>", 10, rawfree, appendnud, appendled, nil },
-  [TOKEN_OUT]          = { true,  1,   ">", 10, rawfree, outnud, outled, nil },
-  [TOKEN_IN]           = { true,  1,   "<", 10, rawfree, innud, inled, nil },
-
-  [TOKEN_CD]           = { false, 2,  "cd", 10, cdfree, cdnud, nil, nil },
-  [TOKEN_IF]           = { false, 2,  "if", 10, iffree, ifnud, nil, nil },
-  [TOKEN_FOR]          = { false, 3, "for", 10, forfree, fornud, nil, nil },
-
-  [TOKEN_AND]          = { true,  2,  "&&",  2, rawfree, rawnud, commandled, nil },
-  [TOKEN_OR]           = { true,  2,  "||",  2, rawfree, rawnud, commandled, nil },
-  [TOKEN_PIPE]         = { true,  1,   "|",  2, rawfree, rawnud, commandled, nil },
-  [TOKEN_BG]           = { true,  1,   "&",  1, rawfree, rawnud, commandled, nil },
-  [TOKEN_SEMI]         = { true,  1,   ";",  1, rawfree, rawnud, commandled, nil },
-
-  [TOKEN_NAME]         = { false, 0,   nil,  5, namefree, rawnud, buildlistled, nil },
-  [TOKEN_NUMBER]       = { false, 0,   nil,  5, rawfree, rawnud, buildlistled, nil },
-  [TOKEN_LIST]         = { false, 0,   nil,  5, listfree, rawnud, buildlistled, nil },
-  [TOKEN_COMMAND]      = { false, 0,   nil,  5, commandfree, nil, nil, commandeval },
-
-  [TOKEN_END]          = { false, 0,   nil,  0, rawfree, endnud, endled, nil },
-};
