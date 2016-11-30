@@ -76,7 +76,6 @@ KSRC_C := \
         timer.c                 \
         mem.c                   \
         proc.c                  \
-        syscall.c               \
         mmu.c                   \
         ../kern/com.c           \
         ../kern/proc.c          \
@@ -127,8 +126,7 @@ init.elf: init.ld $(IOBJECTS)
 		-T init.ld \
 		-o $@ \
 		$(IOBJECTS) \
-		-lc -lgcc \
-		-lctype -lfssrv -lstring -lmem
+		-lc -lctype -lfssrv -lstring -lmem -lgcc
 
 
 CLEAN += initcode.c initcode.o
@@ -148,7 +146,7 @@ am335x.elf: kernel.ld $(KOBJECTS) initcode.o
 	$(LD) $(LDFLAGS) \
 		-T kernel.ld -Ttext $(loadaddr) \
 		-o $@ $(KOBJECTS) initcode.o \
-		-lgcc -lctype -lfssrv -lstring -lmem
+		-lctype -lfssrv -lstring -lmem -lgcc
 
 
 CLEAN += am335x.elf am335x.bin

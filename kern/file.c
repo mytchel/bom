@@ -64,10 +64,9 @@ makereq(struct binding *b,
     return false;
   }
 
-  i = setintr(INTR_OFF);
+  i = setintr(INTR_off);
   unlock(&b->lock);
-  procwait(up);
-  schedule();
+  procwait();
   setintr(i);
 
   return true;
@@ -552,10 +551,9 @@ filewrite(struct chan *c, void *buf, size_t n)
     return ELINK;
   }
 
-  i = setintr(INTR_OFF);
+  i = setintr(INTR_off);
   unlock(&b->lock);
-  procwait(up);
-  schedule();
+  procwait();
   setintr(i);
 
   if (resp.head.ret != OK) {

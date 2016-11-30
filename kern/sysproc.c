@@ -30,7 +30,7 @@
 reg_t
 sysexit(int code)
 {
-  setintr(INTR_OFF);
+  setintr(INTR_off);
   procexit(up, code);
   schedule();
 	
@@ -41,22 +41,16 @@ sysexit(int code)
 reg_t
 syssleep(int ms)
 {
-  intrstate_t i;
-  
   if (ms < 0) {
     ms = 0;
   }
 
   if (ms == 0) {
-    procyield(up);
+    procyield();
   } else {
-    procsleep(up, ms);
+    procsleep(ms);
   }
 
-  i = setintr(INTR_OFF);
-  schedule();
-  setintr(i);
-		
   return 0;
 }
 
@@ -113,7 +107,10 @@ sysfork(int flags, struct label *ureg)
   }
 
   p->parent = up;
-  atomicinc(&up->nchildren);
+
+  do {
+    p->cnext = up->children;
+  } while (!cas(&up->children, p->cnext, p));
 
   /* Both parent and child return from this */
   r = forkchild(p);

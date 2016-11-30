@@ -34,7 +34,6 @@ static bool removefromlist(struct proc **, struct proc *);
 static uint32_t nextpid = 1;
 
 static struct proc *ready = nil;
-static struct proc *waitchildren = nil;
 static struct proc *sleeping = nil;
 static struct proc *suspended = nil;
 
@@ -63,7 +62,7 @@ nextproc(void)
 
   p = ready;
   if (p != nil) {
-    ready = p->next;
+    ready = p->snext;
   } else {
     p = nullproc;
   }
@@ -81,22 +80,22 @@ updatesleeping(uint32_t t)
   while (p != nil) {
     if (t >= p->sleep) {
       if (pp == nil) {
-	sleeping = p->next;
+	sleeping = p->snext;
       } else {
-	pp->next = p->next;
+	pp->snext = p->snext;
       }
 
-      pt = p->next;
+      pt = p->snext;
 
       p->state = PROC_ready;
-      addtolistfront(&ready, p);
+      addtolistback(&ready, p);
 
       p = pt;
     } else {
       p->sleep -= t;
 
       pp = p;
-      p = p->next;
+      p = p->snext;
     }
   }
 }
@@ -125,7 +124,6 @@ schedule(void)
   updatesleeping(t);
 	
   up = nextproc();
-
   up->state = PROC_oncpu;
 
   mmuswitch(up->mmu);
@@ -167,8 +165,8 @@ procnew(void)
 void
 procexit(struct proc *p, int code)
 {
-  struct proc *c;
-
+  struct proc *par, *c;
+  
   if (p->dotchan != nil) {
     chanfree(p->dotchan);
     p->dotchan = nil;
@@ -199,27 +197,58 @@ procexit(struct proc *p, int code)
     p->mgroup = nil;
   }
 
-  p->state = PROC_dead;
-  p->exitcode = code;
- 
-  while (p->parent != nil && p->parent->state == PROC_dead) {
-    c = p->parent;
-    p->parent = c->parent;
+  par = p->parent;
 
-    if (atomicdec(&c->nchildren) == 0) {
-      procfree(c);
-    }
+  for (c = p->children; c != nil; c = c->cnext) {
+    c->parent = par;
   }
 
-  if (p->parent != nil) {
-    addtolistback(&p->parent->deadchildren, p);
-    atomicdec(&p->parent->nchildren);
+  if (par != nil) {
+    while (true) {
+      c = par->children;
+      while (c != nil && c->cnext != nil)
+	c = c->cnext;
 
-    if (p->parent->state == PROC_waiting) {
-      if (removefromlist(&waitchildren, p->parent)) {
-	procready(p->parent);
+      if (c == nil) {
+	if (cas(&par->children, nil, p->children)) {
+	  break;
+	}
+      } else if (cas(&c->cnext, nil, p->children)) {
+	break;
       }
     }
+
+    p->children = nil;
+
+    while (true) {
+      c = par->children;
+      if (c == p) {
+	if (cas(&par->children, p, p->cnext)) {
+	  break;
+	} else {
+	  continue;
+	}
+      }
+
+      while (c->cnext != p)
+	c = c->cnext;
+
+      if (cas(&c->cnext, p, p->cnext)) {
+	break;
+      }
+    }
+
+    do {
+      p->cnext = par->deadchildren;
+    } while (!cas(&par->deadchildren, p->cnext, p));
+
+    if (par->state == PROC_waitchild) {
+      procready(par);
+    }
+
+    p->exitcode = code;
+    p->state = PROC_dead;
+ 
   } else {
     procfree(p);
   }
@@ -244,72 +273,96 @@ waitchild(void)
   intrstate_t i;
 
   if (up->deadchildren == nil) {
-    if (up->nchildren == 0) {
+    if (up->children == nil) {
       return nil;
     } else {
-      addtolistfront(&waitchildren, up);
-      procwait(up);
+      i = setintr(INTR_off);
 
-      i = setintr(INTR_OFF);
+      up->state = PROC_waitchild;
       schedule();
+
       setintr(i);
     }
   }
 
   do {
     p = up->deadchildren;
-  } while (!(cas(&up->deadchildren, p, p->next)));
-
+  } while (!(cas(&up->deadchildren, p, p->cnext)));
+  
   return p;
 }
 
 void
 procready(struct proc *p)
 {
-  p->state = PROC_ready;
-
   if (p->state == PROC_suspend) {
     removefromlist(&suspended, p);
   }
 
+  p->state = PROC_ready;
   addtolistfront(&ready, p);
 }
 
 void
-procsleep(struct proc *p, uint32_t ms)
+procsleep(uint32_t ms)
 {
-  p->state = PROC_sleeping;
-  p->sleep = mstoticks(ms);
+  intrstate_t i;
+
+  up->sleep = mstoticks(ms);
+  addtolistfront(&sleeping, up);
+
+  i = setintr(INTR_off);
+  up->state = PROC_sleeping;
   
-  addtolistfront(&sleeping, p);
+  schedule();
+  setintr(i);
 }
 
 void
-procyield(struct proc *p)
+procyield(void)
 {
-  p->state = PROC_sleeping;
-  addtolistback(&ready, p);
+  intrstate_t i;
+
+  addtolistback(&ready, up);
+
+  up->state = PROC_ready;
+  i = setintr(INTR_off);
+  schedule();
+  setintr(i);
 }
 
 void
 procsuspend(struct proc *p)
 {
+  if (p->state == PROC_ready) {
+    removefromlist(&ready, p);
+  }
+  
   p->state = PROC_suspend;
   addtolistfront(&suspended, p);
 }
 
 void
-procwait(struct proc *p)
+procwait(void)
 {
-  p->state = PROC_waiting;
+  intrstate_t i;
+
+  i = setintr(INTR_off);
+
+  if (up->state == PROC_oncpu) {
+    up->state = PROC_waiting;
+    schedule();
+  }
+
+  setintr(i);
 }
 
 void
 addtolistfront(struct proc **l, struct proc *p)
 {
   do {
-    p->next = *l;
-  } while (!cas(l, p->next, p));
+    p->snext = *l;
+  } while (!cas(l, p->snext, p));
 }
 
 void
@@ -317,17 +370,17 @@ addtolistback(struct proc **l, struct proc *p)
 {
   struct proc *pp;
 
-  p->next = nil;
+  p->snext = nil;
   
   while (true) {
-    for (pp = *l; pp != nil && pp->next != nil; pp = pp->next)
+    for (pp = *l; pp != nil && pp->snext != nil; pp = pp->snext)
       ;
 
     if (pp == nil) {
       if (cas(l, nil, p)) {
 	break;
       }
-    } else if (cas(&pp->next, nil, p)) {
+    } else if (cas(&pp->snext, nil, p)) {
       break;
     }
   }
@@ -336,21 +389,20 @@ addtolistback(struct proc **l, struct proc *p)
 bool
 removefromlist(struct proc **l, struct proc *p)
 {
-  struct proc *pp, *pt;
+  struct proc *pt;
 
   while (true) {
-    pp = nil;
-    for (pt = *l; pt != nil && pt != p; pp = pt, pt = pt->next)
-      ;
-
-    if (pt != p) {
-      return false;
-    } else if (pp == nil) {
-      if (cas(l, p, p->next)) {
+    if (*l == p) {
+      if (cas(l, p, p->snext)) {
 	return true;
       }
     } else {
-      if (cas(&pp->next, p, p->next)) {
+      for (pt = *l; pt != nil && pt->snext != p; pt = pt->snext)
+	;
+
+      if (pt == nil) {
+	return false;
+      } else if (cas(&pt->snext, p, p->snext)) {
 	return true;
       }
     }

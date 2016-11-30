@@ -93,7 +93,7 @@ malloc(size_t size)
     printf("%i trying to malloc something too large %i\n",
 	   up->pid, size);
 
-    setintr(INTR_OFF);
+    setintr(INTR_off);
     procexit(up, ENOMEM);
     schedule();
 

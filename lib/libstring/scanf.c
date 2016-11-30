@@ -71,7 +71,7 @@ vsscanf(const char *str, const char *fmt, va_list ap)
       i = va_arg(ap, int *);
 
       s = num;
-      while (*str != *fmt) {
+      while (*str != 0 && *str != *fmt) {
 	*s++ = *str++;
       }
 
@@ -89,7 +89,7 @@ vsscanf(const char *str, const char *fmt, va_list ap)
     case 's':
       s = va_arg(ap, char *);
 
-      while (*str != *fmt) {
+      while (*str != 0 && *str != *fmt) {
 	*s++ = *str++;
       }
 

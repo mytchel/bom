@@ -123,11 +123,11 @@ procwaitintr(int irqn)
     return false;
   }
 
-  procwait(up);
+  t = setintr(INTR_off);
 
-  t = setintr(INTR_OFF);
   unmaskintr(irqn);
-  schedule();
+  procwait();
+
   setintr(t);
 
   return true;

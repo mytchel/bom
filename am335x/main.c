@@ -93,7 +93,7 @@ mainproc(void *arg)
 
   readyexec(&ureg, (void *) 4, 1, argv);
 
-  setintr(INTR_OFF);
+  setintr(INTR_off);
   
   droptouser(&ureg, (void *) (up->kstack->pa + PAGE_SIZE));
 

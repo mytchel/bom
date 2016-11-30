@@ -77,7 +77,6 @@ static int
 pipedocopy(struct pipe *p, void *buf, size_t n, bool writing)
 {
   struct pipetrans *t, *h, *tp, nt;
-  intrstate_t i;
   int r;
 
   h = p->trans;
@@ -100,10 +99,7 @@ pipedocopy(struct pipe *p, void *buf, size_t n, bool writing)
       return pipedocopy(p, buf, n, writing);
     }
     
-    i = setintr(INTR_OFF);
-    procwait(up);
-    schedule();
-    setintr(i);
+    procwait();
 
     return nt.n;
    

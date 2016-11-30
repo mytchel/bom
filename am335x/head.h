@@ -41,8 +41,8 @@
 #define QUANTA_MIN       10
 
 typedef enum {
-  INTR_ON  = (uint32_t) 0,
-  INTR_OFF = (uint32_t) MODE_DI,
+  INTR_on  = (uint32_t) 0,
+  INTR_off = (uint32_t) MODE_DI,
 } intrstate_t;
 
 struct label {

@@ -466,7 +466,16 @@ cdnud(struct token *self)
 static int
 cdeval(struct token *self, int in, int out)
 {
-  return chdir(self->aux);
+  int r;
+
+  r = chdir(self->aux);
+
+  if (r != OK) {
+    printf("failed to chdir to %s : %i\n", self->aux, r);
+    return r;
+  } else {
+    return OK;
+  }
 }
 
 static void
@@ -632,9 +641,23 @@ static int
 convertargs(struct token *t, int argc, char *argv[])
 {
   struct listaux *l;
+  int i;
   
   while (t != nil) {
     if (t->type == TOKEN_NAME) {
+      argv[argc++] = t->aux;
+    } else if (t->type == TOKEN_NUMBER) {
+      i = (int) t->aux;
+
+      t->type = TOKEN_NAME;
+      t->aux = malloc(sizeof(char) * 32);
+      if (t->aux == nil) {
+	printf("malloc failed!\n");
+	exit(ENOMEM);
+      }
+
+      snprintf(t->aux, sizeof(char) * 32, "%i", i);
+
       argv[argc++] = t->aux;
     } else if (t->type == TOKEN_LIST) {
       l = (struct listaux *) t->aux;

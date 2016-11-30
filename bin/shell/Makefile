@@ -38,7 +38,7 @@ objs = $(src:%.c=%.o)
 CLEAN += shell $(objs)
 shell: $(objs)
 	$(LD) $(LDFLAGS) -o $@ $(objs) \
-		-lc -lgcc -lmem -lstring -lctype
+		-lc -lmem -lstring -lctype -lgcc
 
 CLEAN += list
 list: shell

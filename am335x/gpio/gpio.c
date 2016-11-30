@@ -175,6 +175,7 @@ bwrite(struct request_write *req, struct response_write *resp)
 
       s[l] = req->body.data[len + l];
       if (s[l] == '\n') {
+	len++;
 	break;
       } else if (s[l] == 0) {
 	break;
@@ -202,7 +203,7 @@ bwrite(struct request_write *req, struct response_write *resp)
       break;
     }
     
-    len += l + 1;
+    len += l;
   }
 
   regs->oe = oe;

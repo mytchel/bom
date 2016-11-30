@@ -60,7 +60,7 @@ panic(const char *fmt, ...)
   puts(str);
 
   printf("\n\nHanging...\n");
-  setintr(INTR_OFF);
+  setintr(INTR_off);
   while (1)
     ;
 }

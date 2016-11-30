@@ -31,7 +31,7 @@ src = main.c
 obj = $(src:%.c=%.o)
 
 pwd: $(obj)
-	$(LD) $(LDFLAGS) -o $@ $(obj) -lc -lstring
+	$(LD) $(LDFLAGS) -o $@ $(obj) -lc -lstring -lgcc
 
 .c.o:
 	$(CC) $(CFLAGS) -c $< -o $@ 

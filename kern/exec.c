@@ -192,7 +192,7 @@ kexec(struct chan *f, int argc, char *argv[])
 
   readyexec(&ureg, (void *) hdr.e_entry, argc, argv);
 
-  setintr(INTR_OFF);
+  setintr(INTR_off);
 
   mmuswitch(nmmu);
   

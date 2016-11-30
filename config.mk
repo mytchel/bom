@@ -19,8 +19,6 @@ LDFLAGS += -nostdlib -nodefaultlibs -static \
 	-L/usr/local/lib/gcc/arm-none-eabi/4.9.4/ \
 	-L$(BASE)/lib
 
-LDSCRIPT := -T $(BASE)/$(TARGET)/c.ld
-
 # Compiler chain for build tools
 
 HOSTCC ?= cc

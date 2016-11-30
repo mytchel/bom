@@ -148,15 +148,18 @@ typedef enum {
   PROC_ready,
   PROC_sleeping,
   PROC_waiting,
+  PROC_waitchild,
   PROC_dead,
 } procstate_t;
 
 struct proc {
   struct proc *next; /* For list of procs in list */
+  struct proc *snext; /* For list of procs in list */
+  struct proc *cnext; /* For list of procs in list */
 
   int exitcode;
 
-  int nchildren;
+  struct proc *children;
   struct proc *deadchildren;
   
   struct label label;
@@ -225,13 +228,13 @@ void
 procsuspend(struct proc *p);
 
 void
-procwait(struct proc *p);
+procwait(void);
 
 void
-procsleep(struct proc *p, uint32_t ms);
+procsleep(uint32_t ms);
 
 void
-procyield(struct proc *p);
+procyield(void);
 
 /* This must all be called with interrupts disabled */
 

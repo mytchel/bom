@@ -31,7 +31,7 @@ src = main.c
 obj = $(src:%.c=%.o)
 
 ls: $(obj)
-	$(LD) $(LDFLAGS) -o $@ $(obj) -lc -lstring -lmem
+	$(LD) $(LDFLAGS) -o $@ $(obj) -lc -lstring -lmem -lgcc
 
 .c.o:
 	$(CC) $(CFLAGS) -c $< -o $@ 

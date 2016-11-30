@@ -30,36 +30,51 @@
 void
 lock(struct lock *l)
 {
-  intrstate_t i;
+  struct proc *p;
   
+  if (up == nil) {
+    return;
+  }
+
+ retry:
+
   if (!cas(&l->holder, nil, up)) {
-    up->next = l->wlist;
-    if (!cas(&l->wlist, up->next, up)) {
-      return lock(l);
+    p = l->wlist;
+    while (p != nil && p->next != nil)
+      p = p->next;
+
+    up->next = nil;
+
+    if (p == nil) {
+      if (!cas(&l->wlist, nil, up)) {
+	goto retry;
+      }
+    } else if (!cas(&p->next, nil, up)) {
+      goto retry;
     }
-      
-    procwait(up);
-    i = setintr(INTR_OFF);
-    schedule();
-    setintr(i);
+
+    procwait();
   }
 }
 
 void
 unlock(struct lock *l)
 {
-  struct proc *p, *pp;
+  struct proc *p;
 
-  pp = nil;
-  for (p = l->wlist; p != nil && p->next != nil; pp = p, p = p->next)
-    ;
+  if (up == nil) {
+    return;
+  }
 
+ retry:
+
+  p = l->wlist;
   if (p != nil) {
-    if (pp == nil) {
-      l->wlist = nil;
-    } else {
-      pp->next = nil;
+    if (!cas(&l->wlist, p, p->next)) {
+      goto retry;
     }
+
+    p->next = nil;
     
     l->holder = p; 
     procready(p);
