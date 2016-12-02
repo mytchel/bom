@@ -27,7 +27,7 @@ BASE ?= $(.CURDIR)/../..
 
 include $(BASE)/config.mk
 
-src = matrix.c 
+src = main.c matrix.c 
 objs = $(src:%.c=%.o)
 
 

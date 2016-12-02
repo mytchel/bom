@@ -61,6 +61,8 @@ fscanf(int fd, const char *fmt, ...);
 int
 sscanf(const char *str, const char *fmt, ...);
 
+long
+strtol(const char *nptr, char **endptr, int base);
 
 #ifdef _STDARG_H_
 

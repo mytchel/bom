@@ -57,7 +57,8 @@ ISRC = \
         ../bin/shell/eval.c     \
         ../bin/fatfs/fat.c      \
         ../bin/fatfs/util.c     \
-        ../bin/fatfs/mount.c
+        ../bin/fatfs/mount.c    \
+        ../bin/led/matrix.c
 
 
 IOBJECTS := $(ISRC:%.c=%.o)

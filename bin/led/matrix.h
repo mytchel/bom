@@ -46,6 +46,21 @@ struct pin {
   char *dev;
   int num;
   int fd;
+  bool level;
+  int lowlen, highlen;
+  char low[32], high[32];
 };
 
 extern struct pin pins[NPINS];
+
+void
+reset(void);
+
+int
+setuppins(void);
+
+int
+setpin(pin_t p, bool on);
+
+int
+matrix(int delay, int color, int repeat);

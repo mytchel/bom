@@ -25,6 +25,21 @@
  *
  */
 
-bool
-isspace(int c);
- 
+#include <libc.h>
+#include <string.h>
+
+#include "matrix.h"
+
+int
+main(int argc, char *argv[])
+{
+  int r;
+
+  if (argc > 1) {
+    r = strtol(argv[1], nil, 10);
+  } else {
+    r = 0;
+  }
+
+  return matrix(0, 1|(1<<1)|(1<<2), r);
+}

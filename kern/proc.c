@@ -300,7 +300,7 @@ procready(struct proc *p)
   }
 
   p->state = PROC_ready;
-  addtolistfront(&ready, p);
+  addtolistback(&ready, p);
 }
 
 void

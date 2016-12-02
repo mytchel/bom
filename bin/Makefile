@@ -41,6 +41,7 @@ SUBDIR += pwd
 SUBDIR += rm
 SUBDIR += touch
 SUBDIR += unbind
+SUBDIR += led
 
 .PHONY: all
 all: $(SUBDIR)

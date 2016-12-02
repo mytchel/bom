@@ -28,7 +28,7 @@ BASE ?= ../..
 include $(BASE)/config.mk
 
 LIB = libstring
-src = string.c printf.c scanf.c
+src = string.c printf.c scanf.c conv.c
 
 objs = $(src:%.c=%.o)
 

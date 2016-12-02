@@ -277,39 +277,10 @@ gpiomount(char *path, uint32_t addr)
 int
 initgpios(void)
 {
-  int f;
-  
-  f = fork(FORK_sngroup);
-  if (f < 0) {
-    return -1;
-  } else if (f == 0) {
-    f = gpiomount("/dev/gpio0", GPIO0);
-    exit(f);
-  }
-
-  f = fork(FORK_sngroup);
-  if (f < 0) {
-    return -2;
-  } else if (f == 0) {
-    f = gpiomount("/dev/gpio1", GPIO1);
-    exit(f);
-  }
-  
-  f = fork(FORK_sngroup);
-  if (f < 0) {
-    return -3;
-  } else if (f == 0) {
-    f = gpiomount("/dev/gpio2", GPIO2);
-    exit(f);
-  }
-  
-  f = fork(FORK_sngroup);
-  if (f < 0) {
-    return -4;
-  } else if (f == 0) {
-    f = gpiomount("/dev/gpio3", GPIO3);
-    exit(f);
-  }
+  gpiomount("/dev/gpio0", GPIO0);
+  gpiomount("/dev/gpio1", GPIO1);
+  gpiomount("/dev/gpio2", GPIO2);
+  gpiomount("/dev/gpio3", GPIO3);
 
   return OK;
 }

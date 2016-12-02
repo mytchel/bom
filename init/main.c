@@ -44,6 +44,9 @@ mountfat(char *device, char *dir);
 void
 interp(void);
 
+int
+matrix(int delay, int color, int repeat);
+
 static int
 readline(char *data, size_t max)
 {
@@ -126,6 +129,8 @@ main(int argc, char *argv[])
     return -4;
   }
 
+  matrix(10000, 1|(1<<1)|(1<<2), 1);
+  
   while (true) {
     printf("root: ");
 

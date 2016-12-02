@@ -49,27 +49,28 @@ struct pin pins[NPINS] = {     /* raspberry */
   [RD]  = { "/dev/gpio2",   1, 0 }, /* gpio20   38 */
 };
 
-char buf[32*32] = {0};
-
 int
 setpin(pin_t p, bool on)
 {
-  char msg[32], *v;
-  size_t l;
-  int r;
+  char *msg;
+  int r, l;
 
-  if (on) {
-    v = "high";
-  } else {
-    v = "low";
+  if (pins[p].level == on) {
+    return OK;
   }
   
-  l = snprintf(msg, sizeof(msg), "%i %s",
-	       pins[p].num, v);
+  if (on) {
+    l = pins[p].highlen;
+    msg = pins[p].high;
+  } else {
+    l = pins[p].lowlen;
+    msg = pins[p].low;
+  }
   
+  pins[p].level = on;
   r = write(pins[p].fd, msg, l);
   if (r != l) {
-    printf("error setting %s:%i %s\n", pins[p].dev, pins[p].num, v);
+    printf("error writing '%s' > %s : %i\n", msg, pins[p].dev, r);
     return ERR;
   } else {
     return OK;
@@ -97,77 +98,25 @@ setuppins(void)
       printf("failed to set %s:%i out\n", pins[p].dev, pins[p].num);
       return ERR;
     }
+
+    pins[p].lowlen = snprintf(pins[p].low, sizeof(pins[p].low),
+			      "%i low", pins[p].num);
+    pins[p].highlen = snprintf(pins[p].high, sizeof(pins[p].high),
+			       "%i high", pins[p].num);
+
+    pins[p].level = true;
+    setpin(p, false);
   }
 
   return OK;
 }
 
-int
-main(int argc, char *argv[])
+void
+reset(void)
 {
-  int l, r, c;
-  
-  r = setuppins();
-  if (r != OK) {
-    printf("failed to setup pins!\n");
-    return r;
-  }
-
-  setpin(OE, true);
+  setpin(OE, false);
   setpin(LAT, false);
-  setpin(RA, false);
-  setpin(RB, false);
-  setpin(RC, false);
-  setpin(RD, false);
 
-  setpin(R1, true);
-  setpin(G1, false);
-  setpin(B1, false);
-  setpin(R2, false);
-  setpin(G2, true);
-  setpin(B2, false);
-
-  for (l = 0; l < 5; l++) {
-    for (r = 0; r < 16; r++) {
-      setpin(OE, true);
-      setpin(LAT, true);
-
-      if (r & (1 << 0)) {
-	setpin(RA, true);
-      } else {
-	setpin(RA, false);
-      }
-      
-      if (r & (1 << 1)) {
-	setpin(RB, true);
-      } else {
-	setpin(RB, false);
-      }
-
-      if (r & (1 << 2)) {
-	setpin(RC, true);
-      } else {
-	setpin(RC, false);
-      }
-
-      if (r & (1 << 3)) {
-	setpin(RD, true);
-      } else {
-	setpin(RD, false);
-      }
-
-      setpin(OE, false);
-      setpin(LAT, false);
-
-      for (c = 0; c < 32; c++) {
-	setpin(CLK, false);
-	setpin(CLK, true);
-      }
-    }
-  }
-
-  setpin(OE, true);
-  setpin(LAT, false);
   setpin(RA, false);
   setpin(RB, false);
   setpin(RC, false);
@@ -179,9 +128,88 @@ main(int argc, char *argv[])
   setpin(R2, false);
   setpin(G2, false);
   setpin(B2, false);
+}
 
+void
+setrow(int row)
+{
+  if (row & (1 << 0)) {
+    setpin(RA, true);
+  } else {
+    setpin(RA, false);
+  }
+      
+  if (row & (1 << 1)) {
+    setpin(RB, true);
+  } else {
+    setpin(RB, false);
+  }
 
-  printf("done\n");
-  
+  if (row & (1 << 2)) {
+    setpin(RC, true);
+  } else {
+    setpin(RC, false);
+  }
+
+  if (row & (1 << 3)) {
+    setpin(RD, true);
+  } else {
+    setpin(RD, false);
+  }
+}
+
+int
+matrix(int delay, int color, int repeat)
+{
+  int e, row;
+
+  e = setuppins();
+  if (e != OK) {
+    printf("failed to setup pins : %i\n", e);
+    return e;
+  }
+
+  reset();
+
+  if (color & (1 << 0)) {
+    setpin(R1, true);
+  } else {
+    setpin(R1, false);
+  }
+      
+  if (color & (1 << 1)) {
+    setpin(G1, true);
+  } else {
+    setpin(G1, false);
+  }
+
+  if (color & (1 << 2)) {
+    setpin(B1, true);
+  } else {
+    setpin(B1, false);
+  }
+
+  setpin(B2, true);
+  setpin(R2, true);
+
+  row = 0;
+  while (true) {
+    setpin(OE, true);
+
+    setpin(LAT, true);
+    setpin(LAT, false);
+
+    setrow(row++);
+    if (row == 16) {
+      row = 0;
+    }
+
+    setpin(OE, false);
+
+    for (e = 0; e < 32; e++) {
+      setpin(RA, !pins[RA].level);
+    }
+  }
+   
   return OK;
 }
