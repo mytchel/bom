@@ -106,14 +106,6 @@ struct bindingfid {
   struct bindingfid *cnext;
 };
 
-struct fstransaction {
-  size_t len;
-  uint32_t rid, type;
-  struct response *resp;
-  struct fstransaction *next;
-  struct proc *proc;
-};
-
 struct binding {
   int refs;
   struct lock lock;
@@ -277,9 +269,17 @@ fixfault(void *);
 void *
 kaddr(struct proc *p, const void *addr, size_t size);
 
-reg_t
-insertpages(struct mgroup *m, struct pagel *pagel,
-	    reg_t addr, size_t size, bool fix);
+struct pagel *
+getrampages(size_t len, bool rw);
+
+struct pagel *
+getiopages(void *addr, size_t len, bool rw);
+
+void *
+insertpages(struct mgroup *m, struct pagel *pagel, size_t size);
+
+void
+insertpagesfixed(struct mgroup *m, struct pagel *pagel, size_t size);
 
 int
 kexec(struct chan *f, int argc, char *argv[]);
@@ -393,6 +393,9 @@ filewrite(struct chan *c, void *buf, size_t len);
 
 int
 fileseek(struct chan *c, size_t offset, int whence);
+
+struct pagel *
+getfilepages(struct chan *c, size_t offset, size_t len, bool rw);
 
 int
 kmountloop(struct chan *in, struct binding *b, struct fsmount *mount);

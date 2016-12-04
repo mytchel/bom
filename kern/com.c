@@ -27,6 +27,8 @@
 
 #include "head.h"
 
+static struct lock pl;
+
 int
 printf(const char *fmt, ...)
 {
@@ -39,7 +41,9 @@ printf(const char *fmt, ...)
   va_end(ap);
 
   if (i > 0) {
+    lock(&pl);
     puts(str);
+    unlock(&pl);
   }
 
   return i;

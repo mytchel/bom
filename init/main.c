@@ -28,6 +28,7 @@
 #include <libc.h>
 #include <fs.h>
 #include <string.h>
+#include <mem.h>
 
 int
 commount(char *path);
@@ -129,7 +130,9 @@ main(int argc, char *argv[])
     return -4;
   }
 
+  /*
   matrix(10000, 1|(1<<1)|(1<<2), 1);
+  */
   
   while (true) {
     printf("root: ");

@@ -256,7 +256,7 @@ gpiomount(char *path, uint32_t addr)
   }
 
   regs = (struct gpio_regs *)
-    mmap(MEM_io, (void *) addr, &size);
+    mmap(MEM_io|MEM_rw, size, 0, 0, (void *) addr);
 
   if (regs == nil) {
     exit(-4);

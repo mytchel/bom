@@ -109,10 +109,15 @@ wait:
 
 
 mmap:
+	sub sp, sp, #4
+	str r3, [sp]
+	mov r3, sp
 	push {r12, lr}
 	mov r12, #SYSCALL_MMAP
 	svc 0
-	pop {r12, pc}
+	pop {r12, lr}
+	add sp, sp, #4
+	mov pc, lr
 
 
 munmap:

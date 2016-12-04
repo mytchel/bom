@@ -296,149 +296,169 @@ kaddr(struct proc *p, const void *addr, size_t len)
   return (void *) (pl->p->pa + offset);
 }
 
-static reg_t
-insertpagesfix(struct mgroup *m, struct pagel *pn,
-	       reg_t addr, size_t size)
+static void
+fixaddresses(struct pagel *p, struct pagel *next, reg_t addr)
 {
-  struct pagel *p, *pp;
-  reg_t caddr;
+  while (p->next != nil) {
+    p->va = addr;
+    addr += PAGE_SIZE;
+    p = p->next;
+  }
 
-  caddr = (reg_t) addr;
-  pp = nil;
-  for (p = m->pages; p != nil && pn != nil; pp = p, p = p->next) {
+  p->va = addr;
+  p->next = next;
+}
+
+void *
+insertpages(struct mgroup *m, struct pagel *pn, size_t size)
+{
+  struct pagel *p;
+  reg_t addr;
+
+  lock(&m->lock);
+  
+  if (m->pages == nil) {
+    fixaddresses(pn, nil, nil);
+    m->pages = pn;
+    unlock(&m->lock);
+    return nil;
+  }
+  
+  for (p = m->pages; p != nil && pn != nil; p = p->next) {
     if (p->next == nil ||
 	p->va + PAGE_SIZE + size <= p->next->va) {
 
-      caddr = (reg_t) p->va + PAGE_SIZE;
-      addr = caddr;
-      
-      for (pp = pn;  pp != nil && pp->next != nil; pp = pp->next) {
-	pp->va = caddr;
-	caddr += PAGE_SIZE;
-      }
+      addr = p->va + PAGE_SIZE;
 
-      pp->va = caddr;
-
-      pp->next = p->next;
+      fixaddresses(pn, p->next, addr);
       p->next = pn;
-
-      return addr;
+      
+      unlock(&m->lock);
+      return (void *) addr;
     }
   }
 
-  return 0;
+  unlock(&m->lock);
+  return nil;
 }
 
-static reg_t
-insertpagesnofix(struct mgroup *m, struct pagel *pn,
-		 reg_t addr, size_t size)
+void
+insertpagesfixed(struct mgroup *m, struct pagel *pn, size_t size)
 {
-  struct pagel *p, *pp;
-  reg_t caddr;
+  struct pagel *p, *pp, *t;
 
-  caddr = (reg_t) addr;
+  lock(&m->lock);
+
+  if (m->pages == nil) {
+    m->pages = pn;
+    unlock(&m->lock);
+    return;
+  }
+
   pp = nil;
-  for (p = m->pages; p != nil && pn != nil; pp = p, p = p->next) {
-    if ((reg_t) p->va == caddr) {
-      /* Replace page */
+  p = m->pages;
+  while (p != nil) {
+    t = p->next;
 
-      printf("replace page at 0x%h\n", p->va);
+    if (p->va == pn->va) {
+      /* replace */
 
       if (pp == nil) {
-	pp = m->pages->next;
+	pp = pn->next;
 	m->pages = pn;
-	
-	pn = pn->next;
-	m->pages->next = pp;
+	pn->next = p->next;
+	pn = pp;
+	pp = m->pages;
       } else {
 	pp->next = pn;
 	pn = pn->next;
 	pp->next->next = p->next;
+	pp = pp->next;
       }
-
-      caddr += PAGE_SIZE;
 
       pagefree(p->p);
       free(p);
     }
+
+    p = t;
   }
 
-  return addr;
+  if (pn != nil) {
+    if (pp == nil) {
+      m->pages = pn;
+    } else {
+      pp->next = pn;
+    }
+  }
+
+  unlock(&m->lock);
 }
 
-reg_t
-insertpages(struct mgroup *m, struct pagel *pn,
-	    reg_t addr, size_t size, bool fix)
+struct pagel *
+getrampages(size_t len, bool rw)
 {
-  reg_t caddr;
+  struct pagel *head, *pl, *pp;
+  struct page *pg;
+  size_t l;
 
-  if (m->pages == nil) {
-    m->pages = pn;
-
-    if (fix) {
-      addr = nil;
-      caddr = 0;
-      while (fix && pn != nil) {
-	pn->va = caddr;
-	pn = pn->next;
-	caddr += PAGE_SIZE;
-      }
-
+  head = pp = nil;
+  for (l = 0; l < len; l += PAGE_SIZE) {
+    pg = getrampage();
+    if (pg == nil) {
+      pagelfree(head);
       return nil;
-    } else {
-      return addr;
     }
-  
-  } else {
-    if (fix) {
-      return insertpagesfix(m, pn, addr, size);
-    } else {
-      return insertpagesnofix(m, pn, addr, size);
+
+    pl = wrappage(pg, nil, rw, true);
+    if (pl == nil) {
+      pagefree(pg);
+      pagelfree(head);
+      return nil;
     }
+
+    if (pp == nil) {
+      head = pl;
+    } else {
+      pp->next = pl;
+    }
+
+    pp = pl;
   }
+
+  return head;
 }
 
-    #if 0
-
-static void
-fixpagel(struct pagel *p, reg_t addr, struct pagel *next)
+struct pagel *
+getiopages(void *addr, size_t len, bool rw)
 {
-  struct pagel *pp;
+  struct pagel *head, *pl, *pp;
+  struct page *pg;
+  size_t l;
 
-  pp = nil;
-  for (pp = nil; p != nil; pp = p, p = p->next) {
-    p->va = (void *) addr;
-    addr += PAGE_SIZE;
+  head = pp = nil;
+  for (l = 0; l < len; l += PAGE_SIZE) {
+    pg = getiopage(addr + l);
+    if (pg == nil) {
+      pagelfree(head);
+      return nil;
+    }
+
+    pl = wrappage(pg, nil, rw, false);
+    if (pl == nil) {
+      pagefree(pg);
+      pagelfree(head);
+      return nil;
+    }
+
+    if (pp == nil) {
+      head = pl;
+    } else {
+      pp->next = pl;
+    }
+
+    pp = pl;
   }
-	
-  if (pp != nil) {/* Should never be nil. */
-    pp->next = next;
-  }
+
+  return head;
 }
 
-if (fix && pp != nil) {
-      addr = (uint8_t *) pp->va + PAGE_SIZE;
-    }
-		
-    if ((size_t) (p->va - addr) > size) {
-      /* Pages fit in here */
-      break;
-    }
-  }
-
-  if (pp == nil) {
-    up->mgroup->pages = pagel;
-    fixpagel(pagel, (reg_t) addr, p);
-  } else {
-    if (fix) {
-      addr = (uint8_t *) pp->va + PAGE_SIZE;
-    }
-    
-    pp->next = pagel;
-    fixpagel(pagel, (reg_t) addr, p);
-  }
-  
-  return addr;
-}
-
-#endif

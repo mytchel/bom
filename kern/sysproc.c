@@ -204,84 +204,48 @@ syswaitintr(int irqn)
 }
 
 reg_t
-sysmmap(int type, void *addr, size_t *size)
+sysmmap(int flags, size_t len, int fd, va_list ap)
 {
-  struct pagel *head, *pp, *pl;
-  struct page *pg;
-  void *paddr = nil;
-  size_t csize;
-  bool rw, c;
+  struct pagel *pages;
+  struct chan *c;
+  size_t offset;
+  void *addr;
+  bool rw;
 
-  if (kaddr(up, size, sizeof(size_t)) == nil) {
-    return ERR;
-  }
+  offset = va_arg(ap, size_t);
+  addr = va_arg(ap, void *);
+
+  len = PAGE_ALIGN(len);
   
-  switch (type) {
-  case MEM_ram:
+  if (flags & MEM_rw) {
     rw = true;
-    c = true;
-    break;
-  case MEM_io:
-    rw = true;
-    c = false;
-    paddr = addr;
-    addr = nil;
-    break;
-  default:
-    return nil;
+  } else {
+    rw = false;
   }
 
-  pp = head = nil;
-  csize = 0;
+  if (flags & MEM_ram) {
+    pages = getrampages(len, rw);
 
-  for (csize = 0; csize < *size; csize += PAGE_SIZE) {
-    switch (type) {
-    case MEM_ram:
-      pg = getrampage();
-      break;
-    case MEM_io:
-      pg = getiopage(paddr);
-      paddr += PAGE_SIZE;
-      break;
-    default:
-      pg = nil;
-    }
+  } else if (flags & MEM_io) {
+    pages = getiopages(addr, len, rw);
 
-    if (pg == nil) {
-      pagelfree(head);
+  } else if (flags & MEM_file) {
+    c = fdtochan(up->fgroup, fd);
+    if (c == nil) {
       return nil;
     }
 
-    pl = wrappage(pg, nil, rw, c);
-    if (pl == nil) {
-      pagefree(pg);
-      pagelfree(head);
-      return nil;
-    }
-
-    if (pp == nil) {
-      head = pl;
-    } else {
-      pp->next = pl;
-    }
-
-    pp = pl;
+    offset = PAGE_ALIGN(offset + PAGE_SIZE - 1);
+    pages = getfilepages(c, offset, len, rw);
+  } else {
+    pages = nil;
   }
-	
-  if (head == nil) {
+
+  if (pages != nil) {
+    return (reg_t) insertpages(up->mgroup, pages, len);
+  } else {
     return nil;
   }
-
-  lock(&up->mgroup->lock);
-
-  addr = (void *) insertpages(up->mgroup, head,
-			      (reg_t) addr, csize,
-			      addr == nil);
-
-  unlock(&up->mgroup->lock);
-
-  *size = csize;
-  return (reg_t) addr;
 }
 
 reg_t

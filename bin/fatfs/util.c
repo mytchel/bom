@@ -37,29 +37,15 @@
 void
 fatinitbufs(struct fat *fat)
 {
-  void *addr;
-  size_t s;
   int i;
 
-  i = 0;
-  
-  while (true) {
-    s = fat->spc * fat->bps;
-    addr = mmap(MEM_ram, nil, &s);
+  for (i = 0; i < BUFSMAX; i++) {
+    fat->bufs[i].addr = 
+      mmap(MEM_ram|MEM_rw, fat->spc * fat->bps, 0, 0, 0);
 
-    while (s > fat->spc * fat->bps) {
-      fat->bufs[i].addr = addr;
-      fat->bufs[i].sector = 0;
-      fat->bufs[i].uses = 0;
-      fat->bufs[i].n = 0;
-
-      addr = (void *) ((uint8_t *) addr + fat->spc * fat->bps);
-      s -= fat->spc * fat->bps;
-
-      if (++i == BUFSMAX) {
-	return;
-      }
-    }
+    fat->bufs[i].sector = 0;
+    fat->bufs[i].uses = 0;
+    fat->bufs[i].n = 0;
   }
 }
 

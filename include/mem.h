@@ -30,7 +30,10 @@
 
 /* Memory system calls */
 
-enum { MEM_ram, MEM_io };
+#define MEM_ram     (1<<0)
+#define MEM_io      (1<<1)
+#define MEM_file    (1<<2)
+#define MEM_rw      (1<<3)
 
 /* 
  * Maps a number of pages necessary to contain size and 
@@ -40,7 +43,7 @@ enum { MEM_ram, MEM_io };
  * This is so you can request memory mapped IO.
  */
 void *
-mmap(int type, void *addr, size_t *size);
+mmap(int flags, size_t len, int fd, size_t offset, void *addr);
 
 /*
  * Unmaps the pages starting at addr. 

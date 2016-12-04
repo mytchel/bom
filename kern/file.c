@@ -27,6 +27,15 @@
 
 #include "head.h"
 
+struct fstransaction {
+  bool served;
+  size_t len;
+  uint32_t rid, type;
+  struct response *resp;
+  struct fstransaction *next;
+  struct proc *proc;
+};
+
 struct cfile {
   struct lock lock;
   struct bindingfid *fid;
@@ -34,12 +43,105 @@ struct cfile {
 };
 
 static bool
+getresponse(struct binding *b, struct fstransaction *want)
+{
+  if (!want->served) {
+    procwait();
+  }
+
+  return true;
+}
+
+int
+mountproc(void *arg)
+{
+  struct fstransaction *t, *p;
+  struct response tresp;
+  struct binding *b;
+  
+  b = (struct binding *) arg;
+
+  while (b->refs > 1) {
+    if (piperead(b->in, (void *) &tresp, sizeof(tresp)) < 0) {
+      break;
+    }
+
+  findandremove:
+    p = nil;
+    for (t = b->waiting; t != nil; p = t, t = t->next) {
+      if (t->rid != tresp.head.rid) {
+	continue;
+      } else if (p == nil) {
+	if (!cas(&b->waiting, t, t->next)) {
+	  goto findandremove;
+	}
+      } else {
+	if (!cas(&p->next, t, t->next)) {
+	  goto findandremove;
+	}
+      }
+
+      break;
+    }
+
+    if (t == nil) {
+      printf("kproc mount: response %i has no waiter.\n",
+	     tresp.head.rid);
+      break;
+    } 
+
+    memmove(t->resp, &tresp, t->len);
+
+    if (t->type == REQ_read && t->resp->head.ret == OK) {
+      t->resp->read.len = piperead(b->in, t->resp->read.data,
+				   t->resp->read.len);
+
+      if (t->resp->read.len < 0) {
+	printf("kproc mount: error reading read response.\n");
+	break;
+      }
+    }
+
+    t->served = true;
+    procready(t->proc);
+  }
+
+  lock(&b->lock);
+
+  if (b->in != nil) {
+    chanfree(b->in);
+    b->in = nil;
+  }
+
+  if (b->out != nil) {
+    chanfree(b->out);
+    b->out = nil;
+  }
+
+  /* Wake up any waiting processes so they can error. */
+
+  t = b->waiting;
+  while (t != nil) {
+    p = t->next;
+    
+    t->resp->head.ret = ELINK;
+    procready(t->proc);
+
+    t = p;
+  }
+
+  unlock(&b->lock);
+  bindingfree(b);
+
+  return ERR;
+}
+
+static bool
 makereq(struct binding *b,
 	struct request *req, size_t reqlen,
 	struct response *resp, size_t resplen)
 {
   struct fstransaction trans;
-  intrstate_t i;
   
   if (b->out == nil) {
     return false;
@@ -50,7 +152,8 @@ makereq(struct binding *b,
   trans.len = resplen;
   trans.resp = resp;
   trans.proc = up;
-  
+  trans.served = false;
+
   req->head.rid = trans.rid;
 
   do {
@@ -64,12 +167,8 @@ makereq(struct binding *b,
     return false;
   }
 
-  i = setintr(INTR_off);
   unlock(&b->lock);
-  procwait();
-  setintr(i);
-
-  return true;
+  return getresponse(b, &trans);
 }
 
 void
@@ -503,7 +602,6 @@ filewrite(struct chan *c, void *buf, size_t n)
   struct response_write resp;
   struct binding *b;
   struct cfile *cfile;
-  intrstate_t i;
   size_t reqlen;
   
   cfile = (struct cfile *) c->aux;
@@ -522,6 +620,7 @@ filewrite(struct chan *c, void *buf, size_t n)
   trans.type = REQ_write;
   trans.resp = (struct response *) &resp;
   trans.proc = up;
+  trans.served = false;
 
   req.head.rid = trans.rid;
   req.head.type = REQ_write;
@@ -551,12 +650,12 @@ filewrite(struct chan *c, void *buf, size_t n)
     return ELINK;
   }
 
-  i = setintr(INTR_off);
   unlock(&b->lock);
-  procwait();
-  setintr(i);
 
-  if (resp.head.ret != OK) {
+  if (!getresponse(b, &trans)) {
+    unlock(&cfile->lock);
+    return ELINK;
+  } else if (resp.head.ret != OK) {
     unlock(&cfile->lock);
     return resp.head.ret;
   } else {
@@ -588,6 +687,12 @@ fileseek(struct chan *c, size_t offset, int whence)
 
   unlock(&cfile->lock);
   return OK;
+}
+
+struct pagel *
+getfilepages(struct chan *c, size_t offset, size_t len, bool rw)
+{
+  return nil;
 }
 
 void

@@ -35,12 +35,19 @@ include $(BASE)/config.mk
 loadaddr=0x82000000
 
 SUBDIR =
-SUBDIR += $(BASE)/lib
+SUBDIR += $(BASE)/lib/
+SUBDIR += $(BASE)/lib/libc
+SUBDIR += $(BASE)/lib/libctype
+SUBDIR += $(BASE)/lib/libstring
+SUBDIR += $(BASE)/lib/libfssrv
+SUBDIR += $(BASE)/lib/libmem
+SUBDIR += $(BASE)/bin
 SUBDIR += $(BASE)/tools/mkuboot
 SUBDIR += $(BASE)/tools/bintoarray
 
+
 .PHONY: all
-all: $(BASE)/lib am335x.umg am335x.list init.list
+all: init.list am335x.list am335x.umg
 
 
 ISRC = \
@@ -87,7 +94,6 @@ KSRC_C := \
         ../kern/chan.c          \
         ../kern/pipe.c          \
         ../kern/file.c          \
-        ../kern/mount.c         \
         ../kern/rootfs.c        \
         ../kern/path.c          \
         ../kern/heap.c          \
@@ -121,8 +127,17 @@ CLEAN += $(KOBJECTS)
 	@$(OBJDUMP) -S $< > $@
 
 
+.PHONY: $(SUBDIR)
+.for sub in $(SUBDIR)
+$(sub):
+	@echo making $@
+	$(MAKE) -C $(sub) BASE="$(BASE)"
+.endfor
+
+
 CLEAN += init.elf init.list
-init.elf: init.ld $(IOBJECTS)
+init.elf: init.ld $(IOBJECTS) $(BASE)/lib/libc $(BASE)/lib/libctype $(BASE)/lib/libfssrv $(BASE)/lib/libstring $(BASE)/lib/libmem
+	@echo deps $?
 	$(LD) $(LDFLAGS) \
 		-T init.ld \
 		-o $@ \
@@ -143,7 +158,8 @@ initcode.c: init.elf
 
 
 CLEAN += $(TARGET).elf $(TARGET).list
-am335x.elf: kernel.ld $(KOBJECTS) initcode.o
+am335x.elf: kernel.ld $(KOBJECTS) initcode.o $(BASE)/lib/libctype \
+	$(BASE)/lib/libfssrv $(BASE)/lib/libstring $(BASE)/lib/libmem
 	$(LD) $(LDFLAGS) \
 		-T kernel.ld -Ttext $(loadaddr) \
 		-o $@ $(KOBJECTS) initcode.o \
@@ -157,13 +173,6 @@ am335x.umg: am335x.bin
 		-e $(loadaddr) -l $(loadaddr) -o linux \
 		am335x.bin am335x.umg
 	scp am335x.umg root@gibson:/var/ftpd
-
-
-.PHONY: $(SUBDIR)
-.for sub in $(SUBDIR)
-$(sub):
-	$(MAKE) -C $(sub) BASE="$(BASE)"
-.endfor
 
 
 .PHONY: clean 

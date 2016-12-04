@@ -28,6 +28,8 @@
 #include <libc.h>
 #include <mem.h>
 
+#define BLOCKMAX 512
+
 struct block {
   size_t size;
   struct block *next;
@@ -40,8 +42,15 @@ growheap(struct block *prev, size_t size)
 {
   struct block *b;
   void *pg;
+  size_t a;
 
-  pg = mmap(MEM_ram, nil, &size);
+  if (size > BLOCKMAX) {
+    a = size + sizeof(size_t);
+  } else {
+    a = BLOCKMAX * 8;
+  }
+
+  pg = mmap(MEM_ram|MEM_rw, a, 0, 0, nil);
   if (pg == nil) {
     return nil;
   }
@@ -52,7 +61,7 @@ growheap(struct block *prev, size_t size)
     b = prev->next = (struct block *) pg;
   }
 	
-  b->size = size - sizeof(size_t);
+  b->size = a - sizeof(size_t);
   b->next = nil;
 
   return b;
@@ -68,7 +77,7 @@ malloc(size_t size)
     return nil;
 
   size = roundptr(size);
-
+  
   p = nil;
   for (b = heap; b != nil; p = b, b = b->next) {
     if (b->size >= size) {

@@ -519,13 +519,14 @@ cardinit(void)
 static int
 mmchsproc(char *n, void *addr, int i)
 {
-  size_t regsize = 4 * 1024;
   struct blkdevice device;
 
   name = n;
   intr = i;
 
-  regs = (struct mmchs_regs *) mmap(MEM_io, addr, &regsize);
+  regs = (struct mmchs_regs *) 
+    mmap(MEM_io|MEM_rw, 0x1000, 0, 0, addr);
+
   if (regs == nil) {
     printf("%s failed to map register space!\n", name);
     return ERR;

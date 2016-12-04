@@ -228,6 +228,7 @@ bindingnew(struct chan *out, struct chan *in, uint32_t rootattr)
     atomicinc(&out->refs);
   }
 
+  b->srv = nil;
   b->waiting = nil;
   b->nreqid = 0;
 	

@@ -93,7 +93,6 @@ rootfsinit(void)
   procready(pr);
   procready(pm);
 }
- 
 
 static void
 bgetfid(struct request_getfid *req, struct response_getfid *resp)

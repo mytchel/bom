@@ -295,7 +295,9 @@ waitchild(void)
 void
 procready(struct proc *p)
 {
-  if (p->state == PROC_suspend) {
+  if (p->state == PROC_ready) {
+    return;
+  } else if (p->state == PROC_suspend) {
     removefromlist(&suspended, p);
   }
 
@@ -348,12 +350,8 @@ procwait(void)
   intrstate_t i;
 
   i = setintr(INTR_off);
-
-  if (up->state == PROC_oncpu) {
-    up->state = PROC_waiting;
-    schedule();
-  }
-
+  up->state = PROC_waiting;
+  schedule();
   setintr(i);
 }
 

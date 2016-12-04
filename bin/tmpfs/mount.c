@@ -348,7 +348,7 @@ bwrite(struct request_write *req, struct response_write *resp)
 
   if (req->body.offset + req->body.len > f->lbuf) {
     nsize = req->body.offset + req->body.len;
-    nbuf = mmap(MEM_ram, nil, &nsize);
+    nbuf = mmap(MEM_ram|MEM_rw, nsize, 0, 0, nil);
     if (nbuf == nil) {
       resp->head.ret = ENOMEM;
       return;

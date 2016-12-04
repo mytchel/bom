@@ -65,7 +65,7 @@ addpages(struct mgroup *m, reg_t addr, size_t size, bool rw)
     s += PAGE_SIZE;
   }
 
-  insertpages(m, head, addr, s, false);
+  insertpagesfixed(m, head, s);
   return OK;
 }
 
@@ -195,7 +195,7 @@ kexec(struct chan *f, int argc, char *argv[])
   setintr(INTR_off);
 
   mmuswitch(nmmu);
-  
+
   droptouser(&ureg, (void *) (up->kstack->pa + PAGE_SIZE));
 
   panic("droptouser returned, this should never happen.\n");

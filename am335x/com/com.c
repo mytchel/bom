@@ -363,7 +363,7 @@ commount(char *path)
   fsin = p1[0];
  
   uart = (struct uart_struct *)
-    mmap(MEM_io, (void *) UART0, &size);
+    mmap(MEM_io|MEM_rw, size, 0, 0, (void *) UART0);
 
   if (uart == nil) {
     exit(-4);

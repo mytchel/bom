@@ -138,6 +138,21 @@ rawnud(struct token *self)
   return self;
 }
 
+static struct token *
+silenterrornud(struct token *self)
+{
+  return nil;
+}
+
+static struct token *
+errornud(struct token *self)
+{
+  printf("error: expected something before %s\n",
+	 types[self->type].str);
+
+  return nil;
+}
+
 static void
 listfree(struct token *self)
 {
@@ -451,14 +466,18 @@ cdnud(struct token *self)
   struct token *t;
 
   t = expression(types[self->type].bp);
-  if (t == nil || t->type != TOKEN_NAME) {
+  if (t == nil) {
     printf("usage: cd dir\n");
     return nil;
+  } else if (t->type != TOKEN_NAME) {
+    printf("usage: cd dir\n");
+    types[t->type].free(t);
+    return nil;
+  } else {
+    self->aux = t->aux;
+    t->aux = nil;
+    types[t->type].free(t);
   }
-
-  self->aux = t->aux;
-  t->aux = nil;
-  types[t->type].free(t);
 
   return self;
 }
@@ -469,7 +488,6 @@ cdeval(struct token *self, int in, int out)
   int r;
 
   r = chdir(self->aux);
-
   if (r != OK) {
     printf("failed to chdir to %s : %i\n", self->aux, r);
     return r;
@@ -679,7 +697,7 @@ docmd(struct commandaux *c, int in, int out, int *pid)
   *pid = 0;
   
   if (c->args == nil) {
-    return ERR;
+    return OK;
 
   } else if (c->args->type == TOKEN_LIST || c->args->type == TOKEN_NAME) {
     argc = convertargs(c->args, 0, argv);
@@ -907,11 +925,11 @@ struct tokentype types[TOKEN_TYPES] = {
   [TOKEN_ELSE]         = { false, 4, "else",  0, rawfree, nil, nil, nil },
   [TOKEN_FOR]          = { false, 3,  "for", 10, forfree, fornud, nil, foreval },
 
-  [TOKEN_AND]          = { true,  2,   "&&",  2, rawfree, rawnud, commandled, nil },
-  [TOKEN_OR]           = { true,  2,   "||",  2, rawfree, rawnud, commandled, nil },
-  [TOKEN_PIPE]         = { true,  1,    "|",  2, rawfree, rawnud, commandled, nil },
-  [TOKEN_BG]           = { true,  1,    "&",  1, rawfree, rawnud, commandled, nil },
-  [TOKEN_SEMI]         = { true,  1,    ";",  1, rawfree, rawnud, commandled, nil },
+  [TOKEN_AND]          = { true,  2,   "&&",  2, rawfree, errornud, commandled, nil },
+  [TOKEN_OR]           = { true,  2,   "||",  2, rawfree, errornud, commandled, nil },
+  [TOKEN_PIPE]         = { true,  1,    "|",  2, rawfree, errornud, commandled, nil },
+  [TOKEN_BG]           = { true,  1,    "&",  1, rawfree, errornud, commandled, nil },
+  [TOKEN_SEMI]         = { true,  1,    ";",  1, rawfree, silenterrornud, commandled, nil },
 
   [TOKEN_NAME]         = { false, 0, "name",  5, namefree, rawnud, buildlistled, nil },
   [TOKEN_NUMBER]       = { false, 0,  "num",  5, rawfree, rawnud, buildlistled, nil },

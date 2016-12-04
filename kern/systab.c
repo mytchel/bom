@@ -33,7 +33,7 @@ reg_t sysexec(const char *path, int argc, char *argv[]);
 reg_t syssleep(int ms);
 reg_t sysgetpid(void);
 reg_t syswait(int *status);
-reg_t sysmmap(int type, void *addr, size_t *size);
+reg_t sysmmap(int flags, size_t len, int fd, va_list ap);
 reg_t sysmunmap(void *addr, size_t size);
 reg_t syswaitintr(int intr);
 reg_t syschdir(const char *path);

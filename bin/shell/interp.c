@@ -84,6 +84,13 @@ interp(void)
 	printf("line length exceded!\n");
 	goto prompt;
       }
+
+      line[i] = c;
+      i++;
+
+      if (i > m) {
+	m = i;
+      }
       
       if (c == '(' || c == '{' || c == '[') {
 	b++;
@@ -94,13 +101,6 @@ interp(void)
       } else if (!q && b == 0 && c == '\n'
 		 && (i == 0 || line[i-1] != '\\')) {
 	break;
-      }
-
-      line[i] = c;
-      i++;
-
-      if (i > m) {
-	m = i;
       }
     }
     
@@ -119,9 +119,6 @@ interp(void)
     setupinputstring(line, m);
 
     while ((t = command(0)) != nil) {
-      tokenprint(t);
-      printf("\neval:\n");
-
       ret = types[t->type].eval(t, STDIN, STDOUT);
       types[t->type].free(t);
     }
