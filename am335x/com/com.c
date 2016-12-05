@@ -96,7 +96,7 @@ getlock(void)
   int s;
 
   s = 1;
-  while (!testandset(&lock)) {
+  while (!cas(&lock, (void *) 0, (void *) 1)) {
     sleep(s);
     s *= 2;
   }
@@ -352,7 +352,7 @@ commount(char *path)
   close(p1[1]);
   close(p2[0]);
 
-  f = fork(FORK_sngroup);
+  f = fork(FORK_proc);
   if (f > 0) {
     close(p1[0]);
     close(p2[1]);
@@ -369,7 +369,7 @@ commount(char *path)
     exit(-4);
   }
 
-  f = fork(FORK_smem|FORK_sngroup|FORK_sfgroup);
+  f = fork(FORK_thread);
   if (f == 0) {
     f = readloop();
   } else {

@@ -31,7 +31,7 @@ static void addtolistfront(struct proc **, struct proc *);
 static void addtolistback(struct proc **, struct proc *);
 static bool removefromlist(struct proc **, struct proc *);
 
-static uint32_t nextpid = 1;
+static uint32_t nextpid = 0;
 
 static struct proc *ready = nil;
 static struct proc *sleeping = nil;
@@ -180,6 +180,11 @@ procexit(struct proc *p, int code)
   if (p->ngroup != nil) {
     ngroupfree(p->ngroup);
     p->ngroup = nil;
+  }
+
+  if (p->agroup != nil) {
+    agroupfree(p->agroup);
+    p->agroup = nil;
   }
 
   if (p->dot != nil) {
@@ -350,6 +355,7 @@ procwait(void)
   intrstate_t i;
 
   i = setintr(INTR_off);
+
   up->state = PROC_waiting;
   schedule();
   setintr(i);

@@ -34,14 +34,26 @@
 int
 exit(int code) __attribute__((noreturn));
 
-/* Should processor aspects be shared with the child
- * rather than copied. */
-#define FORK_smem	(1<<0)
-#define FORK_sfgroup	(1<<1)
-#define FORK_sngroup	(1<<2)
+/* Should process aspects be (c)opied, created a(n)ew, or shared. */
+
+#define FORK_cmem	(1<<0)
+#define FORK_nmem	(3<<0) /* This will never work */
+#define FORK_cfgroup	(1<<2)
+#define FORK_nfgroup	(3<<2)
+#define FORK_cngroup	(1<<4)
+#define FORK_nngroup	(3<<4)
+#define FORK_cagroup	(1<<6)
+#define FORK_nagroup	(3<<6)
+
+#define FORK_thread	    0
+
+/* Most non thread forks will want this, copying memory, fgroup,
+ * and agroup but sharing ngroup.
+ */
+#define FORK_proc	(FORK_cmem|FORK_cfgroup|FORK_cagroup)
 
 int
-fork(int flags);
+fork(unsigned int flags);
 
 int
 exec(const char *path, int argc, char *argv[]);
@@ -58,6 +70,33 @@ wait(int *status);
 /* Blocks until interrupt intr occurs. */
 int
 waitintr(int intr);
+
+#define MESSAGELEN 512
+
+/* Returns an addr for unserv, message, recv, and reply or 
+ * and error.
+ */
+int serv(void);
+
+/* Removed the address from the current agroup. Returns OK or 
+ * an error.
+ */
+int unserv(int addr);
+
+/* Returns an error or OK, message and reply must be of length
+ * MESSAGELEN or greater, they can be the same memory region. 
+ */
+int message(int addr, void *message, void *reply);
+
+/* Returns an error or OK, message must be of length MESSAGELEN,
+ * mid is the id of the message recieved.
+ */
+int recv(int addr, uint32_t *mid, void *message);
+
+/* Sends a reply to the message given by mid. Reply must be of
+ * MESSAGELEN or greater length.
+ */
+int reply(int addr, uint32_t mid, void *reply);
 
 int
 chdir(const char *dir);
@@ -113,16 +152,18 @@ remove(const char *path);
 		     x + sizeof(void *) - (x % sizeof(void *)) : \
 		     x)
 
-/* If address contains 0, store 1 and return 1,
- * else return 0.
- */
 bool
-testandset(int *addr);
+cas(void *addr, void *old, void *new);
+
+bool
+cas2(void *addr1, void *addr2,
+     void *old1, void *old2,
+     void *new1, void *new2);
 
 int
-atomicinc(int *addr);
+atomicinc(unsigned int *addr);
 
 int
-atomicdec(int *addr);
+atomicdec(unsigned int *addr);
 
 #endif

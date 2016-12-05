@@ -316,7 +316,7 @@ insertpages(struct mgroup *m, struct pagel *pn, size_t size)
   reg_t addr;
 
   lock(&m->lock);
-  
+
   if (m->pages == nil) {
     fixaddresses(pn, nil, nil);
     m->pages = pn;

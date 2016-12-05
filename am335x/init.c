@@ -25,40 +25,49 @@
  *
  */
 
-typedef enum {
-  R1,
-  R2,
-  G1,
-  G2,
-  B1,
-  B2,
-  OE,
-  CLK,
-  LAT,
-  RA,
-  RB,
-  RC,
-  RD,
-  NPINS,
-} pin_t;
+#include <libc.h>
+#include <fs.h>
+#include <string.h>
+#include <mem.h>
+
+int
+commount(char *path);
+
+int
+initblockdevs(void);
+
+int
+initgpios(void);
+
+int
+machinit(void)
+{
+  int f;
   
-struct pin {
-  char *dev;
-  int num;
-  int fd;
-  volatile struct gpio_regs *regs;
-};
+  f = commount("/dev/com");
+  if (f < 0) {
+    return ERR;
+  }
 
-extern struct pin pins[NPINS];
+  if (open("/dev/com", O_RDONLY) != STDIN) {
+    return ERR;
+  } else if (open("/dev/com", O_WRONLY) != STDOUT) {
+    return ERR;
+  } else if (open("/dev/com", O_WRONLY) != STDERR) {
+    return ERR;
+  }
 
-void
-reset(void);
+  f = initgpios();
+  if (f < 0) {
+    printf("initgpios failed!\n");
+    return ERR;
+  }
 
-int
-setuppins(void);
+  f = initblockdevs();
+  if (f < 0) {
+    printf("initblockdevs failed!\n");
+    return ERR;
+  }
 
-void
-setpin(pin_t p, bool on);
-
-int
-matrix(int delay, int color, int repeat);
+  return OK;
+}

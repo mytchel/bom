@@ -74,6 +74,7 @@ static struct stat rootstat = {
 static uint8_t *rootbuf = nil;
 
 static struct blkdevice *device = nil;
+static char path[1024];
 
 static struct mbr mbr;
 struct partition parts[4], raw;
@@ -112,8 +113,8 @@ initparts(void)
 static void
 updatembr(void)
 {
-  int i;
   uint8_t *buf;
+  int i;
 
   if (!(device->read(0, (uint8_t *) &mbr))) {
     printf("mbr read failed\n");
@@ -162,6 +163,9 @@ updatembr(void)
       buf += sizeof(uint8_t);
       memmove(buf, parts[i].name, parts[i].lname);
       buf += parts[i].lname;
+
+      printf("part %s/%s of type %h\n",
+	     path, parts[i].name, parts[i].type);
     }
   }
 }
@@ -353,19 +357,17 @@ static struct fsmount fsmount = {
 int
 mbrmount(struct blkdevice *d, uint8_t *dir)
 {
-  int p1[2], p2[3], fd;
-  char filename[1024];
+  int p1[2], p2[2], fd;
 
   device = d;
+  snprintf(path, sizeof(path), "%s/%s", dir, device->name);
 
   initparts();
   updatembr();
 
-  snprintf(filename, sizeof(filename), "%s/%s", dir, device->name);
-
-  fd = open(filename, O_RDONLY|O_CREATE, ATTR_dir|ATTR_rd);
+  fd = open(path, O_RDONLY|O_CREATE, ATTR_dir|ATTR_rd);
   if (fd < 0) {
-    printf("%s failed to create %s.\n", device->name, filename);
+    printf("%s failed to create %s.\n", device->name, path);
     return -1;
   }
 
@@ -375,7 +377,7 @@ mbrmount(struct blkdevice *d, uint8_t *dir)
     return -2;
   }
 
-  if (mount(p1[1], p2[0], filename, ATTR_rd|ATTR_dir) == ERR) {
+  if (mount(p1[1], p2[0], path, ATTR_rd|ATTR_dir) == ERR) {
     return -3;
   }
 

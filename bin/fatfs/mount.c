@@ -193,7 +193,7 @@ mountfat(char *device, char *dir)
   close(p1[1]);
   close(p2[0]);
 
-  i = fork(FORK_sngroup);
+  i = fork(FORK_proc);
   if (i != 0) {
     close(p1[0]);
     close(p2[1]);

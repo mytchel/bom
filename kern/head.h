@@ -44,95 +44,6 @@ struct lock {
   struct proc *holder;
   struct proc *wlist;
 };
-  
-struct page {
-  int refs;
-  /* Not changable */
-  reg_t pa;
-  bool forceshare;
-  struct page *next;
-  struct page **from;
-};
-
-struct pagel {
-  reg_t va;
-  bool rw, c;
-  struct page *p;
-  struct pagel *next;
-};
-
-struct mgroup {
-  int refs;
-  struct lock lock;
-  struct pagel *pages;
-};
-
-typedef enum { CHAN_pipe, CHAN_file, CHAN_max } chan_t;
-
-struct chan {
-  int refs;
-  chan_t type;
-  int mode;
-  void *aux;
-};
-
-struct chantype {
-  int (*read)(struct chan *, void *, size_t);
-  int (*write)(struct chan *, void *, size_t);
-  int (*seek)(struct chan *, size_t, int);
-  void (*close)(struct chan *);
-};
-
-struct path {
-  char s[NAMEMAX];
-  struct path *prev, *next;
-};
-
-struct fgroup {
-  int refs;
-  size_t nchans;
-  struct chan **chans;
-};
-
-struct bindingfid {
-  int refs;
-  
-  uint32_t fid, attr;
-  char name[NAMEMAX];
-
-  struct binding *binding;
-  struct bindingfid *parent;
-  struct bindingfid *children;
-  struct bindingfid *cnext;
-};
-
-struct binding {
-  int refs;
-  struct lock lock;
-	
-  struct chan *in, *out;
-
-  int nreqid;
-  struct fstransaction *waiting; 
-  struct proc *srv; /* Kernel proc that handles responses */
-
-  struct bindingfid *fids;
-};
-
-struct bindingl {
-  struct binding *binding;
-
-  struct bindingfid *boundfid;
-  struct bindingfid *rootfid;
-
-  struct bindingl *next;
-};
-
-struct ngroup {
-  int refs;
-  struct lock lock;
-  struct bindingl *bindings;
-};
 
 typedef enum {
   PROC_oncpu,
@@ -174,6 +85,7 @@ struct proc {
   struct mgroup *mgroup;
   struct fgroup *fgroup;
   struct ngroup *ngroup;
+  struct agroup *agroup;
 
   uint32_t sleep; /* in ticks */
   void *aux;
@@ -185,19 +97,22 @@ void
 schedulerinit(void);
 
 void
-rootfsinit(void);
-
-void
 heapinit(void *, size_t);
 
 
 /****** General Functions ******/
+
+/* Misc */
 
 void
 lock(struct lock *);
 
 void
 unlock(struct lock *);
+
+int
+kexec(struct chan *f, int argc, char *argv[]);
+
 
 /* Procs */
 
@@ -233,7 +148,30 @@ procyield(void);
 void
 schedule(void);
 
-/* Pages and Mgroup */
+
+/* Pages and Mgroup and memory */
+
+struct page {
+  unsigned int refs;
+  /* Not changable */
+  reg_t pa;
+  bool forceshare;
+  struct page *next;
+  struct page **from;
+};
+
+struct pagel {
+  reg_t va;
+  bool rw, c;
+  struct page *p;
+  struct pagel *next;
+};
+
+struct mgroup {
+  unsigned int refs;
+  struct lock lock;
+  struct pagel *pages;
+};
 
 void
 pagefree(struct page *);
@@ -256,7 +194,6 @@ mgroupcopy(struct mgroup *old);
 void
 mgroupfree(struct mgroup *m);
 
-/* Memory */
 
 bool
 fixfault(void *);
@@ -281,10 +218,25 @@ insertpages(struct mgroup *m, struct pagel *pagel, size_t size);
 void
 insertpagesfixed(struct mgroup *m, struct pagel *pagel, size_t size);
 
-int
-kexec(struct chan *f, int argc, char *argv[]);
 
 /* Channels */
+
+typedef enum { CHAN_pipe, CHAN_file, CHAN_max } chan_t;
+
+struct chantype {
+  int (*read)(struct chan *, void *, size_t);
+  int (*write)(struct chan *, void *, size_t);
+  int (*seek)(struct chan *, size_t, int);
+  void (*close)(struct chan *);
+};
+
+struct chan {
+  unsigned int refs;
+  chan_t type;
+  int mode;
+  void *aux;
+};
+
 
 struct chan *
 channew(int, int);
@@ -292,7 +244,13 @@ channew(int, int);
 void
 chanfree(struct chan *);
 
+
 /* Paths */
+
+struct path {
+  char s[NAMEMAX];
+  struct path *prev, *next;
+};
 
 struct path *
 strtopath(struct path *prev, const char *str);
@@ -306,7 +264,14 @@ pathcopy(struct path *);
 void
 pathfree(struct path *);
 
+
 /* Fgroup */
+
+struct fgroup {
+  unsigned int refs;
+  size_t nchans;
+  struct chan **chans;
+};
 
 struct fgroup *
 fgroupnew(size_t max);
@@ -326,7 +291,37 @@ fgroupreplacechan(struct fgroup *, struct chan *, int fd);
 struct chan *
 fdtochan(struct fgroup *, int);
 
-/* Ngroup */
+
+/* Ngroup and bindings */
+  
+struct binding {
+  unsigned int refs;
+  struct lock lock;
+	
+  struct chan *in, *out;
+
+  uint32_t nreqid;
+  struct fstransaction *waiting;
+
+  struct proc *srv; /* Kernel proc that handles responses */
+
+  struct bindingfid *fids;
+};
+
+struct bindingl {
+  struct binding *binding;
+
+  struct bindingfid *boundfid;
+  struct bindingfid *rootfid;
+
+  struct bindingl *next;
+};
+
+struct ngroup {
+  unsigned int refs;
+  struct lock lock;
+  struct bindingl *bindings;
+};
 
 struct ngroup *
 ngroupnew(void);
@@ -354,7 +349,20 @@ ngroupaddbinding(struct ngroup *n, struct binding *b,
 int
 ngroupremovebinding(struct ngroup *n, struct bindingfid *fid);
 
-/* IPC */
+
+/* Files */
+
+struct bindingfid {
+  unsigned int refs;
+  
+  uint32_t fid, attr;
+  char name[NAMEMAX];
+
+  struct binding *binding;
+  struct bindingfid *parent;
+  struct bindingfid *children;
+  struct bindingfid *cnext;
+};
 
 int
 mountproc(void *);
@@ -397,8 +405,57 @@ fileseek(struct chan *c, size_t offset, int whence);
 struct pagel *
 getfilepages(struct chan *c, size_t offset, size_t len, bool rw);
 
+
+/* Messages and agroup */
+
+struct message {
+  struct proc *sender, *replyer;
+  void *message, *reply;
+  uint32_t mid;
+  int ret;
+  struct message *next;
+};
+
+struct addr {
+  unsigned int refs;
+
+  struct message *recv, *reply;
+  uint32_t nextmid;
+
+  struct proc *waiting;
+  struct lock lock;
+};
+
+struct agroup {
+  unsigned int refs;
+  size_t naddrs;
+  struct addr **addrs;
+};
+
+struct agroup *
+agroupnew(size_t max);
+
+struct agroup *
+agroupcopy(struct agroup *old);
+
+void
+agroupfree(struct agroup *g);
+
+struct addr *
+addrnew(void);
+
+void
+addrfree(struct addr *a);
+
 int
-kmountloop(struct chan *in, struct binding *b, struct fsmount *mount);
+kmessage(struct addr *a, struct message *m);
+
+struct message *
+krecv(struct addr *a);
+
+int
+kreply(struct addr *a, uint32_t mid, void *rb);
+
 
 /* Debug */
 
@@ -407,6 +464,8 @@ printf(const char *, ...);
 
 void
 panic(const char *, ...);
+
+
 
 /****** Machine Implimented ******/
 
@@ -481,13 +540,6 @@ getiopage(void *addr);
 intrstate_t
 setintr(intrstate_t);
 
-bool
-cas(void *addr, void *old, void *new);
-
-bool
-cas2(void *addr1, void *addr2,
-     void *old1, void *old2,
-     void *new1, void *new2);
 
 
 /****** Global Variables ******/
@@ -497,5 +549,3 @@ extern struct proc *up;
 extern void *syscalltable[NSYSCALLS];
 
 extern struct chantype *chantypes[CHAN_max];
-
-extern struct binding *rootfsbinding;

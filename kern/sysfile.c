@@ -273,7 +273,7 @@ sysmount(int outfd, int infd, const char *upath, uint32_t attr)
   const char *kpath;
   struct proc *p;
   int ret;
-	
+
   kpath = kaddr(up, (void *) upath, 0);
   if (kpath == nil) {
     return ERR;
@@ -315,9 +315,6 @@ sysmount(int outfd, int infd, const char *upath, uint32_t attr)
     return ENOMEM;
   }
 
-  forkfunc(p, &mountproc, (void *) b);
-  b->srv = p;
-
   ret = ngroupaddbinding(up->ngroup, b, fid, b->fids);
   if (ret != OK) {
     procexit(p, 0);
@@ -326,9 +323,12 @@ sysmount(int outfd, int infd, const char *upath, uint32_t attr)
     pathfree(path);
     return ret;
   }
- 
+
+  forkfunc(p, &mountproc, (void *) b);
+  b->srv = p;
+
   procready(p);
- 
+
   return OK;
 }
 

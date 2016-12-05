@@ -36,6 +36,11 @@
 .global sleep
 .global getpid
 .global wait
+.global serv
+.global unserv
+.global message
+.global recv
+.global reply
 .global mmap 
 .global munmap
 .global pipe
@@ -56,7 +61,7 @@
 .global waitintr
 
 @ Useful assembly functions
-.global testandset
+.global cas
 .global atomicinc
 .global atomicdec
 
@@ -108,6 +113,41 @@ wait:
 	pop {r12, pc}
 
 
+serv:
+	push {r12, lr}
+	mov r12, #SYSCALL_SERV
+	svc 0
+	pop {r12, pc}
+
+	
+unserv:
+	push {r12, lr}
+	mov r12, #SYSCALL_UNSERV
+	svc 0
+	pop {r12, pc}
+
+	
+message:
+	push {r12, lr}
+	mov r12, #SYSCALL_MESSAGE
+	svc 0
+	pop {r12, pc}
+
+	
+recv:
+	push {r12, lr}
+	mov r12, #SYSCALL_RECV
+	svc 0
+	pop {r12, pc}
+
+	
+reply:
+	push {r12, lr}
+	mov r12, #SYSCALL_REPLY
+	svc 0
+	pop {r12, pc}
+
+	
 mmap:
 	sub sp, sp, #4
 	str r3, [sp]
@@ -238,26 +278,21 @@ waitintr:
 	pop {r12, pc}
 
 
-@ this is horrible but i cant get anything
-@ nicer to work
-testandset:
-	push {r1, r2, lr}
-2:	ldrex r2, [r0]
-	cmp r2, #0
-	beq 1f
-	strex r1, r2, [r0]
-	cmp r1, #0
-	bne 2b
-	mov r0, #0
-	pop {r1, r2, pc}
-
-1:	mov r2, #1
-	strex r1, r2, [r0]
-	cmp r1, #0
-	bne 2b
-	mov r0, #1
-	pop {r1, r2, pc}
+@bool
+@cas(void *addr, void *old, void *new);
+cas:
+	ldrex r3, [r0]
+	cmp r3, r1
+	movne r0, #0
+	movne pc, lr
 	
+	strex r3, r2, [r0]
+	cmp r3, #1
+	moveq r0, #0
+	movne r0, #1
+	
+	mov pc, lr
+
 
 atomicinc:
 	push {r1, r2, lr}

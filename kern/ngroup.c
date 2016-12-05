@@ -48,7 +48,7 @@ void
 ngroupfree(struct ngroup *n)
 {
   struct bindingl *b, *bb;
-	
+
   if (atomicdec(&n->refs) > 0) {
     return;
   }

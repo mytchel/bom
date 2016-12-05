@@ -190,16 +190,6 @@ cas:
 	mov pc, lr
 
 
-
-@bool
-@cas2(void *addr1, void *addr2,
-@     void *old1, void *old2,
-@     void *new1, void *new2);
-
-cas2:
-	mov pc, #0xa0000000
-
-
 atomicinc:
 	push {r1, r2, lr}
 1:

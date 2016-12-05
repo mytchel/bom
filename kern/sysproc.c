@@ -79,31 +79,63 @@ sysfork(int flags, struct label *ureg)
   
   p->ustack = pagelcopy(up->ustack);
 
-  if (flags & FORK_smem) {
+  if ((flags & FORK_nmem) == FORK_nmem) {
+    return ERR;
+  } else if (flags & FORK_cmem) {
+    p->mgroup = mgroupcopy(up->mgroup);
+  } else {
     p->mgroup = up->mgroup;
     atomicinc(&up->mgroup->refs);
-  } else {
-    p->mgroup = mgroupcopy(up->mgroup);
   }
 
-  if (flags & FORK_sfgroup) {
+  if (p->mgroup == nil) {
+    goto err;
+  }
+  
+  if ((flags & FORK_nfgroup) == FORK_nfgroup) {
+    p->fgroup = fgroupnew(256);
+
+  } else if (flags & FORK_cfgroup) {
+    p->fgroup = fgroupcopy(up->fgroup);
+
+  } else {
     p->fgroup = up->fgroup;
     atomicinc(&p->fgroup->refs);
-  } else {
-    p->fgroup = fgroupcopy(up->fgroup);
-    if (p->fgroup == nil) {
-      goto err;
-    }
   }
-	
-  if (flags & FORK_sngroup) {
+
+  if (p->fgroup == nil) {
+    goto err;
+  }
+ 
+  if ((flags & FORK_nngroup) == FORK_nngroup) {
+    p->ngroup = ngroupnew();
+    
+  } else if (flags & FORK_cngroup) {
+    p->ngroup = ngroupcopy(up->ngroup);
+
+  } else {
     p->ngroup = up->ngroup;
     atomicinc(&p->ngroup->refs);
+  }
+
+  if (p->ngroup == nil) {
+    goto err;
+  }
+ 
+
+  if ((flags & FORK_nagroup) == FORK_nagroup) {
+    p->agroup = agroupnew(256);
+    
+  } else if (flags & FORK_cagroup) {
+    p->agroup = agroupcopy(up->agroup);
+
   } else {
-    p->ngroup = ngroupcopy(up->ngroup);
-    if (p->ngroup == nil) {
-      goto err;
-    }
+    p->agroup = up->agroup;
+    atomicinc(&p->agroup->refs);
+  }
+
+  if (p->agroup == nil) {
+    goto err;
   }
 
   p->parent = up;
@@ -230,12 +262,15 @@ sysmmap(int flags, size_t len, int fd, va_list ap)
     pages = getiopages(addr, len, rw);
 
   } else if (flags & MEM_file) {
+    if (offset != PAGE_ALIGN(offset)) {
+      return ERR;
+    }
+
     c = fdtochan(up->fgroup, fd);
     if (c == nil) {
       return nil;
     }
 
-    offset = PAGE_ALIGN(offset + PAGE_SIZE - 1);
     pages = getfilepages(c, offset, len, rw);
   } else {
     pages = nil;

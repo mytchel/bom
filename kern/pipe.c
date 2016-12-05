@@ -129,7 +129,7 @@ int
 piperead(struct chan *c, void *buf, size_t n)
 {
   struct pipe *p;
-	
+
   p = (struct pipe *) c->aux;
 
   return pipedocopy(p, buf, n, false);

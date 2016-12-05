@@ -403,7 +403,7 @@ mounttmp(char *path)
   close(p1[1]);
   close(p2[0]);
 
-  f = fork(FORK_sngroup);
+  f = fork(FORK_proc);
   if (f != 0) {
     close(p1[0]);
     close(p2[1]);

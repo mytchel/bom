@@ -25,7 +25,10 @@
  *
  */
 
-#include "head.h"
+#include <libc.h>
+#include <mem.h>
+#include <fssrv.h>
+#include <string.h>
 
 struct file {
   uint8_t lname;
@@ -43,56 +46,6 @@ struct file {
 
 static struct file *fids[FIDSMAX] = { nil };
 static struct file *root = nil;
-
-static int in, out;
-struct binding *rootfsbinding;
-
-static int
-rootfsproc(void *);
-
-void
-rootfsinit(void)
-{
-  struct chan *c1[2], *c2[2];
-  struct proc *pr, *pm;
-
-  if (!pipenew(&(c1[0]), &(c1[1]))) {
-    panic("rootfs: pipenew failed!\n");
-  }
-
-  if (!pipenew(&(c2[0]), &(c2[1]))) {
-    panic("rootfs: pipenew failed!\n");
-  }
-
-  rootfsbinding = bindingnew(c1[1], c2[0], ATTR_wr|ATTR_rd|ATTR_dir);
-  if (rootfsbinding == nil) {
-    panic("rootfs: bindingnew failed!\n");
-  }
-
-  chanfree(c1[1]);
-  chanfree(c2[0]);
-  
-  pr = procnew();
-  if (pr == nil) {
-    panic("rootfs: procnew failed!\n");
-  }
-
-  forkfunc(pr, &rootfsproc, nil);
-
-  pr->fgroup = fgroupnew(2);
-  in = fgroupaddchan(pr->fgroup, c1[0]);
-  out = fgroupaddchan(pr->fgroup, c2[1]);
-
-  pm = procnew();
-  if (pm == nil) {
-    panic("rootfs: procnew failed!\n");
-  }
-
-  forkfunc(pm, &mountproc, (void *) rootfsbinding);
-
-  procready(pr);
-  procready(pm);
-}
 
 static void
 bgetfid(struct request_getfid *req, struct response_getfid *resp)
@@ -312,18 +265,43 @@ static struct fsmount rootmount = {
   .read = &bread,
 };
   
-static int
-rootfsproc(void *arg)
+int
+rootfs(void)
 {
-  int r;
+  int r, p1[2], p2[2];
+
+  if (pipe(p1) != OK) {
+    return ERR;
+  }
+
+  if (pipe(p2) != OK) {
+    return ERR;
+  }
+
+  if (mount(p1[1], p2[0], "/", ATTR_rd|ATTR_wr|ATTR_dir) != OK) {
+    return ERR;
+  }
+
+  close(p1[1]);
+  close(p2[0]);
+
+  r = fork(FORK_proc|FORK_cngroup);
+  if (r < 0) {
+    printf("error forking for rootfs : %i\n", r);
+    return r;
+  } else if (r > 0) {
+    close(p1[0]);
+    close(p2[1]);
+    return r;
+  }
   
   root = malloc(sizeof(struct file));
   if (root == nil) {
-    panic("rootfs: root tree malloc failed!\n");
+    printf("rootfs: root tree malloc failed!\n");
+    exit(ENOMEM);
   }
 
   root->lname = 0;
-
   root->stat.attr = ATTR_rd|ATTR_wr|ATTR_dir;
   root->stat.size = 0;
   root->stat.dsize = sizeof(struct file);
@@ -334,11 +312,12 @@ rootfsproc(void *arg)
 
   fids[ROOTFID] = root;
   
-  rootmount.databuf = malloc(512);
-  rootmount.buflen = 512;
+  rootmount.buflen = 4096;
+  rootmount.databuf = malloc(rootmount.buflen);
 
-  r = fsmountloop(in, out, &rootmount);
+  r = fsmountloop(p1[0], p2[1], &rootmount);
 
-  panic("root fs exiting with %i!\n", r);
-  return r;
+  printf("root fs exiting with %i!\n", r);
+  exit(r);
+  return ERR;
 }

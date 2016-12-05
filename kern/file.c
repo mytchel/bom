@@ -209,7 +209,7 @@ bindingfidfree(struct bindingfid *fid)
     }
 
     bindingfidfree(fid->parent);
-  } else if (fid->parent == nil) {
+  } else if (fid->parent == nil && fid->binding != nil) {
     bindingfree(fid->binding);
   }
  
@@ -299,13 +299,13 @@ findfile(struct path *path, int *err)
   struct bindingfid *nfid, *fid;
   struct bindingl *b;
   struct path *p;
+ 
+  *err = OK;
 
   b = ngroupfindbindingl(up->ngroup, up->root);
   if (b == nil) {
-    *err = ENOFILE;
-    return nil;
-  } else {
-    *err = OK;
+    atomicinc(&up->root->refs);
+    return up->root;
   }
 
   fid = b->rootfid;
@@ -483,6 +483,8 @@ fileopen(struct path *path, uint32_t mode, uint32_t cmode, int *err)
 
   req.head.type = REQ_open;
   req.head.fid = fid->fid;
+  req.body.mode = mode;
+  
   if (!makereq(fid->binding,
 	       (struct request *) &req, sizeof(req), 
 	       (struct response *) &resp, sizeof(resp))) {
@@ -693,6 +695,90 @@ struct pagel *
 getfilepages(struct chan *c, size_t offset, size_t len, bool rw)
 {
   return nil;
+  #if 0
+  struct pagel *pages, *po, *pn;
+  struct response_map resp;
+  struct request_map req;
+  struct binding *b;
+  struct cfile *cfile;
+  reg_t off;
+
+  printf("getfilepages\n");
+  
+  cfile = (struct cfile *) c->aux;
+  lock(&cfile->lock);
+
+  req.head.fid = cfile->fid->fid;
+  req.head.type = REQ_map;
+  req.body.offset = offset;
+  req.body.len = len;
+
+  b = cfile->fid->binding;
+  if (!makereq(b,
+	       (struct request *) &req, sizeof(req),
+	       (struct response *) &resp, sizeof(resp))) {
+    unlock(&cfile->lock);
+    return nil;
+  } else if (resp.head.ret != OK) {
+    unlock(&cfile->lock);
+    return nil;
+  }
+
+  unlock(&cfile->lock);
+
+  printf("now find the pages for 0x%h in proc %i\n", resp.body.addr, b->usrv->pid);
+  
+  off = 0;
+  pages = pn = nil;
+  for (po = b->usrv->mgroup->pages; off < len && po != nil; po = po->next) {
+    printf("looking for 0x%h, have 0x%h\n", resp.body.addr + off, po->va);
+    if (po->va == (reg_t) resp.body.addr + off) {
+      printf("have page at 0x%h\n", po->va);
+      atomicinc(&po->p->refs);
+      if (pn == nil) {
+	pages = pn = wrappage(po->p, off, rw, false);
+      } else {
+	pn->next = wrappage(po->p, off, rw, false);
+	pn = pn->next;
+      }
+
+      off += PAGE_SIZE;
+    }
+  }
+
+  printf("return pages\n");
+  return pages;
+  #endif
+}
+
+int
+fileflush(struct chan *c, size_t offset, size_t len)
+{
+  struct request_map req;
+  struct response_map resp;
+  struct cfile *cfile;
+
+  cfile = (struct cfile *) c->aux;
+  lock(&cfile->lock);
+
+  req.head.fid = cfile->fid->fid;
+  req.head.type = REQ_flush;
+  req.body.offset = offset;
+  req.body.len = len;
+
+  if (!makereq(cfile->fid->binding,
+	       (struct request *) &req, sizeof(req),
+	       (struct response *) &resp, sizeof(resp))) {
+    unlock(&cfile->lock);
+    return ELINK;
+  } else if (resp.head.ret != OK) {
+    unlock(&cfile->lock);
+    return resp.head.ret;
+  }
+
+  unlock(&cfile->lock);
+
+  return ERR;
 }
 
 void

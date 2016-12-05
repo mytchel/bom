@@ -107,7 +107,7 @@ main(int argc, char **argv)
     r = lsh(argv[1], false);
   } else {
     for (i = 1; i < argc; i++) {
-      p = fork(FORK_sngroup|FORK_smem|FORK_sfgroup);
+      p = fork(FORK_thread);
       if (p == 0) {
 	r = lsh(argv[i], true);
 	exit(r);

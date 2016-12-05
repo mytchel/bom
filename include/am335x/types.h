@@ -25,6 +25,9 @@
  *
  */
 
+#ifndef _AM335X_TYPES_H_
+#define _AM335X_TYPES_H_
+
 typedef	signed char		int8_t;
 typedef	unsigned char		uint8_t;
 typedef	short			int16_t;
@@ -43,3 +46,5 @@ typedef	long			ssize_t;
 typedef unsigned int		reg_t;
 
 #define UINT_MAX                0xffffffff
+
+#endif

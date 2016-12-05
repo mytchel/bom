@@ -577,7 +577,7 @@ mmchsproc(char *n, void *addr, int i)
   device.nblk = nblk;
   device.blksize = 512;
 
-  return mbrmount(&device, (uint8_t *) "/dev/");
+  return mbrmount(&device, (uint8_t *) "/dev");
 }
 
 int
@@ -585,15 +585,15 @@ initblockdevs(void)
 {
   int p;
 
-  p = fork(FORK_sngroup);
+  p = fork(FORK_proc);
   if (p == 0) {
-    p = mmchsproc("mmc0", (void *) MMCHS0, MMC0_intr);
+    p = mmchsproc("sd0", (void *) MMCHS0, MMC0_intr);
     exit(p);
   } else if (p < 0) {
     printf("Failed to fork for mmc0\n");
   }
 
-  p = fork(FORK_sngroup);
+  p = fork(FORK_proc);
   if (p == 0) {
     p = mmchsproc("mmc1", (void *) MMC1, MMC1_intr);
     exit(p);

@@ -31,19 +31,13 @@
 #include <mem.h>
 
 int
-commount(char *path);
+rootfs(void);
 
 int
-initblockdevs(void);
-
-int
-initgpios(void);
+machinit(void);
 
 int
 mountfat(char *device, char *dir);
-
-void
-interp(void);
 
 int
 matrix(int delay, int color, int repeat);
@@ -75,14 +69,18 @@ readline(char *data, size_t max)
 int
 main(int argc, char *argv[])
 {
-  int r, f, fd;
   char root[NAMEMAX * 5];
+  int r, fd;
 
+  if (rootfs() < 0) {
+    return ERR;
+  }
+  
   fd = open("/dev", O_RDONLY|O_CREATE,
 	    ATTR_wr|ATTR_rd|ATTR_dir);
 
   if (fd < 0) {
-    return -1;
+    return ERR;
   }
 
   close(fd);
@@ -91,7 +89,7 @@ main(int argc, char *argv[])
 	    ATTR_rd|ATTR_dir);
 
   if (fd < 0) {
-    return -1;
+    return ERR;
   }
 
   close(fd);
@@ -100,38 +98,18 @@ main(int argc, char *argv[])
 	    ATTR_rd|ATTR_dir);
 
   if (fd < 0) {
-    return -1;
+    return ERR;
   }
 
   close(fd);
 
-  f = commount("/dev/com");
-  if (f < 0) {
-    return -1;
-  }
-
-  if (open("/dev/com", O_RDONLY) != STDIN) {
-    return -2;
-  } else if (open("/dev/com", O_WRONLY) != STDOUT) {
-    return -2;
-  } else if (open("/dev/com", O_WRONLY) != STDERR) {
-    return -2;
-  }
-
-  f = initblockdevs();
-  if (f < 0) {
-    printf("initblockdevs failed!\n");
-    return -3;
-  }
-
-  f = initgpios();
-  if (f < 0) {
-    printf("initgpios failed!\n");
-    return -4;
+  r = machinit();
+  if (r != OK) {
+    return ERR;
   }
 
   /*
-  matrix(10000, 1|(1<<1)|(1<<2), 1);
+  matrix(1000, 1, 1000);
   */
   
   while (true) {
@@ -155,13 +133,10 @@ main(int argc, char *argv[])
   printf("bind /mnt/bin /bin\n");
   bind("/mnt/bin", "/bin");
   
-  interp();
-  /*
   printf("exec /bin/init\n");
   r = exec("/bin/init", argc, argv);
 
   printf("error exec /bin/init: %i\n", r);
-  */
   
   return r;
 }

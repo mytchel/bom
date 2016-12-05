@@ -712,7 +712,7 @@ docmd(struct commandaux *c, int in, int out, int *pid)
     return types[c->args->type].eval(c->args, in, out);
   }
 
-  r = fork(FORK_sngroup);
+  r = fork(FORK_proc);
   if (r < 0) {
     fprintf(out, "fork error\n");
     return r;

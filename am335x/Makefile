@@ -51,6 +51,7 @@ all: init.list am335x.list am335x.umg
 
 
 ISRC = \
+	init.c                  \
 	com/com.c               \
 	gpio/gpio.c             \
 	mmc/mmchs.c             \
@@ -59,6 +60,7 @@ ISRC = \
         mmc/misc.c              \
         ../init/main.c          \
         ../init/mbr.c           \
+        ../init/rootfs.c        \
         ../bin/shell/interp.c   \
         ../bin/shell/token.c    \
         ../bin/shell/eval.c     \
@@ -91,15 +93,16 @@ KSRC_C := \
         ../kern/page.c          \
         ../kern/fgroup.c        \
         ../kern/ngroup.c        \
+        ../kern/message.c       \
         ../kern/chan.c          \
         ../kern/pipe.c          \
         ../kern/file.c          \
-        ../kern/rootfs.c        \
         ../kern/path.c          \
         ../kern/heap.c          \
         ../kern/sysproc.c       \
         ../kern/sysfile.c       \
         ../kern/systab.c        \
+        ../kern/sysmessage.c    \
         ../kern/exec.c
 
 

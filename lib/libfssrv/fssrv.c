@@ -96,6 +96,20 @@ fsmountloop(int in, int out, struct fsmount *mount)
 		      (struct response_remove *) &resp);
       break;
 
+    case REQ_map:
+      len = sizeof(struct response_map);
+      if (mount->map)
+	mount->map((struct request_map *) &req,
+		      (struct response_map *) &resp);
+      break;
+
+    case REQ_flush:
+      len = sizeof(struct response_flush);
+      if (mount->flush)
+	mount->flush((struct request_flush *) &req,
+		      (struct response_flush*) &resp);
+      break;
+
     case REQ_read:
       len = sizeof(struct response_read);
       

@@ -29,7 +29,7 @@
 #define _TYPES_H_
 
 #ifdef _am335x_
-#include "../am335x/types.h"
+#include <am335x/types.h>
 #else
 #error Need to set arch
 #endif

@@ -36,6 +36,7 @@ enum {
   REQ_getfid, REQ_clunk, REQ_stat,
   REQ_open, REQ_close,
   REQ_create, REQ_remove,
+  REQ_map, REQ_flush,
   REQ_read, REQ_write,
 };
 
@@ -73,7 +74,10 @@ struct response_stat_b {
 };
 
 
-struct request_open_b {};
+struct request_open_b {
+  uint32_t mode;
+};
+
 struct response_open_b {};
 
 
@@ -93,6 +97,22 @@ struct response_create_b {
 struct request_remove_b {};
 struct response_remove_b {};
 
+
+struct request_map_b {
+  uint32_t offset;
+  uint32_t len;
+};
+
+struct response_map_b {
+  void *addr;
+};
+
+struct request_flush_b {
+  uint32_t offset;
+  uint32_t len;
+};
+
+struct response_flush_b {};
 
 struct request_read_b {
   uint32_t offset;
@@ -227,6 +247,26 @@ struct response_remove {
   struct response_remove_b body;
 };
 
+struct request_map {
+  struct request_head head;
+  struct request_map_b body;
+};
+
+struct response_map {
+  struct response_head head;
+  struct response_map_b body;
+};
+
+struct request_flush {
+  struct request_head head;
+  struct request_flush_b body;
+};
+
+struct response_flush {
+  struct response_head head;
+  struct response_flush_b body;
+};
+
 struct request_read {
   struct request_head head;
   struct request_read_b body;
@@ -246,7 +286,6 @@ struct response_write {
   struct response_head head;
   struct response_write_b body;
 };
-
 
 struct fsmount {
   uint8_t *databuf;
@@ -273,6 +312,12 @@ struct fsmount {
   void (*remove)(struct request_remove *,
 		 struct response_remove *);
   
+  void (*map)(struct request_map *,
+	       struct response_map *);
+
+  void (*flush)(struct request_flush *,
+		struct response_flush *);
+
   void (*read)(struct request_read *,
 	       struct response_read *);
 

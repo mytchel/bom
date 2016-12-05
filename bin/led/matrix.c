@@ -26,7 +26,9 @@
  */
 
 #include <libc.h>
+#include <mem.h>
 #include <string.h>
+#include <am335x/gpio.h>
 
 #include "matrix.h"
 
@@ -49,41 +51,20 @@ struct pin pins[NPINS] = {     /* raspberry */
   [RD]  = { "/dev/gpio2",   1, 0 }, /* gpio20   38 */
 };
 
-int
+void
 setpin(pin_t p, bool on)
 {
-  char *msg;
-  int r, l;
-
-  if (pins[p].level == on) {
-    return OK;
-  }
-  
   if (on) {
-    l = pins[p].highlen;
-    msg = pins[p].high;
+    pins[p].regs->setdataout |= (1 << pins[p].num);
   } else {
-    l = pins[p].lowlen;
-    msg = pins[p].low;
-  }
-  
-  pins[p].level = on;
-  r = write(pins[p].fd, msg, l);
-  if (r != l) {
-    printf("error writing '%s' > %s : %i\n", msg, pins[p].dev, r);
-    return ERR;
-  } else {
-    return OK;
+    pins[p].regs->cleardataout |= (1 << pins[p].num);
   }
 }
 
 int
 setuppins(void)
 {
-  char msg[32];
-  size_t l;
   pin_t p;
-  int r;
 
   for (p = 0; p < NPINS; p++) {
     pins[p].fd = open(pins[p].dev, O_WRONLY);
@@ -92,19 +73,13 @@ setuppins(void)
       return ERR;
     }
 
-    l = snprintf(msg, sizeof(msg), "%i out", pins[p].num);
-    r = write(pins[p].fd, msg, l);
-    if (r != l) {
-      printf("failed to set %s:%i out\n", pins[p].dev, pins[p].num);
+    pins[p].regs = mmap(MEM_file|MEM_rw, GPIO_LEN, pins[p].fd, 0, nil);
+    if (pins[p].regs == nil) {
+      printf("failed to mmap registers!\n");
       return ERR;
     }
 
-    pins[p].lowlen = snprintf(pins[p].low, sizeof(pins[p].low),
-			      "%i low", pins[p].num);
-    pins[p].highlen = snprintf(pins[p].high, sizeof(pins[p].high),
-			       "%i high", pins[p].num);
-
-    pins[p].level = true;
+    pins[p].regs->oe |= (1 << pins[p].num);
     setpin(p, false);
   }
 
@@ -162,6 +137,7 @@ int
 matrix(int delay, int color, int repeat)
 {
   int e, row;
+  bool t;
 
   e = setuppins();
   if (e != OK) {
@@ -192,6 +168,7 @@ matrix(int delay, int color, int repeat)
   setpin(B2, true);
   setpin(R2, true);
 
+  t = false;
   row = 0;
   while (true) {
     setpin(OE, true);
@@ -207,7 +184,8 @@ matrix(int delay, int color, int repeat)
     setpin(OE, false);
 
     for (e = 0; e < 32; e++) {
-      setpin(RA, !pins[RA].level);
+      setpin(RA, t);
+      t = !t;
     }
   }
    

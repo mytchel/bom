@@ -135,6 +135,7 @@ initmainproc(void)
 
   p->fgroup = fgroupnew(256);
   p->ngroup = ngroupnew();
+  p->agroup = agroupnew(256);
 
   p->root = malloc(sizeof(struct bindingfid));
   if (p->root == nil) {
@@ -143,12 +144,8 @@ initmainproc(void)
 
   p->root->refs = 1;
   p->root->binding = nil;
-
   p->root->fid = 0;
-  p->root->attr = ATTR_dir|ATTR_rd;
-
-  ngroupaddbinding(p->ngroup, rootfsbinding,
-		   p->root, rootfsbinding->fids);
+  p->root->attr = 0;
 
   procready(p);
 }
@@ -165,9 +162,7 @@ main(void)
 
   schedulerinit();
 
-  rootfsinit();
   initmainproc();
-
   schedule();
 	
   /* Should never be reached. */
